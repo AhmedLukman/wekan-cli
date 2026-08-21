@@ -1,0 +1,152 @@
+# Local Wekan instance for CLI development and integration testing.
+# Image digests verified on 2026-08-21; tag + digest keeps versions readable and immutable.
+name: wekan-cli-dev
+
+services:
+  mongodb:
+    image: mongo:7.0.39@sha256:35a5926f71f8b6cb19206bee928c5a85f241a8be99f20c81abe35ae78a73415d
+    restart: "no"
+    command:
+      - mongod
+      - --storageEngine
+      - wiredTiger
+      - --oplogSize
+      - "128"
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --quiet
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --host
+        - 127.0.0.1
+        - --port
+        - "27017"
+        - --quiet
+        - --eval
+        - 'try { quit(rs.status().ok === 1 && db.hello().isWritablePrimary ? 0 : 1) } catch (error) { quit(1) }'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    volumes:
+      - wekan-db-data:/data/db
+    networks:
+      - wekan
+
+  mongodb-init:
+    image: mongo:7.0.39@sha256:35a5926f71f8b6cb19206bee928c5a85f241a8be99f20c81abe35ae78a73415d
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_started
+    entrypoint:
+      - sh
+      - -c
+    command:
+      - |
+        set -eu
+        max_attempts=90
+
+        attempt=1
+        until mongosh --host mongodb --quiet --eval '
+          quit(db.adminCommand({ ping: 1 }).ok === 1 ? 0 : 1)
+        ' >/dev/null 2>&1; do
+          if [ "$$attempt" -ge "$$max_attempts" ]; then
+            echo "MongoDB did not become reachable after $$max_attempts attempts" >&2
+            exit 1
+          fi
+          attempt=$$((attempt + 1))
+          sleep 2
+        done
+
+        if ! mongosh --host mongodb --quiet --eval '
+          try {
+            const status = rs.status();
+            quit(status.ok === 1 ? 0 : 1);
+          } catch (error) {
+            if (
+              error.codeName === "NotYetInitialized" ||
+              error.message.includes("no replset config has been received") ||
+              error.message.includes("not yet initialized")
+            ) {
+              const result = rs.initiate({
+                _id: "rs0",
+                members: [{ _id: 0, host: "mongodb:27017" }]
+              });
+              quit(result.ok === 1 ? 0 : 1);
+            }
+            print(error.message);
+            quit(1);
+          }
+        '; then
+          echo "MongoDB replica-set initialization failed" >&2
+          exit 1
+        fi
+
+        attempt=1
+        until mongosh --host mongodb --quiet --eval '
+          try {
+            quit(rs.status().ok === 1 && db.hello().isWritablePrimary ? 0 : 1)
+          } catch (error) {
+            quit(1)
+          }
+        ' >/dev/null 2>&1; do
+          if [ "$$attempt" -ge "$$max_attempts" ]; then
+            echo "MongoDB did not elect a writable primary after $$max_attempts attempts" >&2
+            exit 1
+          fi
+          attempt=$$((attempt + 1))
+          sleep 2
+        done
+    networks:
+      - wekan
+
+  wekan:
+    image: wekanteam/wekan:v11.06@sha256:f25c69374e8020a4c7662fae0c96a66fc4f0d5d5fff9d237c67f1ade1d6e357e
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${WEKAN_PORT:-3000}:8080"
+    environment:
+      ROOT_URL: http://localhost:${WEKAN_PORT:-3000}
+      MONGO_URL: mongodb://mongodb:27017/wekan?replicaSet=rs0
+      MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
+      METEOR_REACTIVITY_ORDER: changeStreams,oplog,polling
+      DDP_TRANSPORT: uws
+      WITH_API: "true"
+      WRITABLE_PATH: /data
+      BROWSER_POLICY_ENABLED: "true"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const http=require('http');
+          const request=http.get('http://127.0.0.1:8080', response =>
+          process.exit(response.statusCode < 500 ? 0 : 1));
+          request.on('error', () => process.exit(1));
+          request.setTimeout(3000, () => { request.destroy(); process.exit(1); });
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    volumes:
+      - wekan-files:/data
+    networks:
+      - wekan
+
+volumes:
+  wekan-db-data:
+  wekan-files:
+
+networks:
+  wekan:
+    driver: bridge
