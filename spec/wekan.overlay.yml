@@ -3,6 +3,327 @@ info:
   title: Verified corrections for Wekan v11.06
   version: 1.0.0
 extends: ./wekan.yml
+
+# Keep only correction deltas here; never copy the complete upstream snapshot.
+# Every action cites matching-version implementation or test evidence.
 actions:
-  - target: '$'
-    update: {}
+  - target: '$.paths["/api/boards/{board}/attachments/{attachment}/export"].get.operationId'
+    description: >-
+      Give the attachment JSON export its own ID. Wekan v11.06 implements it as
+      a distinct handler in models/export.js lines 417-505; the duplicated
+      exportJson annotation is documentation metadata, not shared behavior.
+    update: exportAttachmentJson
+
+  - target: '$.paths["/api/boards/{board}/attachments/{attachment}/export"].get'
+    description: >-
+      Model the authentication implemented by Wekan v11.06 models/export.js
+      lines 426-503. Public boards skip authentication. Private boards accept
+      authToken for permitted users; the bearer-token branch reloads req.userId
+      with isAdmin true and consequently succeeds only for global administrators.
+    update:
+      description: >-
+        Public boards require no authentication. For a private board, pass a
+        permitted user's login token as the authToken query parameter. In Wekan
+        v11.06, an Authorization bearer token works only for a global administrator.
+      parameters:
+        - name: authToken
+          in: query
+          description: >-
+            Login token for a user permitted to export a private board; omit for a
+            public board.
+          type: string
+          required: false
+      security:
+        - {}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.operationId'
+    description: >-
+      Identify the card PDF route by its implemented behavior. Wekan v11.06
+      models/exportPDF.js lines 89-182 serves this route separately from the
+      board Excel route in models/exportExcel.js lines 67-147.
+    update: exportCardPDF
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.summary'
+    description: >-
+      Replace the copied Excel summary with the behavior implemented by Wekan
+      v11.06 models/exportPDF.js lines 89-182.
+    update: Export a single card to PDF.
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get'
+    description: >-
+      Replace the copied board-Excel authentication details with the behavior in
+      Wekan v11.06 models/exportPDF.js lines 97-180. Public boards skip
+      authentication; private boards accept either authToken or a bearer token.
+    update:
+      description: >-
+        Public boards require no authentication. For a private board, pass the
+        login token as the authToken query parameter or as a bearer token in the
+        Authorization header.
+      parameters:
+        - name: authToken
+          in: query
+          description: Login token for a private board; omit for a public board.
+          type: string
+          required: false
+      security:
+        - {}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.produces[0]'
+    description: >-
+      Wekan v11.06 models/server/ExporterCardPDF.js lines 374-386 writes an
+      application/pdf response.
+    update: application/pdf
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.responses["200"]'
+    description: >-
+      Describe the response body as a file. Wekan v11.06
+      models/server/ExporterCardPDF.js lines 374-386 sends the generated PDF
+      buffer, and a Swagger 2.0 response without a schema means no body.
+    update:
+      description: PDF file.
+      schema:
+        type: file
+
+  - target: '$.paths["/api/user"].get.operationId'
+    description: >-
+      Distinguish the authenticated-current-user route from GET /api/users/{user}.
+      Wekan v11.06 server/models/users.js lines 1979-2001 and 2038-2064
+      implement separate handlers with different lookup semantics.
+    update: get_current_user
+
+  - target: '$.paths["/api/user"].get.responses["200"]'
+    description: >-
+      Record Wekan v11.06 server/models/users.js lines 1979-2001 behavior. The
+      handler always responds with HTTP 200; authentication failures are serialized
+      as a Meteor error object whose statusCode field is 401.
+    update:
+      description: >-
+        Current user data with board membership summaries. If the bearer token is
+        missing or invalid, this route still returns HTTP 200 and its JSON body is
+        an error object containing `statusCode: 401`.
+      schema:
+        $ref: '#/definitions/CurrentUserResponse'
+
+  - target: '$.definitions'
+    description: >-
+      Model both response variants returned by GET /api/user in Wekan v11.06
+      server/models/users.js lines 1979-2001.
+    update:
+      CurrentUserResponse:
+        type: object
+        description: >-
+          Current-user data on success, or a Meteor error object on authentication
+          failure. No fields are universally required because both variants use
+          HTTP 200.
+        properties:
+          _id:
+            type: string
+            description: Authenticated user ID.
+          username:
+            type: string
+          emails:
+            type: array
+            items:
+              $ref: '#/definitions/CurrentUserEmail'
+          profile:
+            $ref: '#/definitions/CurrentUserProfile'
+          isAdmin:
+            type: boolean
+          boards:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
+          isClientSafe:
+            type: boolean
+          error:
+            type: string
+          reason:
+            type: string
+          message:
+            type: string
+          errorType:
+            type: string
+          statusCode:
+            type: integer
+            format: int32
+      CurrentUserEmail:
+        type: object
+        properties:
+          address:
+            type: string
+            format: email
+          verified:
+            type: boolean
+      CurrentUserProfile:
+        type: object
+        properties:
+          fullname:
+            type: string
+
+  - target: '$.paths["/api/admin/attachment-settings"].put'
+    description: >-
+      Document the partial JSON request body consumed by Wekan v11.06
+      server/models/attachmentStorageSettings.js lines 748-762.
+    update:
+      parameters:
+        - name: settings
+          in: body
+          description: Partial attachment storage settings to update.
+          required: false
+          schema:
+            type: object
+
+  - target: '$.paths["/api/admin/orgs/features"].put'
+    description: >-
+      Document the field/value JSON body read and validated by Wekan v11.06
+      server/models/org.js lines 403-422.
+    update:
+      parameters:
+        - name: feature
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - field
+            properties:
+              field:
+                type: string
+                enum:
+                  - orgSharedTemplates
+                  - orgPropagateMembersToBoards
+                  - orgSyncMembersFromAuth
+              value:
+                type: boolean
+                description: Missing or false-like values are stored as false.
+
+  - target: '$.paths["/api/admin/teams/features"].put'
+    description: >-
+      Document the field/value JSON body read and validated by Wekan v11.06
+      server/models/team.js lines 367-386.
+    update:
+      parameters:
+        - name: feature
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - field
+            properties:
+              field:
+                type: string
+                enum:
+                  - teamSharedTemplates
+                  - teamPropagateMembersToBoards
+                  - teamSyncMembersFromAuth
+              value:
+                type: boolean
+                description: Missing or false-like values are stored as false.
+
+  - target: '$.paths["/api/import/zip"].post.consumes[0]'
+    description: >-
+      Wekan v11.06 models/importZip.js lines 21-38 and 49-84 consumes the ZIP
+      archive itself as a streamed request body, not multipart form data.
+    update: application/zip
+
+  - target: '$.paths["/api/import/zip"].post.consumes[1]'
+    description: >-
+      Allow the generic binary media type for clients that cannot label a ZIP.
+      Wekan v11.06 models/importZip.js lines 49-84 streams bytes without branching
+      on the Content-Type header.
+    update: application/octet-stream
+
+  - target: '$.paths["/api/import/zip"].post.parameters'
+    description: >-
+      Document the raw archive body and query parameters consumed by Wekan v11.06
+      models/importZip.js lines 97-200 and models/lib/exportFields.js lines 66-92.
+    update:
+      - name: archive
+        in: body
+        description: Wekan ZIP export streamed as the complete request body.
+        required: true
+        schema:
+          type: string
+          format: binary
+      - name: boardId
+        in: query
+        description: ID of the existing board to import into.
+        required: true
+        type: string
+      - name: authToken
+        in: query
+        description: Login token alternative to the Authorization bearer header.
+        required: false
+        type: string
+      - name: fields
+        in: query
+        description: Comma-separated export sections to retain during import.
+        required: false
+        type: string
+      - name: swimlaneId
+        in: query
+        description: Import beside this swimlane.
+        required: false
+        type: string
+      - name: listId
+        in: query
+        description: Import beside this list.
+        required: false
+        type: string
+      - name: cardId
+        in: query
+        description: Import beside this card.
+        required: false
+        type: string
+      - name: checklistId
+        in: query
+        description: Import beside this checklist.
+        required: false
+        type: string
+
+  - target: '$.paths["/api/import/zip"].post.responses'
+    description: >-
+      Record the status codes emitted by Wekan v11.06 models/importZip.js lines
+      97-211 while authenticating, validating, streaming, and importing an archive.
+    update:
+      '200':
+        description: Import completed.
+        schema:
+          type: object
+          required:
+            - ok
+            - counts
+          properties:
+            ok:
+              type: boolean
+            counts:
+              type: object
+              additionalProperties: true
+      '400':
+        description: Bad request, invalid token length, or invalid Wekan export.
+      '401':
+        description: Invalid login token.
+      '403':
+        description: Authentication, board access, or import-setting rejection.
+      '404':
+        description: Target board not found.
+      '413':
+        description: ZIP exceeds WEKAN_IMPORT_ZIP_MAX_BYTES.
+      '500':
+        description: Import failed.
+
+  - target: '$.paths["/api/settings"].put'
+    description: >-
+      Document the partial settings JSON body consumed by Wekan v11.06
+      server/models/settings.js lines 618-640. Unknown keys and mailServer are
+      ignored by the implementation.
+    update:
+      parameters:
+        - name: settings
+          in: body
+          description: Global settings fields to update; omitted fields are unchanged.
+          required: false
+          schema:
+            type: object

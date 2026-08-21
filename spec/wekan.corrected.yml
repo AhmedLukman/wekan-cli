@@ -187,6 +187,12 @@ paths:
                 - multipart/form-data
                 - application/json
             parameters:
+                - name: settings
+                  in: body
+                  description: Partial attachment storage settings to update.
+                  required: false
+                  schema:
+                    type: object
             produces:
                 - application/json
             security:
@@ -311,6 +317,23 @@ paths:
                 - multipart/form-data
                 - application/json
             parameters:
+                - name: feature
+                  in: body
+                  required: true
+                  schema:
+                    type: object
+                    required:
+                        - field
+                    properties:
+                        field:
+                            type: string
+                            enum:
+                                - orgSharedTemplates
+                                - orgPropagateMembersToBoards
+                                - orgSyncMembersFromAuth
+                        value:
+                            type: boolean
+                            description: Missing or false-like values are stored as false.
             produces:
                 - application/json
             security:
@@ -409,6 +432,23 @@ paths:
                 - multipart/form-data
                 - application/json
             parameters:
+                - name: feature
+                  in: body
+                  required: true
+                  schema:
+                    type: object
+                    required:
+                        - field
+                    properties:
+                        field:
+                            type: string
+                            enum:
+                                - teamSharedTemplates
+                                - teamPropagateMembersToBoards
+                                - teamSyncMembersFromAuth
+                        value:
+                            type: boolean
+                            description: Missing or false-like values are stored as false.
             produces:
                 - application/json
             security:
@@ -424,11 +464,10 @@ paths:
                                 type: number
     /api/boards/{board}/attachments/{attachment}/export:
         get:
-            operationId: exportJson
+            operationId: exportAttachmentJson
             summary: This route is used to export a attachement to a json file format.
-            description: |
-                If user is already logged-in, pass loginToken as param
-                 "authToken": '/api/boards/:boardId/attachments/:attachmentId/export?authToken=:token'
+            description: |-
+                Public boards require no authentication. For a private board, pass a permitted user's login token as the authToken query parameter. In Wekan v11.06, an Authorization bearer token works only for a global administrator.
             tags:
                 - Boards
             parameters:
@@ -444,10 +483,17 @@ paths:
                     the ID of the attachment we are exporting
                   type: string
                   required: true
+                - name: authToken
+                  in: query
+                  description: >-
+                    Login token for a user permitted to export a private board; omit for a public board.
+                  type: string
+                  required: false
             produces:
                 - application/json
             security:
                 - UserSecurity: []
+                - {}
             responses:
                 '200':
                     description: |-
@@ -2286,14 +2332,10 @@ paths:
                         200 response
     /api/boards/{board}/lists/{list}/cards/{card}/exportPDF:
         get:
-            operationId: exportExcel
-            summary: This route is used to export the board Excel.
-            description: |
-                If user is already logged-in, pass loginToken as param
-                 "authToken": '/api/boards/:boardId/exportExcel?authToken=:token'
-
-                 See https://blog.kayla.com.au/server-side-route-authentication-in-meteor/
-                 for detailed explanations
+            operationId: exportCardPDF
+            summary: Export a single card to PDF.
+            description: |-
+                Public boards require no authentication. For a private board, pass the login token as the authToken query parameter or as a bearer token in the Authorization header.
             tags:
                 - Boards
             parameters:
@@ -2313,14 +2355,22 @@ paths:
                   description: the card value
                   type: string
                   required: true
+                - name: authToken
+                  in: query
+                  description: Login token for a private board; omit for a public board.
+                  type: string
+                  required: false
             produces:
-                - application/json
+                - application/pdf
             security:
                 - UserSecurity: []
+                - {}
             responses:
                 '200':
                     description: |-
-                        200 response
+                        PDF file.
+                    schema:
+                        type: file
     /api/boards/{board}/lists/{list}/cards/{card}/members/{member}:
         post:
             operationId: post_board_list_card_member
@@ -3121,9 +3171,51 @@ paths:
             tags:
                 - Boards
             consumes:
-                - multipart/form-data
-                - application/json
+                - application/zip
+                - application/octet-stream
             parameters:
+                - name: archive
+                  in: body
+                  description: Wekan ZIP export streamed as the complete request body.
+                  required: true
+                  schema:
+                    type: string
+                    format: binary
+                - name: boardId
+                  in: query
+                  description: ID of the existing board to import into.
+                  required: true
+                  type: string
+                - name: authToken
+                  in: query
+                  description: Login token alternative to the Authorization bearer header.
+                  required: false
+                  type: string
+                - name: fields
+                  in: query
+                  description: Comma-separated export sections to retain during import.
+                  required: false
+                  type: string
+                - name: swimlaneId
+                  in: query
+                  description: Import beside this swimlane.
+                  required: false
+                  type: string
+                - name: listId
+                  in: query
+                  description: Import beside this list.
+                  required: false
+                  type: string
+                - name: cardId
+                  in: query
+                  description: Import beside this card.
+                  required: false
+                  type: string
+                - name: checklistId
+                  in: query
+                  description: Import beside this checklist.
+                  required: false
+                  type: string
             produces:
                 - application/json
             security:
@@ -3131,7 +3223,30 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Import completed.
+                    schema:
+                        type: object
+                        required:
+                            - ok
+                            - counts
+                        properties:
+                            ok:
+                                type: boolean
+                            counts:
+                                type: object
+                                additionalProperties: true
+                '400':
+                    description: Bad request, invalid token length, or invalid Wekan export.
+                '401':
+                    description: Invalid login token.
+                '403':
+                    description: Authentication, board access, or import-setting rejection.
+                '404':
+                    description: Target board not found.
+                '413':
+                    description: ZIP exceeds WEKAN_IMPORT_ZIP_MAX_BYTES.
+                '500':
+                    description: Import failed.
     /api/settings:
         get:
             operationId: get_global_settings
@@ -3166,6 +3281,12 @@ paths:
                 - multipart/form-data
                 - application/json
             parameters:
+                - name: settings
+                  in: body
+                  description: Global settings fields to update; omitted fields are unchanged.
+                  required: false
+                  schema:
+                    type: object
             produces:
                 - application/json
             security:
@@ -3178,7 +3299,7 @@ paths:
                         $ref: "#/definitions/Settings"
     /api/user:
         get:
-            operationId: get_user
+            operationId: get_current_user
             tags:
                 - Users
             produces:
@@ -3188,7 +3309,9 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Current user data with board membership summaries. If the bearer token is missing or invalid, this route still returns HTTP 200 and its JSON body is an error object containing `statusCode: 401`.
+                    schema:
+                        $ref: '#/definitions/CurrentUserResponse'
     /api/user/cards:
         get:
             operationId: get_user_cards
@@ -5922,3 +6045,52 @@ definitions:
             - title
     UsersImportusernames:
         type: object
+    CurrentUserResponse:
+        type: object
+        description: >-
+            Current-user data on success, or a Meteor error object on authentication failure. No fields are universally required because both variants use HTTP 200.
+        properties:
+            _id:
+                type: string
+                description: Authenticated user ID.
+            username:
+                type: string
+            emails:
+                type: array
+                items:
+                    $ref: '#/definitions/CurrentUserEmail'
+            profile:
+                $ref: '#/definitions/CurrentUserProfile'
+            isAdmin:
+                type: boolean
+            boards:
+                type: array
+                items:
+                    type: object
+                    additionalProperties: true
+            isClientSafe:
+                type: boolean
+            error:
+                type: string
+            reason:
+                type: string
+            message:
+                type: string
+            errorType:
+                type: string
+            statusCode:
+                type: integer
+                format: int32
+    CurrentUserEmail:
+        type: object
+        properties:
+            address:
+                type: string
+                format: email
+            verified:
+                type: boolean
+    CurrentUserProfile:
+        type: object
+        properties:
+            fullname:
+                type: string
