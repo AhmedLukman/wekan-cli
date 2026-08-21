@@ -1,0 +1,8 @@
+overlay: 1.1.0
+info:
+  title: Verified corrections for Wekan v11.06
+  version: 1.0.0
+extends: ./wekan.yml
+actions:
+  - target: '$'
+    update: {}
