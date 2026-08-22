@@ -10,6 +10,13 @@ not a fixed or exhaustive structure. It is a growth map, not a requirement to
 create every directory immediately. Add folders when a concrete, documented
 ownership or tooling need justifies them; do not create empty placeholders.
 
+## Commit messages
+
+Start each commit message with the appropriate Conventional Commits prefix,
+such as `docs:`, `feat:`, `fix:`, or `chore:` etc. Follow the prefix with a
+single-sentence summary that clearly describes the changes in the
+commit as a whole; avoid vague descriptions.
+
 ## Local Wekan stack
 
 The root [`compose.yaml`](compose.yaml) provides a reproducible Wekan `v11.06`
