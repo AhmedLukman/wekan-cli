@@ -250,14 +250,6 @@ wekan-cli/
 │   ├── wekan.html                     # Rendered upstream API documentation
 │   └── wekan.corrected.html           # Rendered corrected API documentation
 │
-├── tools/
-│   └── api_spec/
-│       ├── __main__.py                 # Cross-platform specification-tool entry point
-│       ├── fetch.py                    # Fetch upstream specification
-│       ├── merge.py                    # Apply overlay and generate corrected artifacts
-│       ├── verify.py                   # Detect API drift and missing coverage
-│       └── ...
-│
 ├── tests/
 │   ├── cli.rs                         # Black-box CLI integration-test target
 │   ├── cli/
