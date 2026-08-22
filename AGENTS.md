@@ -57,9 +57,9 @@ For every new or changed API-facing command:
 
 1. Implement the matching-version specification first.
 2. Verify it with an integration test against that Wekan version.
-3. If it fails or behaves differently, do not guess or hide the mismatch with a generic workaround. Determine the intended behavior from the matching Wekan route implementation, Wekan API tests, docs, release notes, issues/PRs/commit etc.
+3. If it fails or behaves differently, do not guess or hide the mismatch with a generic workaround. Determine the intended behavior from the matching Wekan route implementation, Wekan API tests, docs, release notes etc.
 4. Implement the verified behavior and add a regression test that records it.
-5. If the verified behavior differs from `wekan.yml`, record the correction and its matching-version evidence in `wekan.overlay.yml`, then run the generation and validation commands above to regenerate `wekan.corrected.yml` and `wekan.corrected.html`.
+5. If the verified behavior differs from `wekan.corrected.yml`, record the correction and its matching-version evidence in `wekan.overlay.yml`, then run the generation and validation commands above to regenerate `wekan.corrected.yml` and `wekan.corrected.html`.
 6. If intent remains uncertain, report the uncertainty.
 
 Observed server behavior determines compatibility, but document behaviour believed to be an upstream defect.
