@@ -7,6 +7,355 @@ extends: ./wekan.yml
 # Keep only correction deltas here; never copy the complete upstream snapshot.
 # Every action cites matching-version implementation or test evidence.
 actions:
+  - target: '$'
+    description: >-
+      Record the two global request-body parsers installed by Wekan v11.06
+      server/apiMiddleware.js lines 12-15. The matching v11.06 api.py exercises
+      both encodings: for example JSON at lines 612-614 and URL-encoded data at
+      lines 657-660. Operation schemas below use JSON as the canonical lossless
+      representation, especially for arrays and nested objects.
+    update:
+      x-wekan-request-body-parsers:
+        source: server/apiMiddleware.js lines 12-15
+        acceptedMediaTypes:
+          - application/json
+          - application/x-www-form-urlencoded
+        note: >-
+          The operation-level JSON schemas are canonical. Wekan also globally
+          parses URL-encoded bodies; api.py uses that compatibility path for
+          legacy scalar requests, while nested objects and arrays should use JSON.
+
+  # Overlay 1.1 `update` merges arrays. Remove the stale generated parameter
+  # arrays first so the sourced replacements below do not coexist with the
+  # incorrect upstream form fields or duplicate path parameters.
+  - target: '$.paths["/users/login"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/users/register"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/attachment-settings"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/orgs/{org}/features"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/teams/{team}/features"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/attachments/{attachment}/export"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies/{target}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/bulk"].delete.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/labels"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/export"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/export/{format}"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/export/csv"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/export/kanboard"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/exportExcel"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/exportPDF"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/exportZip"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations/{int}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations/{int}/activities"].delete.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations/{int}/activities"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/copy"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportExcel"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/bulk"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/copy"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/move"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/members/{user}/add"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/copy"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/move"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/deletetoken"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{boardId}/cardSettings"].put.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{boardId}/swimlanes/{swimlaneId}/lists/{listId}/ics"].post.parameters'
+    description: Remove the generated parameter array before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].put.parameters'
+    description: Remove the generated form fields before the exact sourced JSON-body replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/members/{user}/remove"].post.parameters'
+    description: Remove the generated form fields before the exact sourced JSON-body replacement below.
+    remove: true
+  - target: '$.paths["/api/users"].post.parameters'
+    description: Remove the generated form fields before the exact sourced JSON-body replacement below.
+    remove: true
+  - target: '$.paths["/api/users/{user}"].put.parameters'
+    description: Remove the generated form fields before the exact sourced JSON-body replacement below.
+    remove: true
+
+  # Remove inherited request media arrays for operations whose sourced
+  # replacements below define the exact JSON media type.
+  - target: '$.paths["/users/login"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/users/register"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/attachment-settings"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/orgs/{org}/features"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/admin/teams/{team}/features"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies/{target}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/cards/labels"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations/{int}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/integrations/{int}/activities"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/copy"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/bulk"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/copy"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/move"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/members/{user}/add"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/copy"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/move"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/deletetoken"].post.consumes'
+    description: Remove stale generated media types before the exact sourced replacement below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced JSON media type below.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/members/{user}/remove"].post.consumes'
+    description: Remove stale generated media types before the exact sourced JSON media type below.
+    remove: true
+  - target: '$.paths["/api/users"].post.consumes'
+    description: Remove stale generated media types before the exact sourced JSON media type below.
+    remove: true
+  - target: '$.paths["/api/users/{user}"].put.consumes'
+    description: Remove stale generated media types before the exact sourced JSON media type below.
+    remove: true
+
+  # Overlay 1.1 recursively merges mappings. Remove inherited inline response
+  # schemas before installing definition references so the generated schema
+  # does not retain ignored/conflicting `type`, `properties`, or `items` beside
+  # `$ref`.
+  - target: '$.paths["/users/login"].post.responses["200"].schema'
+    description: Remove the generated inline login-success schema before replacing it with AuthTokenResponse.
+    remove: true
+  - target: '$.paths["/users/login"].post.responses["400"].schema'
+    description: Remove the generated inline login-error schema before replacing it with ErrorResponse.
+    remove: true
+  - target: '$.paths["/users/register"].post.responses["200"].schema'
+    description: Remove the generated inline registration-success schema before replacing it with AuthTokenResponse.
+    remove: true
+  - target: '$.paths["/users/register"].post.responses["400"].schema'
+    description: Remove the generated inline registration-error schema before replacing it with ErrorResponse.
+    remove: true
+  - target: '$.paths["/api/admin/orgs/features"].put.responses["200"].schema'
+    description: Remove the generated inline bulk-organization result before replacing it with FeatureUpdateResult.
+    remove: true
+  - target: '$.paths["/api/admin/teams/features"].put.responses["200"].schema'
+    description: Remove the generated inline bulk-team result before replacing it with FeatureUpdateResult.
+    remove: true
+
+  # Overlay 1.1 merges array updates. Remove the inherited HTTP-only array so
+  # the exact replacement below does not produce [http, https, http].
+  - target: '$.schemes'
+    description: Remove the inherited scheme array before adding the sourced HTTPS and HTTP replacement.
+    remove: true
+
+  # Binary/text exporters inherit application/json from the generated
+  # annotations. Remove those arrays before installing the exact response media
+  # types below; Overlay 1.1 would otherwise append to them.
+  - target: '$.paths["/api/boards/{board}/export/csv"].get.produces'
+    description: Remove inherited JSON before adding the CSV and TSV media types.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/exportExcel"].get.produces'
+    description: Remove inherited JSON before adding the XLSX media type.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/exportPDF"].get.produces'
+    description: Remove inherited JSON before adding the PDF media type.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportExcel"].get.produces'
+    description: Remove inherited JSON before adding the XLSX media type.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.produces'
+    description: Remove inherited JSON before adding the PDF media type.
+    remove: true
+
   - target: '$.paths["/api/boards/{board}/attachments/{attachment}/export"].get.operationId'
     description: >-
       Give the attachment JSON export its own ID. Wekan v11.06 implements it as
@@ -25,14 +374,6 @@ actions:
         Public boards require no authentication. For a private board, pass a
         permitted user's login token as the authToken query parameter. In Wekan
         v11.06, an Authorization bearer token works only for a global administrator.
-      parameters:
-        - name: authToken
-          in: query
-          description: >-
-            Login token for a user permitted to export a private board; omit for a
-            public board.
-          type: string
-          required: false
       security:
         - {}
 
@@ -59,20 +400,6 @@ actions:
         Public boards require no authentication. For a private board, pass the
         login token as the authToken query parameter or as a bearer token in the
         Authorization header.
-      parameters:
-        - name: authToken
-          in: query
-          description: Login token for a private board; omit for a public board.
-          type: string
-          required: false
-      security:
-        - {}
-
-  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.produces[0]'
-    description: >-
-      Wekan v11.06 models/server/ExporterCardPDF.js lines 374-386 writes an
-      application/pdf response.
-    update: application/pdf
 
   - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get.responses["200"]'
     description: >-
@@ -114,7 +441,8 @@ actions:
         description: >-
           Current-user data on success, or a Meteor error object on authentication
           failure. No fields are universally required because both variants use
-          HTTP 200.
+          HTTP 200. Exact handler evidence: Wekan v11.06
+          server/models/users.js lines 1979-2000.
         properties:
           _id:
             type: string
@@ -149,6 +477,9 @@ actions:
             format: int32
       CurrentUserEmail:
         type: object
+        description: >-
+          User email entry defined by Wekan v11.06 models/users.js lines
+          242-264 and returned by server/models/users.js lines 1979-2000.
         properties:
           address:
             type: string
@@ -157,6 +488,9 @@ actions:
             type: boolean
       CurrentUserProfile:
         type: object
+        description: >-
+          Returned user-profile subset; fullname is defined by Wekan v11.06
+          models/users.js lines 326-332 and the profile object by lines 294-307.
         properties:
           fullname:
             type: string
@@ -166,13 +500,7 @@ actions:
       Document the partial JSON request body consumed by Wekan v11.06
       server/models/attachmentStorageSettings.js lines 748-762.
     update:
-      parameters:
-        - name: settings
-          in: body
-          description: Partial attachment storage settings to update.
-          required: false
-          schema:
-            type: object
+      description: Partial attachment-storage settings update.
 
   - target: '$.paths["/api/admin/orgs/features"].put'
     description: >-
@@ -327,3 +655,3783 @@ actions:
           required: false
           schema:
             type: object
+
+  - target: '$'
+    description: >-
+      Wekan v11.06 is served over HTTPS in production as well as HTTP in local
+      development; limiting generated clients to HTTP is incorrect.
+    update:
+      schemes:
+        - https
+        - http
+
+  - target: '$.paths["/users/login"].post'
+    description: >-
+      Correct the JSON request alternatives and status codes implemented by
+      Wekan v11.06 server/apiAuthRoutes.js lines 75-188.
+    update:
+      consumes:
+        - application/json
+      parameters:
+        - name: loginRequest
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated; a new login token was created.
+          schema:
+            $ref: '#/definitions/AuthTokenResponse'
+        '400':
+          description: Malformed request.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '401':
+          description: Invalid credentials or two-factor code.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '429':
+          description: Too many failed attempts. The Retry-After header gives seconds.
+          headers:
+            Retry-After:
+              type: integer
+              format: int32
+              description: Seconds until another login attempt is allowed.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  - target: '$.paths["/users/register"].post'
+    description: >-
+      Correct the optional identity fields and registration-disabled response in
+      Wekan v11.06 server/apiAuthRoutes.js lines 252-319.
+    update:
+      consumes:
+        - application/json
+      parameters:
+        - name: registrationRequest
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/RegisterRequest'
+      responses:
+        '200':
+          description: Account created and authenticated.
+          schema:
+            $ref: '#/definitions/AuthTokenResponse'
+        '400':
+          description: Invalid registration request.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '403':
+          description: Registration is disabled.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  - target: '$.definitions'
+    description: >-
+      Add reusable schemas verified against the Wekan v11.06 route handlers.
+      These also replace generator placeholders that used uppercase Object or
+      modeled arrays and nested JSON values as strings.
+    update:
+      ErrorResponse:
+        type: object
+        description: >-
+          Error fields serialized by server/apiAuthRoutes.js lines 177-186 and
+          312-318, and the attachment error envelope in
+          server/routes/attachmentApi.js lines 130-139.
+        properties:
+          error:
+            type: string
+          reason:
+            type: string
+          message:
+            type: string
+          statusCode:
+            type: integer
+            format: int32
+          success:
+            type: boolean
+      IdResponse:
+        type: object
+        description: >-
+          Common mutation result used, for example, by server/models/cards.js
+          lines 1174, 1700 and 1768 and server/models/lists.js lines 821 and 871.
+        required: [_id]
+        properties:
+          _id:
+            type: string
+      AuthTokenResponse:
+        type: object
+        description: >-
+          Login/register token result from server/apiAuthRoutes.js lines 157-175
+          and 296-310.
+        required: [id, token, tokenExpires]
+        properties:
+          id:
+            type: string
+          token:
+            type: string
+          tokenExpires:
+            type: string
+            format: date-time
+      LoginRequest:
+        type: object
+        description: >-
+          Supply exactly one of username or email, plus password and optional
+          two-factor code; server/apiAuthRoutes.js lines 98-115 and 139-154.
+        required: [password]
+        properties:
+          username:
+            type: string
+          email:
+            type: string
+            format: email
+          password:
+            type: string
+            format: password
+          code:
+            type: string
+            description: Two-factor authentication code when enabled.
+      RegisterRequest:
+        type: object
+        description: >-
+          Registration body from server/apiAuthRoutes.js lines 283-294; username
+          and email are independently optional while password is required.
+        required: [password]
+        properties:
+          username:
+            type: string
+          email:
+            type: string
+            format: email
+          password:
+            type: string
+            format: password
+      LogoutRequest:
+        type: object
+        description: >-
+          Logout body from server/apiAuthRoutes.js lines 203-224; all selects
+          current-token versus all-token revocation.
+        properties:
+          all:
+            type: boolean
+            default: false
+            description: Revoke all of the user's login tokens instead of only this token.
+      LogoutResponse:
+        type: object
+        description: >-
+          Logout success body from server/apiAuthRoutes.js lines 226-232.
+        required: [message]
+        properties:
+          message:
+            type: string
+      BoardSummary:
+        type: object
+        description: >-
+          Board-list projection from server/models/boards.js lines 847-852 and
+          870-878.
+        required: [_id, title]
+        properties:
+          _id:
+            type: string
+          title:
+            type: string
+      BoardCounts:
+        type: object
+        description: >-
+          Private/public count object from server/models/boards.js lines 887-898.
+        required: [private, public]
+        properties:
+          private:
+            type: integer
+            format: int32
+          public:
+            type: integer
+            format: int32
+      Board:
+        type: object
+        description: >-
+          Board document returned by server/models/boards.js lines 907-921.
+          Additional version-specific board collection fields may be present.
+        required: [_id, title]
+        additionalProperties: true
+        properties:
+          _id:
+            type: string
+          title:
+            type: string
+          permission:
+            type: string
+            enum: [private, public]
+          color:
+            type: string
+          archived:
+            type: boolean
+          members:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
+          labels:
+            type: array
+            items:
+              $ref: '#/definitions/BoardLabel'
+          domains:
+            type: array
+            items:
+              $ref: '#/definitions/BoardDomain'
+      BoardLabel:
+        type: object
+        description: >-
+          Stored board-label shape written by server/models/boards.js lines
+          1125-1150 and normalized by models/lib/restLabel.js lines 28-77.
+        required: [_id, name, color]
+        properties:
+          _id:
+            type: string
+          name:
+            type: string
+          color:
+            type: string
+      BoardDomain:
+        type: object
+        description: >-
+          Domain entry returned and written by server/models/boards.js lines
+          1391-1400, 1444-1468 and 1511-1516.
+        required: [domain, isActive]
+        properties:
+          domain:
+            type: string
+          isActive:
+            type: boolean
+      BoardAttachment:
+        type: object
+        description: >-
+          Legacy board-attachment projection from server/models/boards.js lines
+          1525-1550.
+        required: [attachmentId, attachmentName, attachmentType, boardId]
+        properties:
+          attachmentId:
+            type: string
+          attachmentName:
+            type: string
+          attachmentType:
+            type: string
+          url:
+            type: string
+          urlDownload:
+            type: string
+          boardId:
+            type: string
+          swimlaneId:
+            type: string
+          listId:
+            type: string
+          cardId:
+            type: string
+      BoardCreateRequest:
+        type: object
+        description: >-
+          Board-create body consumed by server/models/boards.js lines 925-952.
+        required: [title]
+        properties:
+          title:
+            type: string
+          owner:
+            type: string
+            description: Defaults to the authenticated user.
+          permission:
+            type: string
+            enum: [private, public]
+            default: private
+          color:
+            type: string
+            default: belize
+          isAdmin:
+            type: boolean
+          isActive:
+            type: boolean
+          isNoComments:
+            type: boolean
+          isCommentOnly:
+            type: boolean
+          isWorker:
+            type: boolean
+      BoardCreateResponse:
+        type: object
+        description: >-
+          Board/default-swimlane result from server/models/boards.js lines
+          953-963.
+        required: [_id, defaultSwimlaneId]
+        properties:
+          _id:
+            type: string
+          defaultSwimlaneId:
+            type: string
+      BoardImportRequest:
+        type: object
+        description: >-
+          Wekan import wrapper and member mapping from server/models/boards.js
+          lines 991-1011.
+        required: [board]
+        properties:
+          board:
+            type: object
+            additionalProperties: true
+          membersMapping:
+            type: object
+            additionalProperties:
+              type: string
+      BoardTitleRequest:
+        type: object
+        description: >-
+          Board-title body from server/models/boards.js lines 1073-1087.
+        required: [title]
+        properties:
+          title:
+            type: string
+      BoardTitleResponse:
+        type: object
+        description: >-
+          Board-title result from server/models/boards.js lines 1081-1087.
+        required: [_id, title]
+        properties:
+          _id:
+            type: string
+          title:
+            type: string
+      BoardLabelRequest:
+        type: object
+        description: >-
+          Accepted label wrapper from server/models/boards.js lines 1121-1150
+          and models/lib/restLabel.js lines 16-77. The label value may be a
+          string name or an object with name and optional color.
+        required: [label]
+        properties:
+          label:
+            description: Label name string, or an object containing name and optional color.
+      BoardMemberPermissionRequest:
+        type: object
+        description: >-
+          Named role or eight permission flags consumed by
+          server/models/boards.js lines 1319-1365 and server/models/users.js
+          lines 2122-2183.
+        properties:
+          role:
+            type: string
+            enum: [admin, normal, comment, readonly, worker, normalassignedonly, commentassignedonly, readassignedonly, nocomments]
+          isAdmin: {type: boolean}
+          isNoComments: {type: boolean}
+          isCommentOnly: {type: boolean}
+          isWorker: {type: boolean}
+          isNormalAssignedOnly: {type: boolean}
+          isCommentAssignedOnly: {type: boolean}
+          isReadOnly: {type: boolean}
+          isReadAssignedOnly: {type: boolean}
+      BoardCardSettings:
+        type: object
+        description: >-
+          Complete boolean and numeric key sets from server/models/boards.js
+          lines 1162-1215, returned/updated at lines 1217-1269.
+        properties:
+          allowsCardCounterList: {type: boolean}
+          cardAging: {type: boolean}
+          allowsBoardMemberList: {type: boolean}
+          allowsShowLists: {type: boolean}
+          allowsAttachments: {type: boolean}
+          allowsChecklists: {type: boolean}
+          allowsComments: {type: boolean}
+          allowsDescriptionTitle: {type: boolean}
+          allowsDescriptionText: {type: boolean}
+          allowsActivities: {type: boolean}
+          allowsLabels: {type: boolean}
+          allowsCreator: {type: boolean}
+          allowsAssignee: {type: boolean}
+          allowsMembers: {type: boolean}
+          allowsRequestedBy: {type: boolean}
+          allowsCardSortingByNumber: {type: boolean}
+          allowsCardNumber: {type: boolean}
+          allowsAssignedBy: {type: boolean}
+          allowsReceivedDate: {type: boolean}
+          allowsStartDate: {type: boolean}
+          allowsEndDate: {type: boolean}
+          allowsDueDate: {type: boolean}
+          allowsSubtasks: {type: boolean}
+          allowsCreatorOnMinicard: {type: boolean}
+          allowsAttachmentsOnMinicard: {type: boolean}
+          allowsChecklistsOnMinicard: {type: boolean}
+          allowsChecklistAtMinicard: {type: boolean}
+          allowsCoverAttachmentOnMinicard: {type: boolean}
+          allowsBadgeAttachmentOnMinicard: {type: boolean}
+          allowsCardSortingByNumberOnMinicard: {type: boolean}
+          allowsCardNumberOnMinicard: {type: boolean}
+          allowsDescriptionTitleOnMinicard: {type: boolean}
+          allowsDescriptionTextOnMinicard: {type: boolean}
+          allowsLabelsOnMinicard: {type: boolean}
+          allowsAssigneeOnMinicard: {type: boolean}
+          allowsMembersOnMinicard: {type: boolean}
+          allowsRequestedByOnMinicard: {type: boolean}
+          allowsAssignedByOnMinicard: {type: boolean}
+          allowsReceivedDateOnMinicard: {type: boolean}
+          allowsStartDateOnMinicard: {type: boolean}
+          allowsEndDateOnMinicard: {type: boolean}
+          allowsDueDateOnMinicard: {type: boolean}
+          allowsSubtasksOnMinicard: {type: boolean}
+          allowsShowListsOnMinicard: {type: boolean}
+          cardAgingDays1: {type: integer, minimum: 0}
+          cardAgingDays2: {type: integer, minimum: 0}
+          cardAgingDays3: {type: integer, minimum: 0}
+      AttachmentMetadata:
+        type: object
+        description: >-
+          Attachment list entry from server/routes/attachmentApi.js lines
+          692-708 and 737-753.
+        required: [attachmentId, fileName, fileSize, fileType, storageBackend, boardId]
+        properties:
+          attachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          fileType: {type: string}
+          storageBackend: {type: string}
+          boardId: {type: string}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          cardId: {type: string}
+          createdAt: {type: string, format: date-time}
+          isImage: {type: boolean}
+      AttachmentListResponse:
+        type: object
+        description: >-
+          Attachment list envelope from server/routes/attachmentApi.js lines
+          711-715 and 755.
+        required: [success, attachments, count]
+        properties:
+          success: {type: boolean}
+          attachments:
+            type: array
+            items:
+              $ref: '#/definitions/AttachmentMetadata'
+          count: {type: integer, format: int32}
+      AttachmentUploadResponse:
+        type: object
+        description: >-
+          Attachment upload result from server/routes/attachmentApi.js lines
+          330-337 and background equivalent at lines 457-464.
+        required: [success, attachmentId, fileName, fileSize, storageBackend, message]
+        properties:
+          success: {type: boolean}
+          attachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          storageBackend: {type: string}
+          message: {type: string}
+      AttachmentDownloadResponse:
+        type: object
+        description: >-
+          Base64 download result from server/routes/attachmentApi.js lines
+          631-639 and background equivalent at lines 534-543.
+        required: [success, attachmentId, fileName, fileSize, fileType, base64Data, storageBackend]
+        properties:
+          success: {type: boolean}
+          attachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          fileType: {type: string}
+          base64Data: {type: string, format: byte}
+          storageBackend: {type: string}
+      CardsBulkCreateRequest:
+        type: object
+        description: >-
+          Bulk card body and 500-card bound from server/models/cards.js lines
+          1184-1215 and per-card fields at lines 1231-1266.
+        required: [cards]
+        properties:
+          swimlaneId: {type: string}
+          cards:
+            type: array
+            minItems: 1
+            maxItems: 500
+            items:
+              type: object
+              required: [title]
+              properties:
+                title: {type: string}
+                description: {type: string}
+                parentId: {type: string}
+                swimlaneId: {type: string}
+                members: {type: array, items: {type: string}}
+                assignees: {type: array, items: {type: string}}
+      CardIdsRequest:
+        type: object
+        description: >-
+          Bulk-delete cardIds body and bound from server/models/cards.js lines
+          1772-1791.
+        required: [cardIds]
+        properties:
+          cardIds:
+            type: array
+            minItems: 1
+            maxItems: 500
+            items: {type: string}
+      CardLabelsBulkRequest:
+        type: object
+        description: >-
+          Bulk label merge body from server/models/cards.js lines 1824-1851.
+        required: [cardIds]
+        properties:
+          cardIds: {type: array, minItems: 1, maxItems: 500, items: {type: string}}
+          addLabelIds: {type: array, items: {type: string}}
+          removeLabelIds: {type: array, items: {type: string}}
+
+  - target: '$.paths'
+    description: >-
+      Add the seventeen Wekan v11.06 operations omitted by the upstream
+      generator. The sixteen board operations are implemented in
+      server/models/boards.js lines 798-1551; logout is implemented in
+      server/apiAuthRoutes.js lines 192-243.
+    update:
+      /users/logout:
+        post:
+          operationId: logout
+          summary: Revoke the current login token or all login tokens.
+          tags: [Users]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: logoutRequest
+              in: body
+              required: false
+              schema:
+                $ref: '#/definitions/LogoutRequest'
+          responses:
+            '200':
+              description: Token or tokens revoked.
+              schema:
+                $ref: '#/definitions/LogoutResponse'
+            '401':
+              description: Missing or invalid bearer token.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '500':
+              description: Logout failed.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/users/{userId}/boards:
+        get:
+          operationId: get_user_boards
+          summary: List active boards for a user.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: userId
+              in: path
+              type: string
+              required: true
+          responses:
+            '200':
+              description: Board summaries, or a serialized authorization error.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardSummary'
+      /api/boards:
+        get:
+          operationId: get_public_boards
+          summary: List public boards.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          responses:
+            '200':
+              description: Public board summaries, or a serialized authorization error.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardSummary'
+        post:
+          operationId: create_board
+          summary: Create a board and its default swimlane.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: board
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/BoardCreateRequest'
+          responses:
+            '200':
+              description: Board created.
+              schema:
+                $ref: '#/definitions/BoardCreateResponse'
+            '400':
+              description: Invalid board request.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '500':
+              description: Board creation failed.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards_count:
+        get:
+          operationId: get_boards_count
+          summary: Count private and public boards.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          responses:
+            '200':
+              description: Counts, or a serialized authorization error.
+              schema:
+                $ref: '#/definitions/BoardCounts'
+      /api/boards/{boardId}:
+        get:
+          operationId: get_board
+          summary: Get a board.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: boardId
+              in: path
+              type: string
+              required: true
+          responses:
+            '200':
+              description: Board document, or a serialized access error.
+              schema:
+                $ref: '#/definitions/Board'
+        delete:
+          operationId: delete_board
+          summary: Delete a board.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: boardId
+              in: path
+              type: string
+              required: true
+          responses:
+            '200':
+              description: Deleted board ID.
+              schema:
+                $ref: '#/definitions/IdResponse'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board administrator permission required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '500':
+              description: Board deletion failed.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/import:
+        post:
+          operationId: import_board
+          summary: Import a Wekan board export.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: importRequest
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/BoardImportRequest'
+          responses:
+            '200':
+              description: Imported board ID, or a serialized import error.
+              schema:
+                $ref: '#/definitions/IdResponse'
+            '400':
+              description: Missing board export object.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/import/{source}:
+        post:
+          operationId: import_board_from
+          summary: Import a board exported by a supported external tool.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - name: source
+              in: path
+              type: string
+              required: true
+              enum: [trello, wekan, csv, jira, kanboard, excel, deck, openproject, github, gitlab, gitea, forgejo, asana, zenkit]
+            - name: importDocument
+              in: body
+              required: true
+              schema:
+                type: object
+                additionalProperties: true
+          responses:
+            '200':
+              description: Imported board ID, or a serialized import error.
+              schema:
+                $ref: '#/definitions/IdResponse'
+      /api/boards/{boardId}/title:
+        put:
+          operationId: update_board_title
+          summary: Update a board title.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - name: title
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/BoardTitleRequest'
+          responses:
+            '200':
+              description: Updated board ID and title, or a serialized error.
+              schema:
+                $ref: '#/definitions/BoardTitleResponse'
+      /api/boards/{boardId}/labels:
+        put:
+          operationId: add_board_label
+          summary: Add a board label if it does not already exist.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - name: labelRequest
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/BoardLabelRequest'
+          responses:
+            '200':
+              description: Existing or newly created label ID.
+              schema:
+                type: string
+            '400':
+              description: Missing or invalid label.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board administrator permission required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '404':
+              description: Board not found.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/{boardId}/copy:
+        post:
+          operationId: copy_board
+          summary: Copy a board.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - name: copyOptions
+              in: body
+              required: false
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+          responses:
+            '200':
+              description: New board ID.
+              schema:
+                $ref: '#/definitions/IdResponse'
+            '500':
+              description: Board copy failed.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/{boardId}/members/{memberId}:
+        post:
+          operationId: update_board_member_permissions
+          summary: Set a board member's role or individual permission flags.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - {name: memberId, in: path, type: string, required: true}
+            - name: permissions
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/BoardMemberPermissionRequest'
+          responses:
+            '200':
+              description: Permission update result, or a serialized application error.
+              schema:
+                type: object
+                additionalProperties: true
+            '400':
+              description: Invalid role.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board administrator permission required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/{boardId}/domains:
+        get:
+          operationId: get_board_domains
+          summary: List email domains a board is shared with.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+          responses:
+            '200':
+              description: Board domains, or a serialized error.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardDomain'
+            '404':
+              description: Board not found.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+        post:
+          operationId: add_board_domain
+          summary: Share a board with an email domain.
+          tags: [Boards]
+          consumes: [application/json]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - name: domain
+              in: body
+              required: true
+              schema:
+                type: object
+                required: [domain]
+                properties:
+                  domain: {type: string}
+          responses:
+            '200':
+              description: Updated board domains.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardDomain'
+            '400':
+              description: Missing or invalid domain.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board administrator permission required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '404':
+              description: Board not found.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/{boardId}/domains/{domain}:
+        delete:
+          operationId: delete_board_domain
+          summary: Stop sharing a board with an email domain.
+          tags: [Boards]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+            - {name: domain, in: path, type: string, required: true}
+          responses:
+            '200':
+              description: Updated board domains.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardDomain'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board administrator permission required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '404':
+              description: Board not found.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+      /api/boards/{boardId}/attachments:
+        get:
+          operationId: get_board_attachments
+          summary: List board attachment links using the legacy response shape.
+          tags: [Attachments]
+          produces: [application/json]
+          security:
+            - UserSecurity: []
+          parameters:
+            - {name: boardId, in: path, type: string, required: true}
+          responses:
+            '200':
+              description: Attachment links for the board.
+              schema:
+                type: array
+                items:
+                  $ref: '#/definitions/BoardAttachment'
+            '401':
+              description: Authentication required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+            '403':
+              description: Board membership required.
+              schema:
+                $ref: '#/definitions/ErrorResponse'
+
+  - target: '$.definitions'
+    description: >-
+      Add request schemas for mutation fields hidden from the upstream generator
+      by awaits, helper calls, loops, computed keys, and nested JSON values.
+    update:
+      CardCreateRequest:
+        type: object
+        description: >-
+          Card-create fields from server/models/cards.js lines 1063-1174;
+          linked-card behavior is at lines 1075-1102 and dates at 1146-1157.
+        properties:
+          title: {type: string}
+          description: {type: string}
+          parentId: {type: string}
+          swimlaneId: {type: string}
+          linkedId: {type: string}
+          members: {type: array, items: {type: string}}
+          assignees: {type: array, items: {type: string}}
+          receivedAt: {type: string, format: date-time}
+          startAt: {type: string, format: date-time}
+          dueAt: {type: string, format: date-time}
+          endAt: {type: string, format: date-time}
+      CardUpdateRequest:
+        type: object
+        description: >-
+          Partial update fields from server/models/cards.js lines 1313-1700:
+          ordinary fields 1327-1513, moves 1515-1635, archive/completion
+          1636-1656, and stickers/locations 1658-1692. Empty date strings clear
+          the corresponding date.
+        properties:
+          title: {type: string}
+          sort: {type: number}
+          parentId: {type: string}
+          description: {type: string}
+          color: {type: string}
+          vote: {type: object, additionalProperties: true}
+          poker: {type: object, additionalProperties: true}
+          labelIds: {type: array, items: {type: string}}
+          requestedBy: {type: string}
+          assignedBy: {type: string}
+          receivedAt: {type: string}
+          startAt: {type: string}
+          dueAt: {type: string}
+          endAt: {type: string}
+          spentTime: {type: number}
+          isOverTime: {type: boolean}
+          customFields: {type: array, items: {type: object, additionalProperties: true}}
+          members: {type: array, items: {type: string}}
+          assignees: {type: array, items: {type: string}}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          newBoardId: {type: string}
+          newSwimlaneId: {type: string}
+          newListId: {type: string}
+          archive: {type: boolean}
+          dueComplete: {type: boolean}
+          stickers: {type: array, items: {type: object, additionalProperties: true}}
+          locations: {type: array, items: {type: object, additionalProperties: true}}
+      CardCopyRequest:
+        type: object
+        description: >-
+          Card copy destinations and position from server/models/cards.js lines
+          2080-2123; only toSwimlaneId is required.
+        required: [toSwimlaneId]
+        properties:
+          toBoardId: {type: string}
+          toSwimlaneId: {type: string}
+          toListId: {type: string}
+          position: {type: integer, minimum: 0}
+      ChecklistCreateRequest:
+        type: object
+        description: >-
+          Checklist title and item titles from server/models/checklists.js lines
+          242-291.
+        required: [title]
+        properties:
+          title: {type: string}
+          items: {type: array, items: {type: string}}
+      ChecklistItemCreateRequest:
+        type: object
+        description: >-
+          Checklist-item title and optional sort from
+          server/models/checklistItems.js lines 123-163.
+        required: [title]
+        properties:
+          title: {type: string}
+          sort: {type: number}
+      ChecklistItemUpdateRequest:
+        type: object
+        description: >-
+          Partial item fields from server/models/checklistItems.js lines
+          177-227.
+        properties:
+          title: {type: string}
+          isFinished: {type: boolean}
+      CommentCreateRequest:
+        type: object
+        description: >-
+          Required comment body validated and inserted by
+          server/models/cardComments.js lines 144-174.
+        required: [comment]
+        properties:
+          comment: {type: string, minLength: 1}
+      CustomFieldRequest:
+        type: object
+        description: >-
+          Custom-field create fields from server/models/customFields.js lines
+          130-143 and partial update fields from lines 173-211.
+        properties:
+          name: {type: string}
+          type: {type: string}
+          settings: {type: object, additionalProperties: true}
+          showOnCard: {type: boolean}
+          automaticallyOnCard: {type: boolean}
+          alwaysOnCard: {type: boolean}
+          showLabelOnMiniCard: {type: boolean}
+          showSumAtTopOfList: {type: boolean}
+      IntegrationCreateRequest:
+        type: object
+        description: >-
+          Webhook URL validated and stored by server/models/integrations.js
+          lines 57-85.
+        required: [url]
+        properties:
+          url: {type: string, format: uri}
+      IntegrationUpdateRequest:
+        type: object
+        description: >-
+          Partial integration fields from server/models/integrations.js lines
+          94-147.
+        properties:
+          enabled: {type: boolean}
+          title: {type: string}
+          url: {type: string, format: uri}
+          token: {type: string}
+          activities: {type: array, items: {type: string}}
+      IntegrationActivitiesRequest:
+        type: object
+        description: >-
+          Activity arrays consumed by server/models/integrations.js lines
+          156-176 and 186-206.
+        required: [activities]
+        properties:
+          activities: {type: array, items: {type: string}}
+      ListCreateRequest:
+        type: object
+        description: >-
+          List title and optional swimlane from server/models/lists.js lines
+          807-823.
+        required: [title]
+        properties:
+          title: {type: string}
+          swimlaneId: {type: string}
+      ListUpdateRequest:
+        type: object
+        description: >-
+          Partial list fields passed by server/models/lists.js lines 827-871 to
+          models/lib/listApiUpdate.js lines 22-63.
+        properties:
+          title: {type: string, maxLength: 1000}
+          color: {type: string}
+          starred: {type: boolean}
+          wipLimit:
+            $ref: '#/definitions/ListsWiplimit'
+      ListTransferRequest:
+        type: object
+        description: >-
+          Optional list copy/move destinations and position from
+          server/models/lists.js lines 907-958.
+        properties:
+          toBoardId: {type: string}
+          toSwimlaneId: {type: string}
+          position: {type: integer, minimum: 0}
+      SwimlaneCreateRequest:
+        type: object
+        description: >-
+          Swimlane title and optional sort from server/models/swimlanes.js lines
+          171-195.
+        required: [title]
+        properties:
+          title: {type: string}
+          sort: {type: number}
+      SwimlaneUpdateRequest:
+        type: object
+        description: >-
+          Swimlane title update from server/models/swimlanes.js lines 204-226.
+        required: [title]
+        properties:
+          title: {type: string}
+      SwimlaneTransferRequest:
+        type: object
+        description: >-
+          Optional swimlane copy/move destination, position and title from
+          server/models/swimlanes.js lines 269-307.
+        properties:
+          toBoardId: {type: string}
+          position: {type: integer, minimum: 0}
+          title: {type: string}
+      DeleteTokenRequest:
+        type: object
+        description: >-
+          Optional userId/token handling from server/models/users.js lines
+          2291-2315; userId alone removes every token.
+        properties:
+          userId: {type: string}
+          token: {type: string}
+      FeatureUpdateResult:
+        type: object
+        description: >-
+          Bulk update result from server/models/org.js lines 403-418 and
+          server/models/team.js lines 367-382.
+        required: [updated]
+        properties:
+          updated: {type: integer, format: int32}
+      OrgFeatureRequest:
+        type: object
+        description: >-
+          Per-organization feature whitelist from server/models/org.js lines
+          351-381.
+        properties:
+          orgSharedTemplates: {type: boolean}
+          orgPropagateMembersToBoards: {type: boolean}
+          orgSyncMembersFromAuth: {type: boolean}
+      TeamFeatureRequest:
+        type: object
+        description: >-
+          Per-team feature whitelist from server/models/team.js lines 330-345.
+        properties:
+          teamSharedTemplates: {type: boolean}
+          teamPropagateMembersToBoards: {type: boolean}
+          teamSyncMembersFromAuth: {type: boolean}
+      IcsImportRequest:
+        type: object
+        description: >-
+          Supply either ics or its backward-compatible alias icsText, as read by
+          server/methods/icsImport.js lines 112-129.
+        properties:
+          ics: {type: string}
+          icsText: {type: string}
+      IcsImportResponse:
+        type: object
+        description: >-
+          ICS import result returned by server/methods/icsImport.js lines
+          122-129 and built by the import method in the same file.
+        required: [created, cardIds]
+        properties:
+          created: {type: integer, format: int32}
+          cardIds: {type: array, items: {type: string}}
+      AttachmentStorageSettingsUpdate:
+        type: object
+        description: >-
+          Partial settings object passed unchanged by
+          server/models/attachmentStorageSettings.js lines 748-759 to the
+          validated updateAttachmentStorageSettings method.
+        properties:
+          defaultStorage: {type: string, enum: [fs, gridfs, s3, azure, gcs]}
+          storageConfig: {$ref: '#/definitions/AttachmentStorageSettingsStorageconfig'}
+          uploadSettings: {$ref: '#/definitions/AttachmentStorageSettingsUploadsettings'}
+          limitSettings: {$ref: '#/definitions/AttachmentStorageSettingsLimitsettings'}
+          migrationSettings: {$ref: '#/definitions/AttachmentStorageSettingsMigrationsettings'}
+      ChecklistSummary:
+        type: object
+        description: >-
+          Checklist list projection from server/models/checklists.js lines
+          175-187.
+        required: [_id, title]
+        properties:
+          _id: {type: string}
+          title: {type: string}
+      ChecklistDetail:
+        type: object
+        description: >-
+          Checklist document plus item projection from
+          server/models/checklists.js lines 216-233.
+        additionalProperties: true
+        properties:
+          _id: {type: string}
+          title: {type: string}
+          items:
+            type: array
+            items:
+              type: object
+              required: [_id, title, isFinished]
+              properties:
+                _id: {type: string}
+                title: {type: string}
+                isFinished: {type: boolean}
+      CommentSummary:
+        type: object
+        description: >-
+          Comment list projection from server/models/cardComments.js lines
+          95-110.
+        required: [_id, comment, authorId]
+        properties:
+          _id: {type: string}
+          comment: {type: string}
+          authorId: {type: string}
+      CustomFieldSummary:
+        type: object
+        description: >-
+          Custom-field list projection from server/models/customFields.js lines
+          104-114.
+        required: [_id, name, type]
+        properties:
+          _id: {type: string}
+          name: {type: string}
+          type: {type: string}
+      ListSummary:
+        type: object
+        description: >-
+          List projection with synchronization dates from
+          server/models/lists.js lines 751-783.
+        required: [_id, title]
+        properties:
+          _id: {type: string}
+          title: {type: string}
+          modifiedAt: {type: string, format: date-time, x-nullable: true}
+          cardsModifiedAt: {type: string, format: date-time, x-nullable: true}
+      CardSummary:
+        type: object
+        description: >-
+          List-card projection from server/models/cards.js lines 998-1024.
+        required: [_id]
+        properties:
+          _id: {type: string}
+          title: {type: string}
+          description: {type: string}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          receivedAt: {type: string, format: date-time}
+          startAt: {type: string, format: date-time}
+          dueAt: {type: string, format: date-time}
+          endAt: {type: string, format: date-time}
+          assignees: {type: array, items: {type: string}}
+          sort: {type: number}
+      CardMemberResponse:
+        type: object
+        description: >-
+          Card member/assignee merge result from server/models/cards.js lines
+          2012-2052.
+        required: [_id, members, assignees]
+        properties:
+          _id: {type: string}
+          members: {type: array, items: {type: string}}
+          assignees: {type: array, items: {type: string}}
+      UserSummary:
+        type: object
+        description: >-
+          Admin user-list projection from server/models/users.js lines
+          2003-2011.
+        required: [_id, username]
+        properties:
+          _id: {type: string}
+          username: {type: string}
+      SwimlaneSummary:
+        type: object
+        description: >-
+          Swimlane list projection from server/models/swimlanes.js lines
+          126-140.
+        required: [_id, title]
+        properties:
+          _id: {type: string}
+          title: {type: string}
+      CreateTokenResponse:
+        type: object
+        description: >-
+          Admin-created token result from server/models/users.js lines
+          2272-2285.
+        required: [_id, authToken]
+        properties:
+          _id: {type: string}
+          authToken: {type: string}
+      AttachmentInfoResponse:
+        type: object
+        description: >-
+          Attachment information result from server/routes/attachmentApi.js
+          lines 1087-1127.
+        additionalProperties: true
+        required: [success, attachmentId, fileName, fileSize, fileType, storageBackend]
+        properties:
+          success: {type: boolean}
+          attachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          fileType: {type: string}
+          storageBackend: {type: string}
+          boardId: {type: string}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          cardId: {type: string}
+          versions: {type: array, items: {type: object, additionalProperties: true}}
+      AttachmentCopyResponse:
+        type: object
+        description: >-
+          Attachment-copy result from server/routes/attachmentApi.js lines
+          892-900.
+        required: [success, sourceAttachmentId, newAttachmentId, fileName, fileSize, message]
+        properties:
+          success: {type: boolean}
+          sourceAttachmentId: {type: string}
+          newAttachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          message: {type: string}
+      AttachmentMoveResponse:
+        type: object
+        description: >-
+          Attachment-move result from server/routes/attachmentApi.js lines
+          1022-1030.
+        required: [success, attachmentId, fileName, fileSize, sourceBoardId, targetBoardId, message]
+        properties:
+          success: {type: boolean}
+          attachmentId: {type: string}
+          fileName: {type: string}
+          fileSize: {type: integer, format: int64}
+          sourceBoardId: {type: string}
+          targetBoardId: {type: string}
+          message: {type: string}
+      AttachmentDeleteResponse:
+        type: object
+        description: >-
+          Attachment-delete result from server/routes/attachmentApi.js lines
+          1051-1079.
+        required: [success, attachmentId, message]
+        properties:
+          success: {type: boolean}
+          attachmentId: {type: string}
+          message: {type: string}
+      RuleCreateRequest:
+        type: object
+        description: >-
+          Rule title plus required trigger/action documents from
+          server/models/rules.js lines 130-164.
+        required: [trigger, action]
+        properties:
+          title: {type: string}
+          trigger:
+            type: object
+            required: [activityType]
+            additionalProperties: true
+            properties:
+              activityType: {type: string}
+          action:
+            type: object
+            required: [actionType]
+            additionalProperties: true
+            properties:
+              actionType: {type: string}
+      RuleUpdateRequest:
+        type: object
+        description: >-
+          Partial rule replacement fields from server/models/rules.js lines
+          170-210.
+        properties:
+          title: {type: string}
+          trigger: {type: object, additionalProperties: true}
+          action: {type: object, additionalProperties: true}
+      DependencyCreateRequest:
+        type: object
+        description: >-
+          Target alias and optional metadata from server/models/dependencies.js
+          lines 191-241; supply either cardId or dependsOn.
+        properties:
+          cardId: {type: string}
+          dependsOn: {type: string}
+          type: {type: string}
+          color: {type: string}
+          icon: {type: string}
+      DependencyUpdateRequest:
+        type: object
+        description: >-
+          Partial dependency metadata from server/models/dependencies.js lines
+          260-287.
+        properties:
+          type: {type: string}
+          color: {type: string}
+          icon: {type: string}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards"].post'
+    description: >-
+      Correct card-create fields and remove the generator's bogus computed
+      dateField parameter; server/models/cards.js lines 1063-1181.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - name: card
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardCreateRequest'
+      responses:
+        '200': {description: Card created., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Invalid card request., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board write permission required., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Linked or parent card not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].put'
+    description: >-
+      Model the partial card update, date clearing, same/cross-board moves,
+      archive state, completion, stickers and locations implemented by Wekan
+      v11.06 server/models/cards.js lines 1313-1701.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardUpdateRequest'
+      responses:
+        '200': {description: Card updated., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Invalid move or field value., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board write permission required., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: 'Card or destination not found, or no recognized update.', schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/bulk"].post'
+    description: >-
+      Cards is a bounded JSON array, not a string; server/models/cards.js lines
+      1184-1274.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardsBulkCreateRequest'
+      responses:
+        '200':
+          description: Per-card creation results.
+          schema:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
+        '400': {description: Cards array is empty or exceeds 500., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/bulk"].delete'
+    description: >-
+      Add the required cardIds JSON array from server/models/cards.js lines
+      1772-1822.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardIdsRequest'
+      responses:
+        '200':
+          description: Deleted and unmatched card IDs.
+          schema:
+            type: object
+            required: [deleted, notFound]
+            properties:
+              deleted: {type: array, items: {type: string}}
+              notFound: {type: array, items: {type: string}}
+        '400': {description: Card ID array is empty or exceeds 500., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/labels"].post'
+    description: >-
+      Add the label merge arrays implemented by server/models/cards.js lines
+      1824-1905.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardLabelsBulkRequest'
+      responses:
+        '200':
+          description: Updated cards and unmatched IDs.
+          schema:
+            type: object
+            required: [updated, notFound]
+            properties:
+              updated: {type: array, items: {type: object, additionalProperties: true}}
+              notFound: {type: array, items: {type: string}}
+        '400': {description: Invalid card or label arrays., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/copy"].post'
+    description: >-
+      Only toSwimlaneId is required; other destination and position fields are
+      optional in server/models/cards.js lines 2080-2124.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CardCopyRequest'
+      responses:
+        '200': {description: New card ID., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Missing destination swimlane., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Source card not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].post'
+    description: >-
+      Add the required comment JSON field validated by Wekan v11.06
+      server/models/cardComments.js lines 144-187.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CommentCreateRequest'
+      responses:
+        '200': {description: Comment created., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Missing or empty comment., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists"].post'
+    description: >-
+      Correct checklist title and items array fields from Wekan v11.06
+      server/models/checklists.js lines 242-297.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ChecklistCreateRequest'
+      responses:
+        '200': {description: Checklist created., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Checklist could not be created., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Card not found on this board., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items"].post'
+    description: >-
+      Add the required title and optional sort from Wekan v11.06
+      server/models/checklistItems.js lines 123-174.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: checklist, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ChecklistItemCreateRequest'
+      responses:
+        '200': {description: Checklist item created., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: Card or checklist not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].put'
+    description: >-
+      Add the partial title/isFinished body from Wekan v11.06
+      server/models/checklistItems.js lines 177-228.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: checklist, in: path, type: string, required: true}
+        - {name: item, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ChecklistItemUpdateRequest'
+      responses:
+        '200': {description: Checklist item updated., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: 'Card, checklist, or item not found.', schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields"].post'
+    description: >-
+      Correct the custom-field create body from Wekan v11.06
+      server/models/customFields.js lines 130-170. authorId is ignored for
+      attribution at lines 149-163 and is therefore not part of the contract.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: customField
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CustomFieldRequest'
+      responses:
+        '200': {description: Custom field created., schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].put'
+    description: >-
+      Add the partial custom-field body from Wekan v11.06
+      server/models/customFields.js lines 173-211.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: customField, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CustomFieldRequest'
+      responses:
+        '200': {description: Custom field updated., schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post'
+    description: >-
+      Items is a JSON string array in Wekan v11.06
+      server/models/customFields.js lines 214-244, not a scalar string.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: customField, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            type: object
+            description: >-
+              Dropdown item names consumed by server/models/customFields.js
+              lines 214-239.
+            required: [items]
+            properties:
+              items: {type: array, items: {type: string}}
+      responses:
+        '200': {description: Dropdown items appended., schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/integrations"].post'
+    description: >-
+      Add the required validated URL from Wekan v11.06
+      server/models/integrations.js lines 57-85.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: integration
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/IntegrationCreateRequest'
+      responses:
+        '200': {description: Integration created., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Invalid or unsafe webhook URL., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/integrations/{int}"].put'
+    description: >-
+      Add all partial integration fields from Wekan v11.06
+      server/models/integrations.js lines 94-147.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: int, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/IntegrationUpdateRequest'
+      responses:
+        '200': {description: Integration updated., schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Invalid or unsafe webhook URL., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/integrations/{int}/activities"].post'
+    description: >-
+      Activities is a JSON string array consumed by Wekan v11.06
+      server/models/integrations.js lines 186-206.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: int, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/IntegrationActivitiesRequest'
+      responses:
+        '200':
+          description: Updated integration activities.
+          schema: {type: object, additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/integrations/{int}/activities"].delete'
+    description: >-
+      Add the activity-removal JSON array from Wekan v11.06
+      server/models/integrations.js lines 156-176.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: int, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/IntegrationActivitiesRequest'
+      responses:
+        '200':
+          description: Updated integration activities.
+          schema: {type: object, additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/lists"].post'
+    description: >-
+      Add list title and optional swimlane from Wekan v11.06
+      server/models/lists.js lines 807-823.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: list
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ListCreateRequest'
+      responses:
+        '200': {description: 'List created, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].put'
+    description: >-
+      Add title, color, starred and wipLimit from Wekan v11.06
+      server/models/lists.js lines 827-871 and models/lib/listApiUpdate.js
+      lines 22-63.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ListUpdateRequest'
+      responses:
+        '200': {description: 'List updated, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+        '400': {description: Invalid list field., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: List not found or no recognized update., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/copy"].post'
+    description: >-
+      Correct all list-copy fields to optional and add destination swimlane and
+      position from Wekan v11.06 server/models/lists.js lines 907-925.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/ListTransferRequest'
+      responses:
+        '200': {description: New list ID., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: Source list not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/move"].post'
+    description: >-
+      Correct all list-move fields to optional and add position from Wekan
+      v11.06 server/models/lists.js lines 928-959.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/ListTransferRequest'
+      responses:
+        '200': {description: Moved list ID., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: Source list not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes"].post'
+    description: >-
+      Add title and optional sort from Wekan v11.06
+      server/models/swimlanes.js lines 171-195.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: swimlane
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/SwimlaneCreateRequest'
+      responses:
+        '200': {description: 'Swimlane created, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].put'
+    description: >-
+      Add the title body from Wekan v11.06 server/models/swimlanes.js lines
+      204-226.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: swimlane, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/SwimlaneUpdateRequest'
+      responses:
+        '200': {description: 'Swimlane updated, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/copy"].post'
+    description: >-
+      Correct all copy fields to optional and add position/title from Wekan
+      v11.06 server/models/swimlanes.js lines 269-287.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: swimlane, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/SwimlaneTransferRequest'
+      responses:
+        '200': {description: New swimlane ID., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: Source swimlane not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/move"].post'
+    description: >-
+      Correct all move fields to optional and add position/title from Wekan
+      v11.06 server/models/swimlanes.js lines 290-307.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: swimlane, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/SwimlaneTransferRequest'
+      responses:
+        '200': {description: Moved swimlane ID., schema: {$ref: '#/definitions/IdResponse'}}
+        '404': {description: Source swimlane not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/deletetoken"].post'
+    description: >-
+      userId and token are not both required: userId alone removes all tokens,
+      and an empty request returns a message; Wekan v11.06
+      server/models/users.js lines 2291-2315.
+    update:
+      consumes: [application/json]
+      parameters:
+        - name: request
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/DeleteTokenRequest'
+      responses:
+        '200':
+          description: Token deletion message, or a serialized application error.
+          schema:
+            type: object
+            properties:
+              message: {type: string}
+
+  - target: '$.paths["/api/boards/{board}/members/{user}/add"].post'
+    description: >-
+      Model the required add action plus named role or eight permission flags
+      from Wekan v11.06 server/models/users.js lines 2101-2188.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: user, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            type: object
+            description: >-
+              Add action and role/flags consumed by server/models/users.js
+              lines 2101-2188.
+            required: [action]
+            properties:
+              action: {type: string, enum: [add]}
+              role: {type: string}
+              isAdmin: {type: boolean}
+              isNoComments: {type: boolean}
+              isCommentOnly: {type: boolean}
+              isWorker: {type: boolean}
+              isNormalAssignedOnly: {type: boolean}
+              isCommentAssignedOnly: {type: boolean}
+              isReadOnly: {type: boolean}
+              isReadAssignedOnly: {type: boolean}
+      responses:
+        '200':
+          description: Affected board summaries or a serialized application error.
+          schema: {type: array, items: {$ref: '#/definitions/BoardSummary'}}
+        '400': {description: Invalid role or disabled user., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board administrator permission required., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/admin/orgs/{org}/features"].put'
+    description: >-
+      Replace uppercase Object and add the partial boolean body implemented by
+      Wekan v11.06 server/models/org.js lines 351-383.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: org, in: path, type: string, required: true}
+        - name: features
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/OrgFeatureRequest'
+      responses:
+        '200': {description: Updated organization or serialized application error., schema: {$ref: '#/definitions/Org'}}
+
+  - target: '$.paths["/api/admin/teams/{team}/features"].put'
+    description: >-
+      Replace uppercase Object and add the partial boolean body implemented by
+      Wekan v11.06 server/models/team.js lines 330-347.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: team, in: path, type: string, required: true}
+        - name: features
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/TeamFeatureRequest'
+      responses:
+        '200': {description: Updated team or serialized application error., schema: {$ref: '#/definitions/Team'}}
+
+  - target: '$.paths["/api/admin/orgs/features"].put.responses["200"]'
+    description: >-
+      Add the bulk result from Wekan v11.06 server/models/org.js lines 403-420.
+    update:
+      description: Updated organization count, invalid-field error, or serialized application error.
+      schema:
+        $ref: '#/definitions/FeatureUpdateResult'
+
+  - target: '$.paths["/api/admin/teams/features"].put.responses["200"]'
+    description: >-
+      Add the bulk result from Wekan v11.06 server/models/team.js lines 367-384.
+    update:
+      description: Updated team count, invalid-field error, or serialized application error.
+      schema:
+        $ref: '#/definitions/FeatureUpdateResult'
+
+  - target: '$.paths["/api/boards/{boardId}/swimlanes/{swimlaneId}/lists/{listId}/ics"].post'
+    description: >-
+      Accept both ics and the icsText alias and describe the result implemented
+      by Wekan v11.06 server/methods/icsImport.js lines 112-129.
+    update:
+      parameters:
+        - {name: boardId, in: path, type: string, required: true}
+        - {name: swimlaneId, in: path, type: string, required: true}
+        - {name: listId, in: path, type: string, required: true}
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/IcsImportRequest'
+      responses:
+        '200': {description: ICS import completed., schema: {$ref: '#/definitions/IcsImportResponse'}}
+        '400': {description: Missing or empty calendar text., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Authentication or board write access failed., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: 'Board, swimlane or list not found.', schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/admin/attachment-settings"].get.responses["200"]'
+    description: >-
+      Replace uppercase Object with the generated settings schema. Wekan v11.06
+      server/models/attachmentStorageSettings.js lines 705-729 returns the
+      masked AttachmentStorageSettings document.
+    update:
+      description: Masked attachment storage settings or serialized application error.
+      schema:
+        $ref: '#/definitions/AttachmentStorageSettings'
+
+  - target: '$.paths["/api/admin/attachment-settings"].put'
+    description: >-
+      Fully model the partial settings body and masked result from Wekan v11.06
+      server/models/attachmentStorageSettings.js lines 732-762.
+    update:
+      consumes: [application/json]
+      parameters:
+        - name: settings
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/AttachmentStorageSettingsUpdate'
+      responses:
+        '200':
+          description: Masked updated attachment settings or serialized application error.
+          schema:
+            $ref: '#/definitions/AttachmentStorageSettings'
+
+  - target: '$.paths["/api/admin/attachment-settings"].get.responses["200"].schema.type'
+    description: >-
+      Remove the invalid uppercase Object emitted from @return_type Object at
+      Wekan v11.06 server/models/attachmentStorageSettings.js line 718; the
+      response is defined by AttachmentStorageSettings instead.
+    remove: true
+
+  - target: '$.paths["/api/admin/attachment-settings"].put.responses["200"].schema.type'
+    description: >-
+      Remove the invalid uppercase Object emitted from @return_type Object at
+      Wekan v11.06 server/models/attachmentStorageSettings.js line 746; the
+      response is defined by AttachmentStorageSettings instead.
+    remove: true
+
+  - target: '$.paths["/api/admin/orgs/{org}/features"].put.responses["200"].schema.type'
+    description: >-
+      Remove the invalid uppercase Object emitted from @return_type Object at
+      Wekan v11.06 server/models/org.js line 364; the response uses Org.
+    remove: true
+
+  - target: '$.paths["/api/admin/teams/{team}/features"].put.responses["200"].schema.type'
+    description: >-
+      Remove the invalid uppercase Object emitted by the matching team route
+      annotation at Wekan v11.06 server/models/team.js line 328; the
+      response uses Team.
+    remove: true
+
+  - target: '$.paths["/api/boards/{board}/export"].get'
+    description: >-
+      Add authentication, attachment suppression, field selection and scope
+      query parameters from Wekan v11.06 models/export.js lines 98-198 and
+      models/lib/exportFields.js lines 66-92.
+    update:
+      description: >-
+        Public boards need no authentication. Private boards accept authToken or
+        a bearer token from a user who can view the board.
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: attachments, in: query, type: boolean, required: false, description: Set false to omit base64 file data.}
+        - {name: fields, in: query, type: string, required: false, description: Comma-separated export sections.}
+        - {name: swimlaneId, in: query, type: string, required: false}
+        - {name: listId, in: query, type: string, required: false}
+        - {name: cardId, in: query, type: string, required: false}
+        - {name: checklistId, in: query, type: string, required: false}
+      security:
+        - {}
+      responses:
+        '200': {description: Wekan board export document., schema: {type: object, additionalProperties: true}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Export disabled or board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/exportZip"].get'
+    description: >-
+      Correct authentication, selection/scope parameters and ZIP media type
+      from Wekan v11.06 models/export.js lines 198-266,
+      models/lib/exportFields.js lines 66-92 and
+      models/server/ExporterZip.js lines 39-51.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false, description: Comma-separated export sections.}
+        - {name: swimlaneId, in: query, type: string, required: false}
+        - {name: listId, in: query, type: string, required: false}
+        - {name: cardId, in: query, type: string, required: false}
+        - {name: checklistId, in: query, type: string, required: false}
+      produces: [application/zip]
+      security:
+        - {}
+      responses:
+        '200': {description: ZIP archive., schema: {type: file}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Export disabled or board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/export/kanboard"].get'
+    description: >-
+      Add public/private authentication behavior and JSON response from Wekan
+      v11.06 models/export.js lines 269-324.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+      security:
+        - {}
+      responses:
+        '200': {description: Kanboard-style export document., schema: {type: object, additionalProperties: true}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.definitions'
+    description: >-
+      Add the four remaining JSON request models whose generated Swagger 2.0
+      annotations incorrectly expose formData. Exact Wekan v11.06 evidence is
+      server/models/customFields.js lines 247-277 and
+      server/models/users.js lines 2066-2097, 2194-2242, and 2246-2257.
+    update:
+      UpdateDropdownItemRequest:
+        type: object
+        description: >-
+          JSON body read from req.body.name by Wekan v11.06
+          server/models/customFields.js lines 247-277.
+        required: [name]
+        properties:
+          name: {type: string}
+      RemoveBoardMemberRequest:
+        type: object
+        description: >-
+          JSON body read from req.body.action by Wekan v11.06
+          server/models/users.js lines 2194-2242.
+        required: [action]
+        properties:
+          action: {type: string, enum: [remove]}
+      CreateUserRequest:
+        type: object
+        description: >-
+          JSON body passed to Accounts.createUser by Wekan v11.06
+          server/models/users.js lines 2246-2257.
+        required: [username, email, password]
+        properties:
+          username: {type: string}
+          email: {type: string, format: email}
+          password: {type: string, format: password}
+      UpdateUserActionRequest:
+        type: object
+        description: >-
+          JSON administrative action read from req.body.action by Wekan v11.06
+          server/models/users.js lines 2066-2097.
+        required: [action]
+        properties:
+          action:
+            type: string
+            enum: [takeOwnership, disableLogin, enableLogin]
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].put'
+    description: >-
+      Replace generated formData with the JSON body actually read by Wekan
+      v11.06 server/models/customFields.js lines 247-277.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: customField, in: path, type: string, required: true}
+        - {name: dropdownItem, in: path, type: string, required: true}
+        - name: body
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/UpdateDropdownItemRequest'}
+
+  - target: '$.paths["/api/boards/{board}/members/{user}/remove"].post'
+    description: >-
+      Replace generated formData with the JSON body and explicit authorization
+      responses implemented by Wekan v11.06 server/models/users.js lines
+      2194-2242.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: user, in: path, type: string, required: true}
+        - name: body
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/RemoveBoardMemberRequest'}
+      responses:
+        '401': {description: Missing authentication., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Caller is neither a board administrator nor a site administrator., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/users"].post'
+    description: >-
+      Replace generated formData with the JSON body passed to Accounts.createUser
+      by Wekan v11.06 server/models/users.js lines 2246-2257.
+    update:
+      consumes: [application/json]
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/CreateUserRequest'}
+
+  - target: '$.paths["/api/users/{user}"].put'
+    description: >-
+      Replace generated formData with the JSON administrative action read by
+      Wekan v11.06 server/models/users.js lines 2066-2097.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: user, in: path, type: string, required: true}
+        - name: body
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/UpdateUserActionRequest'}
+
+  - target: '$.definitions'
+    description: >-
+      Model the JSON variant of the public schema-upgrade status route. Exact
+      Wekan v11.06 state construction is in server/lib/schemaUpgradeSteps.js
+      lines 95-117 and route serialization is in
+      server/startupSchemaUpgrade.js lines 30-67.
+    update:
+      SchemaUpgradeStepState:
+        type: object
+        description: >-
+          Per-step status populated by Wekan v11.06
+          server/lib/schemaUpgradeSteps.js lines 104-117 and 908-941.
+        required: [status, fixed, unresolved]
+        properties:
+          status:
+            type: string
+            enum: [pending, checking, running, done, skipped, error]
+          fixed: {type: integer, format: int32}
+          unresolved: {type: integer, format: int32}
+          error: {type: string}
+      SchemaUpgradeLastCheck:
+        type: object
+        description: >-
+          Previous successful version check stored by Wekan v11.06
+          server/lib/schemaUpgradeSteps.js lines 949-958.
+        required: [version, at]
+        properties:
+          version: {type: string}
+          at: {type: string, format: date-time}
+      SchemaUpgradeState:
+        type: object
+        description: >-
+          Live upgrade state initialized by Wekan v11.06
+          server/lib/schemaUpgradeSteps.js lines 95-117 and serialized by
+          server/startupSchemaUpgrade.js lines 32-37.
+        required: [running, product, appVersion, currentStep, gated, steps]
+        properties:
+          running: {type: boolean}
+          product: {type: string}
+          appVersion: {type: string}
+          startedAt: {type: string, format: date-time, x-nullable: true}
+          finishedAt: {type: string, format: date-time, x-nullable: true}
+          currentStep: {type: string}
+          gated: {type: boolean}
+          steps:
+            type: object
+            additionalProperties: {$ref: '#/definitions/SchemaUpgradeStepState'}
+          lastCheck:
+            allOf: [{$ref: '#/definitions/SchemaUpgradeLastCheck'}]
+            x-nullable: true
+
+  - target: '$.paths'
+    description: >-
+      Add the only literal Wekan v11.06 WebApp GET handler absent after the REST
+      route comparison: server/startupSchemaUpgrade.js lines 30-67. The raw
+      state comes from server/lib/schemaUpgradeSteps.js lines 95-117.
+    update:
+      /schema-upgrade-status:
+        get:
+          operationId: get_schema_upgrade_status
+          tags: [Admin]
+          summary: Get live startup schema-upgrade status.
+          description: >-
+            Returns an HTML dashboard by default. Include the `json` query key
+            (its value is ignored) to receive the raw JSON state. This public
+            route is implemented by Wekan v11.06
+            server/startupSchemaUpgrade.js lines 30-67.
+          produces: [application/json, text/html]
+          parameters:
+            - name: json
+              in: query
+              type: string
+              required: false
+              description: Presence selects the JSON response; the value is ignored.
+          security:
+            - {}
+          responses:
+            '200':
+              description: >-
+                Schema-upgrade state when `json` is present; otherwise the HTML
+                dashboard. The schema below describes the JSON variant.
+              schema: {$ref: '#/definitions/SchemaUpgradeState'}
+
+  - target: '$.definitions'
+    description: >-
+      Correct SimpleSchema arrays and black-box maps that the upstream generator
+      emitted as empty objects. Every replacement below cites the exact Wekan
+      v11.06 model range that declares its wire type.
+    update:
+      AttachmentStorageSettingsUploadsettingsAllowedmimetypes:
+        type: array
+        description: >-
+          MIME-type string array declared by Wekan v11.06
+          models/attachmentStorageSettings.js lines 130-138.
+        items: {type: string}
+      CardsLabelids:
+        type: array
+        description: >-
+          Card label-ID string array declared by Wekan v11.06
+          models/cards.js lines 254-264.
+        items: {type: string}
+      CardsMembers:
+        type: array
+        description: >-
+          Card member user-ID string array declared by Wekan v11.06
+          models/cards.js lines 265-275.
+        items: {type: string}
+      CardsAssignees:
+        type: array
+        description: >-
+          Card assignee user-ID string array declared by Wekan v11.06
+          models/cards.js lines 276-287.
+        items: {type: string}
+      CardsRequesters:
+        type: array
+        description: >-
+          Card requester user-ID string array declared by Wekan v11.06
+          models/cards.js lines 288-296.
+        items: {type: string}
+      CardsAssigners:
+        type: array
+        description: >-
+          Card assigner user-ID string array declared by Wekan v11.06
+          models/cards.js lines 297-305.
+        items: {type: string}
+      CardsVotePositive:
+        type: array
+        description: >-
+          Positive-voter user-ID string array declared by Wekan v11.06
+          models/cards.js lines 584-594.
+        items: {type: string}
+      CardsVoteNegative:
+        type: array
+        description: >-
+          Negative-voter user-ID string array declared by Wekan v11.06
+          models/cards.js lines 595-605.
+        items: {type: string}
+      CardsPokerOne:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 630-639.
+        items: {type: string}
+      CardsPokerTwo:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 640-649.
+        items: {type: string}
+      CardsPokerThree:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 650-659.
+        items: {type: string}
+      CardsPokerFive:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 660-669.
+        items: {type: string}
+      CardsPokerEight:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 670-679.
+        items: {type: string}
+      CardsPokerThirteen:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 680-689.
+        items: {type: string}
+      CardsPokerTwenty:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 690-699.
+        items: {type: string}
+      CardsPokerForty:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 700-709.
+        items: {type: string}
+      CardsPokerOnehundred:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 710-719.
+        items: {type: string}
+      CardsPokerUnsure:
+        type: array
+        description: Poker-voter ID array declared by Wekan v11.06 models/cards.js lines 720-729.
+        items: {type: string}
+      CardsTargetid_gantt:
+        type: array
+        description: Gantt target-card ID array declared by Wekan v11.06 models/cards.js lines 745-755.
+        items: {type: string}
+      CardsLinktype_gantt:
+        type: array
+        description: Numeric Gantt link-type array declared by Wekan v11.06 models/cards.js lines 756-766.
+        items: {type: number}
+      CardsLinkid_gantt:
+        type: array
+        description: Gantt link ID array declared by Wekan v11.06 models/cards.js lines 767-777.
+        items: {type: string}
+      CustomFieldsBoardids:
+        type: array
+        description: >-
+          Custom-field board-ID string array declared by Wekan v11.06
+          models/customFields.js lines 11-20.
+        items: {type: string}
+      OrgOrgthemecustomcolors:
+        type: array
+        description: >-
+          Organization theme-color string array declared by Wekan v11.06
+          models/org.js lines 116-127.
+        items: {type: string}
+      SettingsThemecustomcolors:
+        type: array
+        description: >-
+          Global theme-color string array declared by Wekan v11.06
+          models/settings.js lines 169-180.
+        items: {type: string}
+      UsersProfileEmailbuffer:
+        type: array
+        description: >-
+          Profile email-buffer string array declared by Wekan v11.06
+          models/users.js lines 316-325.
+        items: {type: string}
+      UsersProfileGlobalthemecustomcolors:
+        type: array
+        description: >-
+          Profile theme-color string array declared by Wekan v11.06
+          models/users.js lines 417-429.
+        items:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+      UsersProfileBoardworkspacestree:
+        type: array
+        description: >-
+          Profile workspace-node array declared by Wekan v11.06
+          models/users.js lines 539-553.
+        items:
+          type: object
+          additionalProperties: true
+      UsersProfileInvitedboards:
+        type: array
+        description: >-
+          Invited-board ID string array declared by Wekan v11.06
+          models/users.js lines 562-571.
+        items: {type: string}
+      UsersProfileStarredboards:
+        type: array
+        description: >-
+          Starred-board ID string array declared by Wekan v11.06
+          models/users.js lines 658-667.
+        items: {type: string}
+      UsersImportusernames:
+        type: array
+        description: >-
+          Unmapped imported-username string array declared by Wekan v11.06
+          models/boards.js lines 405-418.
+        items: {type: string}
+
+  - target: '$.definitions.AttachmentStorageSettingsStorageconfig.properties.s3'
+    description: >-
+      Mark the intentionally black-box S3 configuration declared by Wekan
+      v11.06 models/attachmentStorageSettings.js lines 92-99.
+    update:
+      description: >-
+        Provider-specific S3-compatible configuration; intentionally black-box
+        in Wekan v11.06 models/attachmentStorageSettings.js lines 92-99.
+      additionalProperties: true
+
+  - target: '$.definitions.AttachmentStorageSettingsStorageconfig.properties.azure'
+    description: >-
+      Mark the intentionally black-box Azure configuration declared by Wekan
+      v11.06 models/attachmentStorageSettings.js lines 101-107.
+    update:
+      description: >-
+        Provider-specific Azure configuration; intentionally black-box in Wekan
+        v11.06 models/attachmentStorageSettings.js lines 101-107.
+      additionalProperties: true
+
+  - target: '$.definitions.AttachmentStorageSettingsStorageconfig.properties.gcs'
+    description: >-
+      Mark the intentionally black-box GCS configuration declared by Wekan
+      v11.06 models/attachmentStorageSettings.js lines 109-115.
+    update:
+      description: >-
+        Provider-specific Google Cloud configuration; intentionally black-box
+        in Wekan v11.06 models/attachmentStorageSettings.js lines 109-115.
+      additionalProperties: true
+
+  - target: '$.definitions.Users.properties.services'
+    description: >-
+      Remove authentication services from the REST user schema. Wekan v11.06
+      server/models/users.js lines 1979-1984 deletes it for GET /api/user, and
+      lines 2031-2035 removes it from user-detail responses.
+    remove: true
+
+  - target: '$.paths["/api/boards/{board}/rules"].get.responses["200"].schema.items.properties.trigger'
+    description: >-
+      Rule trigger payloads are heterogeneous objects in Wekan v11.06
+      server/models/rules.js lines 65-101; mark the open shape explicitly.
+    update: {additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/rules"].get.responses["200"].schema.items.properties.action'
+    description: >-
+      Rule action payloads are heterogeneous objects in Wekan v11.06
+      server/models/rules.js lines 65-101; mark the open shape explicitly.
+    update: {additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].get.responses["200"].schema.properties.trigger'
+    description: >-
+      Rule trigger payloads are heterogeneous objects in Wekan v11.06
+      server/models/rules.js lines 103-143; mark the open shape explicitly.
+    update: {additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].get.responses["200"].schema.properties.action'
+    description: >-
+      Rule action payloads are heterogeneous objects in Wekan v11.06
+      server/models/rules.js lines 103-143; mark the open shape explicitly.
+    update: {additionalProperties: true}
+
+  - target: '$.definitions.UsersProfile.properties.collapsedWorkspaces'
+    description: >-
+      Model the workspace-ID boolean map declared black-box by Wekan v11.06
+      models/users.js lines 349-359.
+    update: {additionalProperties: {type: boolean}}
+
+  - target: '$.definitions.UsersProfile.properties.boardWorkspaceAssignments'
+    description: >-
+      Model the board-ID to space-ID map declared by Wekan v11.06
+      models/users.js lines 554-561.
+    update: {additionalProperties: {type: string}}
+
+  - target: '$.definitions.UsersProfile.properties.moveAndCopyDialog'
+    description: >-
+      Mark the deliberately black-box dialog map declared by Wekan v11.06
+      models/users.js lines 590-597.
+    update: {additionalProperties: true}
+
+  - target: '$.definitions.UsersProfile.properties.moveChecklistDialog'
+    description: >-
+      Mark the deliberately black-box dialog map declared by Wekan v11.06
+      models/users.js lines 598-605.
+    update: {additionalProperties: true}
+
+  - target: '$.definitions.UsersProfile.properties.copyChecklistDialog'
+    description: >-
+      Mark the deliberately black-box dialog map declared by Wekan v11.06
+      models/users.js lines 606-613.
+    update: {additionalProperties: true}
+
+  - target: '$.definitions.UsersProfile.properties.listWidths'
+    description: >-
+      Model the nested board/list numeric-width map declared by Wekan v11.06
+      models/users.js lines 786-794 and written at lines 2357-2362.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: {type: number}
+
+  - target: '$.definitions.UsersProfile.properties.listConstraints'
+    description: >-
+      Mark the nested black-box constraint map declared by Wekan v11.06
+      models/users.js lines 795-803 and written at lines 2364-2369.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: true
+
+  - target: '$.definitions.UsersProfile.properties.autoWidthBoards'
+    description: >-
+      Model the board-ID boolean map declared by Wekan v11.06
+      models/users.js lines 804-812 and written at lines 2171-2174.
+    update: {additionalProperties: {type: boolean}}
+
+  - target: '$.definitions.UsersProfile.properties.boardSortIndex'
+    description: >-
+      Model the board-ID numeric sort-index map declared by Wekan v11.06
+      models/users.js lines 813-824 and written at lines 2157-2167.
+    update: {additionalProperties: {type: number}}
+
+  - target: '$.definitions.UsersProfile.properties.fixedListWidthBoards'
+    description: >-
+      Model the board-ID boolean fixed-width map declared by Wekan v11.06
+      models/users.js lines 825-834 and written at lines 2177-2181.
+    update: {additionalProperties: {type: boolean}}
+
+  - target: '$.definitions.UsersProfile.properties.fixedListWidths'
+    description: >-
+      Model the board-ID numeric width map declared by Wekan v11.06
+      models/users.js lines 835-844 and written at lines 2184-2188.
+    update: {additionalProperties: {type: number}}
+
+  - target: '$.definitions.UsersProfile.properties.swimlaneHeights'
+    description: >-
+      Model the nested board/swimlane numeric-height map declared by Wekan
+      v11.06 models/users.js lines 845-853 and written at lines 2371-2376.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: {type: number}
+
+  - target: '$.definitions.UsersProfile.properties.collapsedLists'
+    description: >-
+      Model the nested board/list boolean map declared by Wekan v11.06
+      models/users.js lines 854-862 and written at lines 2378-2383.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: {type: boolean}
+
+  - target: '$.definitions.UsersProfile.properties.collapsedSwimlanes'
+    description: >-
+      Model the nested board/swimlane boolean map declared by Wekan v11.06
+      models/users.js lines 863-871 and written at lines 2385-2390.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: {type: boolean}
+
+  - target: '$.definitions.UsersProfile.properties.collapsedCardSections'
+    description: >-
+      Model the nested card/section boolean map declared by Wekan v11.06
+      models/users.js lines 872-882 and written at lines 2392-2397.
+    update:
+      additionalProperties:
+        type: object
+        additionalProperties: {type: boolean}
+
+  - target: '$.definitions'
+    description: >-
+      Add the settings shape actually exposed by the REST allowlist. Wekan
+      v11.06 server/models/settings.js lines 529-570 deliberately excludes
+      mailServer and all fields not in REST_SETTINGS_FIELDS; GET/PUT use it at
+      lines 572-635.
+    update:
+      RestSettings:
+        type: object
+        description: >-
+          Global settings fields allowed over REST by Wekan v11.06
+          server/models/settings.js lines 529-570. SMTP/mailServer and all
+          unlisted database fields are deliberately excluded.
+        properties:
+          _id: {type: string}
+          disableRegistration: {type: boolean}
+          disableForgotPassword: {type: boolean}
+          productName: {type: string}
+          displayAuthenticationMethod: {type: boolean}
+          defaultAuthenticationMethod: {type: string}
+          spinnerName: {type: string}
+          hideLogo: {type: boolean}
+          hideCardCounterList: {type: boolean}
+          hideBoardMemberList: {type: boolean}
+          customLoginLogoImageUrl: {type: string}
+          customLoginLogoLinkUrl: {type: string}
+          customHelpLinkUrl: {type: string}
+          textBelowCustomLoginLogo: {type: string}
+          automaticLinkedUrlSchemes: {type: string}
+          customTopLeftCornerLogoImageUrl: {type: string}
+          customTopLeftCornerLogoLinkUrl: {type: string}
+          customTopLeftCornerLogoHeight: {type: string}
+          oidcBtnText: {type: string}
+          mailDomainName: {type: string}
+          legalNotice: {type: string}
+          customHeadEnabled: {type: boolean}
+          customHeadMetaTags: {type: string}
+          customHeadLinkTags: {type: string}
+          customManifestEnabled: {type: boolean}
+          customManifestContent: {type: string}
+          customAssetLinksEnabled: {type: boolean}
+          customAssetLinksContent: {type: string}
+          accessibilityPageEnabled: {type: boolean}
+          accessibilityTitle: {type: string}
+          accessibilityContent: {type: string}
+          supportPopupText: {type: string}
+          supportPageEnabled: {type: boolean}
+          supportPagePublic: {type: boolean}
+          supportTitle: {type: string}
+          supportPageText: {type: string}
+
+  - target: '$.paths["/api/settings"].put.parameters'
+    description: >-
+      Clear the generated open body before replacing it with the exact REST
+      allowlist from Wekan v11.06 server/models/settings.js lines 529-635.
+    remove: true
+
+  - target: '$.paths["/api/settings"].put.consumes'
+    description: >-
+      Replace generated multipart media with the JSON used by Wekan v11.06
+      server/models/settings.js lines 618-635 and api.py lines 887-900.
+    remove: true
+
+  - target: '$.paths["/api/settings"].put'
+    description: >-
+      Model the partial JSON allowlist update and narrowed response implemented
+      by Wekan v11.06 server/models/settings.js lines 529-635; the matching
+      v11.06 client sends JSON in api.py lines 887-900.
+    update:
+      consumes: [application/json]
+      parameters:
+        - name: settings
+          in: body
+          description: Partial allowlisted settings object; omitted fields are unchanged.
+          required: false
+          schema: {$ref: '#/definitions/RestSettings'}
+      responses:
+        '200':
+          description: Allowlisted global settings or a serialized application error.
+          schema: {$ref: '#/definitions/RestSettings'}
+        '404': {description: Settings document not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/settings"].get.responses["200"]'
+    description: >-
+      Narrow the response to REST_SETTINGS_FIELDS selected by Wekan v11.06
+      server/models/settings.js lines 529-601.
+    update:
+      description: Allowlisted global settings or a serialized application error.
+      schema: {$ref: '#/definitions/RestSettings'}
+
+  - target: '$.paths["/api/admin/domains"].get.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/users.js line 2725 declares exactly one Users tag.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules"].get.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/rules.js line 74 declares exactly one Rules tag.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules"].post.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/rules.js line 122 declares exactly one Rules tag.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].get.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/rules.js line 98 declares exactly one Rules tag.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].put.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/rules.js line 172 declares exactly one Rules tag.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].delete.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/rules.js line 218 declares exactly one Rules tag.
+    remove: true
+  - target: '$.paths["/api/settings"].get.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/settings.js line 586 declares exactly one Settings tag.
+    remove: true
+  - target: '$.paths["/api/settings"].put.tags[1]'
+    description: >-
+      Remove the duplicated generated tag; Wekan v11.06
+      server/models/settings.js line 607 declares exactly one Settings tag.
+    remove: true
+
+  - target: '$.definitions.DependencyCreateRequest.properties.type'
+    description: >-
+      Add the exact dependency type allowlist enforced by Wekan v11.06
+      server/models/dependencies.js lines 202-207; the same five values are
+      documented at lines 14-28.
+    update:
+      enum: [related-to, blocks, is-blocked-by, fixes, is-fixed-by]
+
+  - target: '$.definitions.DependencyUpdateRequest.properties.type'
+    description: >-
+      Add the exact dependency type allowlist enforced by Wekan v11.06
+      server/models/dependencies.js lines 262-272.
+    update:
+      enum: [related-to, blocks, is-blocked-by, fixes, is-fixed-by]
+
+  - target: '$.definitions'
+    description: >-
+      Record two HTTP-200 response shapes whose success/error behavior cannot
+      be represented by the original IdResponse. Exact Wekan v11.06 evidence
+      is server/models/users.js lines 2246-2257 and
+      server/models/boards.js lines 991-1014 and 1034-1050.
+    update:
+      CreateUserV1106Response:
+        type: object
+        description: >-
+          Wekan v11.06 server/models/users.js lines 2249-2255 omits `await`
+          before Accounts.createUser, so the Promise is JSON-serialized as an
+          empty object in `_id` even though the user is created. This records
+          the observed v11.06 upstream defect exactly.
+        required: [_id]
+        properties:
+          _id:
+            type: object
+            additionalProperties: true
+            description: Empty object in v11.06 because an unawaited Promise is serialized.
+      BoardImportResult:
+        type: object
+        description: >-
+          Imported board ID, empty result, or serialized error returned with
+          HTTP 200 by Wekan v11.06 server/models/boards.js lines 991-1014 and
+          1034-1050. No field is universal across those variants.
+        properties:
+          _id: {type: string}
+          error: {type: string}
+          reason: {type: string}
+          message: {type: string}
+          statusCode: {type: integer, format: int32}
+
+  - target: '$.paths["/api/users"].post.responses["200"]'
+    description: >-
+      Record the unawaited Accounts.createUser result implemented by Wekan
+      v11.06 server/models/users.js lines 2246-2257 and confirmed against the
+      pinned v11.06 container.
+    update:
+      description: >-
+        User is created, but v11.06 returns `_id: {}` because the handler
+        serializes the unawaited Accounts.createUser Promise. Upstream defect.
+      schema: {$ref: '#/definitions/CreateUserV1106Response'}
+      x-wekan-v11.06-defect: unawaited-accounts-create-user
+
+  - target: '$.paths["/api/boards/import"].post.responses["200"]'
+    description: >-
+      Model the HTTP-200 success/error union from Wekan v11.06
+      server/models/boards.js lines 991-1014.
+    update:
+      description: Imported board ID or a serialized import error.
+      schema: {$ref: '#/definitions/BoardImportResult'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/boards/import/{source}"].post.responses["200"]'
+    description: >-
+      Model the HTTP-200 ID/empty/error variants from Wekan v11.06
+      server/models/boards.js lines 1034-1050.
+    update:
+      description: >-
+        Imported board ID, empty object when an importer returns undefined, or
+        a serialized import error; all variants use HTTP 200.
+      schema: {$ref: '#/definitions/BoardImportResult'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/boards"].get.responses["200"]'
+    description: >-
+      Document Wekan v11.06 server/models/boards.js lines 861-884: both the
+      successful board array and authentication errors are sent as HTTP 200.
+    update:
+      description: >-
+        Public-board summaries on success. Authentication failures are
+        serialized as HTTP 200 error objects with `statusCode: 401`.
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/boards/{board}/exportZip"].get.produces[0]'
+    description: >-
+      Remove the inherited JSON media type; the intended success response is
+      application/zip in Wekan v11.06 models/server/ExporterZip.js lines 39-51.
+    remove: true
+
+  - target: '$.paths["/api/boards/{board}/exportZip"].get'
+    description: >-
+      Record the pinned v11.06 runtime defect in
+      models/server/ExporterZip.js lines 39-46: the bundled CommonJS interop
+      makes require('archiver') non-callable, and safeRoute converts the thrown
+      TypeError to HTTP 500 in server/apiMiddleware.js lines 132-145.
+    update:
+      description: >-
+        Intended to stream a ZIP containing wekan.json and attachment files.
+        In the pinned v11.06 image this route currently fails with HTTP 500
+        before archive creation because the bundled archiver import is not callable.
+      x-wekan-v11.06-defect: archiver-commonjs-interop
+      responses:
+        '500':
+          description: >-
+            Pinned v11.06 runtime defect: archive construction throws before
+            the ZIP response is created.
+
+  - target: '$.paths["/api/attachment/upload"].post'
+    description: >-
+      Record two pinned v11.06 defects proven by
+      server/apiMiddleware.js lines 12-15 and
+      server/routes/attachmentApi.js lines 170-224 and 291-343. The global JSON
+      parser consumes the stream before the route's data/end listeners, causing
+      a 408; bypassing it exposes the unavailable Attachments.insertAsync call.
+    update:
+      x-wekan-v11.06-defect:
+        - body-stream-consumed-before-route-listeners
+        - attachments-insertAsync-is-not-a-function
+      responses:
+        '408': {description: JSON body stream was already consumed by global middleware., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '500': {description: Attachment insertion fails in the pinned v11.06 runtime., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/attachment/upload-background"].post'
+    description: >-
+      The same raw-stream-after-body-parser defect affects Wekan v11.06
+      server/routes/attachmentApi.js lines 363-404; its insertion path also uses
+      Attachments.insertAsync at lines 433-470.
+    update:
+      x-wekan-v11.06-defect:
+        - body-stream-consumed-before-route-listeners
+        - attachments-insertAsync-is-not-a-function
+      responses:
+        '408': {description: JSON body stream was already consumed by global middleware., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '500': {description: Background insertion fails in the pinned v11.06 runtime., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/attachment/copy"].post'
+    description: >-
+      Record both REST copy defects in Wekan v11.06. The global parser at
+      server/apiMiddleware.js lines 12-15 consumes the body before the raw
+      listeners at server/routes/attachmentApi.js lines 762-804, so normal
+      application/json requests time out. Once that blocker is removed, lines
+      849-890 call the client-only Attachments.insertAsync API from the server;
+      models/wekanCreator.js lines 603-619 identifies writeAsync as the required
+      server-side Meteor-Files API.
+    update:
+      x-wekan-v11.06-defect:
+        - body-stream-consumed-before-route-listeners
+        - attachments-insertAsync-is-not-a-function
+      responses:
+        '408': {description: JSON body stream was already consumed by global middleware., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '500': {description: Attachment insertion fails after the body-parser defect is removed., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/attachment/move"].post'
+    description: >-
+      Record the raw-stream-after-body-parser defect in Wekan v11.06
+      server/routes/attachmentApi.js lines 932-963; application/json requests
+      time out because the end event fired before the route listener was added.
+    update:
+      x-wekan-v11.06-defect: body-stream-consumed-before-route-listeners
+      responses:
+        '408': {description: JSON body stream was already consumed by global middleware., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists"].get.responses["200"]'
+    description: >-
+      Add the checklist-summary array returned by Wekan v11.06
+      server/models/checklists.js lines 156-187.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/ChecklistSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}"].get.responses["200"]'
+    description: >-
+      Add the checklist-with-items response from Wekan v11.06
+      server/models/checklists.js lines 196-233.
+    update:
+      schema: {$ref: '#/definitions/ChecklistDetail'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}"].delete.responses["200"]'
+    description: >-
+      Add the deleted checklist ID from Wekan v11.06
+      server/models/checklists.js lines 300-338.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].get.responses["200"]'
+    description: >-
+      Add the checklist-item document from Wekan v11.06
+      server/models/checklistItems.js lines 94-120.
+    update:
+      schema: {$ref: '#/definitions/ChecklistItems'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].delete.responses["200"]'
+    description: >-
+      Add the deleted item ID from Wekan v11.06
+      server/models/checklistItems.js lines 231-261.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].get.responses["200"]'
+    description: >-
+      Add the comment-summary array returned by Wekan v11.06
+      server/models/cardComments.js lines 95-110.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/CommentSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].get.responses["200"]'
+    description: >-
+      Add the single comment document from Wekan v11.06
+      server/models/cardComments.js lines 119-140.
+    update:
+      schema: {$ref: '#/definitions/CardComments'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].delete.responses["200"]'
+    description: >-
+      Add the card ID returned after comment deletion by Wekan v11.06
+      server/models/cardComments.js lines 190-240.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields"].get.responses["200"]'
+    description: >-
+      Add the custom-field summary array returned by Wekan v11.06
+      server/models/customFields.js lines 104-114.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/CustomFieldSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].get.responses["200"]'
+    description: >-
+      Add the custom-field document returned by Wekan v11.06
+      server/models/customFields.js lines 117-127.
+    update:
+      schema: {$ref: '#/definitions/CustomFields'}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].delete.responses["200"]'
+    description: >-
+      Add the deleted custom-field ID from Wekan v11.06
+      server/models/customFields.js lines 305-314.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].put.responses["200"]'
+    description: >-
+      Add the updated dropdown-item ID from Wekan v11.06
+      server/models/customFields.js lines 247-277.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].delete.responses["200"]'
+    description: >-
+      Add the parent custom-field ID from Wekan v11.06
+      server/models/customFields.js lines 281-301.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/integrations"].get.responses["200"]'
+    description: >-
+      Add the token-redacted integration array from Wekan v11.06
+      server/models/integrations.js lines 15-32.
+    update:
+      schema: {type: array, items: {type: object, additionalProperties: true}}
+
+  - target: '$.paths["/api/boards/{board}/integrations/{int}"].get.responses["200"]'
+    description: >-
+      Add the token-redacted integration document from Wekan v11.06
+      server/models/integrations.js lines 36-53.
+    update:
+      schema: {type: object, additionalProperties: true}
+
+  - target: '$.paths["/api/boards/{board}/integrations/{int}"].delete.responses["200"]'
+    description: >-
+      Add the deleted integration ID from Wekan v11.06
+      server/models/integrations.js lines 216-233.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists"].get.responses["200"]'
+    description: >-
+      Add the list summary array with sync timestamps from Wekan v11.06
+      server/models/lists.js lines 751-785.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/ListSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].get.responses["200"]'
+    description: >-
+      Add the list document from Wekan v11.06 server/models/lists.js lines
+      789-803.
+    update:
+      schema: {$ref: '#/definitions/Lists'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].delete.responses["200"]'
+    description: >-
+      Add the soft-deleted list ID from Wekan v11.06
+      server/models/lists.js lines 877-889.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}"].get.responses["200"]'
+    description: >-
+      Add the card array returned by Wekan v11.06 server/models/cards.js lines
+      1909-1925.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/Cards'}}
+
+  - target: '$.paths["/api/boards/{board}/cards_count"].get.responses["200"]'
+    description: >-
+      Add the board_cards_count object from Wekan v11.06
+      server/models/cards.js lines 1276-1289.
+    update:
+      schema:
+        type: object
+        required: [board_cards_count]
+        properties:
+          board_cards_count: {type: integer, format: int32}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards"].get.responses["200"]'
+    description: >-
+      Add the list-card summary array from Wekan v11.06
+      server/models/cards.js lines 998-1024.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/CardSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].get.responses["200"]'
+    description: >-
+      Add the card document from Wekan v11.06 server/models/cards.js lines
+      1044-1060.
+    update:
+      schema: {$ref: '#/definitions/Cards'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].delete.responses["200"]'
+    description: >-
+      Add the deleted card ID from Wekan v11.06 server/models/cards.js lines
+      1704-1769.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/archive"].post.responses["200"]'
+    description: >-
+      Add the archive result from Wekan v11.06 server/models/cards.js lines
+      1960-1980.
+    update:
+      schema:
+        type: object
+        required: [_id, archived, archivedAt]
+        properties:
+          _id: {type: string}
+          archived: {type: boolean}
+          archivedAt: {type: string, format: date-time}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/unarchive"].post.responses["200"]'
+    description: >-
+      Add the unarchive result from Wekan v11.06 server/models/cards.js lines
+      1984-2004.
+    update:
+      schema:
+        type: object
+        required: [_id, archived]
+        properties:
+          _id: {type: string}
+          archived: {type: boolean}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/members/{member}"].post.responses["200"]'
+    description: >-
+      Add merged member/assignee arrays from Wekan v11.06
+      server/models/cards.js lines 2008-2058.
+    update:
+      schema: {$ref: '#/definitions/CardMemberResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/members/{member}"].delete.responses["200"]'
+    description: >-
+      Add merged member/assignee arrays from Wekan v11.06
+      server/models/cards.js lines 2008-2052 and 2061-2064.
+    update:
+      schema: {$ref: '#/definitions/CardMemberResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}"].post.responses["200"]'
+    description: >-
+      Add merged member/assignee arrays from Wekan v11.06
+      server/models/cards.js lines 2008-2052 and 2067-2070.
+    update:
+      schema: {$ref: '#/definitions/CardMemberResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}"].delete.responses["200"]'
+    description: >-
+      Add merged member/assignee arrays from Wekan v11.06
+      server/models/cards.js lines 2008-2052 and 2073-2076.
+    update:
+      schema: {$ref: '#/definitions/CardMemberResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}"].post'
+    description: >-
+      Correct the JSON value body and response from Wekan v11.06
+      server/models/cards.js lines 1928-1957. Custom-field values can have the
+      type defined by the field, so value is intentionally unconstrained.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: customField, in: path, type: string, required: true}
+        - name: request
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Value consumed by server/models/cards.js lines 1935-1955.
+            required: [value]
+            properties:
+              value: {}
+      responses:
+        '200':
+          description: Updated custom field values.
+          schema:
+            type: object
+            required: [_id, customFields]
+            properties:
+              _id: {type: string}
+              customFields: {type: array, items: {type: object, additionalProperties: true}}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards_count"].get.responses["200"]'
+    description: >-
+      Add the list_cards_count object from Wekan v11.06
+      server/models/cards.js lines 1293-1308.
+    update:
+      schema:
+        type: object
+        required: [list_cards_count]
+        properties:
+          list_cards_count: {type: integer, format: int32}
+
+  - target: '$.paths["/api/cards/{card}"].get.responses["200"]'
+    description: >-
+      Add the card document from Wekan v11.06 server/models/cards.js lines
+      1027-1041.
+    update:
+      schema: {$ref: '#/definitions/Cards'}
+
+  - target: '$.paths["/api/user/cards"].get.responses["200"]'
+    description: >-
+      Add the card array returned by Wekan v11.06 server/models/cards.js lines
+      2180-2236.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/Cards'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes"].get.responses["200"]'
+    description: >-
+      Add the swimlane summary array from Wekan v11.06
+      server/models/swimlanes.js lines 126-145.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/SwimlaneSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].get.responses["200"]'
+    description: >-
+      Add the swimlane document from Wekan v11.06
+      server/models/swimlanes.js lines 149-167.
+    update:
+      schema: {$ref: '#/definitions/Swimlanes'}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].delete.responses["200"]'
+    description: >-
+      Add the deleted swimlane ID from Wekan v11.06
+      server/models/swimlanes.js lines 235-250.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/cards"].get.responses["200"]'
+    description: >-
+      Add the swimlane-card summary array from Wekan v11.06
+      server/models/cards.js lines 967-994.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/CardSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/members/{user}/remove"].post.responses["200"]'
+    description: >-
+      Add affected board summaries from Wekan v11.06
+      server/models/users.js lines 2194-2242.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/BoardSummary'}}
+
+  - target: '$.paths["/api/createtoken/{user}"].post.responses["200"]'
+    description: >-
+      Add the created token response from Wekan v11.06
+      server/models/users.js lines 2272-2287.
+    update:
+      schema: {$ref: '#/definitions/CreateTokenResponse'}
+
+  - target: '$.paths["/api/users"].get.responses["200"]'
+    description: >-
+      Add the admin user-summary array from Wekan v11.06
+      server/models/users.js lines 2003-2013.
+    update:
+      schema: {type: array, items: {$ref: '#/definitions/UserSummary'}}
+
+  - target: '$.paths["/api/users"].post.responses["200"]'
+    description: >-
+      Preserve the exact v11.06 defect response after the generic response
+      coverage pass. Wekan v11.06 server/models/users.js lines 2249-2255
+      serializes the unawaited Accounts.createUser Promise as `_id: {}`.
+    update:
+      schema: {$ref: '#/definitions/CreateUserV1106Response'}
+
+  - target: '$.paths["/api/users/{user}"].get.responses["200"]'
+    description: >-
+      Add the secret-stripped user document from Wekan v11.06
+      server/models/users.js lines 2017-2062.
+    update:
+      schema: {$ref: '#/definitions/Users'}
+
+  - target: '$.paths["/api/users/{user}"].put.responses["200"]'
+    description: >-
+      Describe the user document or board-summary array selected by action in
+      Wekan v11.06 server/models/users.js lines 2066-2097. Swagger 2 cannot
+      express the two unrelated success shapes, so the schema is intentionally
+      unconstrained rather than falsely choosing one.
+    update:
+      schema: {}
+
+  - target: '$.paths["/api/users/{user}"].delete.responses["200"]'
+    description: >-
+      Add the deleted user ID from Wekan v11.06
+      server/models/users.js lines 2261-2268.
+    update:
+      schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/attachment/upload"].post.responses["200"]'
+    description: >-
+      Add the upload result from Wekan v11.06
+      server/routes/attachmentApi.js lines 330-337.
+    update:
+      schema: {$ref: '#/definitions/AttachmentUploadResponse'}
+
+  - target: '$.paths["/api/attachment/upload-background"].post.responses["200"]'
+    description: >-
+      Add the background-upload result from Wekan v11.06
+      server/routes/attachmentApi.js lines 457-464.
+    update:
+      schema: {$ref: '#/definitions/AttachmentUploadResponse'}
+
+  - target: '$.paths["/api/attachment/download-background/{boardId}"].get.responses["200"]'
+    description: >-
+      Add the background base64 result from Wekan v11.06
+      server/routes/attachmentApi.js lines 534-543.
+    update:
+      schema: {$ref: '#/definitions/AttachmentDownloadResponse'}
+
+  - target: '$.paths["/api/attachment/download/{attachmentId}"].get.responses["200"]'
+    description: >-
+      Add the attachment base64 result from Wekan v11.06
+      server/routes/attachmentApi.js lines 631-639.
+    update:
+      schema: {$ref: '#/definitions/AttachmentDownloadResponse'}
+
+  - target: '$.paths["/api/attachment/info/{attachmentId}"].get.responses["200"]'
+    description: >-
+      Add attachment metadata and versions from Wekan v11.06
+      server/routes/attachmentApi.js lines 1087-1127.
+    update:
+      schema: {$ref: '#/definitions/AttachmentInfoResponse'}
+
+  - target: '$.paths["/api/attachment/list/{boardId}"].get.responses["200"]'
+    description: >-
+      Add the board attachment-list envelope from Wekan v11.06
+      server/routes/attachmentApi.js lines 651-715.
+    update:
+      schema: {$ref: '#/definitions/AttachmentListResponse'}
+
+  - target: '$.paths["/api/attachment/list/{boardId}/{swimlaneId}"].get.responses["200"]'
+    description: >-
+      Add the swimlane-filtered attachment-list envelope from Wekan v11.06
+      server/routes/attachmentApi.js lines 651-724.
+    update:
+      schema: {$ref: '#/definitions/AttachmentListResponse'}
+
+  - target: '$.paths["/api/attachment/list/{boardId}/{swimlaneId}/{listId}"].get.responses["200"]'
+    description: >-
+      Add the list-filtered attachment-list envelope from Wekan v11.06
+      server/routes/attachmentApi.js lines 651-724.
+    update:
+      schema: {$ref: '#/definitions/AttachmentListResponse'}
+
+  - target: '$.paths["/api/attachment/list/{boardId}/{swimlaneId}/{listId}/{cardId}"].get.responses["200"]'
+    description: >-
+      Add the card-filtered attachment-list envelope from Wekan v11.06
+      server/routes/attachmentApi.js lines 651-724.
+    update:
+      schema: {$ref: '#/definitions/AttachmentListResponse'}
+
+  - target: '$.paths["/api/attachment/copy"].post.responses["200"]'
+    description: >-
+      Add the attachment-copy result from Wekan v11.06
+      server/routes/attachmentApi.js lines 892-900.
+    update:
+      schema: {$ref: '#/definitions/AttachmentCopyResponse'}
+
+  - target: '$.paths["/api/attachment/move"].post.responses["200"]'
+    description: >-
+      Add the attachment-move result from Wekan v11.06
+      server/routes/attachmentApi.js lines 1022-1030.
+    update:
+      schema: {$ref: '#/definitions/AttachmentMoveResponse'}
+
+  - target: '$.paths["/api/attachment/delete/{attachmentId}"].delete.responses["200"]'
+    description: >-
+      Add the attachment-delete result from Wekan v11.06
+      server/routes/attachmentApi.js lines 1051-1079.
+    update:
+      schema: {$ref: '#/definitions/AttachmentDeleteResponse'}
+
+  - target: '$.paths["/api/boards/{boardId}/cardSettings"].get.responses["200"]'
+    description: >-
+      Add all card settings returned by Wekan v11.06
+      server/models/boards.js lines 1162-1232.
+    update:
+      schema: {$ref: '#/definitions/BoardCardSettings'}
+
+  - target: '$.paths["/api/boards/{boardId}/cardSettings"].put'
+    description: >-
+      Replace the four-field body with all 47 settings and add the updated
+      result from Wekan v11.06 server/models/boards.js lines 1162-1269.
+    update:
+      parameters:
+        - {name: boardId, in: path, type: string, required: true}
+        - name: body
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/BoardCardSettings'}
+      responses:
+        '200': {description: Updated board card settings., schema: {$ref: '#/definitions/BoardCardSettings'}}
+        '400': {description: No recognized card settings., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Authentication or board write access failed., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.definitions.CardsCustomfields'
+    description: >-
+      Replace the empty generator placeholder with the nested card custom-field
+      shape from Wekan v11.06 models/cards.js lines 189-219.
+    update:
+      description: Nested card custom-field value from models/cards.js lines 189-219.
+      properties:
+        _id: {type: string}
+        value:
+          description: String, number, boolean, date string, or string array.
+
+  - target: '$.definitions.CardsStickers'
+    description: >-
+      Replace the empty generator placeholder with the sticker shape from Wekan
+      v11.06 models/cards.js lines 343-390.
+    update:
+      description: Card sticker from models/cards.js lines 343-390.
+      properties:
+        icon: {type: string}
+        name: {type: string}
+        highlight: {type: string, enum: [underline, round]}
+        position: {type: number}
+
+  - target: '$.definitions.CardsLocations'
+    description: >-
+      Replace the empty generator placeholder with the location shape from
+      Wekan v11.06 models/cards.js lines 421-470.
+    update:
+      description: Card location from models/cards.js lines 421-470.
+      required: [_id]
+      properties:
+        _id: {type: string}
+        name: {type: string}
+        address: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+
+  - target: '$.definitions.CardsCarddependencies'
+    description: >-
+      Replace the empty generator placeholder with the typed dependency shape
+      from Wekan v11.06 models/cards.js lines 535-571.
+    update:
+      description: Card dependency from models/cards.js lines 535-571.
+      required: [cardId]
+      properties:
+        cardId: {type: string}
+        type: {type: string}
+        color: {type: string}
+        icon: {type: string}
+
+  - target: '$.definitions.CustomFieldsSettingsDropdownitems'
+    description: >-
+      Replace the empty generator placeholder with the dropdown item shape from
+      Wekan v11.06 models/customFields.js lines 52-74.
+    update:
+      description: Custom-field dropdown item from models/customFields.js lines 52-74.
+      required: [_id, name]
+      properties:
+        _id: {type: string}
+        name: {type: string}
+
+  - target: '$.paths["/api/boards/{board}/rules"].post'
+    description: >-
+      Replace formData objects with the nested JSON body validated by Wekan
+      v11.06 server/models/rules.js lines 130-168.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: rule
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/RuleCreateRequest'}
+
+  - target: '$.paths["/api/boards/{board}/rules/{rule}"].put'
+    description: >-
+      Replace formData objects with the partial nested JSON body consumed by
+      Wekan v11.06 server/models/rules.js lines 170-213.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: rule, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/RuleUpdateRequest'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies"].post'
+    description: >-
+      Correct the alternative target names and optional dependency metadata
+      from Wekan v11.06 server/models/dependencies.js lines 191-243.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - name: dependency
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/DependencyCreateRequest'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/dependencies/{target}"].put'
+    description: >-
+      Replace the bogus required key with the actual partial type/color/icon
+      body from Wekan v11.06 server/models/dependencies.js lines 260-289.
+    update:
+      consumes: [application/json]
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: target, in: path, type: string, required: true}
+        - name: changes
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/DependencyUpdateRequest'}
+
+  - target: '$.paths["/api/boards/{board}/export/{format}"].get'
+    description: >-
+      Add the exact external format set, authentication and fields selection
+      from Wekan v11.06 models/export.js lines 327-395 and
+      models/lib/externalExporters.js lines 62-161.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - name: format
+          in: path
+          type: string
+          required: true
+          enum: [deck, openproject, github, gitea, forgejo, gitlab, trello, jira, asana, zenkit]
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false, description: Comma-separated export sections.}
+      security:
+        - {}
+      responses:
+        '200': {description: External-tool export document., schema: {type: object, additionalProperties: true}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/export/csv"].get'
+    description: >-
+      Correct operation ID, authentication, delimiter/field parameters and CSV
+      or TSV media types from Wekan v11.06 models/export.js lines 508-645.
+    update:
+      operationId: exportCSVTSV
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: delimiter, in: query, type: string, required: false, description: Use a tab character for TSV; comma is the default.}
+        - {name: fields, in: query, type: string, required: false, description: Comma-separated export sections controlling columns.}
+      produces: [text/csv, text/tsv, text/plain]
+      security:
+        - {}
+      responses:
+        '200': {description: CSV or TSV file., schema: {type: file}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token.}
+        '403': {description: Board access denied.}
+        '404': {description: Board not found.}
+
+  - target: '$.paths["/api/boards/{board}/exportExcel"].get'
+    description: >-
+      Correct authentication, locale, field/scope parameters and XLSX media
+      type from Wekan v11.06 models/exportExcel.js lines 20-147 and
+      models/server/ExporterExcelBoard.js lines 347-356.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false}
+        - {name: lang, in: query, type: string, required: false}
+        - {name: dateFormat, in: query, type: string, required: false}
+        - {name: tz, in: query, type: string, required: false, description: 'IANA timezone name, at most 64 characters.'}
+        - {name: swimlaneId, in: query, type: string, required: false}
+        - {name: listId, in: query, type: string, required: false}
+        - {name: cardId, in: query, type: string, required: false}
+        - {name: checklistId, in: query, type: string, required: false}
+      produces: [application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/plain]
+      security:
+        - {}
+      responses:
+        '200':
+          description: >-
+            XLSX workbook on success. Wekan v11.06 also returns plain-text
+            missing-board, overlong-token, and authorization failures with HTTP 200.
+          schema: {type: file}
+          x-wekan-alternate-error-schema: {type: string}
+        '401': {description: Invalid login token.}
+        '500': {description: Workbook generation failed.}
+      x-wekan-v11.06-defect: binary-export-errors-use-http-200
+
+  - target: '$.paths["/api/boards/{board}/exportPDF"].get'
+    description: >-
+      Correct authentication, locale, field/scope parameters and PDF media type
+      from Wekan v11.06 models/exportPDF.js lines 188-251 and
+      models/server/ExporterCardPDF.js lines 582-657.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false}
+        - {name: lang, in: query, type: string, required: false}
+        - {name: dateFormat, in: query, type: string, required: false}
+        - {name: tz, in: query, type: string, required: false, description: 'IANA timezone name, at most 64 characters.'}
+        - {name: swimlaneId, in: query, type: string, required: false}
+        - {name: listId, in: query, type: string, required: false}
+        - {name: cardId, in: query, type: string, required: false}
+        - {name: checklistId, in: query, type: string, required: false}
+      produces: [application/pdf, text/plain]
+      security:
+        - {}
+      responses:
+        '200':
+          description: >-
+            PDF file on success. Wekan v11.06 also returns plain-text
+            missing-board and overlong-token failures with HTTP 200.
+          schema: {type: file}
+          x-wekan-alternate-error-schema: {type: string}
+        '401': {description: Invalid login token.}
+        '403': {description: Board access denied.}
+      x-wekan-v11.06-defect: binary-export-errors-use-http-200
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportExcel"].get'
+    description: >-
+      Correct authentication, field/locale parameters and XLSX media type from
+      Wekan v11.06 models/exportExcelCard.js lines 20-162 and
+      models/server/ExporterExcelCard.js lines 347-348.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false}
+        - {name: lang, in: query, type: string, required: false}
+        - {name: dateFormat, in: query, type: string, required: false}
+        - {name: tz, in: query, type: string, required: false, description: 'IANA timezone name, at most 64 characters.'}
+      produces: [application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/plain]
+      security:
+        - {}
+      responses:
+        '200':
+          description: >-
+            XLSX workbook on success. Wekan v11.06 also returns a plain-text
+            board-access denial with HTTP 200.
+          schema: {type: file}
+          x-wekan-alternate-error-schema: {type: string}
+        '400': {description: Invalid token length.}
+        '401': {description: Invalid login token.}
+        '403': {description: Board access denied.}
+        '404': {description: 'Board, list or card not found.'}
+        '500': {description: Workbook generation failed.}
+      x-wekan-v11.06-defect: binary-export-errors-use-http-200
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"].get'
+    description: >-
+      Add the field and locale queries used by Wekan v11.06
+      models/exportPDF.js lines 89-167; PDF response generation is in
+      models/server/ExporterCardPDF.js lines 362-386.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: list, in: path, type: string, required: true}
+        - {name: card, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+        - {name: fields, in: query, type: string, required: false}
+        - {name: lang, in: query, type: string, required: false}
+        - {name: dateFormat, in: query, type: string, required: false}
+        - {name: tz, in: query, type: string, required: false, description: 'IANA timezone name, at most 64 characters.'}
+      security:
+        - {}
+      produces: [application/pdf, text/plain]
+      responses:
+        '200':
+          description: >-
+            PDF file on success. Wekan v11.06 also returns plain-text
+            missing-board, overlong-token, and board-access failures with HTTP 200.
+          schema: {type: file}
+          x-wekan-alternate-error-schema: {type: string}
+        '401': {description: Invalid login token.}
+        '403': {description: Board access denied.}
+      x-wekan-v11.06-defect: binary-export-errors-use-http-200
+
+  - target: '$.paths["/api/boards/{board}/attachments/{attachment}/export"].get'
+    description: >-
+      Complete path/query parameters and response/error schemas from Wekan
+      v11.06 models/export.js lines 417-505. The exporter document is assembled
+      by models/exporter.js lines 148-240 and includes only the selected
+      attachment when attachmentId is supplied.
+    update:
+      parameters:
+        - {name: board, in: path, type: string, required: true}
+        - {name: attachment, in: path, type: string, required: true}
+        - {name: authToken, in: query, type: string, required: false}
+      responses:
+        '200': {description: Wekan export document containing the selected attachment., schema: {type: object, additionalProperties: true}}
+        '400': {description: Invalid token length., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '403': {description: Board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+        '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
