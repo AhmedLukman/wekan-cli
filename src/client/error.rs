@@ -1,0 +1,34 @@
+use reqwest::StatusCode;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ClientError {
+    #[error("failed to initialize the HTTP client")]
+    Build(#[source] reqwest::Error),
+    #[error("the registration request could not be completed")]
+    Transport(#[source] reqwest::Error),
+    #[error("the server returned an unexpected redirect ({status})")]
+    UnexpectedRedirect { status: StatusCode },
+    #[error("the server response exceeded the {limit_bytes}-byte limit")]
+    ResponseTooLarge {
+        limit_bytes: usize,
+        status: StatusCode,
+    },
+    #[error("the server response body could not be read")]
+    ResponseBody {
+        status: StatusCode,
+        #[source]
+        source: reqwest::Error,
+    },
+    #[error("the server returned an invalid registration success response: {message}")]
+    Protocol {
+        message: String,
+        account_created: Option<bool>,
+    },
+    #[error("the Wekan server rejected registration ({status})")]
+    Server {
+        status: StatusCode,
+        server_error: Option<String>,
+        server_reason: Option<String>,
+    },
+}
