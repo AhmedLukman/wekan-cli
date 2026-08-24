@@ -2,6 +2,7 @@
 name = "wekan-cli"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
 rust-version = "1.88"
 description = "Agent-first, human-friendly command-line client for Wekan"
 default-run = "wekan"
