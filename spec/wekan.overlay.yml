@@ -465,7 +465,12 @@ actions:
           isClientSafe:
             type: boolean
           error:
-            type: string
+            description: >-
+              Error identifier. Authentication routes can return either a
+              string identifier or a numeric Meteor.Error code.
+            x-oneOf:
+              - type: string
+              - type: number
           reason:
             type: string
           message:
@@ -708,6 +713,7 @@ actions:
     update:
       consumes:
         - application/json
+        - application/x-www-form-urlencoded
       parameters:
         - name: registrationRequest
           in: body
@@ -742,7 +748,12 @@ actions:
           server/routes/attachmentApi.js lines 130-139.
         properties:
           error:
-            type: string
+            description: >-
+              Error identifier. Authentication routes can return either a
+              string identifier or a numeric Meteor.Error code.
+            x-oneOf:
+              - type: string
+              - type: number
           reason:
             type: string
           message:

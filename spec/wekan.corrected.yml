@@ -91,6 +91,7 @@ paths:
                         $ref: '#/definitions/ErrorResponse'
             consumes:
                 - application/json
+                - application/x-www-form-urlencoded
             parameters:
                 - name: registrationRequest
                   in: body
@@ -6308,7 +6309,11 @@ definitions:
             isClientSafe:
                 type: boolean
             error:
-                type: string
+                description: >-
+                    Error identifier. Authentication routes can return either a string identifier or a numeric Meteor.Error code.
+                x-oneOf:
+                    - type: string
+                    - type: number
             reason:
                 type: string
             message:
@@ -6341,7 +6346,11 @@ definitions:
             Error fields serialized by server/apiAuthRoutes.js lines 177-186 and 312-318, and the attachment error envelope in server/routes/attachmentApi.js lines 130-139.
         properties:
             error:
-                type: string
+                description: >-
+                    Error identifier. Authentication routes can return either a string identifier or a numeric Meteor.Error code.
+                x-oneOf:
+                    - type: string
+                    - type: number
             reason:
                 type: string
             message:
