@@ -11,7 +11,10 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{embedded_server_error_details, preflight_credentials, server_error_details};
+use super::{
+    embedded_server_error_details, preflight_credentials, protocol_error_details,
+    response_error_details, server_error_details,
+};
 
 #[derive(Debug, Args)]
 pub struct StatusArgs {}
@@ -156,10 +159,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
             redactor.redact(&format!("invalid response from Wekan: {message}")),
             StableExitCode::Transport,
         )
-        .with_details(ErrorDetails {
-            http_status: success_status_received.then_some(StatusCode::OK.as_u16()),
-            ..ErrorDetails::default()
-        }),
+        .with_details(protocol_error_details(success_status_received)),
         ClientError::Server {
             status,
             server_error,
@@ -224,12 +224,10 @@ fn response_body_error(
     status: StatusCode,
     retry_after_seconds: Option<u64>,
 ) -> AppError {
+    let details = response_error_details(status, retry_after_seconds);
     if status == StatusCode::OK {
         return AppError::new(ErrorCode::ProtocolError, message, StableExitCode::Transport)
-            .with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                ..ErrorDetails::default()
-            });
+            .with_details(details);
     }
 
     let authentication_rejected = status == StatusCode::UNAUTHORIZED;
@@ -247,11 +245,7 @@ fn response_body_error(
         },
         StableExitCode::Server,
     )
-    .with_details(ErrorDetails {
-        http_status: Some(status.as_u16()),
-        retry_after_seconds,
-        ..ErrorDetails::default()
-    })
+    .with_details(details)
 }
 
 #[cfg(test)]
@@ -267,15 +261,16 @@ mod tests {
         matchers::{header, method, path},
     };
 
-    use super::{StatusArgs, execute};
+    use super::{StatusArgs, execute, map_client_error};
     use crate::{
         cli::Cli,
-        client::WekanClientFactory,
+        client::{ClientError, WekanClientFactory},
         commands::{RootCommand, auth::AuthCommand},
         credentials::{CredentialError, CredentialRecord, CredentialStore},
         error::ErrorCode,
         exit_code::StableExitCode,
         output::CommandSuccess,
+        redaction::Redactor,
     };
 
     struct FakeCredentialStore {
@@ -355,6 +350,42 @@ mod tests {
         ])
         .expect_err("status-specific arguments must be rejected");
         assert!(error.to_string().contains("unexpected"));
+    }
+
+    #[test]
+    fn status_only_exposes_retry_metadata_for_rate_limits() {
+        let token = SecretString::from("status-token".to_owned());
+        let redactor = Redactor::with_secret(&token);
+        let unavailable = map_client_error(
+            ClientError::Server {
+                status: reqwest::StatusCode::SERVICE_UNAVAILABLE,
+                server_error: None,
+                server_reason: None,
+                retry_after_seconds: Some(41),
+            },
+            &redactor,
+        );
+        let oversized = map_client_error(
+            ClientError::ResponseTooLarge {
+                limit_bytes: 1024 * 1024,
+                status: reqwest::StatusCode::SERVICE_UNAVAILABLE,
+                retry_after_seconds: Some(43),
+            },
+            &redactor,
+        );
+        let limited = map_client_error(
+            ClientError::Server {
+                status: reqwest::StatusCode::TOO_MANY_REQUESTS,
+                server_error: None,
+                server_reason: None,
+                retry_after_seconds: Some(47),
+            },
+            &redactor,
+        );
+
+        assert_eq!(unavailable.details().retry_after_seconds, None);
+        assert_eq!(oversized.details().retry_after_seconds, None);
+        assert_eq!(limited.details().retry_after_seconds, Some(47));
     }
 
     #[tokio::test]

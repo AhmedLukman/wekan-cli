@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
-    server_error_details,
+    protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -102,31 +102,39 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         ClientError::ResponseTooLarge {
             limit_bytes,
             status,
-            retry_after_seconds: _,
+            retry_after_seconds,
         } => response_body_error(
             format!("the server response exceeded the {limit_bytes}-byte safety limit"),
             status,
+            retry_after_seconds,
         ),
-        ClientError::ResponseBody { status, .. } => {
-            response_body_error("the server response body could not be read", status)
-        }
+        ClientError::ResponseBody {
+            status,
+            retry_after_seconds,
+            ..
+        } => response_body_error(
+            "the server response body could not be read",
+            status,
+            retry_after_seconds,
+        ),
         ClientError::Protocol {
             message,
             success_status_received,
-        } => AppError::new(
-            ErrorCode::ProtocolError,
-            redactor.redact(&format!("invalid response from Wekan: {message}")),
-            StableExitCode::Transport,
-        )
-        .with_details(ErrorDetails {
-            account_created: Some(success_status_received),
-            ..ErrorDetails::default()
-        }),
+        } => {
+            let mut details = protocol_error_details(success_status_received);
+            details.account_created = Some(success_status_received);
+            AppError::new(
+                ErrorCode::ProtocolError,
+                redactor.redact(&format!("invalid response from Wekan: {message}")),
+                StableExitCode::Transport,
+            )
+            .with_details(details)
+        }
         ClientError::Server {
             status,
             server_error,
             server_reason,
-            retry_after_seconds: _,
+            retry_after_seconds,
         } => {
             let (code, message, outcome_unknown) = match status.as_u16() {
                 400 => (
@@ -150,8 +158,13 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                     None,
                 ),
             };
-            let mut details =
-                server_error_details(status, server_error, server_reason, None, redactor);
+            let mut details = server_error_details(
+                status,
+                server_error,
+                server_reason,
+                retry_after_seconds,
+                redactor,
+            );
             details.outcome_unknown = outcome_unknown;
             AppError::new(code, message, StableExitCode::Server).with_details(details)
         }
@@ -179,15 +192,17 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
     }
 }
 
-fn response_body_error(message: impl Into<String>, status: reqwest::StatusCode) -> AppError {
+fn response_body_error(
+    message: impl Into<String>,
+    status: reqwest::StatusCode,
+    retry_after_seconds: Option<u64>,
+) -> AppError {
     let mut message = message.into();
+    let mut details = response_error_details(status, retry_after_seconds);
     if status == reqwest::StatusCode::OK {
+        details.account_created = Some(true);
         return AppError::new(ErrorCode::ProtocolError, message, StableExitCode::Transport)
-            .with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                account_created: Some(true),
-                ..ErrorDetails::default()
-            });
+            .with_details(details);
     }
 
     let (code, exit_code, outcome_unknown) = match status.as_u16() {
@@ -218,11 +233,8 @@ fn response_body_error(message: impl Into<String>, status: reqwest::StatusCode) 
         message
     };
 
-    AppError::new(code, message, exit_code).with_details(ErrorDetails {
-        http_status: Some(status.as_u16()),
-        outcome_unknown,
-        ..ErrorDetails::default()
-    })
+    details.outcome_unknown = outcome_unknown;
+    AppError::new(code, message, exit_code).with_details(details)
 }
 
 #[cfg(test)]
@@ -466,7 +478,7 @@ mod tests {
                 status: reqwest::StatusCode::BAD_GATEWAY,
                 server_error: None,
                 server_reason: None,
-                retry_after_seconds: None,
+                retry_after_seconds: Some(29),
             },
             &redactor,
         );
@@ -475,11 +487,40 @@ mod tests {
         assert_eq!(upstream_error.exit_code(), StableExitCode::Server);
         assert_eq!(upstream_error.details().http_status, Some(502));
         assert_eq!(upstream_error.details().outcome_unknown, Some(true));
+        assert_eq!(upstream_error.details().retry_after_seconds, None);
         assert!(
             upstream_error
                 .message()
                 .contains("check the server before retrying")
         );
+
+        let limited_error = map_client_error(
+            ClientError::Server {
+                status: reqwest::StatusCode::TOO_MANY_REQUESTS,
+                server_error: None,
+                server_reason: None,
+                retry_after_seconds: Some(31),
+            },
+            &redactor,
+        );
+        assert_eq!(limited_error.details().retry_after_seconds, Some(31));
+    }
+
+    #[test]
+    fn invalid_registration_success_preserves_the_http_status() {
+        let password = SecretString::from("secret-password".to_owned());
+        let redactor = Redactor::with_secret(&password);
+        let error = map_client_error(
+            ClientError::Protocol {
+                message: "invalid JSON or missing fields".to_owned(),
+                success_status_received: true,
+            },
+            &redactor,
+        );
+
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().account_created, Some(true));
     }
 
     #[test]
@@ -514,6 +555,17 @@ mod tests {
         assert_eq!(disabled_error.exit_code(), StableExitCode::Server);
         assert_eq!(disabled_error.details().http_status, Some(403));
         assert_eq!(disabled_error.details().outcome_unknown, None);
+
+        let limited_error = map_client_error(
+            ClientError::ResponseTooLarge {
+                limit_bytes: 1024 * 1024,
+                status: reqwest::StatusCode::TOO_MANY_REQUESTS,
+                retry_after_seconds: Some(37),
+            },
+            &redactor,
+        );
+        assert_eq!(limited_error.details().retry_after_seconds, Some(37));
+
         let success_error = map_client_error(
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,

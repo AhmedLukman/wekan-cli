@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
-    server_error_details,
+    protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -151,15 +151,16 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         ClientError::Protocol {
             message,
             success_status_received,
-        } => AppError::new(
-            ErrorCode::ProtocolError,
-            redactor.redact(&format!("invalid response from Wekan: {message}")),
-            StableExitCode::Transport,
-        )
-        .with_details(ErrorDetails {
-            session_created: Some(success_status_received),
-            ..ErrorDetails::default()
-        }),
+        } => {
+            let mut details = protocol_error_details(success_status_received);
+            details.session_created = Some(success_status_received);
+            AppError::new(
+                ErrorCode::ProtocolError,
+                redactor.redact(&format!("invalid response from Wekan: {message}")),
+                StableExitCode::Transport,
+            )
+            .with_details(details)
+        }
         ClientError::Server {
             status,
             server_error,
@@ -211,9 +212,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 status,
                 server_error,
                 server_reason,
-                (status == reqwest::StatusCode::TOO_MANY_REQUESTS)
-                    .then_some(retry_after_seconds)
-                    .flatten(),
+                retry_after_seconds,
                 redactor,
             );
             details.two_factor_required = two_factor_required.then_some(true);
@@ -246,13 +245,11 @@ fn response_body_error(
     retry_after_seconds: Option<u64>,
 ) -> AppError {
     let message = message.into();
+    let mut details = response_error_details(status, retry_after_seconds);
     if status == reqwest::StatusCode::OK {
+        details.session_created = Some(true);
         return AppError::new(ErrorCode::ProtocolError, message, StableExitCode::Transport)
-            .with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                session_created: Some(true),
-                ..ErrorDetails::default()
-            });
+            .with_details(details);
     }
 
     let (code, exit_code, outcome_unknown) = match status.as_u16() {
@@ -277,14 +274,8 @@ fn response_body_error(
     }
     message = append_retry_after(message, status, retry_after_seconds);
 
-    AppError::new(code, message, exit_code).with_details(ErrorDetails {
-        http_status: Some(status.as_u16()),
-        outcome_unknown,
-        retry_after_seconds: (status == reqwest::StatusCode::TOO_MANY_REQUESTS)
-            .then_some(retry_after_seconds)
-            .flatten(),
-        ..ErrorDetails::default()
-    })
+    details.outcome_unknown = outcome_unknown;
+    AppError::new(code, message, exit_code).with_details(details)
 }
 
 fn append_retry_after(
@@ -650,12 +641,30 @@ mod tests {
                 status: reqwest::StatusCode::BAD_GATEWAY,
                 server_error: None,
                 server_reason: None,
-                retry_after_seconds: None,
+                retry_after_seconds: Some(29),
             },
             &redactor,
         );
         assert_eq!(upstream.code(), ErrorCode::ServerError);
         assert_eq!(upstream.details().outcome_unknown, Some(true));
+        assert_eq!(upstream.details().retry_after_seconds, None);
+    }
+
+    #[test]
+    fn invalid_login_success_preserves_the_http_status() {
+        let password = SecretString::from("secret-password".to_owned());
+        let redactor = Redactor::with_secret(&password);
+        let error = map_client_error(
+            ClientError::Protocol {
+                message: "invalid JSON or missing fields".to_owned(),
+                success_status_received: true,
+            },
+            &redactor,
+        );
+
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().session_created, Some(true));
     }
 
     #[test]

@@ -107,6 +107,30 @@ pub(super) fn non_empty_identity(value: &str) -> Result<String, String> {
     }
 }
 
+pub(super) fn protocol_error_details(success_status_received: bool) -> ErrorDetails {
+    ErrorDetails {
+        http_status: success_status_received.then_some(StatusCode::OK.as_u16()),
+        ..ErrorDetails::default()
+    }
+}
+
+pub(super) fn response_error_details(
+    status: StatusCode,
+    retry_after_seconds: Option<u64>,
+) -> ErrorDetails {
+    ErrorDetails {
+        http_status: Some(status.as_u16()),
+        retry_after_seconds: retry_after_for_status(status, retry_after_seconds),
+        ..ErrorDetails::default()
+    }
+}
+
+fn retry_after_for_status(status: StatusCode, retry_after_seconds: Option<u64>) -> Option<u64> {
+    (status == StatusCode::TOO_MANY_REQUESTS)
+        .then_some(retry_after_seconds)
+        .flatten()
+}
+
 pub(super) fn server_error_details(
     status: StatusCode,
     server_error: Option<String>,
@@ -114,13 +138,10 @@ pub(super) fn server_error_details(
     retry_after_seconds: Option<u64>,
     redactor: &Redactor<'_>,
 ) -> ErrorDetails {
-    ErrorDetails {
-        http_status: Some(status.as_u16()),
-        server_error: server_error.map(|value| redactor.redact(&value)),
-        server_reason: server_reason.map(|value| redactor.redact(&value)),
-        retry_after_seconds,
-        ..ErrorDetails::default()
-    }
+    let mut details = response_error_details(status, retry_after_seconds);
+    details.server_error = server_error.map(|value| redactor.redact(&value));
+    details.server_reason = server_reason.map(|value| redactor.redact(&value));
+    details
 }
 
 pub(super) fn embedded_server_error_details(
