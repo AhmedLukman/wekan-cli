@@ -58,6 +58,44 @@ emails use an empty array, and optional email-entry fields also use `null`.
 }
 ```
 
+Logout reports the completed scope and the resulting local credential state:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server": "https://wekan.example/",
+    "logout_scope": "current_token",
+    "remote_logout_completed": true,
+    "credential_stored": false,
+    "local_credential_removed": true
+  }
+}
+```
+
+`logout_scope` is `current_token`, `all_tokens`, or `local_only`. Local-only
+success sets `remote_logout_completed: false`; it means only that the canonical
+local credential is absent, not that any Wekan token was revoked.
+`local_credential_removed` distinguishes a deletion performed by this command
+from an idempotent already-absent result. If remote logout succeeds but the
+record was concurrently replaced, the newer record is preserved and success
+sets `credential_stored: true` and `local_credential_removed: false`.
+
+For example, a local-only deletion is:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server": "https://wekan.example/",
+    "logout_scope": "local_only",
+    "remote_logout_completed": false,
+    "credential_stored": false,
+    "local_credential_removed": true
+  }
+}
+```
+
 ## Errors
 
 ```json
@@ -85,9 +123,18 @@ emails use an empty array, and optional email-entry fields also use `null`.
 - `two_factor_required`: whether Wekan accepted the password but requires a
   two-factor code for login;
 - `outcome_unknown`: whether the server may have processed a failed request;
-- `retry_after_seconds`: a valid integer `Retry-After` value from HTTP 429; and
+- `retry_after_seconds`: a valid integer `Retry-After` value from HTTP 429;
 - `token_expires`: the stored RFC 3339 expiry when a credential is locally
-  expired.
+  expired;
+- `logout_scope`: the requested current-token, all-token, or local-only
+  operation when relevant;
+- `remote_logout_completed`: `true` after a validated logout response, `false`
+  when remote logout conclusively did not run, or `null` when its outcome cannot
+  be validated;
+- `credential_stored`: the known local credential presence at the guarded
+  command outcome;
+- `local_credential_removed`: whether this invocation is known to have removed
+  the local credential.
 
 Registration HTTP 400 errors always set `outcome_unknown: true` because Wekan
 `v11.06` can return that status before or after account creation. Authentication
@@ -110,6 +157,27 @@ record, `credential_expired` when the saved expiry is not in the future, and
 current-user route serializes rejection inside HTTP 200, so details contain
 both the actual `http_status` and the embedded `wekan_status_code`. Status is
 read-only and never removes the offending record.
+
+Normal logout also uses `credential_not_found` when no record can be submitted.
+It preserves the record on every remote error. Transport failures, redirects,
+and 5xx responses set `outcome_unknown: true` and
+`remote_logout_completed: null`; an unusable HTTP 200 sets both
+`remote_logout_completed: null` and `outcome_unknown: true` and remains a
+`protocol_error`. Local-only logout is idempotent for an absent entry and never
+contacts Wekan. Logout mutation requests are never automatically retried.
+
+The relevant details for an unusable current-token HTTP 200 are:
+
+```json
+{
+  "http_status": 200,
+  "outcome_unknown": true,
+  "logout_scope": "current_token",
+  "remote_logout_completed": null,
+  "credential_stored": true,
+  "local_credential_removed": false
+}
+```
 
 Messages are intended for humans. Automation must branch on `error.code` and
 the process exit status. Stable error codes are:

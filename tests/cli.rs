@@ -39,6 +39,57 @@ fn auth_help_lists_the_status_command() {
 }
 
 #[test]
+fn auth_help_lists_logout_and_logout_help_documents_scopes() {
+    cargo_bin_cmd!("wekan")
+        .args(["auth", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("logout"))
+        .stdout(predicate::str::contains(
+            "Revoke Wekan login tokens and remove the stored credential",
+        ))
+        .stderr(predicate::str::is_empty());
+
+    cargo_bin_cmd!("wekan")
+        .args(["auth", "logout", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--all"))
+        .stdout(predicate::str::contains("--local-only"))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn logout_scopes_conflict_using_the_json_parse_error_contract() {
+    cargo_bin_cmd!("wekan")
+        .args([
+            "--output=json",
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "logout",
+            "--all",
+            "--local-only",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#))
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
+fn missing_local_only_server_is_a_configuration_error_before_vault_access() {
+    cargo_bin_cmd!("wekan")
+        .env_remove("WEKAN_URL")
+        .args(["--output=json", "auth", "logout", "--local-only"])
+        .assert()
+        .code(3)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+}
+
+#[test]
 fn status_rejects_command_specific_arguments() {
     cargo_bin_cmd!("wekan")
         .args(["--output=json", "auth", "status", "unexpected"])

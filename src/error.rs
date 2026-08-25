@@ -2,6 +2,7 @@ use serde::Serialize;
 
 use crate::{
     client::{ServerUrlError, WekanClientFactoryError},
+    command_result::LogoutScope,
     exit_code::StableExitCode,
 };
 
@@ -73,6 +74,16 @@ pub struct ErrorDetails {
     pub retry_after_seconds: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_expires: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logout_scope: Option<LogoutScope>,
+    // Outer `None` omits this field for unrelated errors; inner `None` renders
+    // JSON null when a logout outcome is genuinely unknown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_logout_completed: Option<Option<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential_stored: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_credential_removed: Option<bool>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

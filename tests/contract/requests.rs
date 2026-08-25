@@ -8,7 +8,89 @@ use wiremock::{
 use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
 
-use super::{client, login_request, register_request, status_token};
+use super::{client, login_request, logout_request, logout_token, register_request, status_token};
+
+#[tokio::test]
+async fn current_token_logout_uses_the_authenticated_json_request() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .and(header("accept", "application/json"))
+        .and(header("content-type", "application/json"))
+        .and(header("authorization", "Bearer logout-token"))
+        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .and(body_json(json!({ "all": false })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "message": "You've been logged out!"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .expect("current-token logout should succeed");
+}
+
+#[tokio::test]
+async fn all_tokens_logout_sets_the_all_request_field() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .and(body_json(json!({ "all": true })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "message": "All login tokens have been invalidated."
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .logout(&logout_request(true), &logout_token())
+        .await
+        .expect("all-token logout should succeed");
+}
+
+#[tokio::test]
+async fn logout_redirects_are_not_followed_or_replayed() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-logout"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/other-logout"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ClientError::UnexpectedRedirect { .. }));
+}
+
+#[tokio::test]
+async fn logout_server_failures_are_not_retried() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ClientError::Server { .. }));
+}
 
 #[tokio::test]
 async fn authentication_status_uses_the_current_user_endpoint_and_bearer_header() {

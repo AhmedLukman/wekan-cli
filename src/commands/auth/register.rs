@@ -2,16 +2,16 @@ use clap::Args;
 
 use crate::{
     client::{ClientError, RegisterRequest, WekanClientFactory},
+    command_result::CommandSuccess,
     credentials::{CredentialStore, SecretInputProvider},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
-    output::CommandSuccess,
     redaction::Redactor,
 };
 
 use super::{
-    embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
-    protocol_error_details, response_error_details, server_error_details,
+    embedded_server_error_details, lock_credential_mutation, non_empty_identity, persist_session,
+    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -60,17 +60,25 @@ pub(crate) async fn execute(
         password,
     };
     let redactor = Redactor::with_secret(&request.password);
+    let credential_mutation =
+        lock_credential_mutation(credential_store, &server_url).map_err(|error| {
+            error.with_details(ErrorDetails {
+                account_created: Some(false),
+                ..ErrorDetails::default()
+            })
+        })?;
     let session = client
         .register(&request)
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    let success = persist_session(credential_store, server_url, session).map_err(|error| {
-        error.with_details(ErrorDetails {
-            account_created: Some(true),
-            ..ErrorDetails::default()
-        })
-    })?;
+    let success =
+        persist_session(credential_mutation.as_ref(), server_url, session).map_err(|error| {
+            error.with_details(ErrorDetails {
+                account_created: Some(true),
+                ..ErrorDetails::default()
+            })
+        })?;
     Ok(CommandSuccess::Registration(success))
 }
 
@@ -256,6 +264,7 @@ mod tests {
     use crate::{
         cli::Cli,
         client::{ClientError, WekanClientFactory},
+        command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
         credentials::{
             CredentialError, CredentialRecord, CredentialStore, LoginSecretMode, LoginSecrets,
@@ -263,7 +272,6 @@ mod tests {
         },
         error::{AppError, ErrorCode},
         exit_code::StableExitCode,
-        output::CommandSuccess,
         redaction::Redactor,
     };
 
@@ -318,6 +326,18 @@ mod tests {
                 token: record.token().expose_secret().to_owned(),
             });
             Ok(())
+        }
+
+        fn delete(&self, _account: &str) -> Result<bool, CredentialError> {
+            panic!("registration must never delete credentials")
+        }
+
+        fn delete_if_matches(
+            &self,
+            _account: &str,
+            _expected: &CredentialRecord,
+        ) -> Result<crate::credentials::CredentialDeleteOutcome, CredentialError> {
+            panic!("registration must never conditionally delete credentials")
         }
     }
 

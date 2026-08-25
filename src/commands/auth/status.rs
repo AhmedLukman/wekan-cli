@@ -4,16 +4,16 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::{
     client::{ClientError, WekanClientFactory},
-    credentials::{CredentialError, CredentialStore},
+    command_result::{AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, CommandSuccess},
+    credentials::CredentialStore,
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
-    output::{AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, CommandSuccess},
     redaction::Redactor,
 };
 
 use super::{
-    embedded_server_error_details, preflight_credentials, protocol_error_details,
-    response_error_details, server_error_details,
+    embedded_server_error_details, map_credential_load_error, preflight_credentials,
+    protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -94,20 +94,6 @@ pub(crate) async fn execute(
                 .collect(),
         },
     }))
-}
-
-fn map_credential_load_error(error: CredentialError) -> AppError {
-    let (code, message) = match error {
-        CredentialError::Unavailable(message) => (
-            ErrorCode::CredentialStoreUnavailable,
-            format!("the operating-system credential store is unavailable: {message}"),
-        ),
-        error => (
-            ErrorCode::CredentialStoreFailed,
-            format!("the stored credential could not be loaded: {error}"),
-        ),
-    };
-    AppError::new(code, message, StableExitCode::Credential)
 }
 
 fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
@@ -265,11 +251,11 @@ mod tests {
     use crate::{
         cli::Cli,
         client::{ClientError, WekanClientFactory},
+        command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
         credentials::{CredentialError, CredentialRecord, CredentialStore},
         error::ErrorCode,
         exit_code::StableExitCode,
-        output::CommandSuccess,
         redaction::Redactor,
     };
 
@@ -315,6 +301,18 @@ mod tests {
 
         fn save(&self, _account: &str, _record: &CredentialRecord) -> Result<(), CredentialError> {
             panic!("authentication status must never save credentials")
+        }
+
+        fn delete(&self, _account: &str) -> Result<bool, CredentialError> {
+            panic!("authentication status must never delete credentials")
+        }
+
+        fn delete_if_matches(
+            &self,
+            _account: &str,
+            _expected: &CredentialRecord,
+        ) -> Result<crate::credentials::CredentialDeleteOutcome, CredentialError> {
+            panic!("authentication status must never conditionally delete credentials")
         }
     }
 

@@ -1,0 +1,1199 @@
+use clap::Args;
+use reqwest::StatusCode;
+
+use crate::{
+    client::{ClientError, LogoutRequest, WekanClientFactory},
+    command_result::{CommandSuccess, LogoutScope, LogoutSuccess},
+    credentials::{CredentialDeleteOutcome, CredentialMutation, CredentialRecord, CredentialStore},
+    error::{AppError, ErrorCode, ErrorDetails},
+    exit_code::StableExitCode,
+    redaction::Redactor,
+};
+
+use super::{
+    embedded_server_error_details, lock_credential_mutation, map_credential_load_error,
+    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
+};
+
+#[derive(Debug, Args)]
+pub struct LogoutArgs {
+    /// Revoke every login token for the authenticated Wekan user.
+    #[arg(long, conflicts_with = "local_only")]
+    pub all: bool,
+
+    /// Remove only the local credential without contacting Wekan.
+    #[arg(long, conflicts_with = "all")]
+    pub local_only: bool,
+}
+
+pub(crate) async fn execute(
+    args: LogoutArgs,
+    client_factory: &WekanClientFactory,
+    credential_store: &dyn CredentialStore,
+) -> Result<CommandSuccess, AppError> {
+    if args.local_only {
+        return execute_local_only(client_factory, credential_store);
+    }
+
+    let scope = if args.all {
+        LogoutScope::AllTokens
+    } else {
+        LogoutScope::CurrentToken
+    };
+    let client = client_factory.create().map_err(|error| {
+        AppError::from(error).with_details(no_remote_mutation_details(scope, None))
+    })?;
+    let server = client.server().as_str().to_owned();
+    preflight_credentials(credential_store, &server)
+        .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
+    let credential_mutation = lock_credential_mutation(credential_store, &server)
+        .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
+    let record = credential_mutation
+        .load()
+        .map_err(|error| {
+            let credential_stored = matches!(
+                &error,
+                crate::credentials::CredentialError::Deserialize(_)
+                    | crate::credentials::CredentialError::UnsupportedVersion(_)
+                    | crate::credentials::CredentialError::InvalidRecord(_)
+                    | crate::credentials::CredentialError::TimestampParse(_)
+            )
+            .then_some(true);
+            map_credential_load_error(error)
+                .with_details(no_remote_mutation_details(scope, credential_stored))
+        })?
+        .ok_or_else(|| credential_not_found(scope))?;
+    let redactor = Redactor::with_secret(record.token());
+
+    client
+        .logout(&LogoutRequest { all: args.all }, record.token())
+        .await
+        .map_err(|error| map_client_error(error, &redactor, scope))?;
+
+    let deletion = delete_completed_logout_credential(
+        credential_mutation.as_ref(),
+        &record,
+        &redactor,
+        scope,
+        None,
+    )?;
+
+    Ok(success(server, scope, true, deletion))
+}
+
+fn delete_completed_logout_credential(
+    credential_mutation: &dyn CredentialMutation,
+    record: &CredentialRecord,
+    redactor: &Redactor<'_>,
+    scope: LogoutScope,
+    http_status: Option<u16>,
+) -> Result<CredentialDeleteOutcome, AppError> {
+    credential_mutation
+        .delete_if_matches(record)
+        .map_err(|error| {
+            AppError::new(
+                ErrorCode::CredentialStoreFailed,
+                redactor.redact(&format!(
+                    "Wekan completed logout, but the stored credential could not be removed: {error}"
+                )),
+                StableExitCode::Credential,
+            )
+            .with_details(ErrorDetails {
+                http_status,
+                logout_scope: Some(scope),
+                remote_logout_completed: Some(Some(true)),
+                ..ErrorDetails::default()
+            })
+        })
+}
+
+fn execute_local_only(
+    client_factory: &WekanClientFactory,
+    credential_store: &dyn CredentialStore,
+) -> Result<CommandSuccess, AppError> {
+    let server = client_factory
+        .resolve_server()
+        .map_err(AppError::from)?
+        .as_str()
+        .to_owned();
+    preflight_credentials(credential_store, &server).map_err(|error| {
+        error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
+    })?;
+    let credential_mutation =
+        lock_credential_mutation(credential_store, &server).map_err(|error| {
+            error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
+        })?;
+    let removed = credential_mutation.delete().map_err(|error| {
+        AppError::new(
+            ErrorCode::CredentialStoreFailed,
+            format!("the stored credential could not be removed: {error}"),
+            StableExitCode::Credential,
+        )
+        .with_details(ErrorDetails {
+            logout_scope: Some(LogoutScope::LocalOnly),
+            remote_logout_completed: Some(Some(false)),
+            ..ErrorDetails::default()
+        })
+    })?;
+
+    Ok(success(
+        server,
+        LogoutScope::LocalOnly,
+        false,
+        if removed {
+            CredentialDeleteOutcome::Removed
+        } else {
+            CredentialDeleteOutcome::Absent
+        },
+    ))
+}
+
+fn success(
+    server: String,
+    logout_scope: LogoutScope,
+    remote: bool,
+    deletion: CredentialDeleteOutcome,
+) -> CommandSuccess {
+    CommandSuccess::Logout(LogoutSuccess {
+        server,
+        logout_scope,
+        remote_logout_completed: remote,
+        credential_stored: deletion == CredentialDeleteOutcome::Mismatch,
+        local_credential_removed: deletion == CredentialDeleteOutcome::Removed,
+    })
+}
+
+fn credential_not_found(scope: LogoutScope) -> AppError {
+    AppError::new(
+        ErrorCode::CredentialNotFound,
+        "no credential is stored for this Wekan server; run `wekan auth login` or `wekan auth register`",
+        StableExitCode::Server,
+    )
+    .with_details(no_remote_mutation_details(scope, Some(false)))
+}
+
+fn no_remote_mutation_details(scope: LogoutScope, credential_stored: Option<bool>) -> ErrorDetails {
+    ErrorDetails {
+        logout_scope: Some(scope),
+        remote_logout_completed: Some(Some(false)),
+        credential_stored,
+        local_credential_removed: Some(false),
+        ..ErrorDetails::default()
+    }
+}
+
+fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutScope) -> AppError {
+    match error {
+        ClientError::Build(_) => AppError::new(
+            ErrorCode::InternalError,
+            "the HTTP client could not be initialized",
+            StableExitCode::Internal,
+        )
+        .with_details(no_remote_mutation_details(scope, Some(true))),
+        ClientError::Transport(error) => AppError::new(
+            ErrorCode::TransportError,
+            redactor.redact(&format!(
+                "the logout request could not be completed: {error}; its remote outcome may be unknown"
+            )),
+            StableExitCode::Transport,
+        )
+        .with_details(ErrorDetails {
+            logout_scope: Some(scope),
+            remote_logout_completed: Some(None),
+            outcome_unknown: Some(true),
+            credential_stored: Some(true),
+            local_credential_removed: Some(false),
+            ..ErrorDetails::default()
+        }),
+        ClientError::UnexpectedRedirect { status } => AppError::new(
+            ErrorCode::UnexpectedRedirect,
+            "the Wekan server returned a redirect; logout requests are not replayed and the remote outcome may be unknown",
+            StableExitCode::Transport,
+        )
+        .with_details(ErrorDetails {
+            http_status: Some(status.as_u16()),
+            logout_scope: Some(scope),
+            remote_logout_completed: Some(None),
+            outcome_unknown: Some(true),
+            credential_stored: Some(true),
+            local_credential_removed: Some(false),
+            ..ErrorDetails::default()
+        }),
+        ClientError::ResponseTooLarge {
+            limit_bytes,
+            status,
+            retry_after_seconds,
+        } => response_body_error(
+            format!("the server response exceeded the {limit_bytes}-byte safety limit"),
+            status,
+            retry_after_seconds,
+            scope,
+        ),
+        ClientError::ResponseBody {
+            status,
+            retry_after_seconds,
+            ..
+        } => response_body_error(
+            "the server response body could not be read".to_owned(),
+            status,
+            retry_after_seconds,
+            scope,
+        ),
+        ClientError::Protocol {
+            message,
+            success_status_received,
+        } => {
+            let mut details = protocol_error_details(success_status_received);
+            details.logout_scope = Some(scope);
+            details.remote_logout_completed = Some(if success_status_received {
+                None
+            } else {
+                Some(false)
+            });
+            details.outcome_unknown = success_status_received.then_some(true);
+            details.credential_stored = Some(true);
+            details.local_credential_removed = Some(false);
+            AppError::new(
+                ErrorCode::ProtocolError,
+                redactor.redact(&format!("invalid response from Wekan: {message}")),
+                StableExitCode::Transport,
+            )
+            .with_details(details)
+        }
+        ClientError::Server {
+            status,
+            server_error,
+            server_reason,
+            retry_after_seconds,
+        } => {
+            let authentication_rejected = status == StatusCode::UNAUTHORIZED;
+            let mut details = server_error_details(
+                status,
+                server_error,
+                server_reason,
+                retry_after_seconds,
+                redactor,
+            );
+            details.logout_scope = Some(scope);
+            details.outcome_unknown = status.is_server_error().then_some(true);
+            details.remote_logout_completed = Some(if status.is_server_error() {
+                None
+            } else {
+                Some(false)
+            });
+            details.credential_stored = Some(true);
+            details.local_credential_removed = Some(false);
+            AppError::new(
+                if authentication_rejected {
+                    ErrorCode::AuthenticationRejected
+                } else {
+                    ErrorCode::ServerError
+                },
+                if authentication_rejected {
+                    "the stored credential was rejected by Wekan and was preserved locally"
+                } else if status.is_server_error() {
+                    "the Wekan server returned an unexpected logout error; the remote outcome may be unknown and the stored credential was preserved"
+                } else {
+                    "the Wekan server rejected logout and the stored credential was preserved"
+                },
+                StableExitCode::Server,
+            )
+            .with_details(details)
+        }
+        ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code,
+            server_error,
+            server_reason,
+        } => {
+            let mut details = embedded_server_error_details(
+                http_status,
+                wekan_status_code,
+                server_error,
+                server_reason,
+                redactor,
+            );
+            details.logout_scope = Some(scope);
+            details.remote_logout_completed = Some(Some(false));
+            details.credential_stored = Some(true);
+            details.local_credential_removed = Some(false);
+            AppError::new(
+                ErrorCode::ServerError,
+                "the Wekan server returned an unexpected embedded logout error",
+                StableExitCode::Server,
+            )
+            .with_details(details)
+        }
+    }
+}
+
+fn response_body_error(
+    message: String,
+    status: StatusCode,
+    retry_after_seconds: Option<u64>,
+    scope: LogoutScope,
+) -> AppError {
+    let mut details = response_error_details(status, retry_after_seconds);
+    details.logout_scope = Some(scope);
+    details.credential_stored = Some(true);
+    details.local_credential_removed = Some(false);
+    if status == StatusCode::OK {
+        details.remote_logout_completed = Some(None);
+        details.outcome_unknown = Some(true);
+        return AppError::new(ErrorCode::ProtocolError, message, StableExitCode::Transport)
+            .with_details(details);
+    }
+
+    let authentication_rejected = status == StatusCode::UNAUTHORIZED;
+    details.outcome_unknown = status.is_server_error().then_some(true);
+    details.remote_logout_completed = Some(if status.is_server_error() {
+        None
+    } else {
+        Some(false)
+    });
+    AppError::new(
+        if authentication_rejected {
+            ErrorCode::AuthenticationRejected
+        } else {
+            ErrorCode::ServerError
+        },
+        if authentication_rejected {
+            "the stored credential was rejected by Wekan and was preserved locally".to_owned()
+        } else if status.is_server_error() {
+            format!("{message}; the remote outcome may be unknown and the stored credential was preserved")
+        } else {
+            message
+        },
+        StableExitCode::Server,
+    )
+    .with_details(details)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        sync::{
+            Arc, Condvar, Mutex,
+            atomic::{AtomicUsize, Ordering},
+            mpsc,
+        },
+        thread,
+        time::Duration as StdDuration,
+    };
+
+    use clap::Parser;
+    use secrecy::{ExposeSecret, SecretString};
+    use serde_json::json;
+    use time::{Duration, OffsetDateTime};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, header, method, path},
+    };
+
+    use super::{LogoutArgs, execute};
+    use crate::{
+        cli::Cli,
+        client::WekanClientFactory,
+        command_result::{CommandSuccess, LogoutScope},
+        commands::{RootCommand, auth::AuthCommand},
+        credentials::{
+            CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
+            CredentialStore,
+        },
+        error::ErrorCode,
+        exit_code::StableExitCode,
+        output::{OutputFormat, render_error},
+    };
+
+    struct StoredCredential {
+        account: String,
+        user_id: String,
+        token: String,
+        token_expires: OffsetDateTime,
+    }
+
+    #[derive(Default)]
+    struct FakeCredentialStore {
+        credential: Mutex<Option<StoredCredential>>,
+        mutation_locked: Mutex<bool>,
+        mutation_released: Condvar,
+        available: bool,
+        panic_on_load: bool,
+        load_error: Mutex<Option<CredentialError>>,
+        delete_error: Mutex<Option<CredentialError>>,
+        replacement_before_delete: Mutex<Option<StoredCredential>>,
+        loads: AtomicUsize,
+        deletes: AtomicUsize,
+    }
+
+    impl FakeCredentialStore {
+        fn with_record(server: &MockServer, token_expires: OffsetDateTime) -> Self {
+            Self {
+                credential: Mutex::new(Some(StoredCredential {
+                    account: format!("{}/", server.uri()),
+                    user_id: "user-1".to_owned(),
+                    token: "logout-token".to_owned(),
+                    token_expires,
+                })),
+                available: true,
+                ..Self::default()
+            }
+        }
+
+        fn local_only(present: bool) -> Self {
+            Self {
+                credential: Mutex::new(present.then(|| StoredCredential {
+                    account: "https://wekan.example/".to_owned(),
+                    user_id: "unreadable-record".to_owned(),
+                    token: "not-decoded".to_owned(),
+                    token_expires: OffsetDateTime::UNIX_EPOCH,
+                })),
+                available: true,
+                panic_on_load: true,
+                ..Self::default()
+            }
+        }
+
+        fn has_credential(&self) -> bool {
+            self.credential.lock().unwrap().is_some()
+        }
+    }
+
+    impl CredentialStore for FakeCredentialStore {
+        fn check_available(&self, _account: &str) -> Result<(), CredentialError> {
+            if self.available {
+                Ok(())
+            } else {
+                Err(CredentialError::Unavailable("test unavailable".to_owned()))
+            }
+        }
+
+        fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+            assert!(
+                !self.panic_on_load,
+                "local-only logout must never load credentials"
+            );
+            self.loads.fetch_add(1, Ordering::SeqCst);
+            if let Some(error) = self.load_error.lock().unwrap().take() {
+                return Err(error);
+            }
+            Ok(self
+                .credential
+                .lock()
+                .unwrap()
+                .as_ref()
+                .filter(|credential| credential.account == account)
+                .map(|credential| {
+                    CredentialRecord::new(
+                        credential.account.clone(),
+                        credential.user_id.clone(),
+                        SecretString::from(credential.token.clone()),
+                        credential.token_expires,
+                    )
+                }))
+        }
+
+        fn save(&self, _account: &str, _record: &CredentialRecord) -> Result<(), CredentialError> {
+            panic!("logout must never save credentials")
+        }
+
+        fn delete(&self, account: &str) -> Result<bool, CredentialError> {
+            self.deletes.fetch_add(1, Ordering::SeqCst);
+            if let Some(error) = self.delete_error.lock().unwrap().take() {
+                return Err(error);
+            }
+            let mut credential = self.credential.lock().unwrap();
+            if credential
+                .as_ref()
+                .is_some_and(|credential| credential.account == account)
+            {
+                credential.take();
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+
+        fn delete_if_matches(
+            &self,
+            account: &str,
+            expected: &CredentialRecord,
+        ) -> Result<CredentialDeleteOutcome, CredentialError> {
+            self.deletes.fetch_add(1, Ordering::SeqCst);
+            if let Some(error) = self.delete_error.lock().unwrap().take() {
+                return Err(error);
+            }
+            let mut credential = self.credential.lock().unwrap();
+            if let Some(replacement) = self.replacement_before_delete.lock().unwrap().take() {
+                *credential = Some(replacement);
+            }
+            let Some(current) = credential.as_ref() else {
+                return Ok(CredentialDeleteOutcome::Absent);
+            };
+            if current.account != account {
+                return Ok(CredentialDeleteOutcome::Absent);
+            }
+            let current = CredentialRecord::new(
+                current.account.clone(),
+                current.user_id.clone(),
+                SecretString::from(current.token.clone()),
+                current.token_expires,
+            );
+            if !current.matches(expected) {
+                return Ok(CredentialDeleteOutcome::Mismatch);
+            }
+            credential.take();
+            Ok(CredentialDeleteOutcome::Removed)
+        }
+
+        fn lock_mutation(
+            &self,
+            account: &str,
+        ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
+            let mut locked = self.mutation_locked.lock().unwrap();
+            while *locked {
+                locked = self.mutation_released.wait(locked).unwrap();
+            }
+            *locked = true;
+            drop(locked);
+            Ok(Box::new(FakeCredentialMutation {
+                store: self,
+                account: account.to_owned(),
+                _lock: FakeMutationLock { store: self },
+            }))
+        }
+    }
+
+    struct FakeMutationLock<'a> {
+        store: &'a FakeCredentialStore,
+    }
+
+    impl Drop for FakeMutationLock<'_> {
+        fn drop(&mut self) {
+            let mut locked = self.store.mutation_locked.lock().unwrap();
+            *locked = false;
+            self.store.mutation_released.notify_one();
+        }
+    }
+
+    struct FakeCredentialMutation<'a> {
+        store: &'a FakeCredentialStore,
+        account: String,
+        _lock: FakeMutationLock<'a>,
+    }
+
+    impl CredentialMutation for FakeCredentialMutation<'_> {
+        fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
+            self.store.load(&self.account)
+        }
+
+        fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
+            self.store.save(&self.account, record)
+        }
+
+        fn delete(&self) -> Result<bool, CredentialError> {
+            self.store.delete(&self.account)
+        }
+
+        fn delete_if_matches(
+            &self,
+            expected: &CredentialRecord,
+        ) -> Result<CredentialDeleteOutcome, CredentialError> {
+            self.store.delete_if_matches(&self.account, expected)
+        }
+    }
+
+    fn args(all: bool) -> LogoutArgs {
+        LogoutArgs {
+            all,
+            local_only: false,
+        }
+    }
+
+    fn factory(server: &MockServer) -> WekanClientFactory {
+        WekanClientFactory::new(Some(server.uri()), false)
+    }
+
+    async fn mount_success(server: &MockServer, all: bool) {
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .and(header("authorization", "Bearer logout-token"))
+            .and(body_json(json!({ "all": all })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "message": "logout complete"
+            })))
+            .expect(1)
+            .mount(server)
+            .await;
+    }
+
+    #[test]
+    fn logout_flags_are_mutually_exclusive() {
+        let current = Cli::try_parse_from([
+            "wekan",
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "logout",
+        ])
+        .unwrap();
+        let RootCommand::Auth(auth) = current.command;
+        let AuthCommand::Logout(args) = auth.command else {
+            panic!("expected logout")
+        };
+        assert!(!args.all);
+        assert!(!args.local_only);
+
+        let all = Cli::try_parse_from([
+            "wekan",
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "logout",
+            "--all",
+        ])
+        .unwrap();
+        let RootCommand::Auth(auth) = all.command;
+        let AuthCommand::Logout(args) = auth.command else {
+            panic!("expected logout")
+        };
+        assert!(args.all);
+        assert!(!args.local_only);
+
+        assert!(
+            Cli::try_parse_from([
+                "wekan",
+                "--server",
+                "https://wekan.example",
+                "auth",
+                "logout",
+                "--all",
+                "--local-only",
+            ])
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn local_only_deletes_without_loading_or_contacting_wekan() {
+        let store = FakeCredentialStore::local_only(true);
+        let success = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+            &store,
+        )
+        .await
+        .unwrap();
+
+        let CommandSuccess::Logout(success) = success else {
+            panic!("expected logout success")
+        };
+        assert_eq!(success.server, "https://wekan.example/");
+        assert_eq!(success.logout_scope, LogoutScope::LocalOnly);
+        assert!(!success.remote_logout_completed);
+        assert!(!success.credential_stored);
+        assert!(success.local_credential_removed);
+        assert!(!store.has_credential());
+        assert_eq!(store.loads.load(Ordering::SeqCst), 0);
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn local_only_is_idempotent_when_no_entry_exists() {
+        let store = FakeCredentialStore::local_only(false);
+        let success = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+            &store,
+        )
+        .await
+        .unwrap();
+
+        let CommandSuccess::Logout(success) = success else {
+            panic!("expected logout success")
+        };
+        assert!(!success.credential_stored);
+        assert!(!success.local_credential_removed);
+        assert_eq!(store.loads.load(Ordering::SeqCst), 0);
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn local_only_delete_failure_does_not_claim_remote_logout() {
+        let store = FakeCredentialStore::local_only(true);
+        *store.delete_error.lock().unwrap() =
+            Some(CredentialError::Delete("test delete failure".to_owned()));
+        let error = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+            &store,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
+        assert_eq!(error.exit_code(), StableExitCode::Credential);
+        assert_eq!(error.details().logout_scope, Some(LogoutScope::LocalOnly));
+        assert_eq!(error.details().remote_logout_completed, Some(Some(false)));
+        assert!(store.has_credential());
+    }
+
+    #[tokio::test]
+    async fn missing_remote_logout_credential_returns_without_http() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(0)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore {
+            available: true,
+            ..FakeCredentialStore::default()
+        };
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::CredentialNotFound);
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn unreadable_remote_logout_credential_returns_without_http_or_deletion() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(0)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore {
+            available: true,
+            ..FakeCredentialStore::default()
+        };
+        *store.load_error.lock().unwrap() = Some(CredentialError::InvalidRecord("test invalid"));
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
+        assert_eq!(error.exit_code(), StableExitCode::Credential);
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn credential_preflight_failure_stops_local_only_before_deletion() {
+        let store = FakeCredentialStore::default();
+        let error = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+            &store,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code(), ErrorCode::CredentialStoreUnavailable);
+        assert_eq!(error.exit_code(), StableExitCode::Credential);
+        assert_eq!(store.loads.load(Ordering::SeqCst), 0);
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn expired_credentials_are_still_revoked_and_deleted() {
+        let server = MockServer::start().await;
+        mount_success(&server, false).await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() - Duration::days(1),
+        );
+
+        let success = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap();
+        let CommandSuccess::Logout(success) = success else {
+            panic!("expected logout success")
+        };
+        assert_eq!(success.logout_scope, LogoutScope::CurrentToken);
+        assert!(success.remote_logout_completed);
+        assert!(success.local_credential_removed);
+        assert!(!store.has_credential());
+    }
+
+    #[tokio::test]
+    async fn all_tokens_logout_uses_all_scope_and_deletes_after_success() {
+        let server = MockServer::start().await;
+        mount_success(&server, true).await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let success = execute(args(true), &factory(&server), &store)
+            .await
+            .unwrap();
+        let CommandSuccess::Logout(success) = success else {
+            panic!("expected logout success")
+        };
+        assert_eq!(success.logout_scope, LogoutScope::AllTokens);
+        assert!(success.remote_logout_completed);
+        assert!(success.local_credential_removed);
+        assert!(!store.has_credential());
+    }
+
+    #[test]
+    fn all_tokens_logout_serializes_the_remote_request_with_other_mutations() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server_url = format!("http://{address}");
+        let account = format!("{server_url}/");
+        let (request_started_sender, request_started_receiver) = mpsc::channel();
+        let (respond_sender, respond_receiver) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            request_started_sender.send(()).unwrap();
+            respond_receiver.recv().unwrap();
+
+            let body = r#"{"message":"logout complete"}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+        let store = Arc::new(FakeCredentialStore {
+            credential: Mutex::new(Some(StoredCredential {
+                account: account.clone(),
+                user_id: "user-1".to_owned(),
+                token: "logout-token".to_owned(),
+                token_expires: OffsetDateTime::now_utc() + Duration::days(1),
+            })),
+            available: true,
+            ..FakeCredentialStore::default()
+        });
+        let (logout_sender, logout_receiver) = mpsc::channel();
+        let logout_store = Arc::clone(&store);
+        let logout_server = server_url.clone();
+        let logout = thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result = runtime.block_on(execute(
+                args(true),
+                &WekanClientFactory::new(Some(logout_server), false),
+                logout_store.as_ref(),
+            ));
+            logout_sender.send(result).unwrap();
+        });
+
+        request_started_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap();
+        let (contender_started_sender, contender_started_receiver) = mpsc::channel();
+        let (contender_acquired_sender, contender_acquired_receiver) = mpsc::channel();
+        let contender_store = Arc::clone(&store);
+        let contender = thread::spawn(move || {
+            contender_started_sender.send(()).unwrap();
+            let _mutation = contender_store.lock_mutation(&account).unwrap();
+            contender_acquired_sender.send(()).unwrap();
+        });
+        contender_started_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap();
+        assert!(matches!(
+            contender_acquired_receiver.recv_timeout(StdDuration::from_millis(250)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+
+        respond_sender.send(()).unwrap();
+        let result = logout_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap()
+            .unwrap();
+        assert!(matches!(result, CommandSuccess::Logout(_)));
+        contender_acquired_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap();
+        logout.join().unwrap();
+        contender.join().unwrap();
+        server.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn authentication_rejection_preserves_the_credential() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(json!({
+                "error": "unauthorized",
+                "reason": "logout-token was rejected"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::AuthenticationRejected);
+        assert_eq!(error.details().http_status, Some(401));
+        assert_eq!(
+            error.details().logout_scope,
+            Some(LogoutScope::CurrentToken)
+        );
+        assert!(store.has_credential());
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+        assert!(!error.message().contains("logout-token"));
+        assert!(
+            !error
+                .details()
+                .server_reason
+                .as_deref()
+                .unwrap()
+                .contains("logout-token")
+        );
+    }
+
+    #[tokio::test]
+    async fn redirect_outcome_is_unknown_and_preserves_the_credential() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(307).insert_header("location", "/other"))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::UnexpectedRedirect);
+        assert_eq!(error.details().http_status, Some(307));
+        assert_eq!(error.details().remote_logout_completed, Some(None));
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert_eq!(error.details().credential_stored, Some(true));
+        let rendered: serde_json::Value =
+            serde_json::from_str(&render_error(OutputFormat::Json, &error)).unwrap();
+        assert_eq!(
+            rendered["error"]["details"]["remote_logout_completed"],
+            serde_json::Value::Null
+        );
+        assert!(store.has_credential());
+    }
+
+    #[tokio::test]
+    async fn server_failures_preserve_the_credential_and_report_uncertainty() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let error = execute(args(true), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::ServerError);
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert_eq!(error.details().logout_scope, Some(LogoutScope::AllTokens));
+        assert!(store.has_credential());
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn unusable_http_200_preserves_the_credential_and_unknown_outcome() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "wrong": true })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().remote_logout_completed, Some(None));
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert_eq!(error.details().credential_stored, Some(true));
+        assert_eq!(error.details().local_credential_removed, Some(false));
+        let rendered: serde_json::Value =
+            serde_json::from_str(&render_error(OutputFormat::Json, &error)).unwrap();
+        assert_eq!(
+            rendered["error"]["details"]["remote_logout_completed"],
+            serde_json::Value::Null
+        );
+        assert!(store.has_credential());
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn oversized_http_200_preserves_the_credential_and_unknown_outcome() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/logout"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+
+        let error = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().remote_logout_completed, Some(None));
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert_eq!(error.details().credential_stored, Some(true));
+        assert_eq!(error.details().local_credential_removed, Some(false));
+        assert!(store.has_credential());
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn truncated_http_200_preserves_the_credential_and_unknown_outcome() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server_url = format!("http://{address}");
+        let account = format!("{server_url}/");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{\"message\":",
+                )
+                .unwrap();
+        });
+        let store = FakeCredentialStore {
+            credential: Mutex::new(Some(StoredCredential {
+                account,
+                user_id: "user-1".to_owned(),
+                token: "logout-token".to_owned(),
+                token_expires: OffsetDateTime::now_utc() + Duration::days(1),
+            })),
+            available: true,
+            ..FakeCredentialStore::default()
+        };
+
+        let error = execute(
+            args(false),
+            &WekanClientFactory::new(Some(server_url), false),
+            &store,
+        )
+        .await
+        .unwrap_err();
+        server.join().unwrap();
+
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().remote_logout_completed, Some(None));
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert_eq!(error.details().credential_stored, Some(true));
+        assert_eq!(error.details().local_credential_removed, Some(false));
+        assert!(store.has_credential());
+        assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn deletion_failure_after_success_reports_the_remote_side_effect() {
+        let server = MockServer::start().await;
+        mount_success(&server, true).await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+        *store.delete_error.lock().unwrap() = Some(CredentialError::Delete(
+            "logout-token could not be deleted".to_owned(),
+        ));
+
+        let error = execute(args(true), &factory(&server), &store)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
+        assert_eq!(error.details().logout_scope, Some(LogoutScope::AllTokens));
+        assert_eq!(error.details().remote_logout_completed, Some(Some(true)));
+        assert!(store.has_credential());
+        assert!(!error.message().contains("logout-token"));
+    }
+
+    #[tokio::test]
+    async fn remote_success_does_not_delete_a_concurrently_replaced_credential() {
+        let server = MockServer::start().await;
+        mount_success(&server, false).await;
+        let store = FakeCredentialStore::with_record(
+            &server,
+            OffsetDateTime::now_utc() + Duration::days(1),
+        );
+        *store.replacement_before_delete.lock().unwrap() = Some(StoredCredential {
+            account: format!("{}/", server.uri()),
+            user_id: "user-1".to_owned(),
+            token: "new-login-token".to_owned(),
+            token_expires: OffsetDateTime::now_utc() + Duration::days(2),
+        });
+
+        let success = execute(args(false), &factory(&server), &store)
+            .await
+            .unwrap();
+        let CommandSuccess::Logout(success) = success else {
+            panic!("expected logout success")
+        };
+
+        assert!(success.remote_logout_completed);
+        assert!(success.credential_stored);
+        assert!(!success.local_credential_removed);
+        assert!(store.has_credential());
+        assert_eq!(
+            store.credential.lock().unwrap().as_ref().unwrap().token,
+            "new-login-token"
+        );
+    }
+
+    #[test]
+    fn logout_request_debug_never_contains_the_token() {
+        let request = crate::client::LogoutRequest { all: false };
+        let token = SecretString::from("logout-token".to_owned());
+        assert!(!format!("{request:?}").contains(token.expose_secret()));
+    }
+}

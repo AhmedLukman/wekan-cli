@@ -4,9 +4,9 @@ use clap::Subcommand;
 
 use crate::{
     client::WekanClientFactory,
+    command_result::CommandSuccess,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
-    output::CommandSuccess,
 };
 
 #[derive(Debug, Subcommand)]

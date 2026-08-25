@@ -1,4 +1,5 @@
 pub mod login;
+pub mod logout;
 pub mod register;
 pub mod status;
 
@@ -8,10 +9,12 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::{
     client::{AuthSession, WekanClientFactory},
-    credentials::{CredentialRecord, CredentialStore, SecretInputProvider},
+    command_result::{AuthSuccess, CommandSuccess},
+    credentials::{
+        CredentialError, CredentialMutation, CredentialRecord, CredentialStore, SecretInputProvider,
+    },
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
-    output::{AuthSuccess, CommandSuccess},
     redaction::Redactor,
 };
 
@@ -25,6 +28,9 @@ pub struct AuthArgs {
 pub enum AuthCommand {
     /// Log in to Wekan and securely store the returned token.
     Login(login::LoginArgs),
+
+    /// Revoke Wekan login tokens and remove the stored credential.
+    Logout(logout::LogoutArgs),
 
     /// Register a Wekan account and securely store its login token.
     Register(register::RegisterArgs),
@@ -43,11 +49,26 @@ pub(crate) async fn dispatch(
         AuthCommand::Login(args) => {
             login::execute(args, client_factory, credential_store, secret_input).await
         }
+        AuthCommand::Logout(args) => logout::execute(args, client_factory, credential_store).await,
         AuthCommand::Register(args) => {
             register::execute(args, client_factory, credential_store, secret_input).await
         }
         AuthCommand::Status(args) => status::execute(args, client_factory, credential_store).await,
     }
+}
+
+pub(super) fn map_credential_load_error(error: CredentialError) -> AppError {
+    let (code, message) = match error {
+        CredentialError::Unavailable(message) => (
+            ErrorCode::CredentialStoreUnavailable,
+            format!("the operating-system credential store is unavailable: {message}"),
+        ),
+        error => (
+            ErrorCode::CredentialStoreFailed,
+            format!("the stored credential could not be loaded: {error}"),
+        ),
+    };
+    AppError::new(code, message, StableExitCode::Credential)
 }
 
 pub(super) fn preflight_credentials(
@@ -65,8 +86,21 @@ pub(super) fn preflight_credentials(
         })
 }
 
+pub(super) fn lock_credential_mutation<'a>(
+    credential_store: &'a dyn CredentialStore,
+    server_url: &str,
+) -> Result<Box<dyn CredentialMutation + Send + 'a>, AppError> {
+    credential_store.lock_mutation(server_url).map_err(|error| {
+        AppError::new(
+            ErrorCode::CredentialStoreFailed,
+            format!("the stored credential could not be synchronized: {error}"),
+            StableExitCode::Credential,
+        )
+    })
+}
+
 pub(super) fn persist_session(
-    credential_store: &dyn CredentialStore,
+    credential_mutation: &dyn CredentialMutation,
     server_url: String,
     session: AuthSession,
 ) -> Result<AuthSuccess, AppError> {
@@ -81,15 +115,13 @@ pub(super) fn persist_session(
     let record = CredentialRecord::new(server_url.clone(), user_id.clone(), token, token_expires);
     let token_redactor = Redactor::with_secret(record.token());
 
-    credential_store
-        .save(&server_url, &record)
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::CredentialStoreFailed,
-                token_redactor.redact(&error.to_string()),
-                StableExitCode::Credential,
-            )
-        })?;
+    credential_mutation.save(&record).map_err(|error| {
+        AppError::new(
+            ErrorCode::CredentialStoreFailed,
+            token_redactor.redact(&error.to_string()),
+            StableExitCode::Credential,
+        )
+    })?;
 
     Ok(AuthSuccess {
         server: server_url,

@@ -23,6 +23,7 @@ wekan-cli/
 │   ├── lib.rs                         # Testable application entry point and module declarations
 │   ├── app.rs                         # Initializes and owns shared dependencies; starts dispatch
 │   ├── cli.rs                         # Root Cli parser and global flags only
+│   ├── command_result.rs              # Stable semantic command outcomes shared by commands, errors and output
 │   ├── error.rs                       # Application-level error representation
 │   ├── exit_code.rs                   # Stable documented process exit codes
 │   ├── redaction.rs                   # Central secret-redaction policy

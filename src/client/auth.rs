@@ -25,6 +25,11 @@ pub struct LoginRequest {
     pub code: Option<SecretString>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LogoutRequest {
+    pub all: bool,
+}
+
 #[derive(Debug)]
 pub struct AuthSession {
     user_id: String,
@@ -149,6 +154,11 @@ struct AuthTokenResponse {
 }
 
 #[derive(Deserialize)]
+struct LogoutResponse {
+    message: String,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CurrentUserResponse {
     #[serde(rename = "_id")]
@@ -211,6 +221,39 @@ impl WekanClient {
         };
 
         self.authenticate("users/login", "login", &body).await
+    }
+
+    pub async fn logout(
+        &self,
+        request: &LogoutRequest,
+        token: &SecretString,
+    ) -> Result<(), ClientError> {
+        let endpoint =
+            self.server()
+                .join("users/logout")
+                .map_err(|error| ClientError::Protocol {
+                    message: format!("could not build the logout endpoint: {error}"),
+                    success_status_received: false,
+                })?;
+
+        let response_body = self
+            .execute_auth_request(
+                self.http
+                    .post(endpoint)
+                    .header(ACCEPT, "application/json")
+                    .bearer_auth(token.expose_secret())
+                    .json(request),
+            )
+            .await?;
+
+        let response = serde_json::from_slice::<LogoutResponse>(&response_body).map_err(|_| {
+            ClientError::Protocol {
+                message: "invalid JSON or missing logout message".to_owned(),
+                success_status_received: true,
+            }
+        })?;
+        let _ = response.message;
+        Ok(())
     }
 
     pub async fn current_user(&self, token: &SecretString) -> Result<CurrentUser, ClientError> {

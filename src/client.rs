@@ -7,7 +7,9 @@ use reqwest::{Client, redirect::Policy};
 use thiserror::Error;
 use url::{Host, Url};
 
-pub use auth::{AuthSession, CurrentUser, CurrentUserEmail, LoginRequest, RegisterRequest};
+pub use auth::{
+    AuthSession, CurrentUser, CurrentUserEmail, LoginRequest, LogoutRequest, RegisterRequest,
+};
 pub use error::ClientError;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -104,12 +106,16 @@ impl WekanClientFactory {
     }
 
     pub fn create(&self) -> Result<WekanClient, WekanClientFactoryError> {
+        let server = self.resolve_server()?;
+        WekanClient::new(server).map_err(WekanClientFactoryError::Build)
+    }
+
+    pub(crate) fn resolve_server(&self) -> Result<ServerUrl, WekanClientFactoryError> {
         let raw_server = self
             .server
             .as_deref()
             .ok_or(WekanClientFactoryError::MissingServer)?;
-        let server = ServerUrl::parse(raw_server, self.allow_insecure_http)?;
-        WekanClient::new(server).map_err(WekanClientFactoryError::Build)
+        ServerUrl::parse(raw_server, self.allow_insecure_http).map_err(Into::into)
     }
 }
 

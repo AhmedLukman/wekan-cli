@@ -3,6 +3,10 @@ use std::ffi::OsString;
 use clap::ValueEnum;
 use serde::Serialize;
 
+pub use crate::command_result::{
+    AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess, LogoutScope,
+    LogoutSuccess,
+};
 use crate::error::AppError;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
@@ -26,45 +30,6 @@ impl OutputFormat {
         }
         Self::Human
     }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum CommandSuccess {
-    Registration(AuthSuccess),
-    Login(AuthSuccess),
-    AuthStatus(AuthStatusSuccess),
-}
-
-#[derive(Debug, Eq, PartialEq, Serialize)]
-pub struct AuthSuccess {
-    pub server: String,
-    pub user_id: String,
-    pub token_expires: String,
-    pub credential_stored: bool,
-}
-
-#[derive(Debug, Eq, PartialEq, Serialize)]
-pub struct AuthStatusSuccess {
-    pub server: String,
-    pub authenticated: bool,
-    pub token_expires: String,
-    pub credential_stored: bool,
-    pub user: AuthStatusUser,
-}
-
-#[derive(Debug, Eq, PartialEq, Serialize)]
-pub struct AuthStatusUser {
-    pub user_id: String,
-    pub username: Option<String>,
-    pub full_name: Option<String>,
-    pub is_admin: Option<bool>,
-    pub emails: Vec<AuthStatusEmail>,
-}
-
-#[derive(Debug, Eq, PartialEq, Serialize)]
-pub struct AuthStatusEmail {
-    pub address: Option<String>,
-    pub verified: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -108,11 +73,55 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("login success is always serializable")
         }
+        (OutputFormat::Human, CommandSuccess::Logout(data)) => render_logout(data),
+        (OutputFormat::Json, CommandSuccess::Logout(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("logout success is always serializable")
+        }
         (OutputFormat::Human, CommandSuccess::AuthStatus(data)) => render_auth_status(data),
         (OutputFormat::Json, CommandSuccess::AuthStatus(data)) => {
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("authentication status success is always serializable")
         }
+    }
+}
+
+fn render_logout(data: &LogoutSuccess) -> String {
+    let server = escape_terminal_controls(&data.server);
+    match data.logout_scope {
+        LogoutScope::CurrentToken => format!(
+            "Logged out from {server}.\nCurrent login token revoked.\n{}",
+            render_local_credential_state(data)
+        ),
+        LogoutScope::AllTokens => format!(
+            "Logged out from {server}.\nAll login tokens revoked.\n{}",
+            render_local_credential_state(data)
+        ),
+        LogoutScope::LocalOnly => format!(
+            "{} for {server}.\nNo Wekan login tokens were revoked.",
+            if data.local_credential_removed {
+                "Removed the stored credential"
+            } else {
+                "No stored credential was present"
+            }
+        ),
+    }
+}
+
+fn render_local_credential_state(data: &LogoutSuccess) -> &'static str {
+    if data.local_credential_removed {
+        "Stored credential removed."
+    } else if data.credential_stored {
+        match data.logout_scope {
+            LogoutScope::AllTokens => {
+                "A concurrently changed stored credential was preserved; verify it before use."
+            }
+            LogoutScope::CurrentToken | LogoutScope::LocalOnly => {
+                "A newer stored credential was preserved."
+            }
+        }
+    } else {
+        "Stored credential was already absent."
     }
 }
 
@@ -200,11 +209,14 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
 mod tests {
     use std::ffi::OsString;
 
-    use super::{
-        AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess,
-        OutputFormat, render_error, render_success,
+    use super::{OutputFormat, render_error, render_success};
+    use crate::{
+        command_result::{
+            AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess,
+            LogoutScope, LogoutSuccess,
+        },
+        error::AppError,
     };
-    use crate::error::AppError;
 
     fn success() -> CommandSuccess {
         CommandSuccess::Registration(AuthSuccess {
@@ -265,6 +277,86 @@ mod tests {
         assert_eq!(value["data"]["user_id"], "user-1");
         assert!(value["data"].get("token").is_none());
         assert!(render_success(OutputFormat::Human, &success).starts_with("Logged in user"));
+    }
+
+    #[test]
+    fn logout_success_reports_scope_and_local_credential_state() {
+        let success = CommandSuccess::Logout(LogoutSuccess {
+            server: "https://wekan.example/".to_owned(),
+            logout_scope: LogoutScope::AllTokens,
+            remote_logout_completed: true,
+            credential_stored: false,
+            local_credential_removed: true,
+        });
+
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(value["data"]["logout_scope"], "all_tokens");
+        assert_eq!(value["data"]["remote_logout_completed"], true);
+        assert_eq!(value["data"]["credential_stored"], false);
+        assert_eq!(value["data"]["local_credential_removed"], true);
+        assert!(value["data"].get("token").is_none());
+        assert!(render_success(OutputFormat::Human, &success).contains("All login tokens revoked"));
+    }
+
+    #[test]
+    fn local_only_output_warns_that_remote_tokens_were_not_revoked() {
+        let success = CommandSuccess::Logout(LogoutSuccess {
+            server: "https://wekan.example/\u{1b}]52;c;clipboard\u{7}".to_owned(),
+            logout_scope: LogoutScope::LocalOnly,
+            remote_logout_completed: false,
+            credential_stored: false,
+            local_credential_removed: true,
+        });
+
+        let rendered = render_success(OutputFormat::Human, &success);
+        assert!(rendered.contains("No Wekan login tokens were revoked"));
+        assert!(!rendered.contains('\u{1b}'));
+        assert!(!rendered.contains('\u{7}'));
+    }
+
+    #[test]
+    fn local_only_output_distinguishes_an_already_absent_credential() {
+        let success = CommandSuccess::Logout(LogoutSuccess {
+            server: "https://wekan.example/".to_owned(),
+            logout_scope: LogoutScope::LocalOnly,
+            remote_logout_completed: false,
+            credential_stored: false,
+            local_credential_removed: false,
+        });
+
+        let rendered = render_success(OutputFormat::Human, &success);
+        assert!(rendered.contains("No stored credential was present"));
+        assert!(rendered.contains("No Wekan login tokens were revoked"));
+    }
+
+    #[test]
+    fn remote_output_reports_that_a_newer_credential_was_preserved() {
+        let success = CommandSuccess::Logout(LogoutSuccess {
+            server: "https://wekan.example/".to_owned(),
+            logout_scope: LogoutScope::CurrentToken,
+            remote_logout_completed: true,
+            credential_stored: true,
+            local_credential_removed: false,
+        });
+
+        assert!(
+            render_success(OutputFormat::Human, &success)
+                .contains("A newer stored credential was preserved")
+        );
+    }
+
+    #[test]
+    fn all_tokens_output_requires_verification_of_a_changed_credential() {
+        let success = CommandSuccess::Logout(LogoutSuccess {
+            server: "https://wekan.example/".to_owned(),
+            logout_scope: LogoutScope::AllTokens,
+            remote_logout_completed: true,
+            credential_stored: true,
+            local_credential_removed: false,
+        });
+
+        assert!(render_success(OutputFormat::Human, &success).contains("verify it before use"));
     }
 
     #[test]

@@ -2,16 +2,16 @@ use clap::Args;
 
 use crate::{
     client::{ClientError, LoginRequest, WekanClientFactory},
+    command_result::CommandSuccess,
     credentials::{CredentialStore, LoginSecretMode, SecretInputProvider},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
-    output::CommandSuccess,
     redaction::Redactor,
 };
 
 use super::{
-    embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
-    protocol_error_details, response_error_details, server_error_details,
+    embedded_server_error_details, lock_credential_mutation, non_empty_identity, persist_session,
+    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -91,17 +91,25 @@ pub(crate) async fn execute(
     if let Some(code) = request.code.as_ref() {
         redactor = redactor.and_secret(code);
     }
+    let credential_mutation =
+        lock_credential_mutation(credential_store, &server_url).map_err(|error| {
+            error.with_details(ErrorDetails {
+                session_created: Some(false),
+                ..ErrorDetails::default()
+            })
+        })?;
     let session = client
         .login(&request)
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    let success = persist_session(credential_store, server_url, session).map_err(|error| {
-        error.with_details(ErrorDetails {
-            session_created: Some(true),
-            ..ErrorDetails::default()
-        })
-    })?;
+    let success =
+        persist_session(credential_mutation.as_ref(), server_url, session).map_err(|error| {
+            error.with_details(ErrorDetails {
+                session_created: Some(true),
+                ..ErrorDetails::default()
+            })
+        })?;
     Ok(CommandSuccess::Login(success))
 }
 
@@ -295,7 +303,7 @@ fn append_retry_after(
 mod tests {
     use std::sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     };
 
     use clap::Parser;
@@ -310,14 +318,14 @@ mod tests {
     use crate::{
         cli::Cli,
         client::{ClientError, LoginRequest, WekanClientFactory},
+        command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
         credentials::{
-            CredentialError, CredentialRecord, CredentialStore, LoginSecretMode, LoginSecrets,
-            SecretInputProvider,
+            CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
+            CredentialStore, LoginSecretMode, LoginSecrets, SecretInputProvider,
         },
         error::{AppError, ErrorCode},
         exit_code::StableExitCode,
-        output::CommandSuccess,
         redaction::Redactor,
     };
 
@@ -332,6 +340,7 @@ mod tests {
     struct FakeCredentialStore {
         available: AtomicBool,
         fail_save: AtomicBool,
+        mutation_locks: AtomicUsize,
         saved: Mutex<Vec<SavedCredential>>,
     }
 
@@ -372,6 +381,55 @@ mod tests {
                 token: record.token().expose_secret().to_owned(),
             });
             Ok(())
+        }
+
+        fn delete(&self, _account: &str) -> Result<bool, CredentialError> {
+            panic!("login must never delete credentials")
+        }
+
+        fn delete_if_matches(
+            &self,
+            _account: &str,
+            _expected: &CredentialRecord,
+        ) -> Result<CredentialDeleteOutcome, CredentialError> {
+            panic!("login must never conditionally delete credentials")
+        }
+
+        fn lock_mutation(
+            &self,
+            account: &str,
+        ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
+            self.mutation_locks.fetch_add(1, Ordering::SeqCst);
+            Ok(Box::new(FakeCredentialMutation {
+                store: self,
+                account: account.to_owned(),
+            }))
+        }
+    }
+
+    struct FakeCredentialMutation<'a> {
+        store: &'a FakeCredentialStore,
+        account: String,
+    }
+
+    impl CredentialMutation for FakeCredentialMutation<'_> {
+        fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
+            self.store.load(&self.account)
+        }
+
+        fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
+            self.store.save(&self.account, record)
+        }
+
+        fn delete(&self) -> Result<bool, CredentialError> {
+            self.store.delete(&self.account)
+        }
+
+        fn delete_if_matches(
+            &self,
+            expected: &CredentialRecord,
+        ) -> Result<CredentialDeleteOutcome, CredentialError> {
+            self.store.delete_if_matches(&self.account, expected)
         }
     }
 
@@ -762,6 +820,7 @@ mod tests {
             *secrets.observed_mode.lock().unwrap(),
             Some(LoginSecretMode::PromptPassword)
         );
+        assert_eq!(store.mutation_locks.load(Ordering::SeqCst), 1);
         let saved = store.saved.lock().unwrap();
         assert_eq!(saved.len(), 1);
         assert_eq!(saved[0].user_id, "user-1");

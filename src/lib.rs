@@ -1,6 +1,7 @@
 pub mod app;
 pub mod cli;
 pub mod client;
+pub mod command_result;
 pub mod commands;
 pub mod credentials;
 pub mod error;

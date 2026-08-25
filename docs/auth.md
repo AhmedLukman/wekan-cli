@@ -1,7 +1,7 @@
 # Authentication
 
-The implemented authentication surface supports registration, login, and live
-authentication status:
+The implemented authentication surface supports registration, login, logout,
+and live authentication status:
 
 ```text
 wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
@@ -15,10 +15,13 @@ wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
 
 wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
       auth status
+
+wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+      auth logout [--all | --local-only]
 ```
 
-Logout, named profiles, configuration files, and multi-account selection are
-not implemented in this milestone.
+Named profiles, configuration files, and multi-account selection are not
+implemented in this milestone.
 
 ## Server selection
 
@@ -36,7 +39,9 @@ The CLI normalizes the base URL with a trailing slash and resolves the
 authentication endpoint relative to it. For example,
 `https://example.test/wekan` becomes
 `https://example.test/wekan/users/login` for login and
-`https://example.test/wekan/api/user` for status.
+`https://example.test/wekan/api/user` for status. Remote logout uses
+`https://example.test/wekan/users/logout`. Local-only logout still requires the
+server because its canonical URL is the native-vault account key.
 
 HTTPS is required except for exact `localhost` and IPv4 or IPv6 loopback
 addresses. `--allow-insecure-http` explicitly permits HTTP elsewhere. It does
@@ -97,13 +102,66 @@ stored user ID. Output allowlists only the user ID, username, profile full name,
 administrator flag, email addresses and verification flags. Board memberships,
 other profile data, and all service/session data are discarded.
 
+## Logout
+
+`auth logout` loads the credential for the canonical server and sends one
+bearer-authenticated `POST users/logout` request. The default JSON body is
+`{"all": false}` and revokes only the presented token. `--all` sends
+`{"all": true}` and revokes every login token for that user, including browser
+and other CLI sessions. The two modes do not prompt for confirmation.
+
+Logout deliberately submits a locally expired credential because Wekan may
+still have that token stored and be able to remove it. A missing record returns
+`credential_not_found` without HTTP. HTTP 401 returns
+`authentication_rejected`; redirects and other remote failures use the shared
+transport/server error families.
+
+Remote logout is strict and remote-first. The local credential is deleted only
+after a complete HTTP 200 response containing the documented string `message`.
+Any remote error preserves it for retry or diagnosis. Transport errors,
+redirects, and 5xx errors set `outcome_unknown: true` and
+`remote_logout_completed: null`: a sent request can be processed before an
+intermediary returns one of those failures. An unusable HTTP 200 returns
+`protocol_error` with the same indeterminate outcome and preserves the local
+record. HTTP 200 is recorded as the observed status, but it is not proof that
+logout completed until the body validates. If a validated remote success is
+followed by a vault deletion failure, the command returns
+`credential_store_failed` with `remote_logout_completed: true`.
+
+After validated remote success, deletion is conditional on the stored record
+still matching the record submitted to Wekan. If the record has been replaced
+before that comparison, the newer credential is preserved and success reports
+`credential_stored: true` and `local_credential_removed: false`. A deletion by
+this invocation reports `local_credential_removed: true`; an already-absent
+record reports `false`. Native-vault mutations for one canonical server use a
+stable lock file in the user's private local application-data directory, never
+the shared temporary directory. Login, registration, remote logout, and
+local-only logout hold that lock from before their remote authentication work
+through their local save or deletion. The whole transaction is therefore
+serialized across current CLI processes: an all-token logout cannot retain a
+token that a concurrent login had already created, and a successful logout
+cannot remove a concurrently saved login.
+
+An externally changed record can still be preserved by the conditional delete.
+For an all-token logout, human output tells the caller to verify that record
+before using it because an older CLI or another vault writer might have stored
+a token that the remote all-token operation revoked.
+
+`--local-only` conflicts with `--all`, makes no HTTP request, and deletes the
+canonical server's vault entry without loading or decoding it. It therefore
+clears expired, rejected, malformed, or unsupported records. An absent entry is
+an idempotent success with `local_credential_removed: false`. Human output
+explicitly states that no Wekan tokens were revoked; any still-valid remote
+token remains usable until revoked or expired.
+
 ## Request safety and server errors
 
-Registration and login send one JSON POST request; status sends one GET request.
-All use a 10-second connect timeout, a 30-second total timeout, and a 1 MiB
-response limit. Redirects are not followed and automatic retries are disabled.
-Successful registration and login return an authentication session containing
-`id`, `token`, and RFC 3339 `tokenExpires`.
+Registration, login, and remote logout send one JSON POST request; status sends
+one GET request. All remote operations use a 10-second connect timeout, a
+30-second total timeout, and a 1 MiB response limit. Redirects are not followed
+and automatic retries are disabled. In particular, logout mutation requests
+are never automatically retried. Successful registration and login return an
+authentication session containing `id`, `token`, and RFC 3339 `tokenExpires`.
 
 Registration accepts only HTTP 200 as success. HTTP 400 maps to
 `registration_rejected`; HTTP 403 maps to `registration_disabled`; other
@@ -162,9 +220,15 @@ human or JSON output.
 Credential reads distinguish an absent entry from an unavailable vault or an
 invalid record. Missing credentials are an unauthenticated state; vault access,
 decoding, version, server-key, and field-validation failures use the credential
-error family. Status never repairs, replaces, or removes a record.
+error family. Status never repairs, replaces, or removes a record. Normal
+logout reads and validates before remote revocation; local-only logout bypasses
+record decoding and directly deletes the vault entry.
 
 A credential-store write can fail after Wekan reports success. Registration
 then returns `credential_store_failed` with `account_created: true`; login uses
 the same error code with `session_created: true`. The CLI discards the in-memory
 token and does not attempt remote rollback or revocation.
+
+A credential-store deletion can likewise fail after Wekan completes logout.
+That failure reports `credential_store_failed` with
+`remote_logout_completed: true`; the CLI does not retry the remote mutation.

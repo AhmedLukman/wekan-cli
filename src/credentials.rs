@@ -136,6 +136,72 @@ pub trait CredentialStore: Send + Sync {
     fn check_available(&self, account: &str) -> Result<(), CredentialError>;
     fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError>;
     fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError>;
+    fn delete(&self, account: &str) -> Result<bool, CredentialError>;
+    /// Deletes only the expected record. Implementations must serialize this
+    /// comparison and deletion with credential saves for the same account.
+    fn delete_if_matches(
+        &self,
+        account: &str,
+        expected: &CredentialRecord,
+    ) -> Result<CredentialDeleteOutcome, CredentialError>;
+
+    /// Serializes an account's credential mutations. Authentication commands
+    /// hold this guard across their remote request and local reconciliation so
+    /// login and logout cannot lose each other's credentials. Production stores
+    /// shared across processes must override this forwarding default with a
+    /// real account-scoped lock.
+    fn lock_mutation(
+        &self,
+        account: &str,
+    ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
+        Ok(Box::new(UnlockedCredentialMutation {
+            store: self,
+            account: account.to_owned(),
+        }))
+    }
+}
+
+pub trait CredentialMutation: Send {
+    fn load(&self) -> Result<Option<CredentialRecord>, CredentialError>;
+    fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError>;
+    fn delete(&self) -> Result<bool, CredentialError>;
+    fn delete_if_matches(
+        &self,
+        expected: &CredentialRecord,
+    ) -> Result<CredentialDeleteOutcome, CredentialError>;
+}
+
+struct UnlockedCredentialMutation<'a, S: CredentialStore + ?Sized> {
+    store: &'a S,
+    account: String,
+}
+
+impl<S: CredentialStore + ?Sized> CredentialMutation for UnlockedCredentialMutation<'_, S> {
+    fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
+        self.store.load(&self.account)
+    }
+
+    fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
+        self.store.save(&self.account, record)
+    }
+
+    fn delete(&self) -> Result<bool, CredentialError> {
+        self.store.delete(&self.account)
+    }
+
+    fn delete_if_matches(
+        &self,
+        expected: &CredentialRecord,
+    ) -> Result<CredentialDeleteOutcome, CredentialError> {
+        self.store.delete_if_matches(&self.account, expected)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CredentialDeleteOutcome {
+    Removed,
+    Absent,
+    Mismatch,
 }
 
 #[derive(Clone, Debug)]
@@ -175,6 +241,13 @@ impl CredentialRecord {
 
     pub const fn token_expires(&self) -> OffsetDateTime {
         self.token_expires
+    }
+
+    pub fn matches(&self, other: &Self) -> bool {
+        self.server_url == other.server_url
+            && self.user_id == other.user_id
+            && self.token.expose_secret() == other.token.expose_secret()
+            && self.token_expires == other.token_expires
     }
 
     fn decode(expected_server_url: &str, encoded: &[u8]) -> Result<Self, CredentialError> {
@@ -251,6 +324,10 @@ pub enum CredentialError {
     Store(String),
     #[error("the credential could not be loaded: {0}")]
     Load(String),
+    #[error("the credential could not be deleted: {0}")]
+    Delete(String),
+    #[error("the credential mutation could not be synchronized: {0}")]
+    Lock(String),
     #[error("the credential record could not be serialized")]
     Serialize(#[source] serde_json::Error),
     #[error("the credential record could not be decoded")]

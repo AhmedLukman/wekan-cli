@@ -1,11 +1,11 @@
 use crate::{
     client::WekanClientFactory,
+    command_result::CommandSuccess,
     commands::{self, RootCommand},
     credentials::{
         CredentialStore, KeyringCredentialStore, SecretInputProvider, SystemSecretInputProvider,
     },
     error::AppError,
-    output::CommandSuccess,
 };
 
 pub struct App<S, P> {
@@ -55,5 +55,29 @@ where
             &self.secret_input,
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::App;
+    use crate::commands::{
+        RootCommand,
+        auth::{AuthArgs, AuthCommand, logout::LogoutArgs},
+    };
+
+    fn require_send<T: Send>(_: T) {}
+
+    #[test]
+    fn execute_future_is_send() {
+        let app = App::production(Some("https://wekan.example".to_owned()), false);
+        let command = RootCommand::Auth(AuthArgs {
+            command: AuthCommand::Logout(LogoutArgs {
+                all: false,
+                local_only: true,
+            }),
+        });
+
+        require_send(app.execute(command));
     }
 }

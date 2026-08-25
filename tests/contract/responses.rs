@@ -12,7 +12,103 @@ use wiremock::{
     matchers::{method, path},
 };
 
-use super::{client, login_request, register_request, status_token};
+use super::{client, login_request, logout_request, logout_token, register_request, status_token};
+
+#[tokio::test]
+async fn logout_success_requires_the_documented_message_field() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "message": "You've been logged out!",
+            "ignored": "not exposed"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .expect("the matching logout response should decode");
+}
+
+#[tokio::test]
+async fn logout_rejections_preserve_structured_errors() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(json!({
+            "error": "unauthorized",
+            "reason": "invalid bearer token"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    let ClientError::Server {
+        status,
+        server_error,
+        server_reason,
+        ..
+    } = error
+    else {
+        panic!("expected a structured server error")
+    };
+    assert_eq!(status, reqwest::StatusCode::UNAUTHORIZED);
+    assert_eq!(server_error.as_deref(), Some("unauthorized"));
+    assert_eq!(server_reason.as_deref(), Some("invalid bearer token"));
+}
+
+#[tokio::test]
+async fn malformed_logout_success_records_the_success_status() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "wrong": true })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ClientError::Protocol {
+            success_status_received: true,
+            ..
+        }
+    ));
+}
+
+#[tokio::test]
+async fn logout_responses_enforce_the_size_limit() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/users/logout"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ClientError::ResponseTooLarge {
+            status: reqwest::StatusCode::OK,
+            ..
+        }
+    ));
+}
 
 #[tokio::test]
 async fn current_user_success_fields_are_allowlisted_and_decoded() {
@@ -577,6 +673,38 @@ async fn truncated_registration_errors_preserve_the_http_status() {
         error,
         ClientError::ResponseBody {
             status: reqwest::StatusCode::BAD_REQUEST,
+            ..
+        }
+    ));
+}
+
+#[tokio::test]
+async fn truncated_logout_success_preserves_the_http_status() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = stream.read(&mut request).unwrap();
+        stream
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{\"message\":",
+            )
+            .unwrap();
+    });
+    let server_url = ServerUrl::parse(&format!("http://{address}"), false).unwrap();
+    let client = WekanClient::new(server_url).unwrap();
+
+    let error = client
+        .logout(&logout_request(false), &logout_token())
+        .await
+        .unwrap_err();
+    server.join().unwrap();
+
+    assert!(matches!(
+        error,
+        ClientError::ResponseBody {
+            status: reqwest::StatusCode::OK,
             ..
         }
     ));

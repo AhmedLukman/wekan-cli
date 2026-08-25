@@ -1,10 +1,10 @@
 # Authentication architecture
 
 This document describes the implemented `wekan auth register`,
-`wekan auth login`, and `wekan auth status` slices. It shows how command-line
-input becomes a Wekan request, how returned tokens cross into and back out of
-the native credential store, and how success, failure, and uncertain outcomes
-are reported.
+`wekan auth login`, `wekan auth status`, and `wekan auth logout` slices. It
+shows how command-line input becomes a Wekan request, how returned tokens cross
+into and back out of the native credential store, and how success, failure, and
+uncertain outcomes are reported.
 
 The behavioral details and stable machine contract remain authoritative in
 [Authentication](auth.md) and [Agent output contract](agent-contract.md).
@@ -19,7 +19,7 @@ flowchart LR
         entry[Argument parsing and output selection]
         app[Application composition]
         dispatch[Command dispatch]
-        handlers[Registration, login, and status handlers]
+        handlers[Registration, login, status, and logout handlers]
         secrets[Secret input provider]
         client[Wekan HTTP client]
         result[Result handling]
@@ -38,7 +38,7 @@ flowchart LR
     input -->|password and optional code| secrets
     handlers --> client
     client -->|Authentication POSTs or current-user GET| wekan
-    handlers -->|preflight, load, or save| vault
+    handlers -->|preflight, load, save, or delete| vault
     app -->|CommandSuccess or AppError| result
     result --> output
     output -->|stdout on success; stderr on error| caller
@@ -56,9 +56,10 @@ orchestration and error mapping.
 | Boundary | Responsibility | Key implementation |
 | --- | --- | --- |
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
-| CLI model | Define global flags plus the `auth register`, `auth login`, and argument-free `auth status` command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
+| CLI model | Define global flags plus the registration, login, status, and logout command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
 | Application composition | Construct production dependencies and pass them into dispatch | [`src/app.rs`](../src/app.rs) |
 | Authentication orchestration | Enforce operation order, load or store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
+| Command result model | Define secret-free semantic success outcomes and shared outcome vocabulary independently of rendering | [`src/command_result.rs`](../src/command_result.rs) |
 | HTTP boundary | Canonicalize and validate the server URL; apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/auth.rs`](../src/client/auth.rs) |
 | Secret boundary | Read confirmed registration passwords, single login passwords, and optional two-factor codes from non-echoing prompts or ordered stdin lines | [`src/credentials.rs`](../src/credentials.rs), [`src/credentials/`](../src/credentials/) |
 | Output contract | Render terminal-escaped human success fields, human errors, or stable JSON envelopes without passwords or tokens | [`src/output.rs`](../src/output.rs), [`src/error.rs`](../src/error.rs), [`src/redaction.rs`](../src/redaction.rs) |
@@ -186,6 +187,52 @@ invalid-token error with `statusCode: 401` inside HTTP 200; the client preserves
 both statuses and the handler returns `authentication_rejected`. Status never
 saves, removes, or repairs a credential.
 
+## Successful logout sequences
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as Human or agent
+    participant Handler as Logout handler
+    participant Factory as Client factory
+    participant Vault as Native credential store
+    participant Client as Wekan client
+    participant Wekan as Wekan v11.06
+
+    Caller->>Handler: auth logout [--all]
+    Handler->>Factory: Create and canonicalize client
+    Handler->>Vault: Preflight and acquire account mutation guard
+    Handler->>Vault: Load credential while the guard is held
+    Vault-->>Handler: Valid credential, including expired records
+    Handler->>Client: logout(all, stored token)
+    Client->>Wekan: POST users/logout + bearer token
+    Wekan-->>Client: 200 {message}
+    Client-->>Handler: Validated success
+    Handler->>Vault: Delete only if record still matches
+    Vault-->>Handler: Deleted, absent, or replacement preserved
+    Handler->>Vault: Release account mutation guard
+    Handler-->>Caller: Secret-free logout scope
+```
+
+Remote errors stop before deletion. A malformed, unreadable, or oversized HTTP
+200 records the observed status but sets `remote_logout_completed: null` and
+`outcome_unknown: true`, then preserves the credential. A validated 200 followed
+by deletion failure reports `remote_logout_completed: true` with
+`credential_store_failed`.
+
+The native credential store uses a stable, private per-user application-data
+lock path. Login, registration, remote logout, and local-only logout acquire
+the same canonical-server guard before their remote request and retain it until
+their local save or deletion completes. That serializes the full authentication
+transaction across current CLI processes, so an all-token logout cannot retain
+a token that a concurrent login had already created.
+
+For `auth logout --local-only`, the factory only canonicalizes the configured
+server URL. The handler preflights and deletes the vault entry without creating
+an HTTP client, loading the record, or contacting Wekan. Missing entries succeed
+idempotently with `local_credential_removed: false`, and output warns that no
+remote tokens were revoked.
+
 ## Registration validation and outcome flow
 
 ```mermaid
@@ -282,6 +329,35 @@ flowchart TD
     match -- Yes --> success([Allowlisted status envelope<br/>exit 0])
 ```
 
+## Logout validation flow
+
+```mermaid
+flowchart TD
+    start([Logout invoked]) --> mode{Local only?}
+    mode -- Yes --> key[Canonicalize server key]
+    key --> localdelete{Delete vault entry}
+    localdelete -- Deleted or absent --> localsuccess([Local-only success<br/>no HTTP])
+    localdelete -- Failed --> localfail[credential_store_failed<br/>exit 6]
+    mode -- No --> client[Create client and canonical URL]
+    client --> load{Credential loads?}
+    load -- Missing --> missing[credential_not_found<br/>exit 5]
+    load -- Invalid --> invalid[credential_store_failed<br/>exit 6]
+    load -- Valid or expired --> request[POST users/logout]
+    request --> response{Observed result}
+    response -- Transport or 5xx --> unknown[Preserve credential<br/>outcome_unknown = true]
+    response -- 401 --> rejected[authentication_rejected<br/>preserve credential]
+    response -- Redirect/other error --> error[Preserve credential<br/>mapped error]
+    response -- Unusable 200 --> protocol[protocol_error<br/>remote_logout_completed = null<br/>outcome_unknown = true<br/>preserve credential]
+    response -- Valid 200 --> delete{Stored record still matches?}
+    delete -- Failed --> deletefail[credential_store_failed<br/>remote_logout_completed = true]
+    delete -- Yes --> removed[Delete matching record<br/>local_credential_removed = true]
+    delete -- Replaced --> preserve[Preserve newer record<br/>credential_stored = true]
+    delete -- Absent --> absent[Already absent<br/>local_credential_removed = false]
+    removed --> success([Logout success<br/>exit 0])
+    preserve --> success
+    absent --> success
+```
+
 ## Data and trust boundaries
 
 ```mermaid
@@ -290,12 +366,12 @@ flowchart LR
         args[Arguments and environment]
         response[HTTP status and response body]
         preflight[Credential preflight errors]
-        storeerr[Credential load or save errors]
+        storeerr[Credential load, save, or delete errors]
     end
 
     subgraph controls[CLI controls]
         validation[CLI and URL validation]
-        limits[Timeouts, redirect and retry policy,<br/>1 MiB response limit]
+        limits[Timeouts, no automatic mutation retries,<br/>redirect policy, 1 MiB response limit]
         redaction[Known-secret redaction]
         successmeta[Validated success metadata]
         escaping[Human success-field<br/>terminal escaping]
@@ -344,7 +420,7 @@ flowchart BT
     unit[Unit tests<br/>validation, mapping, redaction,<br/>password and credential records]
     contract[HTTP contract tests<br/>request shape, response decoding,<br/>limits, redirects and no retries]
     cli[Black-box CLI tests<br/>streams, JSON errors, precedence<br/>and stable exit statuses]
-    e2e[Ignored live Wekan test<br/>register, login by username and email,<br/>validate status, reject bad passwords and tokens]
+    e2e[Ignored live Wekan test<br/>authentication lifecycle, local cleanup,<br/>current-token and all-token revocation]
 
     unit --> contract --> cli --> e2e
 ```
