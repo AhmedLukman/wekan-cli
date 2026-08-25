@@ -35,14 +35,14 @@ paths:
                         $ref: '#/definitions/AuthTokenResponse'
                 400:
                     description: |-
-                        Malformed request.
+                        The request body could not be parsed.
                     schema:
                         $ref: '#/definitions/ErrorResponse'
                 default:
                     description: |
                         Error in authentication
                 '401':
-                    description: Invalid credentials or two-factor code.
+                    description: Invalid request shape, credentials, or two-factor code.
                     schema:
                         $ref: '#/definitions/ErrorResponse'
                 '429':

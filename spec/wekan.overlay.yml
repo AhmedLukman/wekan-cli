@@ -673,7 +673,10 @@ actions:
   - target: '$.paths["/users/login"].post'
     description: >-
       Correct the JSON request alternatives and status codes implemented by
-      Wekan v11.06 server/apiAuthRoutes.js lines 75-188.
+      Wekan v11.06 server/apiAuthRoutes.js. JSON body-parser failures can return
+      400 before the route runs. Inside the route, request-shape checks and
+      authentication failures are caught and default to 401 unless the error
+      supplies another status code; the throttle explicitly supplies 429.
     update:
       consumes:
         - application/json
@@ -689,11 +692,11 @@ actions:
           schema:
             $ref: '#/definitions/AuthTokenResponse'
         '400':
-          description: Malformed request.
+          description: The request body could not be parsed.
           schema:
             $ref: '#/definitions/ErrorResponse'
         '401':
-          description: Invalid credentials or two-factor code.
+          description: Invalid request shape, credentials, or two-factor code.
           schema:
             $ref: '#/definitions/ErrorResponse'
         '429':
