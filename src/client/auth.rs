@@ -222,37 +222,14 @@ impl WekanClient {
                 success_status_received: false,
             })?;
 
-        let response = self
-            .http
-            .get(endpoint)
-            .header(ACCEPT, "application/json")
-            .bearer_auth(token.expose_secret())
-            .send()
-            .await
-            .map_err(ClientError::Transport)?;
-        let status = response.status();
-
-        if status.is_redirection() {
-            return Err(ClientError::UnexpectedRedirect { status });
-        }
-
-        let retry_after_seconds = response
-            .headers()
-            .get(RETRY_AFTER)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.parse::<u64>().ok());
-        let response_body = read_limited_body(response, retry_after_seconds).await?;
-
-        if status != StatusCode::OK {
-            let wekan_error =
-                serde_json::from_slice::<WekanErrorResponse>(&response_body).unwrap_or_default();
-            return Err(ClientError::Server {
-                status,
-                server_error: wekan_error.error.map(WekanErrorCode::into_string),
-                server_reason: wekan_error.reason,
-                retry_after_seconds,
-            });
-        }
+        let response_body = self
+            .execute_auth_request(
+                self.http
+                    .get(endpoint)
+                    .header(ACCEPT, "application/json")
+                    .bearer_auth(token.expose_secret()),
+            )
+            .await?;
 
         let response =
             serde_json::from_slice::<CurrentUserResponse>(&response_body).map_err(|_| {
@@ -269,7 +246,7 @@ impl WekanClient {
                     success_status_received: true,
                 })?;
             return Err(ClientError::EmbeddedServer {
-                http_status: status,
+                http_status: StatusCode::OK,
                 wekan_status_code,
                 server_error: response.error.map(WekanErrorCode::into_string),
                 server_reason: response.reason,
@@ -318,37 +295,14 @@ impl WekanClient {
                 success_status_received: false,
             })?;
 
-        let response = self
-            .http
-            .post(endpoint)
-            .header(ACCEPT, "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(ClientError::Transport)?;
-        let status = response.status();
-
-        if status.is_redirection() {
-            return Err(ClientError::UnexpectedRedirect { status });
-        }
-
-        let retry_after_seconds = response
-            .headers()
-            .get(RETRY_AFTER)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.parse::<u64>().ok());
-        let response_body = read_limited_body(response, retry_after_seconds).await?;
-
-        if status != StatusCode::OK {
-            let wekan_error =
-                serde_json::from_slice::<WekanErrorResponse>(&response_body).unwrap_or_default();
-            return Err(ClientError::Server {
-                status,
-                server_error: wekan_error.error.map(WekanErrorCode::into_string),
-                server_reason: wekan_error.reason,
-                retry_after_seconds,
-            });
-        }
+        let response_body = self
+            .execute_auth_request(
+                self.http
+                    .post(endpoint)
+                    .header(ACCEPT, "application/json")
+                    .json(&body),
+            )
+            .await?;
 
         let response =
             serde_json::from_slice::<AuthTokenResponse>(&response_body).map_err(|_| {
@@ -383,6 +337,38 @@ impl WekanClient {
             token: SecretString::from(response.token),
             token_expires,
         })
+    }
+
+    async fn execute_auth_request(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<Vec<u8>, ClientError> {
+        let response = request.send().await.map_err(ClientError::Transport)?;
+        let status = response.status();
+
+        if status.is_redirection() {
+            return Err(ClientError::UnexpectedRedirect { status });
+        }
+
+        let retry_after_seconds = response
+            .headers()
+            .get(RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok());
+        let response_body = read_limited_body(response, retry_after_seconds).await?;
+
+        if status != StatusCode::OK {
+            let wekan_error =
+                serde_json::from_slice::<WekanErrorResponse>(&response_body).unwrap_or_default();
+            return Err(ClientError::Server {
+                status,
+                server_error: wekan_error.error.map(WekanErrorCode::into_string),
+                server_reason: wekan_error.reason,
+                retry_after_seconds,
+            });
+        }
+
+        Ok(response_body)
     }
 }
 

@@ -11,7 +11,7 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::preflight_credentials;
+use super::{embedded_server_error_details, preflight_credentials, server_error_details};
 
 #[derive(Debug, Args)]
 pub struct StatusArgs {}
@@ -180,13 +180,13 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
                 },
                 StableExitCode::Server,
             )
-            .with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                server_error: server_error.map(|value| redactor.redact(&value)),
-                server_reason: server_reason.map(|value| redactor.redact(&value)),
+            .with_details(server_error_details(
+                status,
+                server_error,
+                server_reason,
                 retry_after_seconds,
-                ..ErrorDetails::default()
-            })
+                redactor,
+            ))
         }
         ClientError::EmbeddedServer {
             http_status,
@@ -208,13 +208,13 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
                 },
                 StableExitCode::Server,
             )
-            .with_details(ErrorDetails {
-                http_status: Some(http_status.as_u16()),
-                wekan_status_code: Some(wekan_status_code),
-                server_error: server_error.map(|value| redactor.redact(&value)),
-                server_reason: server_reason.map(|value| redactor.redact(&value)),
-                ..ErrorDetails::default()
-            })
+            .with_details(embedded_server_error_details(
+                http_status,
+                wekan_status_code,
+                server_error,
+                server_reason,
+                redactor,
+            ))
         }
     }
 }

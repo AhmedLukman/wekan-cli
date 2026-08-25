@@ -9,7 +9,10 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{persist_session, preflight_credentials};
+use super::{
+    embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
+    server_error_details,
+};
 
 #[derive(Debug, Args)]
 pub struct RegisterArgs {
@@ -32,14 +35,6 @@ pub struct RegisterArgs {
     /// Read the password from one line of standard input.
     #[arg(long)]
     pub password_stdin: bool,
-}
-
-fn non_empty_identity(value: &str) -> Result<String, String> {
-    if value.is_empty() {
-        Err("value must not be empty".to_owned())
-    } else {
-        Ok(value.to_owned())
-    }
 }
 
 pub(crate) async fn execute(
@@ -155,13 +150,10 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                     None,
                 ),
             };
-            AppError::new(code, message, StableExitCode::Server).with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                server_error: server_error.map(|value| redactor.redact(&value)),
-                server_reason: server_reason.map(|value| redactor.redact(&value)),
-                outcome_unknown,
-                ..ErrorDetails::default()
-            })
+            let mut details =
+                server_error_details(status, server_error, server_reason, None, redactor);
+            details.outcome_unknown = outcome_unknown;
+            AppError::new(code, message, StableExitCode::Server).with_details(details)
         }
         ClientError::EmbeddedServer {
             http_status,
@@ -173,13 +165,16 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             "the Wekan server returned an unexpected embedded registration error",
             StableExitCode::Server,
         )
-        .with_details(ErrorDetails {
-            http_status: Some(http_status.as_u16()),
-            wekan_status_code: Some(wekan_status_code),
-            server_error: server_error.map(|value| redactor.redact(&value)),
-            server_reason: server_reason.map(|value| redactor.redact(&value)),
-            outcome_unknown: Some(true),
-            ..ErrorDetails::default()
+        .with_details({
+            let mut details = embedded_server_error_details(
+                http_status,
+                wekan_status_code,
+                server_error,
+                server_reason,
+                redactor,
+            );
+            details.outcome_unknown = Some(true);
+            details
         }),
     }
 }
@@ -519,7 +514,6 @@ mod tests {
         assert_eq!(disabled_error.exit_code(), StableExitCode::Server);
         assert_eq!(disabled_error.details().http_status, Some(403));
         assert_eq!(disabled_error.details().outcome_unknown, None);
-
         let success_error = map_client_error(
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,

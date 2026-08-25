@@ -3,12 +3,13 @@ pub mod register;
 pub mod status;
 
 use clap::{Args, Subcommand};
+use reqwest::StatusCode;
 use time::format_description::well_known::Rfc3339;
 
 use crate::{
     client::{AuthSession, WekanClientFactory},
     credentials::{CredentialRecord, CredentialStore, SecretInputProvider},
-    error::{AppError, ErrorCode},
+    error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
     output::{AuthSuccess, CommandSuccess},
     redaction::Redactor,
@@ -96,4 +97,44 @@ pub(super) fn persist_session(
         token_expires: token_expires_text,
         credential_stored: true,
     })
+}
+
+pub(super) fn non_empty_identity(value: &str) -> Result<String, String> {
+    if value.is_empty() {
+        Err("value must not be empty".to_owned())
+    } else {
+        Ok(value.to_owned())
+    }
+}
+
+pub(super) fn server_error_details(
+    status: StatusCode,
+    server_error: Option<String>,
+    server_reason: Option<String>,
+    retry_after_seconds: Option<u64>,
+    redactor: &Redactor<'_>,
+) -> ErrorDetails {
+    ErrorDetails {
+        http_status: Some(status.as_u16()),
+        server_error: server_error.map(|value| redactor.redact(&value)),
+        server_reason: server_reason.map(|value| redactor.redact(&value)),
+        retry_after_seconds,
+        ..ErrorDetails::default()
+    }
+}
+
+pub(super) fn embedded_server_error_details(
+    http_status: reqwest::StatusCode,
+    wekan_status_code: u16,
+    server_error: Option<String>,
+    server_reason: Option<String>,
+    redactor: &Redactor<'_>,
+) -> ErrorDetails {
+    ErrorDetails {
+        http_status: Some(http_status.as_u16()),
+        wekan_status_code: Some(wekan_status_code),
+        server_error: server_error.map(|value| redactor.redact(&value)),
+        server_reason: server_reason.map(|value| redactor.redact(&value)),
+        ..ErrorDetails::default()
+    }
 }

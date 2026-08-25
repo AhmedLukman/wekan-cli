@@ -9,7 +9,10 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{persist_session, preflight_credentials};
+use super::{
+    embedded_server_error_details, non_empty_identity, persist_session, preflight_credentials,
+    server_error_details,
+};
 
 #[derive(Debug, Args)]
 pub struct LoginArgs {
@@ -42,14 +45,6 @@ pub struct LoginArgs {
     /// Read the two-factor code from the line after the password on standard input.
     #[arg(long, requires = "password_stdin", conflicts_with = "code")]
     pub code_stdin: bool,
-}
-
-fn non_empty_identity(value: &str) -> Result<String, String> {
-    if value.is_empty() {
-        Err("value must not be empty".to_owned())
-    } else {
-        Ok(value.to_owned())
-    }
 }
 
 impl LoginArgs {
@@ -212,17 +207,18 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 ),
             };
             let message = append_retry_after(message.to_owned(), status, retry_after_seconds);
-            AppError::new(code, message, exit_code).with_details(ErrorDetails {
-                http_status: Some(status.as_u16()),
-                server_error: server_error.map(|value| redactor.redact(&value)),
-                server_reason: server_reason.map(|value| redactor.redact(&value)),
-                two_factor_required: two_factor_required.then_some(true),
-                outcome_unknown,
-                retry_after_seconds: (status == reqwest::StatusCode::TOO_MANY_REQUESTS)
+            let mut details = server_error_details(
+                status,
+                server_error,
+                server_reason,
+                (status == reqwest::StatusCode::TOO_MANY_REQUESTS)
                     .then_some(retry_after_seconds)
                     .flatten(),
-                ..ErrorDetails::default()
-            })
+                redactor,
+            );
+            details.two_factor_required = two_factor_required.then_some(true);
+            details.outcome_unknown = outcome_unknown;
+            AppError::new(code, message, exit_code).with_details(details)
         }
         ClientError::EmbeddedServer {
             http_status,
@@ -234,13 +230,13 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             "the Wekan server returned an unexpected embedded login error",
             StableExitCode::Server,
         )
-        .with_details(ErrorDetails {
-            http_status: Some(http_status.as_u16()),
-            wekan_status_code: Some(wekan_status_code),
-            server_error: server_error.map(|value| redactor.redact(&value)),
-            server_reason: server_reason.map(|value| redactor.redact(&value)),
-            ..ErrorDetails::default()
-        }),
+        .with_details(embedded_server_error_details(
+            http_status,
+            wekan_status_code,
+            server_error,
+            server_reason,
+            redactor,
+        )),
     }
 }
 
