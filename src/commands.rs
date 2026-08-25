@@ -4,7 +4,7 @@ use clap::Subcommand;
 
 use crate::{
     client::WekanClientFactory,
-    credentials::{CredentialStore, PasswordProvider},
+    credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
     output::CommandSuccess,
 };
@@ -19,17 +19,11 @@ pub(crate) async fn dispatch(
     command: RootCommand,
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
-    password_provider: &dyn PasswordProvider,
+    secret_input: &dyn SecretInputProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
         RootCommand::Auth(args) => {
-            auth::dispatch(
-                args.command,
-                client_factory,
-                credential_store,
-                password_provider,
-            )
-            .await
+            auth::dispatch(args.command, client_factory, credential_store, secret_input).await
         }
     }
 }

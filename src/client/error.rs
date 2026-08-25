@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum ClientError {
     #[error("failed to initialize the HTTP client")]
     Build(#[source] reqwest::Error),
-    #[error("the registration request could not be completed")]
+    #[error("the request could not be completed")]
     Transport(#[source] reqwest::Error),
     #[error("the server returned an unexpected redirect ({status})")]
     UnexpectedRedirect { status: StatusCode },
@@ -13,22 +13,25 @@ pub enum ClientError {
     ResponseTooLarge {
         limit_bytes: usize,
         status: StatusCode,
+        retry_after_seconds: Option<u64>,
     },
     #[error("the server response body could not be read")]
     ResponseBody {
         status: StatusCode,
+        retry_after_seconds: Option<u64>,
         #[source]
         source: reqwest::Error,
     },
-    #[error("the server returned an invalid registration success response: {message}")]
+    #[error("the server returned an invalid success response: {message}")]
     Protocol {
         message: String,
-        account_created: Option<bool>,
+        success_status_received: bool,
     },
-    #[error("the Wekan server rejected registration ({status})")]
+    #[error("the Wekan server returned an error ({status})")]
     Server {
         status: StatusCode,
         server_error: Option<String>,
         server_reason: Option<String>,
+        retry_after_seconds: Option<u64>,
     },
 }

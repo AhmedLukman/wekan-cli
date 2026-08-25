@@ -12,14 +12,22 @@ impl<'a> Redactor<'a> {
         }
     }
 
+    pub fn and_secret(mut self, secret: &'a SecretString) -> Self {
+        self.secrets.push(secret);
+        self
+    }
+
     pub fn redact(&self, value: &str) -> String {
-        self.secrets.iter().fold(value.to_owned(), |text, secret| {
-            let secret = secret.expose_secret();
-            if secret.is_empty() {
-                text
-            } else {
-                text.replace(secret, "[REDACTED]")
-            }
+        let mut secrets: Vec<_> = self
+            .secrets
+            .iter()
+            .map(|secret| secret.expose_secret())
+            .filter(|secret| !secret.is_empty())
+            .collect();
+        secrets.sort_unstable_by_key(|secret| std::cmp::Reverse(secret.len()));
+
+        secrets.into_iter().fold(value.to_owned(), |text, secret| {
+            text.replace(secret, "[REDACTED]")
         })
     }
 }
@@ -38,5 +46,17 @@ mod tests {
 
         assert_eq!(result, "[REDACTED] / [REDACTED]");
         assert!(!format!("{secret:?}").contains("do not print me"));
+    }
+
+    #[test]
+    fn redacts_overlapping_secrets_without_leaking_a_suffix() {
+        let password = SecretString::from("123".to_owned());
+        let code = SecretString::from("123456".to_owned());
+        let redactor = Redactor::with_secret(&password).and_secret(&code);
+
+        assert_eq!(
+            redactor.redact("code 123456 was rejected"),
+            "code [REDACTED] was rejected"
+        );
     }
 }

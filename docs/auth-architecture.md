@@ -1,9 +1,9 @@
-# Authentication registration architecture
+# Authentication architecture
 
-This document describes the implemented `wekan auth register` slice. It shows
-how command-line input becomes one non-idempotent Wekan request, how the
-returned login token crosses the process boundary into the native credential
-store, and how success, failure, and uncertain outcomes are reported.
+This document describes the implemented `wekan auth register` and
+`wekan auth login` slices. It shows how command-line input becomes one Wekan
+request, how returned tokens cross into the native credential store, and how
+success, failure, and uncertain outcomes are reported.
 
 The behavioral details and stable machine contract remain authoritative in
 [Authentication](auth.md) and [Agent output contract](agent-contract.md).
@@ -18,8 +18,8 @@ flowchart LR
         entry[Argument parsing and output selection]
         app[Application composition]
         dispatch[Command dispatch]
-        register[Registration handler]
-        password[Password provider]
+        handlers[Registration and login handlers]
+        secrets[Secret input provider]
         client[Wekan HTTP client]
         result[Result handling]
         output[Human or JSON renderer]
@@ -32,33 +32,33 @@ flowchart LR
     caller -->|arguments and environment| entry
     entry --> app
     app --> dispatch
-    dispatch --> register
-    register --> password
-    input -->|password, never an argument| password
-    register --> client
-    client -->|POST users/register| wekan
-    register -->|preflight and save| vault
+    dispatch --> handlers
+    handlers --> secrets
+    input -->|password and optional code| secrets
+    handlers --> client
+    client -->|POST users/register or users/login| wekan
+    handlers -->|preflight and save| vault
     app -->|CommandSuccess or AppError| result
     result --> output
     output -->|stdout on success; stderr on error| caller
 ```
 
 The application layer owns concrete production dependencies and injects them
-into the command handler. The `CredentialStore` and `PasswordProvider` traits
+into the command handler. The `CredentialStore` and `SecretInputProvider` traits
 keep command behavior testable without a real terminal or operating-system
-vault. The HTTP client owns URL and transport policy; the registration handler
-owns orchestration, error mapping, and mutation-state metadata.
+vault. The HTTP client owns URL, transport policy, and shared auth-session
+decoding; each handler owns operation-specific orchestration and error mapping.
 
 ## Component responsibilities
 
 | Boundary | Responsibility | Key implementation |
 | --- | --- | --- |
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
-| CLI model | Define global server, output, and insecure-HTTP flags plus the `auth register` command shape | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
+| CLI model | Define global flags plus the `auth register` and `auth login` command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
 | Application composition | Construct production dependencies and pass them into dispatch | [`src/app.rs`](../src/app.rs) |
-| Registration orchestration | Enforce operation order, construct the request, store credentials, redact secrets, and map errors | [`src/commands/auth/register.rs`](../src/commands/auth/register.rs) |
+| Authentication orchestration | Enforce operation order, construct requests, store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
 | HTTP boundary | Canonicalize and validate the server URL; apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/auth.rs`](../src/client/auth.rs) |
-| Secret boundary | Read a password from a non-echoing prompt or one stdin line and persist only the returned token in the native vault | [`src/credentials.rs`](../src/credentials.rs), [`src/credentials/`](../src/credentials/) |
+| Secret boundary | Read confirmed registration passwords, single login passwords, and optional two-factor codes from non-echoing prompts or ordered stdin lines | [`src/credentials.rs`](../src/credentials.rs), [`src/credentials/`](../src/credentials/) |
 | Output contract | Render terminal-escaped human success fields, human errors, or stable JSON envelopes without passwords or tokens | [`src/output.rs`](../src/output.rs), [`src/error.rs`](../src/error.rs), [`src/redaction.rs`](../src/redaction.rs) |
 
 Dependencies point inward through traits where an external side effect needs a
@@ -106,9 +106,9 @@ sequenceDiagram
     Note over Handler,Vault: Account key is the canonical server URL
     Note over Handler,Vault: The password is never stored
     Vault-->>Handler: Saved
-    Handler-->>Dispatch: RegistrationSuccess without token
-    Dispatch-->>App: RegistrationSuccess
-    App-->>CLI: RegistrationSuccess
+    Handler-->>Dispatch: AuthSuccess without token
+    Dispatch-->>App: AuthSuccess
+    App-->>CLI: AuthSuccess
     CLI-->>Caller: stdout + exit 0
 ```
 
@@ -118,7 +118,41 @@ until the returned token has been stored. The token remains secret throughout:
 it is accepted from Wekan, wrapped as secret data, written to the vault, and
 omitted from both human and JSON output.
 
-## Validation and outcome flow
+## Successful login sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as Human or agent
+    participant Handler as Login handler
+    participant Factory as Client factory
+    participant Vault as Native credential store
+    participant Secrets as Secret input provider
+    participant Client as Wekan client
+    participant Wekan as Wekan v11.06
+
+    Caller->>Handler: auth login + one identity + server
+    Handler->>Factory: Create and canonicalize client
+    Factory-->>Handler: Configured client + canonical URL
+    Handler->>Vault: Check availability
+    Vault-->>Handler: Available
+    Handler->>Secrets: Read password and optional code
+    Secrets-->>Handler: LoginSecrets
+    Handler->>Client: login(identity, password, optional code)
+    Client->>Wekan: One POST users/login (JSON)
+    Note over Client,Wekan: Redirects and retries are disabled
+    Wekan-->>Client: 200 {id, token, tokenExpires}
+    Client-->>Handler: Validated AuthSession
+    Handler->>Vault: Replace credential for canonical URL
+    Vault-->>Handler: Saved
+    Handler-->>Caller: Secret-free success envelope
+```
+
+Interactive `--code` and automated `--code-stdin` supply the code before this
+single request. The CLI does not discover two-factor authentication by replaying
+a rejected password-only request.
+
+## Registration validation and outcome flow
 
 ```mermaid
 flowchart TD
@@ -159,6 +193,37 @@ failure occurs after a validated success. `outcome_unknown` instead marks cases
 where the request may have taken effect but the CLI cannot prove it. This is
 especially important because registration is intentionally never retried.
 
+## Login validation and outcome flow
+
+```mermaid
+flowchart TD
+    start([Login invoked]) --> parse{Exactly one identity and<br/>valid secret-input mode?}
+    parse -- No --> usage[invalid_input<br/>exit 2]
+    parse -- Yes --> server{Server and client valid?}
+    server -- No --> config[configuration/internal error]
+    server -- Yes --> vault{Credential store available?}
+    vault -- No --> unavailable[credential_store_unavailable<br/>session_created = false]
+    vault -- Yes --> secrets{Password and optional code valid?}
+    secrets -- No --> input[invalid_input<br/>exit 2]
+    secrets -- Yes --> request[Send one POST users/login]
+    request --> response{Observed result}
+    response -- Transport or 5xx --> unknown[outcome_unknown = true]
+    response -- 400 --> malformed[protocol_error<br/>exit 4]
+    response -- 401 --> rejected[login_rejected<br/>exit 5]
+    rejected --> twofactor{no-2fa-code?}
+    twofactor -- Yes --> required[two_factor_required = true<br/>retry explicitly with code]
+    twofactor -- No --> credentials[credentials or code rejected]
+    response -- 429 --> limited[login_rate_limited<br/>retry_after_seconds]
+    response -- Other error --> servererr[server_error<br/>exit 5]
+    response -- 200 unusable --> protocol[protocol_error<br/>session_created = true]
+    response -- 200 valid --> save{Credential saved?}
+    save -- No --> storefail[credential_store_failed<br/>session_created = true]
+    save -- Yes --> success([Success envelope<br/>exit 0])
+```
+
+`session_created` is the login counterpart to `account_created`. Local
+credential replacement does not revoke any older tokens that Wekan has issued.
+
 ## Data and trust boundaries
 
 ```mermaid
@@ -180,15 +245,18 @@ flowchart LR
     end
 
     subgraph secrets[Secret-bearing path]
-        secretinput[Password prompt or stdin]
-        pass[Registration password]
+        secretinput[Non-echoing prompt or ordered stdin]
+        pass[Password]
+        code[Optional two-factor code]
         token[Returned login token]
         vault[(Native credential store)]
     end
 
     args --> validation --> limits
     secretinput --> pass
+    secretinput --> code
     pass -->|request body only| limits
+    code -->|login request body only| limits
     response --> limits
     limits --> token
     token --> vault
@@ -201,12 +269,13 @@ flowchart LR
     escaping --> rendered
 
     pass -. never persisted .-> redaction
+    code -. never persisted .-> redaction
     token -. never rendered .-> rendered
 ```
 
-HTTP response bodies are bounded and classified before output. When a password
-or token could be echoed by a remote or credential-store error, that known
-secret is replaced. Terminal control characters are escaped in human success
+HTTP response bodies are bounded and classified before output. When a password,
+two-factor code, or token could be echoed by a remote or credential-store error,
+that known secret is replaced. Terminal control characters are escaped in human success
 fields, and structured JSON exposes only documented metadata. Human error
 rendering does not apply a general terminal-control escaping pass.
 
@@ -217,7 +286,7 @@ flowchart BT
     unit[Unit tests<br/>validation, mapping, redaction,<br/>password and credential records]
     contract[HTTP contract tests<br/>request shape, response decoding,<br/>limits, redirects and no retries]
     cli[Black-box CLI tests<br/>streams, JSON errors, precedence<br/>and stable exit statuses]
-    e2e[Ignored live Wekan test<br/>create user, reject duplicate,<br/>authenticate with stored token]
+    e2e[Ignored live Wekan test<br/>register, login by username and email,<br/>reject a bad password, authenticate stored tokens]
 
     unit --> contract --> cli --> e2e
 ```

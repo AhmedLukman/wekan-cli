@@ -11,25 +11,98 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use keyring::KeyringCredentialStore;
 
-pub trait PasswordProvider: Send + Sync {
-    fn read_password(&self, from_stdin: bool) -> Result<SecretString, crate::error::AppError>;
+const PASSWORD_STDIN_GUIDANCE: &str = "pass --password-stdin to read the password from stdin";
+const TWO_FACTOR_STDIN_GUIDANCE: &str = "replace --code with --password-stdin --code-stdin to read the password and two-factor code from stdin";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LoginSecretMode {
+    PromptPassword,
+    PromptPasswordAndCode,
+    StdinPassword,
+    StdinPasswordAndCode,
+}
+
+#[derive(Debug)]
+pub struct LoginSecrets {
+    password: SecretString,
+    code: Option<SecretString>,
+}
+
+impl LoginSecrets {
+    pub fn new(password: SecretString, code: Option<SecretString>) -> Self {
+        Self { password, code }
+    }
+
+    pub fn into_parts(self) -> (SecretString, Option<SecretString>) {
+        (self.password, self.code)
+    }
+}
+
+pub trait SecretInputProvider: Send + Sync {
+    fn read_registration_password(
+        &self,
+        from_stdin: bool,
+    ) -> Result<SecretString, crate::error::AppError>;
+
+    fn read_login_secrets(
+        &self,
+        mode: LoginSecretMode,
+    ) -> Result<LoginSecrets, crate::error::AppError>;
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct SystemPasswordProvider;
+pub struct SystemSecretInputProvider;
 
-impl PasswordProvider for SystemPasswordProvider {
-    fn read_password(&self, from_stdin: bool) -> Result<SecretString, crate::error::AppError> {
+impl SecretInputProvider for SystemSecretInputProvider {
+    fn read_registration_password(
+        &self,
+        from_stdin: bool,
+    ) -> Result<SecretString, crate::error::AppError> {
         if from_stdin {
             return stdin::read_password_line(io::stdin().lock());
         }
-        if !io::stdin().is_terminal() {
-            return Err(crate::error::AppError::invalid_input(
-                "standard input is not a terminal; pass --password-stdin to read the password from stdin",
-            ));
-        }
+        require_terminal(PASSWORD_STDIN_GUIDANCE)?;
 
         prompt::read_confirmed_password()
+    }
+
+    fn read_login_secrets(
+        &self,
+        mode: LoginSecretMode,
+    ) -> Result<LoginSecrets, crate::error::AppError> {
+        match mode {
+            LoginSecretMode::PromptPassword => {
+                require_terminal(PASSWORD_STDIN_GUIDANCE)?;
+                let password = prompt::read_password()?;
+                Ok(LoginSecrets::new(password, None))
+            }
+            LoginSecretMode::PromptPasswordAndCode => {
+                require_terminal(TWO_FACTOR_STDIN_GUIDANCE)?;
+                let password = prompt::read_password()?;
+                let code = prompt::read_code()?;
+                Ok(LoginSecrets::new(password, Some(code)))
+            }
+            LoginSecretMode::StdinPassword | LoginSecretMode::StdinPasswordAndCode => {
+                let mut input = io::stdin().lock();
+                let password = stdin::read_password_line(&mut input)?;
+                let code = if mode == LoginSecretMode::StdinPasswordAndCode {
+                    Some(stdin::read_code_line(&mut input)?)
+                } else {
+                    None
+                };
+                Ok(LoginSecrets::new(password, code))
+            }
+        }
+    }
+}
+
+fn require_terminal(guidance: &str) -> Result<(), crate::error::AppError> {
+    if io::stdin().is_terminal() {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::invalid_input(format!(
+            "standard input is not a terminal; {guidance}"
+        )))
     }
 }
 
@@ -48,6 +121,15 @@ fn validate_password(
         ));
     }
     Ok(SecretString::from(password))
+}
+
+fn validate_code(code: String) -> Result<SecretString, crate::error::AppError> {
+    if code.is_empty() {
+        return Err(crate::error::AppError::invalid_input(
+            "two-factor code must not be empty",
+        ));
+    }
+    Ok(SecretString::from(code))
 }
 
 pub trait CredentialStore: Send + Sync {
@@ -136,13 +218,32 @@ mod tests {
     use secrecy::SecretString;
     use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
-    use super::{CredentialRecord, validate_password};
+    use super::{
+        CredentialRecord, PASSWORD_STDIN_GUIDANCE, TWO_FACTOR_STDIN_GUIDANCE, validate_password,
+    };
 
     #[test]
     fn interactive_confirmation_must_match() {
         let error = validate_password("first".to_owned(), Some("second".to_owned()))
             .expect_err("mismatched confirmation must fail");
         assert_eq!(error.message(), "password and confirmation do not match");
+    }
+
+    #[test]
+    fn login_password_does_not_require_confirmation() {
+        assert!(validate_password("password".to_owned(), None).is_ok());
+    }
+
+    #[test]
+    fn non_terminal_guidance_distinguishes_two_factor_login() {
+        assert_eq!(
+            PASSWORD_STDIN_GUIDANCE,
+            "pass --password-stdin to read the password from stdin"
+        );
+        assert_eq!(
+            TWO_FACTOR_STDIN_GUIDANCE,
+            "replace --code with --password-stdin --code-stdin to read the password and two-factor code from stdin"
+        );
     }
 
     #[test]

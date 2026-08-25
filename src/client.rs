@@ -7,7 +7,7 @@ use reqwest::{Client, redirect::Policy};
 use thiserror::Error;
 use url::{Host, Url};
 
-pub use auth::{AuthSession, RegisterRequest};
+pub use auth::{AuthSession, LoginRequest, RegisterRequest};
 pub use error::ClientError;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -188,6 +188,10 @@ mod tests {
         assert_eq!(
             server.join("users/register").unwrap().as_str(),
             "https://example.com/wekan/users/register"
+        );
+        assert_eq!(
+            server.join("users/login").unwrap().as_str(),
+            "https://example.com/wekan/users/login"
         );
     }
 

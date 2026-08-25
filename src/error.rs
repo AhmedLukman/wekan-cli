@@ -14,6 +14,8 @@ pub enum ErrorCode {
     TransportError,
     UnexpectedRedirect,
     ProtocolError,
+    LoginRejected,
+    LoginRateLimited,
     RegistrationRejected,
     RegistrationDisabled,
     ServerError,
@@ -31,6 +33,8 @@ impl ErrorCode {
             Self::TransportError => "transport_error",
             Self::UnexpectedRedirect => "unexpected_redirect",
             Self::ProtocolError => "protocol_error",
+            Self::LoginRejected => "login_rejected",
+            Self::LoginRateLimited => "login_rate_limited",
             Self::RegistrationRejected => "registration_rejected",
             Self::RegistrationDisabled => "registration_disabled",
             Self::ServerError => "server_error",
@@ -52,7 +56,13 @@ pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_created: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_created: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub two_factor_required: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome_unknown: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_seconds: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

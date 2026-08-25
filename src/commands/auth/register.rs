@@ -1,14 +1,15 @@
 use clap::Args;
-use time::format_description::well_known::Rfc3339;
 
 use crate::{
     client::{ClientError, RegisterRequest, WekanClientFactory},
-    credentials::{CredentialRecord, CredentialStore, PasswordProvider},
+    credentials::{CredentialStore, SecretInputProvider},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
-    output::{CommandSuccess, RegistrationSuccess},
+    output::CommandSuccess,
     redaction::Redactor,
 };
+
+use super::{persist_session, preflight_credentials};
 
 #[derive(Debug, Args)]
 pub struct RegisterArgs {
@@ -45,26 +46,19 @@ pub(crate) async fn execute(
     args: RegisterArgs,
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
-    password_provider: &dyn PasswordProvider,
+    secret_input: &dyn SecretInputProvider,
 ) -> Result<CommandSuccess, AppError> {
     let client = client_factory.create().map_err(AppError::from)?;
     let server_url = client.server().as_str().to_owned();
 
-    credential_store
-        .check_available(&server_url)
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::CredentialStoreUnavailable,
-                error.to_string(),
-                StableExitCode::Credential,
-            )
-            .with_details(ErrorDetails {
-                account_created: Some(false),
-                ..ErrorDetails::default()
-            })
-        })?;
+    preflight_credentials(credential_store, &server_url).map_err(|error| {
+        error.with_details(ErrorDetails {
+            account_created: Some(false),
+            ..ErrorDetails::default()
+        })
+    })?;
 
-    let password = password_provider.read_password(args.password_stdin)?;
+    let password = secret_input.read_registration_password(args.password_stdin)?;
     let request = RegisterRequest {
         username: args.username,
         email: args.email,
@@ -76,37 +70,13 @@ pub(crate) async fn execute(
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    let (user_id, token, token_expires) = session.into_parts();
-    let token_expires_text = token_expires.format(&Rfc3339).map_err(|_| {
-        AppError::new(
-            ErrorCode::InternalError,
-            "the validated token expiry could not be formatted",
-            StableExitCode::Internal,
-        )
+    let success = persist_session(credential_store, server_url, session).map_err(|error| {
+        error.with_details(ErrorDetails {
+            account_created: Some(true),
+            ..ErrorDetails::default()
+        })
     })?;
-    let record = CredentialRecord::new(server_url.clone(), user_id.clone(), token, token_expires);
-    let token_redactor = Redactor::with_secret(record.token());
-
-    credential_store
-        .save(&server_url, &record)
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::CredentialStoreFailed,
-                token_redactor.redact(&error.to_string()),
-                StableExitCode::Credential,
-            )
-            .with_details(ErrorDetails {
-                account_created: Some(true),
-                ..ErrorDetails::default()
-            })
-        })?;
-
-    Ok(CommandSuccess::Registration(RegistrationSuccess {
-        server: server_url,
-        user_id,
-        token_expires: token_expires_text,
-        credential_stored: true,
-    }))
+    Ok(CommandSuccess::Registration(success))
 }
 
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
@@ -137,6 +107,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         ClientError::ResponseTooLarge {
             limit_bytes,
             status,
+            retry_after_seconds: _,
         } => response_body_error(
             format!("the server response exceeded the {limit_bytes}-byte safety limit"),
             status,
@@ -146,20 +117,21 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         }
         ClientError::Protocol {
             message,
-            account_created,
+            success_status_received,
         } => AppError::new(
             ErrorCode::ProtocolError,
             redactor.redact(&format!("invalid response from Wekan: {message}")),
             StableExitCode::Transport,
         )
         .with_details(ErrorDetails {
-            account_created,
+            account_created: Some(success_status_received),
             ..ErrorDetails::default()
         }),
         ClientError::Server {
             status,
             server_error,
             server_reason,
+            retry_after_seconds: _,
         } => {
             let (code, message, outcome_unknown) = match status.as_u16() {
                 400 => (
@@ -260,7 +232,10 @@ mod tests {
         cli::Cli,
         client::{ClientError, WekanClientFactory},
         commands::{RootCommand, auth::AuthCommand},
-        credentials::{CredentialError, CredentialRecord, CredentialStore, PasswordProvider},
+        credentials::{
+            CredentialError, CredentialRecord, CredentialStore, LoginSecretMode, LoginSecrets,
+            SecretInputProvider,
+        },
         error::{AppError, ErrorCode},
         exit_code::StableExitCode,
         output::CommandSuccess,
@@ -317,14 +292,22 @@ mod tests {
         }
     }
 
-    struct FakePasswordProvider {
+    struct FakeSecretInput {
         read: Arc<AtomicBool>,
     }
 
-    impl PasswordProvider for FakePasswordProvider {
-        fn read_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
+    impl SecretInputProvider for FakeSecretInput {
+        fn read_registration_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
             self.read.store(true, Ordering::SeqCst);
             Ok(SecretString::from("test-password".to_owned()))
+        }
+
+        fn read_login_secrets(&self, _mode: LoginSecretMode) -> Result<LoginSecrets, AppError> {
+            self.read.store(true, Ordering::SeqCst);
+            Ok(LoginSecrets::new(
+                SecretString::from("test-password".to_owned()),
+                None,
+            ))
         }
     }
 
@@ -382,7 +365,9 @@ mod tests {
         .expect("both identity fields should be accepted");
 
         let RootCommand::Auth(auth) = cli.command;
-        let AuthCommand::Register(args) = auth.command;
+        let AuthCommand::Register(args) = auth.command else {
+            panic!("expected the register command")
+        };
         assert_eq!(args.username.as_deref(), Some("alice"));
         assert_eq!(args.email.as_deref(), Some("alice@example.com"));
     }
@@ -429,6 +414,7 @@ mod tests {
                 status: reqwest::StatusCode::BAD_REQUEST,
                 server_error: Some("bad secret-password".to_owned()),
                 server_reason: Some("secret-password rejected".to_owned()),
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -449,6 +435,7 @@ mod tests {
                 status: reqwest::StatusCode::BAD_REQUEST,
                 server_error: Some("database failure".to_owned()),
                 server_reason: Some("login token could not be inserted".to_owned()),
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -462,6 +449,7 @@ mod tests {
                 status: reqwest::StatusCode::BAD_GATEWAY,
                 server_error: None,
                 server_reason: None,
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -485,6 +473,7 @@ mod tests {
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,
                 status: reqwest::StatusCode::BAD_REQUEST,
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -500,6 +489,7 @@ mod tests {
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,
                 status: reqwest::StatusCode::FORBIDDEN,
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -512,6 +502,7 @@ mod tests {
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,
                 status: reqwest::StatusCode::OK,
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -523,6 +514,7 @@ mod tests {
             ClientError::ResponseTooLarge {
                 limit_bytes: 1024 * 1024,
                 status: reqwest::StatusCode::GATEWAY_TIMEOUT,
+                retry_after_seconds: None,
             },
             &redactor,
         );
@@ -565,10 +557,10 @@ mod tests {
             token: "old-token".to_owned(),
         });
         let read = Arc::new(AtomicBool::new(false));
-        let passwords = FakePasswordProvider { read: read.clone() };
+        let secrets = FakeSecretInput { read: read.clone() };
         let client_factory = WekanClientFactory::new(Some(server.uri()), false);
 
-        let success = execute(args(), &client_factory, &store, &passwords)
+        let success = execute(args(), &client_factory, &store, &secrets)
             .await
             .unwrap();
 
@@ -577,7 +569,9 @@ mod tests {
         assert_eq!(saved.len(), 1);
         assert_eq!(saved[0].user_id, "user-1");
         assert_eq!(saved[0].token, "server-token");
-        let CommandSuccess::Registration(output) = success;
+        let CommandSuccess::Registration(output) = success else {
+            panic!("expected registration success")
+        };
         assert_eq!(output.user_id, "user-1");
         assert!(output.credential_stored);
         assert!(!format!("{output:?}").contains("server-token"));
@@ -594,10 +588,10 @@ mod tests {
             .await;
         let store = FakeCredentialStore::default();
         let read = Arc::new(AtomicBool::new(false));
-        let passwords = FakePasswordProvider { read: read.clone() };
+        let secrets = FakeSecretInput { read: read.clone() };
         let client_factory = WekanClientFactory::new(Some(server.uri()), false);
 
-        let error = execute(args(), &client_factory, &store, &passwords)
+        let error = execute(args(), &client_factory, &store, &secrets)
             .await
             .unwrap_err();
 
@@ -620,10 +614,10 @@ mod tests {
             .await;
         let store = FakeCredentialStore::available();
         let read = Arc::new(AtomicBool::new(false));
-        let passwords = FakePasswordProvider { read };
+        let secrets = FakeSecretInput { read };
         let client_factory = WekanClientFactory::new(Some(server.uri()), false);
 
-        let error = execute(args(), &client_factory, &store, &passwords)
+        let error = execute(args(), &client_factory, &store, &secrets)
             .await
             .unwrap_err();
 
@@ -639,10 +633,10 @@ mod tests {
         let store = FakeCredentialStore::available();
         store.fail_save.store(true, Ordering::SeqCst);
         let read = Arc::new(AtomicBool::new(false));
-        let passwords = FakePasswordProvider { read };
+        let secrets = FakeSecretInput { read };
         let client_factory = WekanClientFactory::new(Some(server.uri()), false);
 
-        let error = execute(args(), &client_factory, &store, &passwords)
+        let error = execute(args(), &client_factory, &store, &secrets)
             .await
             .unwrap_err();
 

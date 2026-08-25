@@ -1,4 +1,7 @@
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::{
+    StatusCode,
+    header::{ACCEPT, RETRY_AFTER},
+};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -12,6 +15,14 @@ pub struct RegisterRequest {
     pub username: Option<String>,
     pub email: Option<String>,
     pub password: SecretString,
+}
+
+#[derive(Debug)]
+pub struct LoginRequest {
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub password: SecretString,
+    pub code: Option<SecretString>,
 }
 
 #[derive(Debug)]
@@ -49,6 +60,17 @@ struct RegisterRequestBody<'a> {
     password: &'a str,
 }
 
+#[derive(Serialize)]
+struct LoginRequestBody<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    username: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<&'a str>,
+    password: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    code: Option<&'a str>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AuthTokenResponse {
@@ -81,18 +103,40 @@ impl WekanErrorCode {
 
 impl WekanClient {
     pub async fn register(&self, request: &RegisterRequest) -> Result<AuthSession, ClientError> {
-        let endpoint =
-            self.server()
-                .join("users/register")
-                .map_err(|error| ClientError::Protocol {
-                    message: format!("could not build the registration endpoint: {error}"),
-                    account_created: Some(false),
-                })?;
         let body = RegisterRequestBody {
             username: request.username.as_deref(),
             email: request.email.as_deref(),
             password: request.password.expose_secret(),
         };
+
+        self.authenticate("users/register", "registration", &body)
+            .await
+    }
+
+    pub async fn login(&self, request: &LoginRequest) -> Result<AuthSession, ClientError> {
+        let body = LoginRequestBody {
+            username: request.username.as_deref(),
+            email: request.email.as_deref(),
+            password: request.password.expose_secret(),
+            code: request.code.as_ref().map(ExposeSecret::expose_secret),
+        };
+
+        self.authenticate("users/login", "login", &body).await
+    }
+
+    async fn authenticate(
+        &self,
+        path: &str,
+        operation: &str,
+        body: &impl Serialize,
+    ) -> Result<AuthSession, ClientError> {
+        let endpoint = self
+            .server()
+            .join(path)
+            .map_err(|error| ClientError::Protocol {
+                message: format!("could not build the {operation} endpoint: {error}"),
+                success_status_received: false,
+            })?;
 
         let response = self
             .http
@@ -108,7 +152,12 @@ impl WekanClient {
             return Err(ClientError::UnexpectedRedirect { status });
         }
 
-        let response_body = read_limited_body(response).await?;
+        let retry_after_seconds = response
+            .headers()
+            .get(RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok());
+        let response_body = read_limited_body(response, retry_after_seconds).await?;
 
         if status != StatusCode::OK {
             let wekan_error =
@@ -117,6 +166,7 @@ impl WekanClient {
                 status,
                 server_error: wekan_error.error.map(WekanErrorCode::into_string),
                 server_reason: wekan_error.reason,
+                retry_after_seconds,
             });
         }
 
@@ -124,27 +174,27 @@ impl WekanClient {
             serde_json::from_slice::<AuthTokenResponse>(&response_body).map_err(|_| {
                 ClientError::Protocol {
                     message: "invalid JSON or missing fields".to_owned(),
-                    account_created: Some(true),
+                    success_status_received: true,
                 }
             })?;
 
         if response.id.is_empty() {
             return Err(ClientError::Protocol {
                 message: "the user id was empty".to_owned(),
-                account_created: Some(true),
+                success_status_received: true,
             });
         }
         if response.token.is_empty() {
             return Err(ClientError::Protocol {
                 message: "the login token was empty".to_owned(),
-                account_created: Some(true),
+                success_status_received: true,
             });
         }
         let token_expires =
             OffsetDateTime::parse(&response.token_expires, &Rfc3339).map_err(|error| {
                 ClientError::Protocol {
                     message: format!("tokenExpires was not RFC 3339: {error}"),
-                    account_created: Some(true),
+                    success_status_received: true,
                 }
             })?;
 
@@ -156,7 +206,10 @@ impl WekanClient {
     }
 }
 
-async fn read_limited_body(mut response: reqwest::Response) -> Result<Vec<u8>, ClientError> {
+async fn read_limited_body(
+    mut response: reqwest::Response,
+    retry_after_seconds: Option<u64>,
+) -> Result<Vec<u8>, ClientError> {
     let status = response.status();
     if response
         .content_length()
@@ -165,6 +218,7 @@ async fn read_limited_body(mut response: reqwest::Response) -> Result<Vec<u8>, C
         return Err(ClientError::ResponseTooLarge {
             limit_bytes: MAX_RESPONSE_BYTES,
             status,
+            retry_after_seconds,
         });
     }
 
@@ -172,12 +226,17 @@ async fn read_limited_body(mut response: reqwest::Response) -> Result<Vec<u8>, C
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|source| ClientError::ResponseBody { status, source })?
+        .map_err(|source| ClientError::ResponseBody {
+            status,
+            retry_after_seconds,
+            source,
+        })?
     {
         if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BYTES {
             return Err(ClientError::ResponseTooLarge {
                 limit_bytes: MAX_RESPONSE_BYTES,
                 status,
+                retry_after_seconds,
             });
         }
         body.extend_from_slice(&chunk);

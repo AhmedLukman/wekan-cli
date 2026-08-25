@@ -1,5 +1,5 @@
 use secrecy::SecretString;
-use wekan_cli::client::{RegisterRequest, ServerUrl, WekanClient};
+use wekan_cli::client::{LoginRequest, RegisterRequest, ServerUrl, WekanClient};
 use wiremock::MockServer;
 
 #[path = "contract/requests.rs"]
@@ -12,6 +12,15 @@ fn register_request() -> RegisterRequest {
         username: Some("alice".to_owned()),
         email: None,
         password: SecretString::from("correct horse battery staple".to_owned()),
+    }
+}
+
+fn login_request() -> LoginRequest {
+    LoginRequest {
+        username: Some("alice".to_owned()),
+        email: None,
+        password: SecretString::from("correct horse battery staple".to_owned()),
+        code: None,
     }
 }
 

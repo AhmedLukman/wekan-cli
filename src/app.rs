@@ -2,7 +2,7 @@ use crate::{
     client::WekanClientFactory,
     commands::{self, RootCommand},
     credentials::{
-        CredentialStore, KeyringCredentialStore, PasswordProvider, SystemPasswordProvider,
+        CredentialStore, KeyringCredentialStore, SecretInputProvider, SystemSecretInputProvider,
     },
     error::AppError,
     output::CommandSuccess,
@@ -11,16 +11,16 @@ use crate::{
 pub struct App<S, P> {
     client_factory: WekanClientFactory,
     credential_store: S,
-    password_provider: P,
+    secret_input: P,
 }
 
-impl App<KeyringCredentialStore, SystemPasswordProvider> {
+impl App<KeyringCredentialStore, SystemSecretInputProvider> {
     pub const fn production(server: Option<String>, allow_insecure_http: bool) -> Self {
         Self::new(
             server,
             allow_insecure_http,
             KeyringCredentialStore,
-            SystemPasswordProvider,
+            SystemSecretInputProvider,
         )
     }
 }
@@ -28,18 +28,18 @@ impl App<KeyringCredentialStore, SystemPasswordProvider> {
 impl<S, P> App<S, P>
 where
     S: CredentialStore,
-    P: PasswordProvider,
+    P: SecretInputProvider,
 {
     pub const fn new(
         server: Option<String>,
         allow_insecure_http: bool,
         credential_store: S,
-        password_provider: P,
+        secret_input: P,
     ) -> Self {
         Self {
             client_factory: WekanClientFactory::new(server, allow_insecure_http),
             credential_store,
-            password_provider,
+            secret_input,
         }
     }
 
@@ -52,7 +52,7 @@ where
             command,
             &self.client_factory,
             &self.credential_store,
-            &self.password_provider,
+            &self.secret_input,
         )
         .await
     }

@@ -30,11 +30,12 @@ impl OutputFormat {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
-    Registration(RegistrationSuccess),
+    Registration(AuthSuccess),
+    Login(AuthSuccess),
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
-pub struct RegistrationSuccess {
+pub struct AuthSuccess {
     pub server: String,
     pub user_id: String,
     pub token_expires: String,
@@ -71,6 +72,16 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::Registration(data)) => {
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("registration success is always serializable")
+        }
+        (OutputFormat::Human, CommandSuccess::Login(data)) => format!(
+            "Logged in user {} on {}\nToken expires: {}\nCredentials stored securely.",
+            escape_terminal_controls(&data.user_id),
+            escape_terminal_controls(&data.server),
+            escape_terminal_controls(&data.token_expires)
+        ),
+        (OutputFormat::Json, CommandSuccess::Login(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("login success is always serializable")
         }
     }
 }
@@ -110,11 +121,11 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
 mod tests {
     use std::ffi::OsString;
 
-    use super::{CommandSuccess, OutputFormat, RegistrationSuccess, render_error, render_success};
+    use super::{AuthSuccess, CommandSuccess, OutputFormat, render_error, render_success};
     use crate::error::AppError;
 
     fn success() -> CommandSuccess {
-        CommandSuccess::Registration(RegistrationSuccess {
+        CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
@@ -144,7 +155,7 @@ mod tests {
 
     #[test]
     fn human_success_escapes_terminal_control_sequences() {
-        let success = CommandSuccess::Registration(RegistrationSuccess {
+        let success = CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
             user_id: "user\u{1b}]52;c;clipboard\u{7}\nnext-line".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
@@ -156,6 +167,22 @@ mod tests {
         assert!(!rendered.contains('\u{1b}'));
         assert!(!rendered.contains('\u{7}'));
         assert!(rendered.contains(r"user\u{1b}]52;c;clipboard\u{7}\nnext-line"));
+    }
+
+    #[test]
+    fn login_success_uses_the_same_secret_free_json_shape() {
+        let success = CommandSuccess::Login(AuthSuccess {
+            server: "https://wekan.example/".to_owned(),
+            user_id: "user-1".to_owned(),
+            token_expires: "2030-01-02T03:04:05Z".to_owned(),
+            credential_stored: true,
+        });
+
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(value["data"]["user_id"], "user-1");
+        assert!(value["data"].get("token").is_none());
+        assert!(render_success(OutputFormat::Human, &success).starts_with("Logged in user"));
     }
 
     #[test]

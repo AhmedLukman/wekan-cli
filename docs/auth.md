@@ -1,20 +1,25 @@
 # Authentication
 
-The implemented authentication surface is registration only:
+The implemented authentication surface supports registration and login:
 
 ```text
 wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
       auth register (--username <NAME> | --email <EMAIL> | both)
       [--password-stdin]
+
+wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+      auth login (--username <NAME> | --email <EMAIL>)
+      [--password-stdin]
+      [--code | --code-stdin]
 ```
 
-Login, logout, status, named profiles, configuration files, and multi-account
-selection are not implemented in this slice.
+Logout, status, named profiles, configuration files, and multi-account
+selection are not implemented in this milestone.
 
 ## Server selection
 
 `--server` takes precedence over `WEKAN_URL`. If neither is set, the command
-returns `configuration_error` without reading a password or contacting Wekan.
+returns `configuration_error` without reading secrets or contacting Wekan.
 
 The URL must:
 
@@ -23,70 +28,94 @@ The URL must:
 - contain no embedded username, password, query, or fragment; and
 - identify the Wekan base path, including any deployment subpath.
 
-The CLI normalizes the base URL with a trailing slash and appends
-`users/register` relative to it. For example,
+The CLI normalizes the base URL with a trailing slash and resolves
+`users/register` or `users/login` relative to it. For example,
 `https://example.test/wekan` becomes
-`https://example.test/wekan/users/register`.
+`https://example.test/wekan/users/login` for login.
 
 HTTPS is required except for exact `localhost` and IPv4 or IPv6 loopback
-addresses. `--allow-insecure-http` explicitly permits HTTP elsewhere. This flag
-does not disable certificate verification for HTTPS.
+addresses. `--allow-insecure-http` explicitly permits HTTP elsewhere. It does
+not disable certificate verification for HTTPS.
 
-Loopback HTTP requests bypass configured system and environment proxies so a
-plaintext registration password cannot leave the local machine through a
-proxy. HTTPS and explicitly permitted remote HTTP use the system proxy policy.
+Loopback HTTP bypasses configured system and environment proxies so plaintext
+authentication secrets cannot leave the local machine through a proxy. HTTPS
+and explicitly permitted remote HTTP use the system proxy policy.
 
-## Identity and password input
+## Identity and secret input
 
-At least one nonempty `--username` or `--email` is required, and both are
-allowed. Wekan remains responsible for email syntax, uniqueness, and password
-policy validation.
+Registration requires at least one nonempty `--username` or `--email`, and
+allows both. Interactive registration reads a new password twice without echo.
 
-Interactive use requires a terminal. The password is read twice without echo
-and the command stops before the HTTP request if the values differ.
+Login requires exactly one nonempty `--username` or `--email`. Wekan remains
+responsible for credential validity and email syntax. Interactive login reads
+the existing password once without echo.
 
-Automation must pass `--password-stdin`. The CLI reads exactly one line,
-removes only its `LF` or `CRLF` ending, and preserves all other whitespace. An
-empty line or end-of-file is an input error. Password arguments and
-`WEKAN_PASSWORD` are deliberately unsupported.
+For a two-factor account, pass `--code` to prompt for a code without echo. This
+mode uses interactive password input and sends the password and code together
+in one request. The CLI never submits a password-only request and then replays
+it automatically.
 
-## Request safety
+Automation passes `--password-stdin`. For two-factor login it must also pass
+`--code-stdin`, with the password on the first line and the code on the second:
 
-Registration sends one JSON `POST /users/register` request with a 10-second
-connect timeout, a 30-second total timeout, and a 1 MiB response limit. The CLI
-does not follow redirects and explicitly disables all automatic retries because
-registration is not idempotent.
+```text
+password
+123456
+```
 
-Only HTTP 200 is accepted as success. The response must contain a nonempty
-`id`, a nonempty `token`, and an RFC 3339 `tokenExpires` value. HTTP 400 maps to
-`registration_rejected`; HTTP 403 maps to `registration_disabled` even when its
-body is empty. Other non-success responses map to `server_error`.
+Each input removes only its `LF` or `CRLF` ending and preserves all other
+whitespace. An empty line or end-of-file is an input error. `--code-stdin`
+requires `--password-stdin`; interactive `--code` conflicts with both stdin
+flags. Password and code value arguments, `WEKAN_PASSWORD`, and code environment
+variables are deliberately unsupported.
 
-Wekan `v11.06` can return HTTP 400 after creating the user if its separate login
-token insertion then fails. HTTP 400 responses therefore include
-`outcome_unknown: true`; check the server before retrying even when Wekan's
-error text appears to describe an ordinary validation failure. A 5xx response
-can also be generated by a proxy after it has forwarded the registration, so it
-is likewise marked `outcome_unknown: true`.
+## Request safety and server errors
 
-A transport failure can have an unknown remote outcome. Check Wekan before
-retrying. A malformed or oversized HTTP 200 response is reported with
-`account_created: true` because Wekan reported successful mutation even though
-the CLI could not safely use the response.
+Authentication sends one JSON POST request with a 10-second connect timeout, a
+30-second total timeout, and a 1 MiB response limit. Redirects are not followed
+and automatic retries are disabled. Both successful endpoints return an
+authentication session containing `id`, `token`, and RFC 3339 `tokenExpires`.
+
+Registration accepts only HTTP 200 as success. HTTP 400 maps to
+`registration_rejected`; HTTP 403 maps to `registration_disabled`; other
+non-success responses map to `server_error`.
+
+Login accepts only HTTP 200 as success. A body-parser failure can return HTTP
+400, which maps to `protocol_error`. Wekan returns HTTP 401 for invalid request
+shape, credentials, or two-factor code; the CLI maps it to `login_rejected`.
+HTTP 429 maps to `login_rate_limited`. A valid integer `Retry-After` response
+header is exposed as `retry_after_seconds`. Other non-success responses map to
+`server_error`.
+
+When HTTP 401 contains Wekan's `no-2fa-code` error, the CLI still returns
+`login_rejected` but sets `two_factor_required: true` and tells the caller to
+retry with `--code` or `--code-stdin`. It does not automatically replay login.
+
+Wekan `v11.06` can return HTTP 400 after creating a user if login-token
+insertion then fails, so registration 400 errors set `outcome_unknown: true`.
+A transport failure or 5xx response for either mutating authentication request
+can also have an unknown remote outcome and is never retried automatically.
+
+An unusable HTTP 200 registration response sets `account_created: true`; an
+unusable HTTP 200 login response sets `session_created: true`. These fields
+record that Wekan reported success even though the CLI could not safely use its
+response.
 
 ## Credential storage
 
-Before reading the password or contacting Wekan, the CLI checks that the native
-credential store is available:
+Before reading any secret or contacting Wekan, the CLI checks the native
+credential store:
 
 - Windows Credential Manager on Windows;
 - Keychain Services on macOS; and
 - Secret Service on Linux and other supported Unix systems.
 
 No plaintext fallback exists. The entry uses service `wekan-cli` and the
-canonical server URL as its account key. One active credential is kept per
-server; a later successful registration replaces that entry. The secret value
-is a versioned JSON record containing:
+canonical server URL as its account key. One active local credential is kept per
+server; a later successful registration or login replaces that entry. Replacing
+the local record does not revoke older tokens on Wekan.
+
+The stored secret is a versioned JSON record:
 
 ```json
 {
@@ -98,10 +127,10 @@ is a versioned JSON record containing:
 }
 ```
 
-The password is never stored. The token exists in process memory only long
-enough to validate and persist it and is never rendered in human or JSON output.
+Passwords and two-factor codes are never stored. Tokens are never rendered in
+human or JSON output.
 
-Credential-store availability can be checked before the remote mutation, but a
-write can still fail afterward. In that case the command exits with code 6 and
-`credential_store_failed`, includes `account_created: true`, discards the
-in-memory token, and does not attempt an unsupported remote rollback.
+A credential-store write can fail after Wekan reports success. Registration
+then returns `credential_store_failed` with `account_created: true`; login uses
+the same error code with `session_created: true`. The CLI discards the in-memory
+token and does not attempt remote rollback or revocation.
