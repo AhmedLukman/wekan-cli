@@ -7,6 +7,7 @@ use std::{
 use clap::Parser;
 use reqwest::header::AUTHORIZATION;
 use secrecy::{ExposeSecret, SecretString};
+use time::{Duration, OffsetDateTime};
 use wekan_cli::{
     app::App,
     cli::Cli,
@@ -15,11 +16,12 @@ use wekan_cli::{
         SecretInputProvider,
     },
     error::{AppError, ErrorCode},
+    output::CommandSuccess,
 };
 
 #[derive(Default)]
 struct CapturingStore {
-    credential: Mutex<Option<(String, String, String)>>,
+    credential: Mutex<Option<(String, String, String, OffsetDateTime)>>,
 }
 
 impl CredentialStore for CapturingStore {
@@ -27,11 +29,29 @@ impl CredentialStore for CapturingStore {
         Ok(())
     }
 
+    fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+        Ok(self
+            .credential
+            .lock()
+            .unwrap()
+            .as_ref()
+            .filter(|(stored_account, ..)| stored_account == account)
+            .map(|(server, user_id, token, token_expires)| {
+                CredentialRecord::new(
+                    server.clone(),
+                    user_id.clone(),
+                    SecretString::from(token.clone()),
+                    *token_expires,
+                )
+            }))
+    }
+
     fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError> {
         *self.credential.lock().unwrap() = Some((
             account.to_owned(),
             record.user_id().to_owned(),
             record.token().expose_secret().to_owned(),
+            record.token_expires(),
         ));
         Ok(())
     }
@@ -115,7 +135,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     );
     assert_eq!(duplicate_error.details().outcome_unknown, Some(true));
 
-    let (canonical_server, user_id, token) = app
+    let (canonical_server, user_id, token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -139,7 +159,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     app.execute(username_login.command)
         .await
         .expect("username login must succeed against Wekan v11.06");
-    let (username_server, username_user_id, username_token) = app
+    let (username_server, username_user_id, username_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -164,7 +184,29 @@ async fn authentication_flow_matches_wekan_v11_06() {
     app.execute(email_login.command)
         .await
         .expect("email login must succeed against Wekan v11.06");
-    let (email_server, email_user_id, email_token) = app
+    let status_cli = Cli::try_parse_from([
+        "wekan",
+        "--server",
+        &server,
+        "--output=json",
+        "auth",
+        "status",
+    ])
+    .expect("the status command must parse");
+    let status = app
+        .execute(status_cli.command)
+        .await
+        .expect("the stored login token must pass live status validation");
+    let CommandSuccess::AuthStatus(status) = status else {
+        panic!("expected authentication status output")
+    };
+    assert_eq!(status.user.user_id, user_id);
+    assert_eq!(status.user.username.as_deref(), Some(username.as_str()));
+    assert!(status.user.emails.iter().any(|entry| {
+        entry.address.as_deref() == Some(email.as_str()) && entry.verified == Some(false)
+    }));
+
+    let (email_server, email_user_id, email_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -173,6 +215,29 @@ async fn authentication_flow_matches_wekan_v11_06() {
         .expect("email login must replace the stored credential");
     assert_eq!(email_user_id, user_id);
     assert_token_authenticates(&email_server, &email_user_id, &email_token).await;
+
+    *app.credential_store().credential.lock().unwrap() = Some((
+        email_server,
+        email_user_id,
+        "definitely-invalid-token".to_owned(),
+        OffsetDateTime::now_utc() + Duration::days(1),
+    ));
+    let invalid_status_cli = Cli::try_parse_from([
+        "wekan",
+        "--server",
+        &server,
+        "--output=json",
+        "auth",
+        "status",
+    ])
+    .expect("the invalid-token status command must parse");
+    let invalid_status = app
+        .execute(invalid_status_cli.command)
+        .await
+        .expect_err("an invalid stored token must be rejected");
+    assert_eq!(invalid_status.code(), ErrorCode::AuthenticationRejected);
+    assert_eq!(invalid_status.details().http_status, Some(200));
+    assert_eq!(invalid_status.details().wekan_status_code, Some(401));
 
     let rejected_cli = Cli::try_parse_from([
         "wekan",

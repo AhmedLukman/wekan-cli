@@ -224,6 +224,23 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 ..ErrorDetails::default()
             })
         }
+        ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code,
+            server_error,
+            server_reason,
+        } => AppError::new(
+            ErrorCode::ServerError,
+            "the Wekan server returned an unexpected embedded login error",
+            StableExitCode::Server,
+        )
+        .with_details(ErrorDetails {
+            http_status: Some(http_status.as_u16()),
+            wekan_status_code: Some(wekan_status_code),
+            server_error: server_error.map(|value| redactor.redact(&value)),
+            server_reason: server_reason.map(|value| redactor.redact(&value)),
+            ..ErrorDetails::default()
+        }),
     }
 }
 
@@ -347,6 +364,10 @@ mod tests {
             } else {
                 Err(CredentialError::Unavailable("test unavailable".to_owned()))
             }
+        }
+
+        fn load(&self, _account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+            Ok(None)
         }
 
         fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError> {

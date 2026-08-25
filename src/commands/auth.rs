@@ -1,5 +1,6 @@
 pub mod login;
 pub mod register;
+pub mod status;
 
 use clap::{Args, Subcommand};
 use time::format_description::well_known::Rfc3339;
@@ -26,6 +27,9 @@ pub enum AuthCommand {
 
     /// Register a Wekan account and securely store its login token.
     Register(register::RegisterArgs),
+
+    /// Validate and display the stored authentication session.
+    Status(status::StatusArgs),
 }
 
 pub(crate) async fn dispatch(
@@ -41,6 +45,7 @@ pub(crate) async fn dispatch(
         AuthCommand::Register(args) => {
             register::execute(args, client_factory, credential_store, secret_input).await
         }
+        AuthCommand::Status(args) => status::execute(args, client_factory, credential_store).await,
     }
 }
 

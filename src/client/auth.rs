@@ -32,6 +32,75 @@ pub struct AuthSession {
     token_expires: OffsetDateTime,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct CurrentUser {
+    user_id: String,
+    username: Option<String>,
+    full_name: Option<String>,
+    is_admin: Option<bool>,
+    emails: Vec<CurrentUserEmail>,
+}
+
+impl CurrentUser {
+    pub fn user_id(&self) -> &str {
+        &self.user_id
+    }
+
+    pub fn username(&self) -> Option<&str> {
+        self.username.as_deref()
+    }
+
+    pub fn full_name(&self) -> Option<&str> {
+        self.full_name.as_deref()
+    }
+
+    pub const fn is_admin(&self) -> Option<bool> {
+        self.is_admin
+    }
+
+    pub fn emails(&self) -> &[CurrentUserEmail] {
+        &self.emails
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        String,
+        Option<String>,
+        Option<String>,
+        Option<bool>,
+        Vec<CurrentUserEmail>,
+    ) {
+        (
+            self.user_id,
+            self.username,
+            self.full_name,
+            self.is_admin,
+            self.emails,
+        )
+    }
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+pub struct CurrentUserEmail {
+    address: Option<String>,
+    verified: Option<bool>,
+}
+
+impl CurrentUserEmail {
+    pub fn address(&self) -> Option<&str> {
+        self.address.as_deref()
+    }
+
+    pub const fn verified(&self) -> Option<bool> {
+        self.verified
+    }
+
+    pub fn into_parts(self) -> (Option<String>, Option<bool>) {
+        (self.address, self.verified)
+    }
+}
+
 impl AuthSession {
     pub fn user_id(&self) -> &str {
         &self.user_id
@@ -79,6 +148,26 @@ struct AuthTokenResponse {
     token_expires: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CurrentUserResponse {
+    #[serde(rename = "_id")]
+    user_id: Option<String>,
+    username: Option<String>,
+    #[serde(default)]
+    emails: Vec<CurrentUserEmail>,
+    profile: Option<CurrentUserProfile>,
+    is_admin: Option<bool>,
+    error: Option<WekanErrorCode>,
+    reason: Option<String>,
+    status_code: Option<i64>,
+}
+
+#[derive(Deserialize)]
+struct CurrentUserProfile {
+    fullname: Option<String>,
+}
+
 #[derive(Default, Deserialize)]
 struct WekanErrorResponse {
     error: Option<WekanErrorCode>,
@@ -122,6 +211,97 @@ impl WekanClient {
         };
 
         self.authenticate("users/login", "login", &body).await
+    }
+
+    pub async fn current_user(&self, token: &SecretString) -> Result<CurrentUser, ClientError> {
+        let endpoint = self
+            .server()
+            .join("api/user")
+            .map_err(|error| ClientError::Protocol {
+                message: format!("could not build the current-user endpoint: {error}"),
+                success_status_received: false,
+            })?;
+
+        let response = self
+            .http
+            .get(endpoint)
+            .header(ACCEPT, "application/json")
+            .bearer_auth(token.expose_secret())
+            .send()
+            .await
+            .map_err(ClientError::Transport)?;
+        let status = response.status();
+
+        if status.is_redirection() {
+            return Err(ClientError::UnexpectedRedirect { status });
+        }
+
+        let retry_after_seconds = response
+            .headers()
+            .get(RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok());
+        let response_body = read_limited_body(response, retry_after_seconds).await?;
+
+        if status != StatusCode::OK {
+            let wekan_error =
+                serde_json::from_slice::<WekanErrorResponse>(&response_body).unwrap_or_default();
+            return Err(ClientError::Server {
+                status,
+                server_error: wekan_error.error.map(WekanErrorCode::into_string),
+                server_reason: wekan_error.reason,
+                retry_after_seconds,
+            });
+        }
+
+        let response =
+            serde_json::from_slice::<CurrentUserResponse>(&response_body).map_err(|_| {
+                ClientError::Protocol {
+                    message: "invalid JSON or invalid current-user fields".to_owned(),
+                    success_status_received: true,
+                }
+            })?;
+
+        if let Some(status_code) = response.status_code {
+            let wekan_status_code =
+                u16::try_from(status_code).map_err(|_| ClientError::Protocol {
+                    message: "the embedded Wekan statusCode was outside the valid range".to_owned(),
+                    success_status_received: true,
+                })?;
+            return Err(ClientError::EmbeddedServer {
+                http_status: status,
+                wekan_status_code,
+                server_error: response.error.map(WekanErrorCode::into_string),
+                server_reason: response.reason,
+            });
+        }
+
+        if response.error.is_some() || response.reason.is_some() {
+            return Err(ClientError::Protocol {
+                message: "the current-user response contained an error without statusCode"
+                    .to_owned(),
+                success_status_received: true,
+            });
+        }
+
+        let user_id = response.user_id.ok_or_else(|| ClientError::Protocol {
+            message: "the current-user response did not contain a user id".to_owned(),
+            success_status_received: true,
+        })?;
+        if user_id.is_empty() {
+            return Err(ClientError::Protocol {
+                message: "the current-user response contained an empty user id".to_owned(),
+                success_status_received: true,
+            });
+        }
+
+        Ok(CurrentUser {
+            user_id,
+            username: response.username,
+            full_name: response.profile.and_then(|profile| profile.fullname),
+            is_admin: response.is_admin,
+            emails: response.emails,
+        })
     }
 
     async fn authenticate(

@@ -34,4 +34,13 @@ pub enum ClientError {
         server_reason: Option<String>,
         retry_after_seconds: Option<u64>,
     },
+    #[error(
+        "the Wekan server returned an embedded error ({wekan_status_code}) in an HTTP {http_status} response"
+    )]
+    EmbeddedServer {
+        http_status: StatusCode,
+        wekan_status_code: u16,
+        server_error: Option<String>,
+        server_reason: Option<String>,
+    },
 }

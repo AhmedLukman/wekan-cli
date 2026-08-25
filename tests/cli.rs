@@ -26,6 +26,41 @@ fn login_help_documents_secret_input_modes() {
 }
 
 #[test]
+fn auth_help_lists_the_status_command() {
+    cargo_bin_cmd!("wekan")
+        .args(["auth", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("status"))
+        .stdout(predicate::str::contains(
+            "Validate and display the stored authentication session",
+        ))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn status_rejects_command_specific_arguments() {
+    cargo_bin_cmd!("wekan")
+        .args(["--output=json", "auth", "status", "unexpected"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#))
+        .stderr(predicate::str::contains("unexpected"));
+}
+
+#[test]
+fn missing_status_server_is_a_json_configuration_error_before_vault_access() {
+    cargo_bin_cmd!("wekan")
+        .env_remove("WEKAN_URL")
+        .args(["--output=json", "auth", "status"])
+        .assert()
+        .code(3)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+}
+
+#[test]
 fn login_identity_conflicts_use_the_json_parse_error_contract() {
     cargo_bin_cmd!("wekan")
         .args([

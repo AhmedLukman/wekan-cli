@@ -8,7 +8,68 @@ use wiremock::{
 use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
 
-use super::{client, login_request, register_request};
+use super::{client, login_request, register_request, status_token};
+
+#[tokio::test]
+async fn authentication_status_uses_the_current_user_endpoint_and_bearer_header() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .and(header("accept", "application/json"))
+        .and(header("authorization", "Bearer status-token"))
+        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "user-1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .current_user(&status_token())
+        .await
+        .expect("the current-user response should decode");
+}
+
+#[tokio::test]
+async fn authentication_status_redirects_are_not_followed() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-user"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/other-user"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ClientError::UnexpectedRedirect { .. }));
+}
+
+#[tokio::test]
+async fn authentication_status_server_failures_are_not_retried() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ClientError::Server { .. }));
+}
 
 #[tokio::test]
 async fn login_with_username_uses_the_correct_wire_request_and_omits_code() {

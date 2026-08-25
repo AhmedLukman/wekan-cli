@@ -1,9 +1,10 @@
 # Authentication architecture
 
-This document describes the implemented `wekan auth register` and
-`wekan auth login` slices. It shows how command-line input becomes one Wekan
-request, how returned tokens cross into the native credential store, and how
-success, failure, and uncertain outcomes are reported.
+This document describes the implemented `wekan auth register`,
+`wekan auth login`, and `wekan auth status` slices. It shows how command-line
+input becomes a Wekan request, how returned tokens cross into and back out of
+the native credential store, and how success, failure, and uncertain outcomes
+are reported.
 
 The behavioral details and stable machine contract remain authoritative in
 [Authentication](auth.md) and [Agent output contract](agent-contract.md).
@@ -18,7 +19,7 @@ flowchart LR
         entry[Argument parsing and output selection]
         app[Application composition]
         dispatch[Command dispatch]
-        handlers[Registration and login handlers]
+        handlers[Registration, login, and status handlers]
         secrets[Secret input provider]
         client[Wekan HTTP client]
         result[Result handling]
@@ -36,8 +37,8 @@ flowchart LR
     handlers --> secrets
     input -->|password and optional code| secrets
     handlers --> client
-    client -->|POST users/register or users/login| wekan
-    handlers -->|preflight and save| vault
+    client -->|Authentication POSTs or current-user GET| wekan
+    handlers -->|preflight, load, or save| vault
     app -->|CommandSuccess or AppError| result
     result --> output
     output -->|stdout on success; stderr on error| caller
@@ -46,17 +47,18 @@ flowchart LR
 The application layer owns concrete production dependencies and injects them
 into the command handler. The `CredentialStore` and `SecretInputProvider` traits
 keep command behavior testable without a real terminal or operating-system
-vault. The HTTP client owns URL, transport policy, and shared auth-session
-decoding; each handler owns operation-specific orchestration and error mapping.
+vault. The HTTP client owns URL, transport policy, shared auth-session decoding,
+and allowlisted current-user decoding; each handler owns operation-specific
+orchestration and error mapping.
 
 ## Component responsibilities
 
 | Boundary | Responsibility | Key implementation |
 | --- | --- | --- |
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
-| CLI model | Define global flags plus the `auth register` and `auth login` command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
+| CLI model | Define global flags plus the `auth register`, `auth login`, and argument-free `auth status` command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
 | Application composition | Construct production dependencies and pass them into dispatch | [`src/app.rs`](../src/app.rs) |
-| Authentication orchestration | Enforce operation order, construct requests, store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
+| Authentication orchestration | Enforce operation order, load or store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
 | HTTP boundary | Canonicalize and validate the server URL; apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/auth.rs`](../src/client/auth.rs) |
 | Secret boundary | Read confirmed registration passwords, single login passwords, and optional two-factor codes from non-echoing prompts or ordered stdin lines | [`src/credentials.rs`](../src/credentials.rs), [`src/credentials/`](../src/credentials/) |
 | Output contract | Render terminal-escaped human success fields, human errors, or stable JSON envelopes without passwords or tokens | [`src/output.rs`](../src/output.rs), [`src/error.rs`](../src/error.rs), [`src/redaction.rs`](../src/redaction.rs) |
@@ -152,6 +154,38 @@ Interactive `--code` and automated `--code-stdin` supply the code before this
 single request. The CLI does not discover two-factor authentication by replaying
 a rejected password-only request.
 
+## Successful status sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as Human or agent
+    participant Handler as Status handler
+    participant Factory as Client factory
+    participant Vault as Native credential store
+    participant Client as Wekan client
+    participant Wekan as Wekan v11.06
+
+    Caller->>Handler: auth status + server
+    Handler->>Factory: Create and canonicalize client
+    Factory-->>Handler: Configured client + canonical URL
+    Handler->>Vault: Check availability and load record
+    Vault-->>Handler: Valid version-1 credential
+    Handler->>Handler: Reject expiry at or before now
+    Handler->>Client: current_user(stored token)
+    Client->>Wekan: GET api/user + bearer token
+    Wekan-->>Client: 200 current-user data
+    Client->>Client: Enforce limit and allowlist profile
+    Client-->>Handler: CurrentUser
+    Handler->>Handler: Require remote ID = stored ID
+    Handler-->>Caller: Secret-free status envelope
+```
+
+A missing or expired record stops before HTTP. Wekan v11.06 serializes an
+invalid-token error with `statusCode: 401` inside HTTP 200; the client preserves
+both statuses and the handler returns `authentication_rejected`. Status never
+saves, removes, or repairs a credential.
+
 ## Registration validation and outcome flow
 
 ```mermaid
@@ -224,6 +258,30 @@ flowchart TD
 `session_created` is the login counterpart to `account_created`. Local
 credential replacement does not revoke any older tokens that Wekan has issued.
 
+## Status validation flow
+
+```mermaid
+flowchart TD
+    start([Status invoked]) --> server{Server and client valid?}
+    server -- No --> config[configuration/internal error]
+    server -- Yes --> vault{Credential store available?}
+    vault -- No --> unavailable[credential_store_unavailable<br/>exit 6]
+    vault -- Yes --> load{Record loads and validates?}
+    load -- Missing --> missing[credential_not_found<br/>exit 5]
+    load -- Invalid --> corrupt[credential_store_failed<br/>exit 6]
+    load -- Valid --> expiry{Expiry in future?}
+    expiry -- No --> expired[credential_expired<br/>exit 5<br/>no HTTP]
+    expiry -- Yes --> request[GET api/user]
+    request --> response{Observed result}
+    response -- Transport/redirect --> transport[transport error<br/>exit 4]
+    response -- HTTP 200 + embedded 401 --> rejected[authentication_rejected<br/>exit 5]
+    response -- Other Wekan error --> servererr[server_error<br/>exit 5]
+    response -- Malformed/oversized --> protocol[protocol_error<br/>exit 4]
+    response -- Valid user --> match{Remote ID matches stored ID?}
+    match -- No --> mismatch[credential_store_failed<br/>exit 6]
+    match -- Yes --> success([Allowlisted status envelope<br/>exit 0])
+```
+
 ## Data and trust boundaries
 
 ```mermaid
@@ -232,7 +290,7 @@ flowchart LR
         args[Arguments and environment]
         response[HTTP status and response body]
         preflight[Credential preflight errors]
-        storeerr[Credential save errors]
+        storeerr[Credential load or save errors]
     end
 
     subgraph controls[CLI controls]
@@ -248,7 +306,7 @@ flowchart LR
         secretinput[Non-echoing prompt or ordered stdin]
         pass[Password]
         code[Optional two-factor code]
-        token[Returned login token]
+        token[Returned or loaded login token]
         vault[(Native credential store)]
     end
 
@@ -259,7 +317,7 @@ flowchart LR
     code -->|login request body only| limits
     response --> limits
     limits --> token
-    token --> vault
+    token <--> vault
     limits --> redaction
     limits --> successmeta
     successmeta --> escaping
@@ -286,7 +344,7 @@ flowchart BT
     unit[Unit tests<br/>validation, mapping, redaction,<br/>password and credential records]
     contract[HTTP contract tests<br/>request shape, response decoding,<br/>limits, redirects and no retries]
     cli[Black-box CLI tests<br/>streams, JSON errors, precedence<br/>and stable exit statuses]
-    e2e[Ignored live Wekan test<br/>register, login by username and email,<br/>reject a bad password, authenticate stored tokens]
+    e2e[Ignored live Wekan test<br/>register, login by username and email,<br/>validate status, reject bad passwords and tokens]
 
     unit --> contract --> cli --> e2e
 ```

@@ -32,6 +32,7 @@ impl OutputFormat {
 pub enum CommandSuccess {
     Registration(AuthSuccess),
     Login(AuthSuccess),
+    AuthStatus(AuthStatusSuccess),
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -40,6 +41,30 @@ pub struct AuthSuccess {
     pub user_id: String,
     pub token_expires: String,
     pub credential_stored: bool,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AuthStatusSuccess {
+    pub server: String,
+    pub authenticated: bool,
+    pub token_expires: String,
+    pub credential_stored: bool,
+    pub user: AuthStatusUser,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AuthStatusUser {
+    pub user_id: String,
+    pub username: Option<String>,
+    pub full_name: Option<String>,
+    pub is_admin: Option<bool>,
+    pub emails: Vec<AuthStatusEmail>,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AuthStatusEmail {
+    pub address: Option<String>,
+    pub verified: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -83,7 +108,61 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("login success is always serializable")
         }
+        (OutputFormat::Human, CommandSuccess::AuthStatus(data)) => render_auth_status(data),
+        (OutputFormat::Json, CommandSuccess::AuthStatus(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("authentication status success is always serializable")
+        }
     }
+}
+
+fn render_auth_status(data: &AuthStatusSuccess) -> String {
+    let identity = data.user.username.as_deref().unwrap_or(&data.user.user_id);
+    let mut lines = vec![
+        format!(
+            "Authenticated as {} on {}",
+            escape_terminal_controls(identity),
+            escape_terminal_controls(&data.server)
+        ),
+        format!("User ID: {}", escape_terminal_controls(&data.user.user_id)),
+    ];
+
+    if let Some(full_name) = &data.user.full_name {
+        lines.push(format!(
+            "Full name: {}",
+            escape_terminal_controls(full_name)
+        ));
+    }
+    if let Some(is_admin) = data.user.is_admin {
+        lines.push(format!(
+            "Administrator: {}",
+            if is_admin { "yes" } else { "no" }
+        ));
+    }
+    if !data.user.emails.is_empty() {
+        let emails = data
+            .user
+            .emails
+            .iter()
+            .map(|email| {
+                let address = email.address.as_deref().unwrap_or("unknown address");
+                let verification = match email.verified {
+                    Some(true) => "verified",
+                    Some(false) => "unverified",
+                    None => "verification unknown",
+                };
+                format!("{} ({verification})", escape_terminal_controls(address))
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        lines.push(format!("Emails: {emails}"));
+    }
+    lines.push(format!(
+        "Token expires: {}",
+        escape_terminal_controls(&data.token_expires)
+    ));
+    lines.push("Credentials stored securely.".to_owned());
+    lines.join("\n")
 }
 
 fn escape_terminal_controls(value: &str) -> String {
@@ -121,7 +200,10 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
 mod tests {
     use std::ffi::OsString;
 
-    use super::{AuthSuccess, CommandSuccess, OutputFormat, render_error, render_success};
+    use super::{
+        AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess,
+        OutputFormat, render_error, render_success,
+    };
     use crate::error::AppError;
 
     fn success() -> CommandSuccess {
@@ -183,6 +265,61 @@ mod tests {
         assert_eq!(value["data"]["user_id"], "user-1");
         assert!(value["data"].get("token").is_none());
         assert!(render_success(OutputFormat::Human, &success).starts_with("Logged in user"));
+    }
+
+    #[test]
+    fn status_success_uses_the_stable_nested_profile_shape() {
+        let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
+            server: "https://wekan.example/".to_owned(),
+            authenticated: true,
+            token_expires: "2030-01-02T03:04:05Z".to_owned(),
+            credential_stored: true,
+            user: AuthStatusUser {
+                user_id: "user-1".to_owned(),
+                username: Some("alice".to_owned()),
+                full_name: None,
+                is_admin: Some(false),
+                emails: vec![AuthStatusEmail {
+                    address: Some("alice@example.com".to_owned()),
+                    verified: None,
+                }],
+            },
+        });
+
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(value["data"]["authenticated"], true);
+        assert_eq!(value["data"]["user"]["user_id"], "user-1");
+        assert_eq!(value["data"]["user"]["full_name"], serde_json::Value::Null);
+        assert_eq!(
+            value["data"]["user"]["emails"][0]["verified"],
+            serde_json::Value::Null
+        );
+        assert!(value["data"].get("token").is_none());
+    }
+
+    #[test]
+    fn human_status_omits_absent_profile_lines_and_escapes_controls() {
+        let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
+            server: "https://wekan.example/".to_owned(),
+            authenticated: true,
+            token_expires: "2030-01-02T03:04:05Z".to_owned(),
+            credential_stored: true,
+            user: AuthStatusUser {
+                user_id: "user-1".to_owned(),
+                username: Some("alice\u{1b}]52;c;clipboard\u{7}".to_owned()),
+                full_name: None,
+                is_admin: None,
+                emails: Vec::new(),
+            },
+        });
+
+        let rendered = render_success(OutputFormat::Human, &success);
+        assert!(!rendered.contains('\u{1b}'));
+        assert!(!rendered.contains("Full name:"));
+        assert!(!rendered.contains("Administrator:"));
+        assert!(!rendered.contains("Emails:"));
+        assert!(rendered.contains("Credentials stored securely."));
     }
 
     #[test]

@@ -5,7 +5,7 @@ mod stdin;
 use std::io::{self, IsTerminal};
 
 use secrecy::{ExposeSecret, SecretString};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -134,10 +134,11 @@ fn validate_code(code: String) -> Result<SecretString, crate::error::AppError> {
 
 pub trait CredentialStore: Send + Sync {
     fn check_available(&self, account: &str) -> Result<(), CredentialError>;
+    fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError>;
     fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CredentialRecord {
     server_url: String,
     user_id: String,
@@ -176,6 +177,38 @@ impl CredentialRecord {
         self.token_expires
     }
 
+    fn decode(expected_server_url: &str, encoded: &[u8]) -> Result<Self, CredentialError> {
+        let stored: StoredCredentialOwned =
+            serde_json::from_slice(encoded).map_err(CredentialError::Deserialize)?;
+        if stored.version != 1 {
+            return Err(CredentialError::UnsupportedVersion(stored.version));
+        }
+        if stored.server_url != expected_server_url {
+            return Err(CredentialError::InvalidRecord(
+                "the stored server URL did not match its credential-store account",
+            ));
+        }
+        if stored.user_id.is_empty() {
+            return Err(CredentialError::InvalidRecord(
+                "the stored user id was empty",
+            ));
+        }
+        if stored.token.is_empty() {
+            return Err(CredentialError::InvalidRecord(
+                "the stored login token was empty",
+            ));
+        }
+        let token_expires = OffsetDateTime::parse(&stored.token_expires, &Rfc3339)
+            .map_err(CredentialError::TimestampParse)?;
+
+        Ok(Self::new(
+            stored.server_url,
+            stored.user_id,
+            SecretString::from(stored.token),
+            token_expires,
+        ))
+    }
+
     fn encode(&self) -> Result<Vec<u8>, CredentialError> {
         let token_expires = self
             .token_expires
@@ -201,25 +234,45 @@ struct StoredCredential<'a> {
     token_expires: &'a str,
 }
 
+#[derive(Deserialize)]
+struct StoredCredentialOwned {
+    version: u8,
+    server_url: String,
+    user_id: String,
+    token: String,
+    token_expires: String,
+}
+
 #[derive(Debug, Error)]
 pub enum CredentialError {
     #[error("the operating-system credential store is unavailable: {0}")]
     Unavailable(String),
     #[error("the credential could not be stored: {0}")]
     Store(String),
+    #[error("the credential could not be loaded: {0}")]
+    Load(String),
     #[error("the credential record could not be serialized")]
     Serialize(#[source] serde_json::Error),
+    #[error("the credential record could not be decoded")]
+    Deserialize(#[source] serde_json::Error),
+    #[error("credential record version {0} is not supported")]
+    UnsupportedVersion(u8),
+    #[error("the credential record is invalid: {0}")]
+    InvalidRecord(&'static str),
     #[error("the credential expiry could not be formatted")]
     Timestamp(#[source] time::error::Format),
+    #[error("the stored credential expiry is not RFC 3339")]
+    TimestampParse(#[source] time::error::Parse),
 }
 
 #[cfg(test)]
 mod tests {
-    use secrecy::SecretString;
+    use secrecy::{ExposeSecret, SecretString};
     use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
     use super::{
-        CredentialRecord, PASSWORD_STDIN_GUIDANCE, TWO_FACTOR_STDIN_GUIDANCE, validate_password,
+        CredentialError, CredentialRecord, PASSWORD_STDIN_GUIDANCE, TWO_FACTOR_STDIN_GUIDANCE,
+        validate_password,
     };
 
     #[test]
@@ -263,5 +316,79 @@ mod tests {
         assert_eq!(value["token"], "server-token");
         assert_eq!(value["token_expires"], "2030-01-02T03:04:05Z");
         assert!(!format!("{record:?}").contains("server-token"));
+    }
+
+    #[test]
+    fn decodes_and_validates_a_versioned_credential_record() {
+        let encoded = serde_json::to_vec(&serde_json::json!({
+            "version": 1,
+            "server_url": "https://wekan.example/",
+            "user_id": "user-1",
+            "token": "server-token",
+            "token_expires": "2030-01-02T03:04:05Z"
+        }))
+        .unwrap();
+
+        let record = CredentialRecord::decode("https://wekan.example/", &encoded).unwrap();
+
+        assert_eq!(record.server_url(), "https://wekan.example/");
+        assert_eq!(record.user_id(), "user-1");
+        assert_eq!(record.token().expose_secret(), "server-token");
+        assert_eq!(
+            record.token_expires().format(&Rfc3339).unwrap(),
+            "2030-01-02T03:04:05Z"
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_or_unsupported_credential_records() {
+        assert!(matches!(
+            CredentialRecord::decode("https://wekan.example/", b"not json"),
+            Err(CredentialError::Deserialize(_))
+        ));
+
+        let unsupported = serde_json::to_vec(&serde_json::json!({
+            "version": 2,
+            "server_url": "https://wekan.example/",
+            "user_id": "user-1",
+            "token": "server-token",
+            "token_expires": "2030-01-02T03:04:05Z"
+        }))
+        .unwrap();
+        assert!(matches!(
+            CredentialRecord::decode("https://wekan.example/", &unsupported),
+            Err(CredentialError::UnsupportedVersion(2))
+        ));
+    }
+
+    #[test]
+    fn rejects_inconsistent_or_incomplete_credential_records() {
+        fn encoded(overrides: serde_json::Value) -> Vec<u8> {
+            let mut value = serde_json::json!({
+                "version": 1,
+                "server_url": "https://wekan.example/",
+                "user_id": "user-1",
+                "token": "server-token",
+                "token_expires": "2030-01-02T03:04:05Z"
+            });
+            for (key, value_override) in overrides.as_object().unwrap() {
+                value[key] = value_override.clone();
+            }
+            serde_json::to_vec(&value).unwrap()
+        }
+
+        for invalid in [
+            encoded(serde_json::json!({"user_id": ""})),
+            encoded(serde_json::json!({"token": ""})),
+            encoded(serde_json::json!({"token_expires": "not-a-time"})),
+        ] {
+            assert!(CredentialRecord::decode("https://wekan.example/", &invalid).is_err());
+        }
+
+        let mismatched = encoded(serde_json::json!({}));
+        assert!(matches!(
+            CredentialRecord::decode("https://other.example/", &mismatched),
+            Err(CredentialError::InvalidRecord(_))
+        ));
     }
 }

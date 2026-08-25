@@ -24,6 +24,10 @@ fn login_request() -> LoginRequest {
     }
 }
 
+fn status_token() -> SecretString {
+    SecretString::from("status-token".to_owned())
+}
+
 fn client(server: &MockServer) -> WekanClient {
     let server = ServerUrl::parse(&server.uri(), false).unwrap();
     WekanClient::new(server).unwrap()

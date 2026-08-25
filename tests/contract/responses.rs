@@ -12,7 +12,185 @@ use wiremock::{
     matchers::{method, path},
 };
 
-use super::{client, login_request, register_request};
+use super::{client, login_request, register_request, status_token};
+
+#[tokio::test]
+async fn current_user_success_fields_are_allowlisted_and_decoded() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "user-1",
+            "username": "alice",
+            "emails": [{"address": "alice@example.com", "verified": true}],
+            "profile": {"fullname": "Alice Example", "ignored": "value"},
+            "isAdmin": true,
+            "boards": [{"boardId": "ignored"}]
+        })))
+        .mount(&server)
+        .await;
+
+    let user = client(&server).current_user(&status_token()).await.unwrap();
+
+    assert_eq!(user.user_id(), "user-1");
+    assert_eq!(user.username(), Some("alice"));
+    assert_eq!(user.full_name(), Some("Alice Example"));
+    assert_eq!(user.is_admin(), Some(true));
+    assert_eq!(user.emails()[0].address(), Some("alice@example.com"));
+    assert_eq!(user.emails()[0].verified(), Some(true));
+}
+
+#[tokio::test]
+async fn current_user_accepts_absent_optional_profile_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "user-1"
+        })))
+        .mount(&server)
+        .await;
+
+    let user = client(&server).current_user(&status_token()).await.unwrap();
+
+    assert_eq!(user.username(), None);
+    assert_eq!(user.full_name(), None);
+    assert_eq!(user.is_admin(), None);
+    assert!(user.emails().is_empty());
+}
+
+#[tokio::test]
+async fn current_user_preserves_embedded_authentication_errors() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "error": "Unauthorized",
+            "reason": "Unauthorized",
+            "statusCode": 401
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::EmbeddedServer {
+            http_status: reqwest::StatusCode::OK,
+            wekan_status_code: 401,
+            server_error: Some(ref value),
+            server_reason: Some(_),
+        } if value == "Unauthorized"
+    ));
+}
+
+#[tokio::test]
+async fn current_user_non_success_responses_preserve_http_status() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+            "error": "api-disabled",
+            "reason": "API disabled"
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::Server {
+            status: reqwest::StatusCode::FORBIDDEN,
+            server_error: Some(ref value),
+            ..
+        } if value == "api-disabled"
+    ));
+}
+
+#[tokio::test]
+async fn malformed_current_user_success_is_a_protocol_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "username": "missing-id"
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::Protocol {
+            success_status_received: true,
+            ..
+        }
+    ));
+}
+
+#[tokio::test]
+async fn current_user_responses_enforce_the_size_limit() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .current_user(&status_token())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::ResponseTooLarge {
+            status: reqwest::StatusCode::OK,
+            ..
+        }
+    ));
+}
+
+#[tokio::test]
+async fn truncated_current_user_responses_preserve_the_http_status() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = stream.read(&mut request).unwrap();
+        stream
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{\"_id\":",
+            )
+            .unwrap();
+    });
+    let server_url = ServerUrl::parse(&format!("http://{address}"), false).unwrap();
+    let client = WekanClient::new(server_url).unwrap();
+
+    let error = client.current_user(&status_token()).await.unwrap_err();
+    server.join().unwrap();
+
+    assert!(matches!(
+        error,
+        ClientError::ResponseBody {
+            status: reqwest::StatusCode::OK,
+            ..
+        }
+    ));
+}
 
 #[tokio::test]
 async fn login_success_fields_are_decoded() {

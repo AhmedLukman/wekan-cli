@@ -16,6 +16,9 @@ pub enum ErrorCode {
     ProtocolError,
     LoginRejected,
     LoginRateLimited,
+    CredentialNotFound,
+    CredentialExpired,
+    AuthenticationRejected,
     RegistrationRejected,
     RegistrationDisabled,
     ServerError,
@@ -35,6 +38,9 @@ impl ErrorCode {
             Self::ProtocolError => "protocol_error",
             Self::LoginRejected => "login_rejected",
             Self::LoginRateLimited => "login_rate_limited",
+            Self::CredentialNotFound => "credential_not_found",
+            Self::CredentialExpired => "credential_expired",
+            Self::AuthenticationRejected => "authentication_rejected",
             Self::RegistrationRejected => "registration_rejected",
             Self::RegistrationDisabled => "registration_disabled",
             Self::ServerError => "server_error",
@@ -50,6 +56,8 @@ pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub wekan_status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub server_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server_reason: Option<String>,
@@ -63,6 +71,8 @@ pub struct ErrorDetails {
     pub outcome_unknown: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_expires: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -70,7 +80,7 @@ pub struct AppError {
     code: ErrorCode,
     message: String,
     exit_code: StableExitCode,
-    details: ErrorDetails,
+    details: Box<ErrorDetails>,
 }
 
 impl AppError {
@@ -79,7 +89,7 @@ impl AppError {
             code,
             message: message.into(),
             exit_code,
-            details: ErrorDetails::default(),
+            details: Box::default(),
         }
     }
 
@@ -100,7 +110,7 @@ impl AppError {
     }
 
     pub fn with_details(mut self, details: ErrorDetails) -> Self {
-        self.details = details;
+        self.details = Box::new(details);
         self
     }
 

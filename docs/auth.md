@@ -1,6 +1,7 @@
 # Authentication
 
-The implemented authentication surface supports registration and login:
+The implemented authentication surface supports registration, login, and live
+authentication status:
 
 ```text
 wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
@@ -11,10 +12,13 @@ wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
       auth login (--username <NAME> | --email <EMAIL>)
       [--password-stdin]
       [--code | --code-stdin]
+
+wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+      auth status
 ```
 
-Logout, status, named profiles, configuration files, and multi-account
-selection are not implemented in this milestone.
+Logout, named profiles, configuration files, and multi-account selection are
+not implemented in this milestone.
 
 ## Server selection
 
@@ -28,10 +32,11 @@ The URL must:
 - contain no embedded username, password, query, or fragment; and
 - identify the Wekan base path, including any deployment subpath.
 
-The CLI normalizes the base URL with a trailing slash and resolves
-`users/register` or `users/login` relative to it. For example,
+The CLI normalizes the base URL with a trailing slash and resolves the
+authentication endpoint relative to it. For example,
 `https://example.test/wekan` becomes
-`https://example.test/wekan/users/login` for login.
+`https://example.test/wekan/users/login` for login and
+`https://example.test/wekan/api/user` for status.
 
 HTTPS is required except for exact `localhost` and IPv4 or IPv6 loopback
 addresses. `--allow-insecure-http` explicitly permits HTTP elsewhere. It does
@@ -69,12 +74,36 @@ requires `--password-stdin`; interactive `--code` conflicts with both stdin
 flags. Password and code value arguments, `WEKAN_PASSWORD`, and code environment
 variables are deliberately unsupported.
 
+## Authentication status
+
+`auth status` reads the credential stored under the canonical server URL. It
+does not accept command-specific arguments, prompt for secrets, or mutate the
+credential store.
+
+The stored version-1 record must contain the same canonical server URL, a
+nonempty user ID and token, and an RFC 3339 expiry. A missing record returns
+`credential_not_found`. A record whose expiry is at or before the current time
+returns `credential_expired` with `token_expires` details and is not sent to
+Wekan.
+
+For a nonexpired record, the CLI sends one bearer-authenticated `GET api/user`
+request. Wekan v11.06 reports a missing or invalid token as HTTP 200 with an
+embedded `statusCode: 401`; the CLI maps this to `authentication_rejected` and
+reports both `http_status: 200` and `wekan_status_code: 401`. It does not delete
+the rejected credential.
+
+Successful status requires the returned `_id` to be nonempty and to match the
+stored user ID. Output allowlists only the user ID, username, profile full name,
+administrator flag, email addresses and verification flags. Board memberships,
+other profile data, and all service/session data are discarded.
+
 ## Request safety and server errors
 
-Authentication sends one JSON POST request with a 10-second connect timeout, a
-30-second total timeout, and a 1 MiB response limit. Redirects are not followed
-and automatic retries are disabled. Both successful endpoints return an
-authentication session containing `id`, `token`, and RFC 3339 `tokenExpires`.
+Registration and login send one JSON POST request; status sends one GET request.
+All use a 10-second connect timeout, a 30-second total timeout, and a 1 MiB
+response limit. Redirects are not followed and automatic retries are disabled.
+Successful registration and login return an authentication session containing
+`id`, `token`, and RFC 3339 `tokenExpires`.
 
 Registration accepts only HTTP 200 as success. HTTP 400 maps to
 `registration_rejected`; HTTP 403 maps to `registration_disabled`; other
@@ -129,6 +158,11 @@ The stored secret is a versioned JSON record:
 
 Passwords and two-factor codes are never stored. Tokens are never rendered in
 human or JSON output.
+
+Credential reads distinguish an absent entry from an unavailable vault or an
+invalid record. Missing credentials are an unauthenticated state; vault access,
+decoding, version, server-key, and field-validation failures use the credential
+error family. Status never repairs, replaces, or removes a record.
 
 A credential-store write can fail after Wekan reports success. Registration
 then returns `credential_store_failed` with `account_created: true`; login uses
