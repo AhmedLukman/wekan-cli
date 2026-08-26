@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-    embedded_server_error_details, map_credential_load_error, preflight_credentials,
-    protocol_error_details, response_error_details, server_error_details,
+    credential_target, embedded_server_error_details, map_credential_load_error,
+    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -26,10 +26,11 @@ pub(crate) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let client = client_factory.create()?;
     let server = client.server().as_str().to_owned();
-    preflight_credentials(credential_store, &server)?;
+    let credential_target = credential_target(client_factory, server.clone());
+    preflight_credentials(credential_store, &credential_target)?;
 
     let record = credential_store
-        .load(&server)
+        .load(&credential_target)
         .map_err(map_credential_load_error)?
         .ok_or_else(|| {
             AppError::new(
@@ -77,6 +78,7 @@ pub(crate) async fn execute(
     let (user_id, username, full_name, is_admin, emails) = current_user.into_parts();
     Ok(CommandSuccess::AuthStatus(AuthStatusSuccess {
         server,
+        profile: client_factory.profile().map(str::to_owned),
         authenticated: true,
         token_expires,
         credential_stored: true,
@@ -253,7 +255,7 @@ mod tests {
         client::{ClientError, WekanClientFactory},
         command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
-        credentials::{CredentialError, CredentialRecord, CredentialStore},
+        credentials::{CredentialError, CredentialRecord, CredentialStore, CredentialTarget},
         error::ErrorCode,
         exit_code::StableExitCode,
         redaction::Redactor,
@@ -284,7 +286,7 @@ mod tests {
     }
 
     impl CredentialStore for FakeCredentialStore {
-        fn check_available(&self, _account: &str) -> Result<(), CredentialError> {
+        fn check_available(&self, _target: &CredentialTarget) -> Result<(), CredentialError> {
             if self.available {
                 Ok(())
             } else {
@@ -292,24 +294,31 @@ mod tests {
             }
         }
 
-        fn load(&self, _account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+        fn load(
+            &self,
+            _target: &CredentialTarget,
+        ) -> Result<Option<CredentialRecord>, CredentialError> {
             if let Some(error) = self.load_error.lock().unwrap().take() {
                 return Err(error);
             }
             Ok(self.record.lock().unwrap().clone())
         }
 
-        fn save(&self, _account: &str, _record: &CredentialRecord) -> Result<(), CredentialError> {
+        fn save(
+            &self,
+            _target: &CredentialTarget,
+            _record: &CredentialRecord,
+        ) -> Result<(), CredentialError> {
             panic!("authentication status must never save credentials")
         }
 
-        fn delete(&self, _account: &str) -> Result<bool, CredentialError> {
+        fn delete(&self, _target: &CredentialTarget) -> Result<bool, CredentialError> {
             panic!("authentication status must never delete credentials")
         }
 
         fn delete_if_matches(
             &self,
-            _account: &str,
+            _target: &CredentialTarget,
             _expected: &CredentialRecord,
         ) -> Result<crate::credentials::CredentialDeleteOutcome, CredentialError> {
             panic!("authentication status must never conditionally delete credentials")
@@ -335,7 +344,9 @@ mod tests {
             "status",
         ])
         .expect("status without arguments must parse");
-        let RootCommand::Auth(auth) = cli.command;
+        let RootCommand::Auth(auth) = cli.command else {
+            panic!("expected auth command")
+        };
         assert!(matches!(auth.command, AuthCommand::Status(StatusArgs {})));
 
         let error = Cli::try_parse_from([

@@ -132,31 +132,68 @@ fn validate_code(code: String) -> Result<SecretString, crate::error::AppError> {
     Ok(SecretString::from(code))
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CredentialTarget {
+    account: String,
+    server_url: String,
+}
+
+impl CredentialTarget {
+    pub fn direct(server_url: String) -> Self {
+        Self {
+            account: server_url.clone(),
+            server_url,
+        }
+    }
+
+    pub fn profile_in_store(name: &str, store_namespace: &str, server_url: String) -> Self {
+        Self {
+            account: format!("profile:{store_namespace}:{name}"),
+            server_url,
+        }
+    }
+
+    pub fn account(&self) -> &str {
+        &self.account
+    }
+
+    pub fn server_url(&self) -> &str {
+        &self.server_url
+    }
+
+    pub(crate) fn server_lock_key(&self) -> String {
+        format!("server:{}", self.server_url)
+    }
+
+    pub(crate) fn account_lock_key(&self) -> &str {
+        &self.account
+    }
+}
+
 pub trait CredentialStore: Send + Sync {
-    fn check_available(&self, account: &str) -> Result<(), CredentialError>;
-    fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError>;
-    fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError>;
-    fn delete(&self, account: &str) -> Result<bool, CredentialError>;
+    fn check_available(&self, target: &CredentialTarget) -> Result<(), CredentialError>;
+    fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError>;
+    fn save(
+        &self,
+        target: &CredentialTarget,
+        record: &CredentialRecord,
+    ) -> Result<(), CredentialError>;
+    fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError>;
     /// Deletes only the expected record. Implementations must serialize this
     /// comparison and deletion with credential saves for the same account.
     fn delete_if_matches(
         &self,
-        account: &str,
+        target: &CredentialTarget,
         expected: &CredentialRecord,
     ) -> Result<CredentialDeleteOutcome, CredentialError>;
 
-    /// Serializes an account's credential mutations. Authentication commands
-    /// hold this guard across their remote request and local reconciliation so
-    /// login and logout cannot lose each other's credentials. Production stores
-    /// shared across processes must override this forwarding default with a
-    /// real account-scoped lock.
     fn lock_mutation(
         &self,
-        account: &str,
+        target: &CredentialTarget,
     ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
         Ok(Box::new(UnlockedCredentialMutation {
             store: self,
-            account: account.to_owned(),
+            target: target.clone(),
         }))
     }
 }
@@ -173,27 +210,27 @@ pub trait CredentialMutation: Send {
 
 struct UnlockedCredentialMutation<'a, S: CredentialStore + ?Sized> {
     store: &'a S,
-    account: String,
+    target: CredentialTarget,
 }
 
 impl<S: CredentialStore + ?Sized> CredentialMutation for UnlockedCredentialMutation<'_, S> {
     fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
-        self.store.load(&self.account)
+        self.store.load(&self.target)
     }
 
     fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
-        self.store.save(&self.account, record)
+        self.store.save(&self.target, record)
     }
 
     fn delete(&self) -> Result<bool, CredentialError> {
-        self.store.delete(&self.account)
+        self.store.delete(&self.target)
     }
 
     fn delete_if_matches(
         &self,
         expected: &CredentialRecord,
     ) -> Result<CredentialDeleteOutcome, CredentialError> {
-        self.store.delete_if_matches(&self.account, expected)
+        self.store.delete_if_matches(&self.target, expected)
     }
 }
 
@@ -258,7 +295,7 @@ impl CredentialRecord {
         }
         if stored.server_url != expected_server_url {
             return Err(CredentialError::InvalidRecord(
-                "the stored server URL did not match its credential-store account",
+                "the stored server URL did not match the selected credential target",
             ));
         }
         if stored.user_id.is_empty() {
@@ -348,9 +385,25 @@ mod tests {
     use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
     use super::{
-        CredentialError, CredentialRecord, PASSWORD_STDIN_GUIDANCE, TWO_FACTOR_STDIN_GUIDANCE,
-        validate_password,
+        CredentialError, CredentialRecord, CredentialTarget, PASSWORD_STDIN_GUIDANCE,
+        TWO_FACTOR_STDIN_GUIDANCE, validate_password,
     };
+
+    #[test]
+    fn namespaced_profile_targets_are_isolated_but_share_a_server_transaction_key() {
+        let server = "https://wekan.example/".to_owned();
+        let direct = CredentialTarget::direct(server.clone());
+        let first = CredentialTarget::profile_in_store("work", "store-one", server.clone());
+        let second = CredentialTarget::profile_in_store("work", "store-two", server);
+
+        assert_eq!(direct.account(), "https://wekan.example/");
+        assert_eq!(first.account(), "profile:store-one:work");
+        assert_eq!(second.account(), "profile:store-two:work");
+        assert_ne!(first.account(), second.account());
+        assert_eq!(direct.server_lock_key(), first.server_lock_key());
+        assert_eq!(first.server_lock_key(), second.server_lock_key());
+        assert_ne!(first.account_lock_key(), second.account_lock_key());
+    }
 
     #[test]
     fn interactive_confirmation_must_match() {

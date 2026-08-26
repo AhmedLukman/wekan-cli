@@ -10,8 +10,9 @@ use crate::{
 };
 
 use super::{
-    embedded_server_error_details, lock_credential_mutation, non_empty_identity, persist_session,
-    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
+    credential_target, embedded_server_error_details, lock_credential_mutation, non_empty_identity,
+    persist_session, preflight_credentials, protocol_error_details, response_error_details,
+    server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -45,8 +46,9 @@ pub(crate) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let client = client_factory.create().map_err(AppError::from)?;
     let server_url = client.server().as_str().to_owned();
+    let credential_target = credential_target(client_factory, server_url.clone());
 
-    preflight_credentials(credential_store, &server_url).map_err(|error| {
+    preflight_credentials(credential_store, &credential_target).map_err(|error| {
         error.with_details(ErrorDetails {
             account_created: Some(false),
             ..ErrorDetails::default()
@@ -60,8 +62,8 @@ pub(crate) async fn execute(
         password,
     };
     let redactor = Redactor::with_secret(&request.password);
-    let credential_mutation =
-        lock_credential_mutation(credential_store, &server_url).map_err(|error| {
+    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
+        .map_err(|error| {
             error.with_details(ErrorDetails {
                 account_created: Some(false),
                 ..ErrorDetails::default()
@@ -72,13 +74,18 @@ pub(crate) async fn execute(
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    let success =
-        persist_session(credential_mutation.as_ref(), server_url, session).map_err(|error| {
-            error.with_details(ErrorDetails {
-                account_created: Some(true),
-                ..ErrorDetails::default()
-            })
-        })?;
+    let success = persist_session(
+        credential_mutation.as_ref(),
+        server_url,
+        client_factory.profile().map(str::to_owned),
+        session,
+    )
+    .map_err(|error| {
+        error.with_details(ErrorDetails {
+            account_created: Some(true),
+            ..ErrorDetails::default()
+        })
+    })?;
     Ok(CommandSuccess::Registration(success))
 }
 
@@ -267,8 +274,8 @@ mod tests {
         command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
         credentials::{
-            CredentialError, CredentialRecord, CredentialStore, LoginSecretMode, LoginSecrets,
-            SecretInputProvider,
+            CredentialError, CredentialRecord, CredentialStore, CredentialTarget, LoginSecretMode,
+            LoginSecrets, SecretInputProvider,
         },
         error::{AppError, ErrorCode},
         exit_code::StableExitCode,
@@ -299,7 +306,7 @@ mod tests {
     }
 
     impl CredentialStore for FakeCredentialStore {
-        fn check_available(&self, _account: &str) -> Result<(), CredentialError> {
+        fn check_available(&self, _target: &CredentialTarget) -> Result<(), CredentialError> {
             if self.available.load(Ordering::SeqCst) {
                 Ok(())
             } else {
@@ -307,11 +314,18 @@ mod tests {
             }
         }
 
-        fn load(&self, _account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+        fn load(
+            &self,
+            _target: &CredentialTarget,
+        ) -> Result<Option<CredentialRecord>, CredentialError> {
             Ok(None)
         }
 
-        fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError> {
+        fn save(
+            &self,
+            target: &CredentialTarget,
+            record: &CredentialRecord,
+        ) -> Result<(), CredentialError> {
             if self.fail_save.load(Ordering::SeqCst) {
                 return Err(CredentialError::Store(format!(
                     "failed while handling {}",
@@ -319,22 +333,22 @@ mod tests {
                 )));
             }
             let mut saved = self.saved.lock().unwrap();
-            saved.retain(|credential| credential.account != account);
+            saved.retain(|credential| credential.account != target.account());
             saved.push(SavedCredential {
-                account: account.to_owned(),
+                account: target.account().to_owned(),
                 user_id: record.user_id().to_owned(),
                 token: record.token().expose_secret().to_owned(),
             });
             Ok(())
         }
 
-        fn delete(&self, _account: &str) -> Result<bool, CredentialError> {
+        fn delete(&self, _target: &CredentialTarget) -> Result<bool, CredentialError> {
             panic!("registration must never delete credentials")
         }
 
         fn delete_if_matches(
             &self,
-            _account: &str,
+            _target: &CredentialTarget,
             _expected: &CredentialRecord,
         ) -> Result<crate::credentials::CredentialDeleteOutcome, CredentialError> {
             panic!("registration must never conditionally delete credentials")
@@ -413,7 +427,9 @@ mod tests {
         ])
         .expect("both identity fields should be accepted");
 
-        let RootCommand::Auth(auth) = cli.command;
+        let RootCommand::Auth(auth) = cli.command else {
+            panic!("expected auth command")
+        };
         let AuthCommand::Register(args) = auth.command else {
             panic!("expected the register command")
         };

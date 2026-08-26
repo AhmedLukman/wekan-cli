@@ -10,9 +10,18 @@ use crate::{commands::RootCommand, output::OutputFormat};
     arg_required_else_help = true
 )]
 pub struct Cli {
-    /// Wekan server base URL. Overrides WEKAN_URL.
-    #[arg(long, global = true, env = "WEKAN_URL")]
+    /// Wekan server base URL. Overrides environment and profile selection.
+    #[arg(long, global = true, group = "server_selector")]
     pub server: Option<String>,
+
+    /// Named local server profile. Overrides environment and active selection.
+    #[arg(
+        long = "profile",
+        global = true,
+        group = "server_selector",
+        value_parser = crate::config::profiles::parse_profile_name
+    )]
+    pub profile_name: Option<String>,
 
     /// Output format.
     #[arg(long, global = true, value_enum, default_value_t = OutputFormat::Human)]

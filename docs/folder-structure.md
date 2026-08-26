@@ -21,7 +21,7 @@ wekan-cli/
 ├── src/
 │   ├── main.rs                        # Minimal executable entry point and async runtime
 │   ├── lib.rs                         # Testable application entry point and module declarations
-│   ├── app.rs                         # Initializes and owns shared dependencies; starts dispatch
+│   ├── app.rs                         # Composition root; owns target resolver and shared dependencies
 │   ├── cli.rs                         # Root Cli parser and global flags only
 │   ├── command_result.rs              # Stable semantic command outcomes shared by commands, errors and output
 │   ├── error.rs                       # Application-level error representation
@@ -30,6 +30,16 @@ wekan-cli/
 │   │
 │   ├── commands.rs                    # Root command enum, module declarations and dispatch
 │   ├── commands/
+│   │   ├── profile.rs                 # `wekan profile` family enum, dispatch and shared policy
+│   │   ├── profile/
+│   │   │   ├── add.rs                 # AddArgs and add handler
+│   │   │   ├── list.rs                # ListArgs and list handler
+│   │   │   ├── show.rs                # ShowArgs and show handler
+│   │   │   ├── use_profile.rs         # UseArgs and active-profile selection handler
+│   │   │   ├── update.rs              # UpdateArgs and update handler
+│   │   │   ├── remove.rs              # RemoveArgs and remove handler
+│   │   │   └── tests.rs               # Profile-family unit tests and shared fixtures
+│   │   │
 │   │   ├── auth.rs                    # `wekan auth` family enum and dispatch
 │   │   ├── auth/
 │   │   │   ├── login.rs               # LoginArgs and login handler
@@ -41,7 +51,6 @@ wekan-cli/
 │   │   ├── config/
 │   │   │   ├── get.rs                 # Read a configuration value
 │   │   │   ├── set.rs                 # Write a configuration value
-│   │   │   ├── profiles.rs            # Manage server profiles
 │   │   │   └── ...
 │   │   │
 │   │   ├── users.rs                   # `wekan user` family
@@ -219,7 +228,7 @@ wekan-cli/
 │   │   ├── resolve.rs                 # Resolve names/slugs into Wekan IDs
 │   │   └── ...
 │   │
-│   ├── config.rs                      # Configuration façade and shared types
+│   ├── config.rs                      # Configuration façade, target resolver, and shared types
 │   ├── config/
 │   │   ├── load.rs                    # Configuration loading and precedence
 │   │   ├── store.rs                   # Configuration persistence

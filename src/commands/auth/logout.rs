@@ -11,8 +11,9 @@ use crate::{
 };
 
 use super::{
-    embedded_server_error_details, lock_credential_mutation, map_credential_load_error,
-    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
+    credential_target, embedded_server_error_details, lock_credential_mutation,
+    map_credential_load_error, preflight_credentials, protocol_error_details,
+    response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -44,9 +45,10 @@ pub(crate) async fn execute(
         AppError::from(error).with_details(no_remote_mutation_details(scope, None))
     })?;
     let server = client.server().as_str().to_owned();
-    preflight_credentials(credential_store, &server)
+    let credential_target = credential_target(client_factory, server.clone());
+    preflight_credentials(credential_store, &credential_target)
         .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
-    let credential_mutation = lock_credential_mutation(credential_store, &server)
+    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
         .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
     let record = credential_mutation
         .load()
@@ -78,7 +80,13 @@ pub(crate) async fn execute(
         None,
     )?;
 
-    Ok(success(server, scope, true, deletion))
+    Ok(success(
+        server,
+        client_factory.profile().map(str::to_owned),
+        scope,
+        true,
+        deletion,
+    ))
 }
 
 fn delete_completed_logout_credential(
@@ -111,16 +119,13 @@ fn execute_local_only(
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
-    let server = client_factory
-        .resolve_server()
-        .map_err(AppError::from)?
-        .as_str()
-        .to_owned();
-    preflight_credentials(credential_store, &server).map_err(|error| {
+    let server = client_factory.server_identity().as_str().to_owned();
+    let credential_target = credential_target(client_factory, server.clone());
+    preflight_credentials(credential_store, &credential_target).map_err(|error| {
         error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
     })?;
-    let credential_mutation =
-        lock_credential_mutation(credential_store, &server).map_err(|error| {
+    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
+        .map_err(|error| {
             error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
         })?;
     let removed = credential_mutation.delete().map_err(|error| {
@@ -138,6 +143,7 @@ fn execute_local_only(
 
     Ok(success(
         server,
+        client_factory.profile().map(str::to_owned),
         LogoutScope::LocalOnly,
         false,
         if removed {
@@ -150,12 +156,14 @@ fn execute_local_only(
 
 fn success(
     server: String,
+    profile: Option<String>,
     logout_scope: LogoutScope,
     remote: bool,
     deletion: CredentialDeleteOutcome,
 ) -> CommandSuccess {
     CommandSuccess::Logout(LogoutSuccess {
         server,
+        profile,
         logout_scope,
         remote_logout_completed: remote,
         credential_stored: deletion == CredentialDeleteOutcome::Mismatch,
@@ -400,7 +408,7 @@ mod tests {
         commands::{RootCommand, auth::AuthCommand},
         credentials::{
             CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
-            CredentialStore,
+            CredentialStore, CredentialTarget,
         },
         error::ErrorCode,
         exit_code::StableExitCode,
@@ -443,9 +451,13 @@ mod tests {
         }
 
         fn local_only(present: bool) -> Self {
+            Self::local_only_account(present.then_some("https://wekan.example/"))
+        }
+
+        fn local_only_account(account: Option<&str>) -> Self {
             Self {
-                credential: Mutex::new(present.then(|| StoredCredential {
-                    account: "https://wekan.example/".to_owned(),
+                credential: Mutex::new(account.map(|account| StoredCredential {
+                    account: account.to_owned(),
                     user_id: "unreadable-record".to_owned(),
                     token: "not-decoded".to_owned(),
                     token_expires: OffsetDateTime::UNIX_EPOCH,
@@ -462,7 +474,7 @@ mod tests {
     }
 
     impl CredentialStore for FakeCredentialStore {
-        fn check_available(&self, _account: &str) -> Result<(), CredentialError> {
+        fn check_available(&self, _target: &CredentialTarget) -> Result<(), CredentialError> {
             if self.available {
                 Ok(())
             } else {
@@ -470,7 +482,10 @@ mod tests {
             }
         }
 
-        fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+        fn load(
+            &self,
+            target: &CredentialTarget,
+        ) -> Result<Option<CredentialRecord>, CredentialError> {
             assert!(
                 !self.panic_on_load,
                 "local-only logout must never load credentials"
@@ -484,7 +499,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .as_ref()
-                .filter(|credential| credential.account == account)
+                .filter(|credential| credential.account == target.account())
                 .map(|credential| {
                     CredentialRecord::new(
                         credential.account.clone(),
@@ -495,11 +510,15 @@ mod tests {
                 }))
         }
 
-        fn save(&self, _account: &str, _record: &CredentialRecord) -> Result<(), CredentialError> {
+        fn save(
+            &self,
+            _target: &CredentialTarget,
+            _record: &CredentialRecord,
+        ) -> Result<(), CredentialError> {
             panic!("logout must never save credentials")
         }
 
-        fn delete(&self, account: &str) -> Result<bool, CredentialError> {
+        fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
             self.deletes.fetch_add(1, Ordering::SeqCst);
             if let Some(error) = self.delete_error.lock().unwrap().take() {
                 return Err(error);
@@ -507,7 +526,7 @@ mod tests {
             let mut credential = self.credential.lock().unwrap();
             if credential
                 .as_ref()
-                .is_some_and(|credential| credential.account == account)
+                .is_some_and(|credential| credential.account == target.account())
             {
                 credential.take();
                 Ok(true)
@@ -518,7 +537,7 @@ mod tests {
 
         fn delete_if_matches(
             &self,
-            account: &str,
+            target: &CredentialTarget,
             expected: &CredentialRecord,
         ) -> Result<CredentialDeleteOutcome, CredentialError> {
             self.deletes.fetch_add(1, Ordering::SeqCst);
@@ -532,7 +551,7 @@ mod tests {
             let Some(current) = credential.as_ref() else {
                 return Ok(CredentialDeleteOutcome::Absent);
             };
-            if current.account != account {
+            if current.account != target.account() {
                 return Ok(CredentialDeleteOutcome::Absent);
             }
             let current = CredentialRecord::new(
@@ -550,7 +569,7 @@ mod tests {
 
         fn lock_mutation(
             &self,
-            account: &str,
+            target: &CredentialTarget,
         ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
             let mut locked = self.mutation_locked.lock().unwrap();
             while *locked {
@@ -560,7 +579,7 @@ mod tests {
             drop(locked);
             Ok(Box::new(FakeCredentialMutation {
                 store: self,
-                account: account.to_owned(),
+                target: target.clone(),
                 _lock: FakeMutationLock { store: self },
             }))
         }
@@ -580,28 +599,28 @@ mod tests {
 
     struct FakeCredentialMutation<'a> {
         store: &'a FakeCredentialStore,
-        account: String,
+        target: CredentialTarget,
         _lock: FakeMutationLock<'a>,
     }
 
     impl CredentialMutation for FakeCredentialMutation<'_> {
         fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
-            self.store.load(&self.account)
+            self.store.load(&self.target)
         }
 
         fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
-            self.store.save(&self.account, record)
+            self.store.save(&self.target, record)
         }
 
         fn delete(&self) -> Result<bool, CredentialError> {
-            self.store.delete(&self.account)
+            self.store.delete(&self.target)
         }
 
         fn delete_if_matches(
             &self,
             expected: &CredentialRecord,
         ) -> Result<CredentialDeleteOutcome, CredentialError> {
-            self.store.delete_if_matches(&self.account, expected)
+            self.store.delete_if_matches(&self.target, expected)
         }
     }
 
@@ -639,7 +658,9 @@ mod tests {
             "logout",
         ])
         .unwrap();
-        let RootCommand::Auth(auth) = current.command;
+        let RootCommand::Auth(auth) = current.command else {
+            panic!("expected auth command")
+        };
         let AuthCommand::Logout(args) = auth.command else {
             panic!("expected logout")
         };
@@ -655,7 +676,9 @@ mod tests {
             "--all",
         ])
         .unwrap();
-        let RootCommand::Auth(auth) = all.command;
+        let RootCommand::Auth(auth) = all.command else {
+            panic!("expected auth command")
+        };
         let AuthCommand::Logout(args) = auth.command else {
             panic!("expected logout")
         };
@@ -701,6 +724,50 @@ mod tests {
         assert!(!store.has_credential());
         assert_eq!(store.loads.load(Ordering::SeqCst), 0);
         assert_eq!(store.deletes.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn local_only_named_logout_deletes_only_that_profile_without_network_http_opt_in() {
+        let factory = WekanClientFactory::for_profile(
+            "http://wekan.example".to_owned(),
+            "work".to_owned(),
+            false,
+        );
+
+        let other_profile =
+            FakeCredentialStore::local_only_account(Some("profile:test-store:personal"));
+        let CommandSuccess::Logout(unchanged) = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &factory,
+            &other_profile,
+        )
+        .await
+        .unwrap() else {
+            panic!("expected logout success")
+        };
+        assert_eq!(unchanged.profile.as_deref(), Some("work"));
+        assert!(!unchanged.local_credential_removed);
+        assert!(other_profile.has_credential());
+
+        let selected_profile =
+            FakeCredentialStore::local_only_account(Some("profile:test-store:work"));
+        let CommandSuccess::Logout(removed) = execute(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+            },
+            &factory,
+            &selected_profile,
+        )
+        .await
+        .unwrap() else {
+            panic!("expected logout success")
+        };
+        assert!(removed.local_credential_removed);
+        assert!(!selected_profile.has_credential());
     }
 
     #[tokio::test]
@@ -911,7 +978,8 @@ mod tests {
         let contender_store = Arc::clone(&store);
         let contender = thread::spawn(move || {
             contender_started_sender.send(()).unwrap();
-            let _mutation = contender_store.lock_mutation(&account).unwrap();
+            let target = CredentialTarget::direct(account);
+            let _mutation = contender_store.lock_mutation(&target).unwrap();
             contender_acquired_sender.send(()).unwrap();
         });
         contender_started_receiver

@@ -3,6 +3,7 @@ use serde::Serialize;
 use crate::{
     client::{ServerUrlError, WekanClientFactoryError},
     command_result::LogoutScope,
+    config::profiles::ProfileStoreError,
     exit_code::StableExitCode,
 };
 
@@ -11,6 +12,10 @@ use crate::{
 pub enum ErrorCode {
     InvalidInput,
     ConfigurationError,
+    ProfileNotFound,
+    ProfileAlreadyExists,
+    ProfileInUse,
+    ProfileHasCredential,
     InsecureTransport,
     TransportError,
     UnexpectedRedirect,
@@ -33,6 +38,10 @@ impl ErrorCode {
         match self {
             Self::InvalidInput => "invalid_input",
             Self::ConfigurationError => "configuration_error",
+            Self::ProfileNotFound => "profile_not_found",
+            Self::ProfileAlreadyExists => "profile_already_exists",
+            Self::ProfileInUse => "profile_in_use",
+            Self::ProfileHasCredential => "profile_has_credential",
             Self::InsecureTransport => "insecure_transport",
             Self::TransportError => "transport_error",
             Self::UnexpectedRedirect => "unexpected_redirect",
@@ -54,6 +63,10 @@ impl ErrorCode {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
+    // The outer option controls presence. The inner option renders a direct
+    // server target as JSON null and a named target as its profile name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -125,6 +138,11 @@ impl AppError {
         self
     }
 
+    pub fn with_profile_context(mut self, profile: Option<String>) -> Self {
+        self.details.profile = Some(profile);
+        self
+    }
+
     pub const fn code(&self) -> ErrorCode {
         self.code
     }
@@ -142,6 +160,12 @@ impl AppError {
     }
 }
 
+impl From<ProfileStoreError> for AppError {
+    fn from(error: ProfileStoreError) -> Self {
+        Self::configuration(error.to_string())
+    }
+}
+
 impl std::fmt::Display for AppError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.message)
@@ -150,18 +174,23 @@ impl std::fmt::Display for AppError {
 
 impl std::error::Error for AppError {}
 
-impl From<WekanClientFactoryError> for AppError {
-    fn from(error: WekanClientFactoryError) -> Self {
+impl From<ServerUrlError> for AppError {
+    fn from(error: ServerUrlError) -> Self {
         match error {
-            WekanClientFactoryError::MissingServer => Self::configuration(
-                "a Wekan server URL is required; pass --server or set WEKAN_URL",
-            ),
-            WekanClientFactoryError::ServerUrl(error @ ServerUrlError::InsecureHttp) => Self::new(
+            error @ ServerUrlError::InsecureHttp => Self::new(
                 ErrorCode::InsecureTransport,
                 error.to_string(),
                 StableExitCode::Configuration,
             ),
-            WekanClientFactoryError::ServerUrl(error) => Self::configuration(error.to_string()),
+            error => Self::configuration(error.to_string()),
+        }
+    }
+}
+
+impl From<WekanClientFactoryError> for AppError {
+    fn from(error: WekanClientFactoryError) -> Self {
+        match error {
+            WekanClientFactoryError::ServerUrl(error) => Self::from(error),
             WekanClientFactoryError::Build(_) => Self::new(
                 ErrorCode::InternalError,
                 "the HTTP client could not be initialized",

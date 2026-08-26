@@ -19,7 +19,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct ServerUrl(Url);
 
 impl ServerUrl {
-    pub fn parse(raw: &str, allow_insecure_http: bool) -> Result<Self, ServerUrlError> {
+    pub fn parse(raw: &str) -> Result<Self, ServerUrlError> {
         let mut url = Url::parse(raw).map_err(ServerUrlError::Invalid)?;
 
         if !matches!(url.scheme(), "http" | "https") {
@@ -37,10 +37,6 @@ impl ServerUrl {
         if url.fragment().is_some() {
             return Err(ServerUrlError::Fragment);
         }
-        if url.scheme() == "http" && !allow_insecure_http && !is_loopback(&url) {
-            return Err(ServerUrlError::InsecureHttp);
-        }
-
         if !url.path().ends_with('/') {
             url.path_segments_mut()
                 .map_err(|_| ServerUrlError::MissingHost)?
@@ -60,6 +56,13 @@ impl ServerUrl {
 
     fn is_http_loopback(&self) -> bool {
         self.0.scheme() == "http" && is_loopback(&self.0)
+    }
+
+    fn enforce_network_policy(&self, allow_insecure_http: bool) -> Result<(), ServerUrlError> {
+        if self.0.scheme() == "http" && !allow_insecure_http && !is_loopback(&self.0) {
+            return Err(ServerUrlError::InsecureHttp);
+        }
+        Ok(())
     }
 }
 
@@ -93,36 +96,80 @@ pub enum ServerUrlError {
 }
 
 pub struct WekanClientFactory {
-    server: Option<String>,
+    server: ServerUrl,
+    profile: Option<String>,
+    profile_store_namespace: Option<String>,
     allow_insecure_http: bool,
 }
 
 impl WekanClientFactory {
-    pub const fn new(server: Option<String>, allow_insecure_http: bool) -> Self {
+    pub fn for_server(server: ServerUrl, allow_insecure_http: bool) -> Self {
         Self {
             server,
+            profile: None,
+            profile_store_namespace: None,
             allow_insecure_http,
         }
     }
 
-    pub fn create(&self) -> Result<WekanClient, WekanClientFactoryError> {
-        let server = self.resolve_server()?;
-        WekanClient::new(server).map_err(WekanClientFactoryError::Build)
+    pub fn for_resolved_profile(
+        server: ServerUrl,
+        profile: String,
+        profile_store_namespace: String,
+        allow_insecure_http: bool,
+    ) -> Self {
+        Self {
+            server,
+            profile: Some(profile),
+            profile_store_namespace: Some(profile_store_namespace),
+            allow_insecure_http,
+        }
     }
 
-    pub(crate) fn resolve_server(&self) -> Result<ServerUrl, WekanClientFactoryError> {
-        let raw_server = self
-            .server
-            .as_deref()
-            .ok_or(WekanClientFactoryError::MissingServer)?;
-        ServerUrl::parse(raw_server, self.allow_insecure_http).map_err(Into::into)
+    #[cfg(test)]
+    pub(crate) fn new(server: Option<String>, allow_insecure_http: bool) -> Self {
+        let server = ServerUrl::parse(
+            server
+                .as_deref()
+                .expect("test client factories require a server identity"),
+        )
+        .expect("test client factories require a valid server identity");
+        Self::for_server(server, allow_insecure_http)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_profile(server: String, profile: String, allow_insecure_http: bool) -> Self {
+        let server = ServerUrl::parse(&server)
+            .expect("test client factories require a valid server identity");
+        Self::for_resolved_profile(
+            server,
+            profile,
+            "test-store".to_owned(),
+            allow_insecure_http,
+        )
+    }
+
+    pub fn profile(&self) -> Option<&str> {
+        self.profile.as_deref()
+    }
+
+    pub(crate) fn profile_store_namespace(&self) -> Option<&str> {
+        self.profile_store_namespace.as_deref()
+    }
+
+    pub fn create(&self) -> Result<WekanClient, WekanClientFactoryError> {
+        self.server
+            .enforce_network_policy(self.allow_insecure_http)?;
+        WekanClient::new(self.server.clone()).map_err(WekanClientFactoryError::Build)
+    }
+
+    pub(crate) const fn server_identity(&self) -> &ServerUrl {
+        &self.server
     }
 }
 
 #[derive(Debug, Error)]
 pub enum WekanClientFactoryError {
-    #[error("a Wekan server URL is required; pass --server or set WEKAN_URL")]
-    MissingServer,
     #[error(transparent)]
     ServerUrl(#[from] ServerUrlError),
     #[error("the HTTP client could not be initialized")]
@@ -136,7 +183,7 @@ pub struct WekanClient {
 }
 
 impl WekanClient {
-    pub fn new(server: ServerUrl) -> Result<Self, ClientError> {
+    fn new(server: ServerUrl) -> Result<Self, ClientError> {
         Self::from_builder(server, Client::builder())
     }
 
@@ -178,18 +225,28 @@ mod tests {
     };
 
     #[test]
-    fn client_factory_defers_server_validation_until_creation() {
-        let factory = WekanClientFactory::new(None, false);
+    fn client_factory_defers_network_permission_until_creation() {
+        let server = ServerUrl::parse("http://wekan.example").unwrap();
+        let factory = WekanClientFactory::for_server(server.clone(), false);
 
+        assert_eq!(factory.server_identity(), &server);
         assert!(matches!(
             factory.create(),
-            Err(WekanClientFactoryError::MissingServer)
+            Err(WekanClientFactoryError::ServerUrl(
+                ServerUrlError::InsecureHttp
+            ))
         ));
+
+        assert!(
+            WekanClientFactory::for_server(server, true)
+                .create()
+                .is_ok()
+        );
     }
 
     #[test]
     fn normalizes_server_paths_without_losing_subpaths() {
-        let server = ServerUrl::parse("https://example.com/wekan", false).unwrap();
+        let server = ServerUrl::parse("https://example.com/wekan").unwrap();
         assert_eq!(server.as_str(), "https://example.com/wekan/");
         assert_eq!(
             server.join("users/register").unwrap().as_str(),
@@ -207,38 +264,38 @@ mod tests {
 
     #[test]
     fn normalization_preserves_percent_encoded_path_segments() {
-        let server = ServerUrl::parse("https://example.com/tenant%20one/wekan", false).unwrap();
+        let server = ServerUrl::parse("https://example.com/tenant%20one/wekan").unwrap();
         assert_eq!(server.as_str(), "https://example.com/tenant%20one/wekan/");
     }
 
     #[test]
-    fn permits_http_for_loopback_hosts() {
-        assert!(ServerUrl::parse("http://localhost:3000", false).is_ok());
-        assert!(ServerUrl::parse("http://127.0.0.1:3000", false).is_ok());
-        assert!(ServerUrl::parse("http://[::1]:3000", false).is_ok());
-    }
-
-    #[test]
-    fn rejects_plaintext_remote_http_without_opt_in() {
-        assert!(matches!(
-            ServerUrl::parse("http://wekan.example", false),
-            Err(ServerUrlError::InsecureHttp)
-        ));
-        assert!(ServerUrl::parse("http://wekan.example", true).is_ok());
+    fn client_factory_permits_http_for_loopback_hosts() {
+        for raw in [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://[::1]:3000",
+        ] {
+            let server = ServerUrl::parse(raw).unwrap();
+            assert!(
+                WekanClientFactory::for_server(server, false)
+                    .create()
+                    .is_ok()
+            );
+        }
     }
 
     #[test]
     fn rejects_url_components_that_make_credentials_or_keys_ambiguous() {
         assert!(matches!(
-            ServerUrl::parse("https://alice:secret@example.com", false),
+            ServerUrl::parse("https://alice:secret@example.com"),
             Err(ServerUrlError::EmbeddedCredentials)
         ));
         assert!(matches!(
-            ServerUrl::parse("https://example.com?tenant=one", false),
+            ServerUrl::parse("https://example.com?tenant=one"),
             Err(ServerUrlError::Query)
         ));
         assert!(matches!(
-            ServerUrl::parse("https://example.com#fragment", false),
+            ServerUrl::parse("https://example.com#fragment"),
             Err(ServerUrlError::Fragment)
         ));
     }
@@ -257,7 +314,7 @@ mod tests {
             .expect(1)
             .mount(&destination)
             .await;
-        let server = ServerUrl::parse(&destination.uri(), false).unwrap();
+        let server = ServerUrl::parse(&destination.uri()).unwrap();
         let builder = Client::builder().proxy(reqwest::Proxy::all(proxy.uri()).unwrap());
         let client = WekanClient::from_builder(server, builder).unwrap();
 

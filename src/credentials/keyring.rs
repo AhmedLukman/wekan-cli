@@ -9,7 +9,8 @@ use fs4::FileExt;
 use keyring::Entry;
 
 use super::{
-    CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord, CredentialStore,
+    CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
+    CredentialStore, CredentialTarget,
 };
 
 const SERVICE_NAME: &str = "wekan-cli";
@@ -20,63 +21,75 @@ const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 pub struct KeyringCredentialStore;
 
 impl CredentialStore for KeyringCredentialStore {
-    fn check_available(&self, account: &str) -> Result<(), CredentialError> {
+    fn check_available(&self, target: &CredentialTarget) -> Result<(), CredentialError> {
         Entry::store_status()
             .as_ref()
             .map_err(|error| CredentialError::Unavailable(error.to_string()))?;
-        Entry::new(SERVICE_NAME, account)
+        Entry::new(SERVICE_NAME, target.account())
             .map(|_| ())
             .map_err(|error| CredentialError::Unavailable(error.to_string()))
     }
 
-    fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
-        load_record(account)
+    fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError> {
+        load_record(target)
     }
 
-    fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError> {
-        self.lock_mutation(account)?.save(record)
+    fn save(
+        &self,
+        target: &CredentialTarget,
+        record: &CredentialRecord,
+    ) -> Result<(), CredentialError> {
+        self.lock_mutation(target)?.save(record)
     }
 
-    fn delete(&self, account: &str) -> Result<bool, CredentialError> {
-        self.lock_mutation(account)?.delete()
+    fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
+        self.lock_mutation(target)?.delete()
     }
 
     fn delete_if_matches(
         &self,
-        account: &str,
+        target: &CredentialTarget,
         expected: &CredentialRecord,
     ) -> Result<CredentialDeleteOutcome, CredentialError> {
-        self.lock_mutation(account)?.delete_if_matches(expected)
+        self.lock_mutation(target)?.delete_if_matches(expected)
     }
 
     fn lock_mutation(
         &self,
-        account: &str,
+        target: &CredentialTarget,
     ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
+        let server_lock = acquire_mutation_lock(&target.server_lock_key())?;
+        let account_lock = acquire_mutation_lock(target.account_lock_key())?;
         Ok(Box::new(KeyringCredentialMutation {
-            account: account.to_owned(),
-            _lock: acquire_mutation_lock(account)?,
+            target: target.clone(),
+            _server_lock: server_lock,
+            _account_lock: account_lock,
         }))
     }
 }
 
 struct KeyringCredentialMutation {
-    account: String,
-    // Keep the native file handle alive for the full credential transaction.
-    _lock: File,
+    target: CredentialTarget,
+    _server_lock: File,
+    _account_lock: File,
 }
 
 impl CredentialMutation for KeyringCredentialMutation {
     fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
-        load_record(&self.account)
+        load_record(&self.target)
     }
 
     fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
-        save_record(&self.account, &record.encode()?)
+        if record.server_url() != self.target.server_url() {
+            return Err(CredentialError::InvalidRecord(
+                "the record server URL did not match the selected credential target",
+            ));
+        }
+        save_record(self.target.account(), &record.encode()?)
     }
 
     fn delete(&self) -> Result<bool, CredentialError> {
-        delete_record(&self.account)
+        delete_record(self.target.account())
     }
 
     fn delete_if_matches(
@@ -100,10 +113,17 @@ impl CredentialMutation for KeyringCredentialMutation {
     }
 }
 
-fn load_record(account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+fn load_record(target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError> {
+    load_record_from_account(target.account(), target.server_url())
+}
+
+fn load_record_from_account(
+    account: &str,
+    expected_server_url: &str,
+) -> Result<Option<CredentialRecord>, CredentialError> {
     let entry = Entry::new(SERVICE_NAME, account).map_err(map_load_error)?;
     match entry.get_secret() {
-        Ok(encoded) => CredentialRecord::decode(account, &encoded).map(Some),
+        Ok(encoded) => CredentialRecord::decode(expected_server_url, &encoded).map(Some),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(error) => Err(map_load_error(error)),
     }
@@ -212,10 +232,10 @@ mod tests {
     use fs4::{FileExt, TryLockError};
 
     use super::{
-        acquire_mutation_lock, map_delete_error, map_load_error, mutation_lock_path,
-        open_mutation_lock,
+        KeyringCredentialStore, acquire_mutation_lock, map_delete_error, map_load_error,
+        mutation_lock_path, open_mutation_lock,
     };
-    use crate::credentials::CredentialError;
+    use crate::credentials::{CredentialError, CredentialStore, CredentialTarget};
 
     const LOCK_PROBE_ACCOUNT_ENV: &str = "WEKAN_TEST_CREDENTIAL_LOCK_PROBE_ACCOUNT";
     const LOCK_PROBE_PREFIX: &str = "WEKAN_LOCK_PROBE:";
@@ -304,6 +324,32 @@ mod tests {
         FileExt::lock(&second).unwrap();
         drop(second);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn direct_and_namespaced_profile_aliases_share_a_canonical_server_lock() {
+        let server = format!("https://alias-lock-test-{}.invalid/", std::process::id());
+        let direct = CredentialTarget::direct(server.clone());
+        let profile = CredentialTarget::profile_in_store("work", "test-store", server);
+        let server_lock_path = mutation_lock_path(&direct.server_lock_key()).unwrap();
+        let direct_account_lock_path = mutation_lock_path(direct.account_lock_key()).unwrap();
+        let profile_account_lock_path = mutation_lock_path(profile.account_lock_key()).unwrap();
+        assert_ne!(direct_account_lock_path, profile_account_lock_path);
+
+        let store = KeyringCredentialStore;
+        let mutation = store.lock_mutation(&direct).unwrap();
+        let contender = open_mutation_lock(&profile.server_lock_key()).unwrap();
+        assert!(matches!(
+            FileExt::try_lock(&contender),
+            Err(TryLockError::WouldBlock)
+        ));
+
+        drop(mutation);
+        FileExt::lock(&contender).unwrap();
+        drop(contender);
+        for path in [server_lock_path, direct_account_lock_path] {
+            std::fs::remove_file(path).unwrap();
+        }
     }
 
     #[test]

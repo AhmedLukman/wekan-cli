@@ -1,6 +1,37 @@
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
+struct TestDirectory(std::path::PathBuf);
+
+impl TestDirectory {
+    fn new(label: &str) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "wekan-cli-black-box-{label}-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn no_target_cli(directory: &TestDirectory) -> assert_cmd::Command {
+    let mut command = cargo_bin_cmd!("wekan");
+    command
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env_remove("WEKAN_URL")
+        .env_remove("WEKAN_PROFILE");
+    command
+}
+
 #[test]
 fn help_is_text_on_stdout() {
     cargo_bin_cmd!("wekan")
@@ -80,8 +111,8 @@ fn logout_scopes_conflict_using_the_json_parse_error_contract() {
 
 #[test]
 fn missing_local_only_server_is_a_configuration_error_before_vault_access() {
-    cargo_bin_cmd!("wekan")
-        .env_remove("WEKAN_URL")
+    let directory = TestDirectory::new("missing-local-only-server");
+    no_target_cli(&directory)
         .args(["--output=json", "auth", "logout", "--local-only"])
         .assert()
         .code(3)
@@ -102,8 +133,8 @@ fn status_rejects_command_specific_arguments() {
 
 #[test]
 fn missing_status_server_is_a_json_configuration_error_before_vault_access() {
-    cargo_bin_cmd!("wekan")
-        .env_remove("WEKAN_URL")
+    let directory = TestDirectory::new("missing-status-server");
+    no_target_cli(&directory)
         .args(["--output=json", "auth", "status"])
         .assert()
         .code(3)
@@ -149,8 +180,8 @@ fn login_code_stdin_requires_password_stdin() {
 
 #[test]
 fn missing_login_server_is_a_json_configuration_error_before_stdin_is_read() {
-    cargo_bin_cmd!("wekan")
-        .env_remove("WEKAN_URL")
+    let directory = TestDirectory::new("missing-login-server");
+    no_target_cli(&directory)
         .args([
             "--output=json",
             "auth",
@@ -185,8 +216,8 @@ fn json_parse_errors_use_stderr_and_exit_two() {
 
 #[test]
 fn missing_server_is_a_json_configuration_error() {
-    cargo_bin_cmd!("wekan")
-        .env_remove("WEKAN_URL")
+    let directory = TestDirectory::new("missing-registration-server");
+    no_target_cli(&directory)
         .args([
             "--output=json",
             "auth",
@@ -260,4 +291,201 @@ fn remote_plaintext_http_requires_explicit_opt_in() {
         .code(3)
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(r#""code":"insecure_transport""#));
+}
+
+#[test]
+fn profile_help_lists_the_complete_command_family() {
+    cargo_bin_cmd!("wekan")
+        .args(["profile", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("add"))
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("show"))
+        .stdout(predicate::str::contains("use"))
+        .stdout(predicate::str::contains("update"))
+        .stdout(predicate::str::contains("remove"));
+}
+
+#[test]
+fn profile_commands_persist_and_render_the_local_lifecycle() {
+    let directory = TestDirectory::new("lifecycle");
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env("WEKAN_URL", "ignored")
+        .env("WEKAN_PROFILE", "INVALID AND IGNORED")
+        .args([
+            "--output=json",
+            "profile",
+            "add",
+            "work",
+            "https://wekan.example",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty())
+        .stdout(predicate::str::contains(r#""name":"work""#))
+        .stdout(predicate::str::contains(
+            r#""server":"https://wekan.example/""#,
+        ))
+        .stdout(predicate::str::contains(r#""active":true"#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args([
+            "--output=json",
+            "profile",
+            "add",
+            "local",
+            "https://wekan.example/",
+            "--use",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""active":true"#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "profile", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""active_profile":"local""#))
+        .stdout(predicate::str::contains(r#""profiles":[{"name":"local""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "profile", "show", "work"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""active":false"#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args([
+            "--output=json",
+            "profile",
+            "update",
+            "work",
+            "https://wekan.example",
+        ])
+        .assert()
+        .success();
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "profile", "remove", "local"])
+        .assert()
+        .code(3)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"profile_in_use""#));
+}
+
+#[test]
+fn profile_names_and_explicit_selectors_use_cli_validation() {
+    let directory = TestDirectory::new("validation");
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args([
+            "--output=json",
+            "profile",
+            "add",
+            "Not-Portable",
+            "https://wekan.example",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#));
+
+    cargo_bin_cmd!("wekan")
+        .args([
+            "--output=json",
+            "--server",
+            "https://wekan.example",
+            "--profile",
+            "work",
+            "auth",
+            "status",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "--profile", "work", "profile", "list"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "cannot be used with profile-management",
+        ));
+}
+
+#[test]
+fn profile_selection_separates_server_identity_from_network_permission() {
+    let directory = TestDirectory::new("precedence");
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args([
+            "--output=json",
+            "profile",
+            "add",
+            "refused",
+            "http://wekan.example",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("http://wekan.example/"));
+
+    for (name, url, activate) in [
+        ("active", "http://localhost:3000", false),
+        ("insecure", "http://wekan.example", true),
+    ] {
+        let mut command = cargo_bin_cmd!("wekan");
+        command
+            .env("WEKAN_CONFIG_DIR", &directory.0)
+            .args(["profile", "add", name, url]);
+        if activate {
+            command.arg("--use");
+        }
+        command.assert().success();
+    }
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env("WEKAN_URL", "not a url")
+        .args(["--output=json", "--profile", "insecure", "auth", "status"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains(r#""code":"insecure_transport""#))
+        .stderr(predicate::str::contains(r#""profile":"insecure""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env("WEKAN_URL", "not a url")
+        .env("WEKAN_PROFILE", "missing")
+        .args(["--output=json", "auth", "status"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("relative URL without a base"))
+        .stderr(predicate::str::contains(r#""profile":null"#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env_remove("WEKAN_URL")
+        .env("WEKAN_PROFILE", "missing")
+        .args(["--output=json", "auth", "status"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"missing""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .env_remove("WEKAN_URL")
+        .env_remove("WEKAN_PROFILE")
+        .args(["--output=json", "auth", "status"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains(r#""code":"insecure_transport""#))
+        .stderr(predicate::str::contains(r#""profile":"insecure""#));
 }

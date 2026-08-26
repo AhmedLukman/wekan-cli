@@ -5,7 +5,7 @@ use serde::Serialize;
 
 pub use crate::command_result::{
     AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess, LogoutScope,
-    LogoutSuccess,
+    LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
 };
 use crate::error::AppError;
 
@@ -53,22 +53,16 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
-        (OutputFormat::Human, CommandSuccess::Registration(data)) => format!(
-            "Registered user {} on {}\nToken expires: {}\nCredentials stored securely.",
-            escape_terminal_controls(&data.user_id),
-            escape_terminal_controls(&data.server),
-            escape_terminal_controls(&data.token_expires)
-        ),
+        (OutputFormat::Human, CommandSuccess::Registration(data)) => {
+            render_auth_success("Registered user", data)
+        }
         (OutputFormat::Json, CommandSuccess::Registration(data)) => {
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("registration success is always serializable")
         }
-        (OutputFormat::Human, CommandSuccess::Login(data)) => format!(
-            "Logged in user {} on {}\nToken expires: {}\nCredentials stored securely.",
-            escape_terminal_controls(&data.user_id),
-            escape_terminal_controls(&data.server),
-            escape_terminal_controls(&data.token_expires)
-        ),
+        (OutputFormat::Human, CommandSuccess::Login(data)) => {
+            render_auth_success("Logged in user", data)
+        }
         (OutputFormat::Json, CommandSuccess::Login(data)) => {
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("login success is always serializable")
@@ -83,12 +77,112 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("authentication status success is always serializable")
         }
+        (OutputFormat::Human, CommandSuccess::ProfileAdded(data)) => {
+            render_profile_item("Added profile", data)
+        }
+        (OutputFormat::Json, CommandSuccess::ProfileAdded(data))
+        | (OutputFormat::Json, CommandSuccess::ProfileShown(data))
+        | (OutputFormat::Json, CommandSuccess::ProfileUsed(data))
+        | (OutputFormat::Json, CommandSuccess::ProfileUpdated(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("profile success is always serializable")
+        }
+        (OutputFormat::Human, CommandSuccess::ProfileList(data)) => render_profile_list(data),
+        (OutputFormat::Json, CommandSuccess::ProfileList(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("profile list success is always serializable")
+        }
+        (OutputFormat::Human, CommandSuccess::ProfileShown(data)) => {
+            render_profile_item("Profile", data)
+        }
+        (OutputFormat::Human, CommandSuccess::ProfileUsed(data)) => {
+            render_profile_item("Using profile", data)
+        }
+        (OutputFormat::Human, CommandSuccess::ProfileUpdated(data)) => {
+            render_profile_item("Updated profile", data)
+        }
+        (OutputFormat::Human, CommandSuccess::ProfileRemoved(data)) => render_profile_removed(data),
+        (OutputFormat::Json, CommandSuccess::ProfileRemoved(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("profile removal success is always serializable")
+        }
     }
+}
+
+fn render_auth_success(action: &str, data: &AuthSuccess) -> String {
+    let mut lines = vec![format!(
+        "{action} {} on {}",
+        escape_terminal_controls(&data.user_id),
+        escape_terminal_controls(&data.server)
+    )];
+    if let Some(profile) = &data.profile {
+        lines.push(format!("Profile: {}", escape_terminal_controls(profile)));
+    }
+    lines.push(format!(
+        "Token expires: {}",
+        escape_terminal_controls(&data.token_expires)
+    ));
+    lines.push("Credentials stored securely.".to_owned());
+    lines.join("\n")
+}
+
+fn render_profile_item(action: &str, data: &ProfileItem) -> String {
+    format!(
+        "{action}: {}\nServer: {}\nActive: {}",
+        escape_terminal_controls(&data.name),
+        escape_terminal_controls(&data.server),
+        if data.active { "yes" } else { "no" }
+    )
+}
+
+fn render_profile_list(data: &ProfileListSuccess) -> String {
+    if data.profiles.is_empty() {
+        return "No profiles configured.".to_owned();
+    }
+    let name_width = data
+        .profiles
+        .iter()
+        .map(|profile| profile.name.len())
+        .max()
+        .unwrap_or(4)
+        .max(4);
+    let server_width = data
+        .profiles
+        .iter()
+        .map(|profile| profile.server.len())
+        .max()
+        .unwrap_or(6)
+        .max(6);
+    let mut lines = vec![format!(
+        "{:<name_width$}  {:<server_width$}  ACTIVE",
+        "NAME", "SERVER"
+    )];
+    lines.extend(data.profiles.iter().map(|profile| {
+        format!(
+            "{:<name_width$}  {:<server_width$}  {}",
+            escape_terminal_controls(&profile.name),
+            escape_terminal_controls(&profile.server),
+            if profile.active { "yes" } else { "no" }
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_profile_removed(data: &ProfileRemoveSuccess) -> String {
+    let mut message = format!(
+        "Removed profile: {}\nServer: {}",
+        escape_terminal_controls(&data.name),
+        escape_terminal_controls(&data.server)
+    );
+    if data.active_profile.is_none() {
+        message.push_str("\nNo profile is active.");
+    }
+    message
 }
 
 fn render_logout(data: &LogoutSuccess) -> String {
     let server = escape_terminal_controls(&data.server);
-    match data.logout_scope {
+    let mut rendered = match data.logout_scope {
         LogoutScope::CurrentToken => format!(
             "Logged out from {server}.\nCurrent login token revoked.\n{}",
             render_local_credential_state(data)
@@ -105,7 +199,15 @@ fn render_logout(data: &LogoutSuccess) -> String {
                 "No stored credential was present"
             }
         ),
+    };
+    if let Some(profile) = &data.profile {
+        let first_newline = rendered.find('\n').unwrap_or(rendered.len());
+        rendered.insert_str(
+            first_newline,
+            &format!("\nProfile: {}", escape_terminal_controls(profile)),
+        );
     }
+    rendered
 }
 
 fn render_local_credential_state(data: &LogoutSuccess) -> &'static str {
@@ -135,6 +237,10 @@ fn render_auth_status(data: &AuthStatusSuccess) -> String {
         ),
         format!("User ID: {}", escape_terminal_controls(&data.user.user_id)),
     ];
+
+    if let Some(profile) = &data.profile {
+        lines.push(format!("Profile: {}", escape_terminal_controls(profile)));
+    }
 
     if let Some(full_name) = &data.user.full_name {
         lines.push(format!(
@@ -213,7 +319,7 @@ mod tests {
     use crate::{
         command_result::{
             AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess,
-            LogoutScope, LogoutSuccess,
+            LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
         },
         error::AppError,
     };
@@ -221,6 +327,7 @@ mod tests {
     fn success() -> CommandSuccess {
         CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -251,6 +358,7 @@ mod tests {
     fn human_success_escapes_terminal_control_sequences() {
         let success = CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             user_id: "user\u{1b}]52;c;clipboard\u{7}\nnext-line".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -267,6 +375,7 @@ mod tests {
     fn login_success_uses_the_same_secret_free_json_shape() {
         let success = CommandSuccess::Login(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -283,6 +392,7 @@ mod tests {
     fn logout_success_reports_scope_and_local_credential_state() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             logout_scope: LogoutScope::AllTokens,
             remote_logout_completed: true,
             credential_stored: false,
@@ -303,6 +413,7 @@ mod tests {
     fn local_only_output_warns_that_remote_tokens_were_not_revoked() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/\u{1b}]52;c;clipboard\u{7}".to_owned(),
+            profile: None,
             logout_scope: LogoutScope::LocalOnly,
             remote_logout_completed: false,
             credential_stored: false,
@@ -319,6 +430,7 @@ mod tests {
     fn local_only_output_distinguishes_an_already_absent_credential() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             logout_scope: LogoutScope::LocalOnly,
             remote_logout_completed: false,
             credential_stored: false,
@@ -334,6 +446,7 @@ mod tests {
     fn remote_output_reports_that_a_newer_credential_was_preserved() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             logout_scope: LogoutScope::CurrentToken,
             remote_logout_completed: true,
             credential_stored: true,
@@ -350,6 +463,7 @@ mod tests {
     fn all_tokens_output_requires_verification_of_a_changed_credential() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             logout_scope: LogoutScope::AllTokens,
             remote_logout_completed: true,
             credential_stored: true,
@@ -363,6 +477,7 @@ mod tests {
     fn status_success_uses_the_stable_nested_profile_shape() {
         let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             authenticated: true,
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -394,6 +509,7 @@ mod tests {
     fn human_status_omits_absent_profile_lines_and_escapes_controls() {
         let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
             server: "https://wekan.example/".to_owned(),
+            profile: None,
             authenticated: true,
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -412,6 +528,83 @@ mod tests {
         assert!(!rendered.contains("Administrator:"));
         assert!(!rendered.contains("Emails:"));
         assert!(rendered.contains("Credentials stored securely."));
+    }
+
+    #[test]
+    fn profile_list_output_is_stable_and_human_readable() {
+        let success = CommandSuccess::ProfileList(ProfileListSuccess {
+            active_profile: Some("local".to_owned()),
+            profiles: vec![
+                ProfileItem {
+                    name: "local".to_owned(),
+                    server: "http://localhost:3000/".to_owned(),
+                    active: true,
+                },
+                ProfileItem {
+                    name: "work".to_owned(),
+                    server: "https://wekan.example/".to_owned(),
+                    active: false,
+                },
+            ],
+        });
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(value["data"]["active_profile"], "local");
+        assert_eq!(value["data"]["profiles"][0]["active"], true);
+        let human = render_success(OutputFormat::Human, &success);
+        assert_eq!(
+            human
+                .lines()
+                .next()
+                .unwrap()
+                .split_whitespace()
+                .collect::<Vec<_>>(),
+            ["NAME", "SERVER", "ACTIVE"]
+        );
+        assert!(human.contains("http://localhost:3000/"));
+    }
+
+    #[test]
+    fn empty_profile_list_and_removal_report_the_result() {
+        let empty = CommandSuccess::ProfileList(ProfileListSuccess {
+            active_profile: None,
+            profiles: Vec::new(),
+        });
+        assert_eq!(
+            render_success(OutputFormat::Human, &empty),
+            "No profiles configured."
+        );
+
+        let removed = CommandSuccess::ProfileRemoved(ProfileRemoveSuccess {
+            name: "local".to_owned(),
+            server: "http://localhost:3000/".to_owned(),
+            removed: true,
+            active_profile: None,
+        });
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &removed)).unwrap();
+        assert_eq!(value["data"]["removed"], true);
+        assert_eq!(value["data"]["active_profile"], serde_json::Value::Null);
+        assert!(render_success(OutputFormat::Human, &removed).contains("No profile is active"));
+    }
+
+    #[test]
+    fn auth_output_identifies_named_and_direct_targets() {
+        let named = CommandSuccess::Login(AuthSuccess {
+            server: "https://wekan.example/".to_owned(),
+            profile: Some("work".to_owned()),
+            user_id: "user-1".to_owned(),
+            token_expires: "2030-01-02T03:04:05Z".to_owned(),
+            credential_stored: true,
+        });
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &named)).unwrap();
+        assert_eq!(value["data"]["profile"], "work");
+        assert!(render_success(OutputFormat::Human, &named).contains("Profile: work"));
+
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success())).unwrap();
+        assert_eq!(value["data"]["profile"], serde_json::Value::Null);
     }
 
     #[test]

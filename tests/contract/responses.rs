@@ -6,13 +6,16 @@ use std::{
 
 use secrecy::ExposeSecret;
 use serde_json::json;
-use wekan_cli::client::{ClientError, ServerUrl, WekanClient};
+use wekan_cli::client::ClientError;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
 };
 
-use super::{client, login_request, logout_request, logout_token, register_request, status_token};
+use super::{
+    client, client_from_url, login_request, logout_request, logout_token, register_request,
+    status_token,
+};
 
 #[tokio::test]
 async fn logout_success_requires_the_documented_message_field() {
@@ -273,8 +276,7 @@ async fn truncated_current_user_responses_preserve_the_http_status() {
             )
             .unwrap();
     });
-    let server_url = ServerUrl::parse(&format!("http://{address}"), false).unwrap();
-    let client = WekanClient::new(server_url).unwrap();
+    let client = client_from_url(&format!("http://{address}"));
 
     let error = client.current_user(&status_token()).await.unwrap_err();
     server.join().unwrap();
@@ -663,8 +665,7 @@ async fn truncated_registration_errors_preserve_the_http_status() {
             )
             .unwrap();
     });
-    let server_url = ServerUrl::parse(&format!("http://{address}"), false).unwrap();
-    let client = WekanClient::new(server_url).unwrap();
+    let client = client_from_url(&format!("http://{address}"));
 
     let error = client.register(&register_request()).await.unwrap_err();
     server.join().unwrap();
@@ -692,8 +693,7 @@ async fn truncated_logout_success_preserves_the_http_status() {
             )
             .unwrap();
     });
-    let server_url = ServerUrl::parse(&format!("http://{address}"), false).unwrap();
-    let client = WekanClient::new(server_url).unwrap();
+    let client = client_from_url(&format!("http://{address}"));
 
     let error = client
         .logout(&logout_request(false), &logout_token())

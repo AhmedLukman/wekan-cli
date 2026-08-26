@@ -4,29 +4,30 @@ The implemented authentication surface supports registration, login, logout,
 and live authentication status:
 
 ```text
-wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth register (--username <NAME> | --email <EMAIL> | both)
       [--password-stdin]
 
-wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth login (--username <NAME> | --email <EMAIL>)
       [--password-stdin]
       [--code | --code-stdin]
 
-wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth status
 
-wekan [--server <URL>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth logout [--all | --local-only]
 ```
 
-Named profiles, configuration files, and multi-account selection are not
-implemented in this milestone.
-
 ## Server selection
 
-`--server` takes precedence over `WEKAN_URL`. If neither is set, the command
-returns `configuration_error` without reading secrets or contacting Wekan.
+Authentication resolves its target through an explicit `--server` or
+`--profile`, then `WEKAN_URL`, then `WEKAN_PROFILE`, and finally the persisted
+active profile. Supplying both explicit selectors is a usage error. If no
+selector resolves, the command returns `configuration_error` without reading
+secrets or contacting Wekan. See [Server profiles and configuration](config.md)
+for profile-management and storage behavior.
 
 The URL must:
 
@@ -35,17 +36,22 @@ The URL must:
 - contain no embedded username, password, query, or fragment; and
 - identify the Wekan base path, including any deployment subpath.
 
-The CLI normalizes the base URL with a trailing slash and resolves the
-authentication endpoint relative to it. For example,
+Target resolution validates and normalizes the server identity with a trailing
+slash without granting network permission. Authentication endpoints are
+resolved relative to that canonical identity. For example,
 `https://example.test/wekan` becomes
 `https://example.test/wekan/users/login` for login and
 `https://example.test/wekan/api/user` for status. Remote logout uses
-`https://example.test/wekan/users/logout`. Local-only logout still requires the
-server because its canonical URL is the native-vault account key.
+`https://example.test/wekan/users/logout`. Local-only logout still requires a
+resolved target because it removes that target's native-vault entry.
 
-HTTPS is required except for exact `localhost` and IPv4 or IPv6 loopback
-addresses. `--allow-insecure-http` explicitly permits HTTP elsewhere. It does
-not disable certificate verification for HTTPS.
+Only client creation enforces network transport policy. Network authentication
+requires HTTPS except for exact `localhost` and IPv4 or IPv6 loopback addresses;
+`--allow-insecure-http` explicitly permits HTTP elsewhere for that invocation.
+It does not disable certificate verification for HTTPS. Local-only logout uses
+the canonical server identity directly and can remove a remote-HTTP target's
+credential without the flag because it never creates a client or makes a
+network request.
 
 Loopback HTTP bypasses configured system and environment proxies so plaintext
 authentication secrets cannot leave the local machine through a proxy. HTTPS
@@ -81,7 +87,7 @@ variables are deliberately unsupported.
 
 ## Authentication status
 
-`auth status` reads the credential stored under the canonical server URL. It
+`auth status` reads the credential stored for the resolved target. It
 does not accept command-specific arguments, prompt for secrets, or mutate the
 credential store.
 
@@ -104,7 +110,7 @@ other profile data, and all service/session data are discarded.
 
 ## Logout
 
-`auth logout` loads the credential for the canonical server and sends one
+`auth logout` loads the credential for the resolved target and sends one
 bearer-authenticated `POST users/logout` request. The default JSON body is
 `{"all": false}` and revokes only the presented token. `--all` sends
 `{"all": true}` and revokes every login token for that user, including browser
@@ -133,12 +139,12 @@ still matching the record submitted to Wekan. If the record has been replaced
 before that comparison, the newer credential is preserved and success reports
 `credential_stored: true` and `local_credential_removed: false`. A deletion by
 this invocation reports `local_credential_removed: true`; an already-absent
-record reports `false`. Native-vault mutations for one canonical server use a
-stable lock file in the user's private local application-data directory, never
-the shared temporary directory. Login, registration, remote logout, and
-local-only logout hold that lock from before their remote authentication work
-through their local save or deletion. The whole transaction is therefore
-serialized across current CLI processes: an all-token logout cannot retain a
+record reports `false`. Native-vault mutations use stable lock files in the
+user's private local application-data directory, never the shared temporary
+directory. Each transaction holds its target-account lock and a canonical-server
+lock from before remote authentication work through its local save or deletion.
+The whole transaction is therefore serialized across current CLI processes and
+all direct or named aliases of a server: an all-token logout cannot retain a
 token that a concurrent login had already created, and a successful logout
 cannot remove a concurrently saved login.
 
@@ -148,7 +154,7 @@ before using it because an older CLI or another vault writer might have stored
 a token that the remote all-token operation revoked.
 
 `--local-only` conflicts with `--all`, makes no HTTP request, and deletes the
-canonical server's vault entry without loading or decoding it. It therefore
+resolved target's vault entry without loading or decoding it. It therefore
 clears expired, rejected, malformed, or unsupported records. An absent entry is
 an idempotent success with `local_credential_removed: false`. Human output
 explicitly states that no Wekan tokens were revoked; any still-valid remote
@@ -197,10 +203,20 @@ credential store:
 - Keychain Services on macOS; and
 - Secret Service on Linux and other supported Unix systems.
 
-No plaintext fallback exists. The entry uses service `wekan-cli` and the
-canonical server URL as its account key. One active local credential is kept per
-server; a later successful registration or login replaces that entry. Replacing
-the local record does not revoke older tokens on Wekan.
+No plaintext fallback exists. The entry uses service `wekan-cli`. Direct URL
+selection uses the canonical server URL as its account key; named selection
+uses `profile:<store-identity>:<name>`, where the opaque store identity is
+derived from the canonical profile configuration directory. A later successful
+registration or login replaces only that target's entry. Replacing the local
+record does not revoke older tokens on Wekan.
+
+Two named profiles can therefore maintain independent credentials even when
+they use the same canonical URL, and identically named profiles in separate
+`WEKAN_CONFIG_DIR` stores cannot collide. Named profiles never copy or fall
+back to an existing URL-keyed credential; those direct credentials remain
+usable only through direct URL selection. Named authentication operations hold
+a shared profile-store lease through target resolution, network work, and vault
+mutation so a profile update or removal cannot race the transaction.
 
 The stored secret is a versioned JSON record:
 
@@ -216,6 +232,11 @@ The stored secret is a versioned JSON record:
 
 Passwords and two-factor codes are never stored. Tokens are never rendered in
 human or JSON output.
+
+Registration, login, logout, and status success data includes a nullable
+`profile` field. It contains the selected profile name for a named target and
+is `null` for direct URL selection. Named-target errors include the same profile
+context.
 
 Credential reads distinguish an absent entry from an unavailable vault or an
 invalid record. Missing credentials are an unauthenticated state; vault access,

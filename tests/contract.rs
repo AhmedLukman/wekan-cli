@@ -1,5 +1,7 @@
 use secrecy::SecretString;
-use wekan_cli::client::{LoginRequest, LogoutRequest, RegisterRequest, ServerUrl, WekanClient};
+use wekan_cli::client::{
+    LoginRequest, LogoutRequest, RegisterRequest, ServerUrl, WekanClient, WekanClientFactory,
+};
 use wiremock::MockServer;
 
 #[path = "contract/requests.rs"]
@@ -37,6 +39,12 @@ fn logout_token() -> SecretString {
 }
 
 fn client(server: &MockServer) -> WekanClient {
-    let server = ServerUrl::parse(&server.uri(), false).unwrap();
-    WekanClient::new(server).unwrap()
+    client_from_url(&server.uri())
+}
+
+fn client_from_url(raw: &str) -> WekanClient {
+    let server = ServerUrl::parse(raw).unwrap();
+    WekanClientFactory::for_server(server, false)
+        .create()
+        .unwrap()
 }

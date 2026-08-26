@@ -19,6 +19,7 @@ Registration and login use the same secret-free data shape:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
+    "profile": null,
     "user_id": "XQMZgynx9M79qTtQc",
     "token_expires": "2030-01-02T03:04:05Z",
     "credential_stored": true
@@ -26,7 +27,8 @@ Registration and login use the same secret-free data shape:
 }
 ```
 
-The `server` value is canonicalized. The returned token is absent because it is
+The `server` value is canonicalized. `profile` is the selected named profile or
+`null` for a direct URL target. The returned token is absent because it is
 stored in the native credential store. Passwords and two-factor codes are also
 never rendered.
 
@@ -39,6 +41,7 @@ emails use an empty array, and optional email-entry fields also use `null`.
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
+    "profile": null,
     "authenticated": true,
     "token_expires": "2030-01-02T03:04:05Z",
     "credential_stored": true,
@@ -65,6 +68,7 @@ Logout reports the completed scope and the resulting local credential state:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
+    "profile": null,
     "logout_scope": "current_token",
     "remote_logout_completed": true,
     "credential_stored": false,
@@ -74,7 +78,7 @@ Logout reports the completed scope and the resulting local credential state:
 ```
 
 `logout_scope` is `current_token`, `all_tokens`, or `local_only`. Local-only
-success sets `remote_logout_completed: false`; it means only that the canonical
+success sets `remote_logout_completed: false`; it means only that the selected
 local credential is absent, not that any Wekan token was revoked.
 `local_credential_removed` distinguishes a deletion performed by this command
 from an idempotent already-absent result. If remote logout succeeds but the
@@ -88,10 +92,55 @@ For example, a local-only deletion is:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
+    "profile": null,
     "logout_scope": "local_only",
     "remote_logout_completed": false,
     "credential_stored": false,
     "local_credential_removed": true
+  }
+}
+```
+
+## Profile success
+
+Profile objects use a stable `name`, canonical `server`, and boolean `active`
+shape. A list result contains the nullable active name and name-sorted profile
+array:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "active_profile": "work",
+    "profiles": [
+      {
+        "name": "personal",
+        "server": "https://wekan.example/",
+        "active": false
+      },
+      {
+        "name": "work",
+        "server": "https://work.example/",
+        "active": true
+      }
+    ]
+  }
+}
+```
+
+An empty store uses `active_profile: null` and `profiles: []`.
+
+`profile add`, `show`, `use`, and `update` return one profile object as their
+data. Removal reports both what was removed and the resulting selection:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "name": "work",
+    "server": "https://work.example/",
+    "removed": true,
+    "active_profile": null
   }
 }
 ```
@@ -105,6 +154,7 @@ For example, a local-only deletion is:
     "code": "login_rate_limited",
     "message": "too many failed login attempts; try again later; retry after 30 seconds",
     "details": {
+      "profile": null,
       "http_status": 429,
       "server_error": "too-many-requests",
       "retry_after_seconds": 30
@@ -134,7 +184,9 @@ For example, a local-only deletion is:
 - `credential_stored`: the known local credential presence at the guarded
   command outcome;
 - `local_credential_removed`: whether this invocation is known to have removed
-  the local credential.
+  the local credential;
+- `profile`: the named target associated with an authentication error, or
+  `null` for a direct target, when target context is relevant.
 
 Registration HTTP 400 errors always set `outcome_unknown: true` because Wekan
 `v11.06` can return that status before or after account creation. Authentication
@@ -151,8 +203,8 @@ Login HTTP 400 is a malformed-request `protocol_error`. HTTP 401 is
 `two_factor_required: true` so automation can request a code without depending
 on the upstream error string. The CLI never retries that request automatically.
 
-Status uses `credential_not_found` when the canonical server has no saved
-record, `credential_expired` when the saved expiry is not in the future, and
+Status uses `credential_not_found` when the resolved target has no saved record,
+`credential_expired` when the saved expiry is not in the future, and
 `authentication_rejected` when Wekan rejects the bearer token. Wekan v11.06's
 current-user route serializes rejection inside HTTP 200, so details contain
 both the actual `http_status` and the embedded `wekan_status_code`. Status is
@@ -170,6 +222,7 @@ The relevant details for an unusable current-token HTTP 200 are:
 
 ```json
 {
+  "profile": null,
   "http_status": 200,
   "outcome_unknown": true,
   "logout_scope": "current_token",
@@ -185,6 +238,10 @@ the process exit status. Stable error codes are:
 - `invalid_input`
 - `configuration_error`
 - `insecure_transport`
+- `profile_not_found`
+- `profile_already_exists`
+- `profile_in_use`
+- `profile_has_credential`
 - `transport_error`
 - `unexpected_redirect`
 - `protocol_error`
@@ -202,6 +259,10 @@ the process exit status. Stable error codes are:
 
 Passwords, two-factor codes, and tokens are redacted from all fields.
 
+The four `profile_*` codes use exit status 3. Malformed, unsupported,
+unreadable, or unwritable profile storage uses `configuration_error`; native
+vault failures retain the credential error family and exit status 6.
+
 ## Exit statuses
 
 | Exit | Meaning |
@@ -209,7 +270,7 @@ Passwords, two-factor codes, and tokens are redacted from all fields.
 | `0` | Success |
 | `1` | Unexpected internal failure |
 | `2` | CLI usage, missing/ambiguous identity, empty secret, or registration password mismatch |
-| `3` | Missing or invalid server configuration, including insecure transport refusal |
+| `3` | Missing or invalid server/profile configuration, profile conflicts, or insecure transport refusal |
 | `4` | Transport, redirect, or protocol failure, including an unreadable, malformed, or oversized HTTP 200 response |
 | `5` | Unauthenticated state, authentication rejection, or another Wekan application/server rejection |
 | `6` | Credential store unavailable or failed, including a created account or session whose token could not be stored |

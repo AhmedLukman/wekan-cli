@@ -3,6 +3,7 @@ pub mod cli;
 pub mod client;
 pub mod command_result;
 pub mod commands;
+pub mod config;
 pub mod credentials;
 pub mod error;
 pub mod exit_code;
@@ -16,6 +17,7 @@ use clap::{CommandFactory, Parser, error::ErrorKind};
 use crate::{
     app::App,
     cli::Cli,
+    config::ServerSelection,
     error::AppError,
     output::{OutputFormat, render_error, render_success},
 };
@@ -46,7 +48,11 @@ pub async fn run() -> ExitCode {
     };
 
     let output_format = cli.output;
-    let app = App::production(cli.server, cli.allow_insecure_http);
+    let app = App::production(ServerSelection::new(
+        cli.server,
+        cli.profile_name,
+        cli.allow_insecure_http,
+    ));
 
     match app.execute(cli.command).await {
         Ok(success) => {

@@ -6,6 +6,12 @@ pub enum CommandSuccess {
     Login(AuthSuccess),
     Logout(LogoutSuccess),
     AuthStatus(AuthStatusSuccess),
+    ProfileAdded(ProfileItem),
+    ProfileList(ProfileListSuccess),
+    ProfileShown(ProfileItem),
+    ProfileUsed(ProfileItem),
+    ProfileUpdated(ProfileItem),
+    ProfileRemoved(ProfileRemoveSuccess),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -19,6 +25,7 @@ pub enum LogoutScope {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct LogoutSuccess {
     pub server: String,
+    pub profile: Option<String>,
     pub logout_scope: LogoutScope,
     pub remote_logout_completed: bool,
     pub credential_stored: bool,
@@ -28,6 +35,7 @@ pub struct LogoutSuccess {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct AuthSuccess {
     pub server: String,
+    pub profile: Option<String>,
     pub user_id: String,
     pub token_expires: String,
     pub credential_stored: bool,
@@ -36,10 +44,32 @@ pub struct AuthSuccess {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct AuthStatusSuccess {
     pub server: String,
+    pub profile: Option<String>,
     pub authenticated: bool,
     pub token_expires: String,
     pub credential_stored: bool,
     pub user: AuthStatusUser,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ProfileItem {
+    pub name: String,
+    pub server: String,
+    pub active: bool,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct ProfileListSuccess {
+    pub active_profile: Option<String>,
+    pub profiles: Vec<ProfileItem>,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct ProfileRemoveSuccess {
+    pub name: String,
+    pub server: String,
+    pub removed: bool,
+    pub active_profile: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]

@@ -11,7 +11,8 @@ use crate::{
     client::{AuthSession, WekanClientFactory},
     command_result::{AuthSuccess, CommandSuccess},
     credentials::{
-        CredentialError, CredentialMutation, CredentialRecord, CredentialStore, SecretInputProvider,
+        CredentialError, CredentialMutation, CredentialRecord, CredentialStore, CredentialTarget,
+        SecretInputProvider,
     },
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
@@ -73,24 +74,22 @@ pub(super) fn map_credential_load_error(error: CredentialError) -> AppError {
 
 pub(super) fn preflight_credentials(
     credential_store: &dyn CredentialStore,
-    server_url: &str,
+    target: &CredentialTarget,
 ) -> Result<(), AppError> {
-    credential_store
-        .check_available(server_url)
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::CredentialStoreUnavailable,
-                error.to_string(),
-                StableExitCode::Credential,
-            )
-        })
+    credential_store.check_available(target).map_err(|error| {
+        AppError::new(
+            ErrorCode::CredentialStoreUnavailable,
+            error.to_string(),
+            StableExitCode::Credential,
+        )
+    })
 }
 
 pub(super) fn lock_credential_mutation<'a>(
     credential_store: &'a dyn CredentialStore,
-    server_url: &str,
+    target: &CredentialTarget,
 ) -> Result<Box<dyn CredentialMutation + Send + 'a>, AppError> {
-    credential_store.lock_mutation(server_url).map_err(|error| {
+    credential_store.lock_mutation(target).map_err(|error| {
         AppError::new(
             ErrorCode::CredentialStoreFailed,
             format!("the stored credential could not be synchronized: {error}"),
@@ -102,6 +101,7 @@ pub(super) fn lock_credential_mutation<'a>(
 pub(super) fn persist_session(
     credential_mutation: &dyn CredentialMutation,
     server_url: String,
+    profile: Option<String>,
     session: AuthSession,
 ) -> Result<AuthSuccess, AppError> {
     let (user_id, token, token_expires) = session.into_parts();
@@ -125,10 +125,27 @@ pub(super) fn persist_session(
 
     Ok(AuthSuccess {
         server: server_url,
+        profile,
         user_id,
         token_expires: token_expires_text,
         credential_stored: true,
     })
+}
+
+pub(super) fn credential_target(
+    client_factory: &WekanClientFactory,
+    server_url: String,
+) -> CredentialTarget {
+    match client_factory.profile() {
+        Some(profile) => CredentialTarget::profile_in_store(
+            profile,
+            client_factory
+                .profile_store_namespace()
+                .expect("resolved named profiles require a credential namespace"),
+            server_url,
+        ),
+        None => CredentialTarget::direct(server_url),
+    }
 }
 
 pub(super) fn non_empty_identity(value: &str) -> Result<String, String> {
@@ -189,5 +206,24 @@ pub(super) fn embedded_server_error_details(
         server_error: server_error.map(|value| redactor.redact(&value)),
         server_reason: server_reason.map(|value| redactor.redact(&value)),
         ..ErrorDetails::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::credential_target;
+    use crate::client::{ServerUrl, WekanClientFactory};
+
+    #[test]
+    fn namespaced_profile_factory_creates_an_isolated_credential_target() {
+        let factory = WekanClientFactory::for_resolved_profile(
+            ServerUrl::parse("https://wekan.example").unwrap(),
+            "work".to_owned(),
+            "store-one".to_owned(),
+            false,
+        );
+
+        let target = credential_target(&factory, "https://wekan.example/".to_owned());
+        assert_eq!(target.account(), "profile:store-one:work");
     }
 }

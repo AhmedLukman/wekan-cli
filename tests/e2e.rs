@@ -1,9 +1,13 @@
 use std::{
-    env,
+    env, fs,
     io::Write,
     net::TcpListener,
+    path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Stdio},
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -16,31 +20,63 @@ use wekan_cli::{
     cli::Cli,
     client::ServerUrl,
     command_result::{CommandSuccess, LogoutScope},
+    config::{
+        ServerSelection,
+        profiles::{FileProfileStore, Profile, ProfileDocument, ProfileStore},
+    },
     credentials::{
         CredentialDeleteOutcome, CredentialError, CredentialRecord, CredentialStore,
-        KeyringCredentialStore, LoginSecretMode, LoginSecrets, SecretInputProvider,
+        CredentialTarget, KeyringCredentialStore, LoginSecretMode, LoginSecrets,
+        SecretInputProvider,
     },
     error::{AppError, ErrorCode},
 };
 
+type CapturedCredential = (String, String, String, String, OffsetDateTime);
+
+struct TestDirectory(PathBuf);
+
+impl TestDirectory {
+    fn new(label: &str) -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let path = env::temp_dir().join(format!(
+            "wekan-cli-e2e-{label}-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&path).expect("the E2E profile directory must be created");
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
 #[derive(Default)]
 struct CapturingStore {
-    credential: Mutex<Option<(String, String, String, OffsetDateTime)>>,
+    credential: Mutex<Option<CapturedCredential>>,
 }
 
 impl CredentialStore for CapturingStore {
-    fn check_available(&self, _account: &str) -> Result<(), CredentialError> {
+    fn check_available(&self, _target: &CredentialTarget) -> Result<(), CredentialError> {
         Ok(())
     }
 
-    fn load(&self, account: &str) -> Result<Option<CredentialRecord>, CredentialError> {
+    fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError> {
         Ok(self
             .credential
             .lock()
             .unwrap()
             .as_ref()
-            .filter(|(stored_account, ..)| stored_account == account)
-            .map(|(server, user_id, token, token_expires)| {
+            .filter(|(stored_account, ..)| stored_account == target.account())
+            .map(|(_, server, user_id, token, token_expires)| {
                 CredentialRecord::new(
                     server.clone(),
                     user_id.clone(),
@@ -50,9 +86,14 @@ impl CredentialStore for CapturingStore {
             }))
     }
 
-    fn save(&self, account: &str, record: &CredentialRecord) -> Result<(), CredentialError> {
+    fn save(
+        &self,
+        target: &CredentialTarget,
+        record: &CredentialRecord,
+    ) -> Result<(), CredentialError> {
         *self.credential.lock().unwrap() = Some((
-            account.to_owned(),
+            target.account().to_owned(),
+            record.server_url().to_owned(),
             record.user_id().to_owned(),
             record.token().expose_secret().to_owned(),
             record.token_expires(),
@@ -60,11 +101,11 @@ impl CredentialStore for CapturingStore {
         Ok(())
     }
 
-    fn delete(&self, account: &str) -> Result<bool, CredentialError> {
+    fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
         let mut credential = self.credential.lock().unwrap();
         if credential
             .as_ref()
-            .is_some_and(|(stored_account, ..)| stored_account == account)
+            .is_some_and(|(stored_account, ..)| stored_account == target.account())
         {
             credential.take();
             Ok(true)
@@ -75,14 +116,14 @@ impl CredentialStore for CapturingStore {
 
     fn delete_if_matches(
         &self,
-        account: &str,
+        target: &CredentialTarget,
         expected: &CredentialRecord,
     ) -> Result<CredentialDeleteOutcome, CredentialError> {
         let mut credential = self.credential.lock().unwrap();
-        let Some((server, user_id, token, token_expires)) = credential.as_ref() else {
+        let Some((account, server, user_id, token, token_expires)) = credential.as_ref() else {
             return Ok(CredentialDeleteOutcome::Absent);
         };
-        if server != account {
+        if account != target.account() {
             return Ok(CredentialDeleteOutcome::Absent);
         }
         let current = CredentialRecord::new(
@@ -178,7 +219,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     );
     assert_eq!(duplicate_error.details().outcome_unknown, Some(true));
 
-    let (canonical_server, user_id, token, _) = app
+    let (_, canonical_server, user_id, token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -203,7 +244,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     app.execute(username_login.command)
         .await
         .expect("username login must succeed against Wekan v11.06");
-    let (username_server, username_user_id, username_token, _) = app
+    let (_, username_server, username_user_id, username_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -251,7 +292,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         entry.address.as_deref() == Some(email.as_str()) && entry.verified == Some(false)
     }));
 
-    let (email_server, email_user_id, email_token, _) = app
+    let (_, email_server, email_user_id, email_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -316,7 +357,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     app.execute(current_login.command)
         .await
         .expect("the current-token test login must succeed");
-    let (_, _, current_token, _) = app
+    let (_, _, _, current_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -364,7 +405,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     app.execute(all_login.command)
         .await
         .expect("the all-token test login must succeed");
-    let (_, _, all_token, _) = app
+    let (_, _, _, all_token, _) = app
         .credential_store()
         .credential
         .lock()
@@ -400,6 +441,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     }
 
     *app.credential_store().credential.lock().unwrap() = Some((
+        canonical_server.clone(),
         canonical_server.clone(),
         user_id.clone(),
         "definitely-invalid-token".to_owned(),
@@ -491,6 +533,133 @@ async fn authentication_flow_matches_wekan_v11_06() {
         rejected_error.details().server_error.as_deref(),
         Some("login-failed")
     );
+}
+
+#[tokio::test]
+#[ignore = "requires a user-started Wekan v11.06 stack and WEKAN_E2E_URL"]
+async fn named_profile_authentication_flow_matches_wekan_v11_06() {
+    const PROFILE_NAME: &str = "live-e2e";
+
+    let server = env::var("WEKAN_E2E_URL")
+        .expect("set WEKAN_E2E_URL to the user-started Wekan v11.06 server URL");
+    let canonical_server = ServerUrl::parse(&server)
+        .expect("the live-test Wekan URL must be valid")
+        .as_str()
+        .to_owned();
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("the system clock must be after the Unix epoch")
+        .as_millis();
+    let username = format!("wekan_cli_profile_e2e_{}_{}", std::process::id(), nonce);
+    let email = format!("{username}@example.test");
+    let password = format!("Wekan-profile-e2e-{nonce}!");
+
+    let directory = TestDirectory::new("named-profile-auth");
+    let profile_store = FileProfileStore::at(directory.path().to_owned());
+    let mut profiles = ProfileDocument::default();
+    profiles.insert(
+        PROFILE_NAME.to_owned(),
+        Profile::new(canonical_server.clone()),
+    );
+    profiles.set_active_profile(Some(PROFILE_NAME.to_owned()));
+    profile_store
+        .lock_mutation()
+        .expect("the E2E profile store must be writable")
+        .save(profiles)
+        .expect("the named E2E profile must be persisted");
+
+    let register_cli = Cli::try_parse_from([
+        "wekan",
+        "--profile",
+        PROFILE_NAME,
+        "--output=json",
+        "auth",
+        "register",
+        "--username",
+        &username,
+        "--email",
+        &email,
+        "--password-stdin",
+    ])
+    .expect("the named-profile registration command must parse");
+    let app = App::with_profile_store(
+        ServerSelection::new(
+            register_cli.server,
+            register_cli.profile_name,
+            register_cli.allow_insecure_http,
+        ),
+        CapturingStore::default(),
+        FixedPassword(SecretString::from(password)),
+        profile_store,
+    );
+
+    let registration = app
+        .execute(register_cli.command)
+        .await
+        .expect("registration through a named profile must succeed against Wekan v11.06");
+    let CommandSuccess::Registration(registration) = registration else {
+        panic!("expected registration output")
+    };
+    assert_eq!(registration.server, canonical_server);
+    assert_eq!(registration.profile.as_deref(), Some(PROFILE_NAME));
+    assert!(registration.credential_stored);
+
+    let (stored_account, stored_server, stored_user_id, stored_token, _) = app
+        .credential_store()
+        .credential
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .expect("profile registration must save a credential");
+    assert_ne!(stored_account, canonical_server);
+    assert_eq!(stored_server, canonical_server);
+    assert_eq!(stored_user_id, registration.user_id);
+
+    let status_cli = Cli::try_parse_from([
+        "wekan",
+        "--profile",
+        PROFILE_NAME,
+        "--output=json",
+        "auth",
+        "status",
+    ])
+    .expect("the named-profile status command must parse");
+    let status = app
+        .execute(status_cli.command)
+        .await
+        .expect("status through a named profile must validate the stored session");
+    let CommandSuccess::AuthStatus(status) = status else {
+        panic!("expected authentication status output")
+    };
+    assert_eq!(status.server, canonical_server);
+    assert_eq!(status.profile.as_deref(), Some(PROFILE_NAME));
+    assert_eq!(status.user.user_id, registration.user_id);
+
+    let logout_cli = Cli::try_parse_from([
+        "wekan",
+        "--profile",
+        PROFILE_NAME,
+        "--output=json",
+        "auth",
+        "logout",
+    ])
+    .expect("the named-profile logout command must parse");
+    let logout = app
+        .execute(logout_cli.command)
+        .await
+        .expect("remote logout through a named profile must succeed");
+    let CommandSuccess::Logout(logout) = logout else {
+        panic!("expected logout output")
+    };
+    assert_eq!(logout.server, canonical_server);
+    assert_eq!(logout.profile.as_deref(), Some(PROFILE_NAME));
+    assert_eq!(logout.logout_scope, LogoutScope::CurrentToken);
+    assert!(logout.remote_logout_completed);
+    assert!(logout.local_credential_removed);
+    assert!(!logout.credential_stored);
+    assert!(app.credential_store().credential.lock().unwrap().is_none());
+    assert_token_is_rejected(&canonical_server, &stored_token).await;
 }
 
 async fn assert_token_authenticates(canonical_server: &str, user_id: &str, token: &str) {
@@ -651,13 +820,14 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     let password_input = format!("{password}\n");
     let store = KeyringCredentialStore;
 
-    let probe = ServerUrl::parse(&server, false)
+    let probe = ServerUrl::parse(&server)
         .expect("the dedicated server URL must be valid for the CLI")
         .as_str()
         .to_owned();
+    let credential_target = CredentialTarget::direct(probe.clone());
     assert!(
         store
-            .load(&probe)
+            .load(&credential_target)
             .expect("the native credential store must be readable")
             .is_none(),
         "the dedicated OS E2E server already has a credential; use a fresh stack/port"
@@ -709,7 +879,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     println!("parallel duplicate registration responses: {duplicate_statuses:?}");
 
     let registration_record = store
-        .load(&canonical_server)
+        .load(&credential_target)
         .expect("registration credential must be readable")
         .expect("registration credential must be stored");
     let registration_token = registration_record.token().expose_secret().to_owned();
@@ -721,7 +891,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     let local_only = success_json(&local_only);
     assert_eq!(local_only["data"]["remote_logout_completed"], false);
     assert_eq!(local_only["data"]["local_credential_removed"], true);
-    assert!(store.load(&canonical_server).unwrap().is_none());
+    assert!(store.load(&credential_target).unwrap().is_none());
     let (http_status, body) = token_state(&canonical_server, &registration_token).await;
     assert_eq!(http_status, 200);
     assert_eq!(body["_id"], registration_record.user_id());
@@ -790,7 +960,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     let login = run_production_cli(&server, &login_args, Some(&password_input));
     assert_secret_absent(&login, &password);
     success_json(&login);
-    let current_record = store.load(&canonical_server).unwrap().unwrap();
+    let current_record = store.load(&credential_target).unwrap().unwrap();
     let current_token = current_record.token().expose_secret().to_owned();
 
     let remote_logout = run_production_cli(&server, &["logout"], None);
@@ -798,7 +968,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(remote_logout["data"]["logout_scope"], "current_token");
     assert_eq!(remote_logout["data"]["remote_logout_completed"], true);
     assert_eq!(remote_logout["data"]["local_credential_removed"], true);
-    assert!(store.load(&canonical_server).unwrap().is_none());
+    assert!(store.load(&credential_target).unwrap().is_none());
     let (current_http, current_body) = token_state(&canonical_server, &current_token).await;
     assert_eq!(current_http, 200);
     assert_eq!(current_body["statusCode"], 401);
@@ -812,7 +982,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         Some(&password_input),
     ));
     let cli_all_token = store
-        .load(&canonical_server)
+        .load(&credential_target)
         .unwrap()
         .unwrap()
         .token()
@@ -853,7 +1023,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         Some(&password_input),
     ));
     let local_only_token = store
-        .load(&canonical_server)
+        .load(&credential_target)
         .unwrap()
         .unwrap()
         .token()
@@ -874,7 +1044,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         SecretString::from("definitely-invalid-os-backed-token".to_owned()),
         OffsetDateTime::now_utc() + Duration::hours(1),
     );
-    store.save(&canonical_server, &invalid_record).unwrap();
+    store.save(&credential_target, &invalid_record).unwrap();
     let invalid_logout = run_production_cli(&server, &["logout"], None);
     let invalid_logout = error_json(&invalid_logout, 5, "authentication_rejected");
     assert_eq!(invalid_logout["error"]["details"]["http_status"], 401);
@@ -886,7 +1056,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         invalid_logout["error"]["details"]["credential_stored"],
         true
     );
-    assert!(store.load(&canonical_server).unwrap().is_some());
+    assert!(store.load(&credential_target).unwrap().is_some());
     success_json(&run_production_cli(
         &server,
         &["logout", "--local-only"],
@@ -928,7 +1098,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         .filter(|value| value["data"]["local_credential_removed"] == true)
         .count();
     assert_eq!(removed_count, 1);
-    assert!(store.load(&canonical_server).unwrap().is_none());
+    assert!(store.load(&credential_target).unwrap().is_none());
 
     for _ in 0..RACE_ROUNDS {
         success_json(&run_production_cli(
@@ -974,7 +1144,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         Some(&password_input),
     ));
     success_json(&run_production_cli(&server, &["logout", "--all"], None));
-    assert!(store.load(&canonical_server).unwrap().is_none());
+    assert!(store.load(&credential_target).unwrap().is_none());
     println!(
         "OS-backed cross-process stress passed: {PARALLELISM} parallel logins, {PARALLELISM} parallel local logouts, {RACE_ROUNDS} login/remote-logout races, {RACE_ROUNDS} login/local-logout races"
     );
