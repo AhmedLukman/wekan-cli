@@ -2,6 +2,13 @@
 
 This is an agent-first, human-friendly, cross-platform Rust CLI for Wekan. Prefer deterministic commands, stable structured output, explicit errors and safe mutations when destructive. Write clean, organized code that fully satisfies the goal while avoiding unnecessary complexity and speculative functionality.
 
+## Pre-release compatibility
+
+This CLI is still local and has not been released. Do not preserve legacy
+configuration formats, deprecated options, compatibility shims, or unused code
+unless the user explicitly asks for them. Prefer direct cleanup and update
+tests and documentation for the current behavior in the same change.
+
 ## Repository folder structure
 
 Before modifying code in this repository, read and follow the
