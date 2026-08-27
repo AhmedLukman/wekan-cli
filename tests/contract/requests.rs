@@ -1,14 +1,173 @@
 use serde_json::json;
-use wekan_cli::client::ClientError;
+use wekan_cli::client::{ClientError, UserAction, UserActionResult};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_json, header, method, path},
+    matchers::{body_json, header, method, path, query_param},
 };
 
 use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
 
-use super::{client, login_request, logout_request, logout_token, register_request, status_token};
+use super::{
+    client, create_user_request, login_request, logout_request, logout_token, register_request,
+    status_token, user_card_query, user_token,
+};
+
+#[tokio::test]
+async fn user_cards_sends_all_verified_filters() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/user/cards"))
+        .and(query_param("due", "true"))
+        .and(query_param("from", "2026-08-01T00:00:00Z"))
+        .and(query_param("to", "2026-08-31T23:59:59Z"))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .user_cards(&user_card_query(), &user_token())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn user_reads_use_the_expected_paths_and_percent_encode_selectors() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/users"))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/users/alice%2Fops"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "_id": "user-1" })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/users/user-1/boards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    client.users(&user_token()).await.unwrap();
+    client.user("alice/ops", &user_token()).await.unwrap();
+    client.user_boards("user-1", &user_token()).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_user_sends_the_expected_authenticated_body_once() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/users"))
+        .and(header("accept", "application/json"))
+        .and(header("authorization", "Bearer user-token"))
+        .and(body_json(json!({
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": "new-user-password"
+        })))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    assert!(matches!(
+        client(&server)
+            .create_user(&create_user_request(), &user_token())
+            .await,
+        Err(ClientError::Server { .. })
+    ));
+}
+
+#[tokio::test]
+async fn user_actions_use_explicit_put_wire_values() {
+    let server = MockServer::start().await;
+    for (user_id, action, response) in [
+        (
+            "owner",
+            "takeOwnership",
+            json!([{ "_id": "board-1", "title": "Board" }]),
+        ),
+        (
+            "disabled",
+            "disableLogin",
+            json!({ "_id": "disabled", "loginDisabled": true }),
+        ),
+        ("enabled", "enableLogin", json!({ "_id": "enabled" })),
+    ] {
+        Mock::given(method("PUT"))
+            .and(path(format!("/api/users/{user_id}")))
+            .and(header("authorization", "Bearer user-token"))
+            .and(body_json(json!({ "action": action })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+
+    let client = client(&server);
+    client
+        .user_action("owner", UserAction::TakeOwnership, &user_token())
+        .await
+        .unwrap();
+    client
+        .user_action("disabled", UserAction::DisableLogin, &user_token())
+        .await
+        .unwrap();
+    let UserActionResult::LoginChanged(enabled) = client
+        .user_action("enabled", UserAction::EnableLogin, &user_token())
+        .await
+        .unwrap()
+    else {
+        panic!("expected enable-login user response")
+    };
+    assert_eq!(enabled.login_disabled, None);
+}
+
+#[tokio::test]
+async fn user_delete_is_not_retried_and_redirects_are_not_followed() {
+    let failure_server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/users/user-1"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&failure_server)
+        .await;
+    assert!(matches!(
+        client(&failure_server)
+            .delete_user("user-1", &user_token())
+            .await,
+        Err(ClientError::Server { .. })
+    ));
+
+    let redirect_server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/users/user-1"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-user"))
+        .expect(1)
+        .mount(&redirect_server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/other-user"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&redirect_server)
+        .await;
+    assert!(matches!(
+        client(&redirect_server)
+            .delete_user("user-1", &user_token())
+            .await,
+        Err(ClientError::UnexpectedRedirect { .. })
+    ));
+}
 
 #[tokio::test]
 async fn current_token_logout_uses_the_authenticated_json_request() {

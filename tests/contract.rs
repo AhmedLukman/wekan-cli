@@ -1,6 +1,7 @@
 use secrecy::SecretString;
 use wekan_cli::client::{
-    LoginRequest, LogoutRequest, RegisterRequest, ServerUrl, WekanClient, WekanClientFactory,
+    CreateUserRequest, LoginRequest, LogoutRequest, RegisterRequest, ServerUrl, UserCardQuery,
+    WekanClient, WekanClientFactory,
 };
 use wiremock::MockServer;
 
@@ -36,6 +37,26 @@ fn logout_request(all: bool) -> LogoutRequest {
 
 fn logout_token() -> SecretString {
     SecretString::from("logout-token".to_owned())
+}
+
+fn user_token() -> SecretString {
+    SecretString::from("user-token".to_owned())
+}
+
+fn create_user_request() -> CreateUserRequest {
+    CreateUserRequest {
+        username: "alice".to_owned(),
+        email: "alice@example.com".to_owned(),
+        password: SecretString::from("new-user-password".to_owned()),
+    }
+}
+
+fn user_card_query() -> UserCardQuery {
+    UserCardQuery {
+        due: true,
+        from: Some("2026-08-01T00:00:00Z".to_owned()),
+        to: Some("2026-08-31T23:59:59Z".to_owned()),
+    }
 }
 
 fn client(server: &MockServer) -> WekanClient {

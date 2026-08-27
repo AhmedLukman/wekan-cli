@@ -27,6 +27,7 @@ pub enum ErrorCode {
     CredentialExpired,
     CredentialAlreadyExists,
     AuthenticationRejected,
+    PermissionDenied,
     RegistrationRejected,
     RegistrationDisabled,
     ServerError,
@@ -55,6 +56,7 @@ impl ErrorCode {
             Self::CredentialExpired => "credential_expired",
             Self::CredentialAlreadyExists => "credential_already_exists",
             Self::AuthenticationRejected => "authentication_rejected",
+            Self::PermissionDenied => "permission_denied",
             Self::RegistrationRejected => "registration_rejected",
             Self::RegistrationDisabled => "registration_disabled",
             Self::ServerError => "server_error",
@@ -77,6 +79,12 @@ pub struct ErrorDetails {
     pub server_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_error_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_is_client_safe: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_created: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,6 +111,8 @@ pub struct ErrorDetails {
     pub profile_active: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub local_credential_removed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_deleted: Option<bool>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -167,6 +177,11 @@ impl AppError {
 
     pub fn with_credential_stored(mut self, stored: bool) -> Self {
         self.details.credential_stored = Some(stored);
+        self
+    }
+
+    pub fn with_user_deleted(mut self, deleted: bool) -> Self {
+        self.details.user_deleted = Some(deleted);
         self
     }
 

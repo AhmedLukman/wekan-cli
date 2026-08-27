@@ -1,7 +1,13 @@
 use clap::Args;
 use reqwest::StatusCode;
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
+use crate::commands::{
+    authenticated::AuthenticatedContext,
+    client_error::{
+        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
+        response_error_details, server_error_details,
+    },
+};
 use crate::{
     client::{ClientError, WekanClientFactory},
     command_result::{AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, CommandSuccess},
@@ -9,11 +15,6 @@ use crate::{
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
     redaction::Redactor,
-};
-
-use super::{
-    credential_target, embedded_server_error_details, map_credential_load_error,
-    preflight_credentials, protocol_error_details, response_error_details, server_error_details,
 };
 
 const REJECTED_CREDENTIAL_MESSAGE: &str = "the stored credential was rejected by Wekan; remove it with `wekan auth logout --local-only`, then log in again to create a new session";
@@ -26,58 +27,15 @@ pub(crate) async fn execute(
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
-    let client = client_factory.create()?;
-    let server = client.server().as_str().to_owned();
-    let credential_target = credential_target(
-        client_factory
-            .profile()
-            .expect("authentication requires a named profile"),
-        client_factory
-            .profile_store_namespace()
-            .expect("authentication requires a profile credential namespace"),
-        server.clone(),
-    );
-    preflight_credentials(credential_store, &credential_target)?;
-
-    let record = credential_store
-        .load(&credential_target)
-        .map_err(map_credential_load_error)?
-        .ok_or_else(|| {
-            AppError::new(
-                ErrorCode::CredentialNotFound,
-                "no credential is stored for this Wekan server; run `wekan auth login` or `wekan auth register`",
-                StableExitCode::Server,
-            )
-        })?;
-    let token_expires = record.token_expires().format(&Rfc3339).map_err(|_| {
-        AppError::new(
-            ErrorCode::InternalError,
-            "the validated credential expiry could not be formatted",
-            StableExitCode::Internal,
-        )
-    })?;
-
-    if record.token_expires() <= OffsetDateTime::now_utc() {
-        return Err(AppError::new(
-            ErrorCode::CredentialExpired,
-            format!(
-                "the stored credential expired at {token_expires}; remove it with `wekan auth logout --local-only`, then log in again to create a new session"
-            ),
-            StableExitCode::Server,
-        )
-        .with_details(ErrorDetails {
-            token_expires: Some(token_expires),
-            ..ErrorDetails::default()
-        }));
-    }
-
-    let redactor = Redactor::with_secret(record.token());
-    let current_user = client
-        .current_user(record.token())
+    let context = AuthenticatedContext::load(client_factory, credential_store)?;
+    let redactor = Redactor::with_secret(context.record().token());
+    let current_user = context
+        .client()
+        .current_user(context.record().token())
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    if current_user.user_id() != record.user_id() {
+    if current_user.user_id() != context.record().user_id() {
         return Err(AppError::new(
             ErrorCode::CredentialStoreFailed,
             "the stored credential user id did not match the authenticated Wekan user",
@@ -85,15 +43,12 @@ pub(crate) async fn execute(
         ));
     }
 
-    let (user_id, username, full_name, is_admin, emails) = current_user.into_parts();
+    let (user_id, username, full_name, is_admin, emails) = current_user.into_auth_parts();
     Ok(CommandSuccess::AuthStatus(AuthStatusSuccess {
-        server,
-        profile: client_factory
-            .profile()
-            .expect("authentication requires a named profile")
-            .to_owned(),
+        server: context.server().to_owned(),
+        profile: context.profile().to_owned(),
         authenticated: true,
-        token_expires,
+        token_expires: context.token_expires().to_owned(),
         credential_stored: true,
         user: AuthStatusUser {
             user_id,
@@ -161,6 +116,27 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
             StableExitCode::Transport,
         )
         .with_details(protocol_error_details(success_status_received)),
+        ClientError::EmbeddedProtocol {
+            http_status,
+            server_error,
+            server_reason,
+            server_message,
+            server_error_type,
+            server_is_client_safe,
+        } => AppError::new(
+            ErrorCode::ProtocolError,
+            "Wekan returned an embedded authentication-status error without statusCode",
+            StableExitCode::Server,
+        )
+        .with_details(embedded_protocol_error_details(
+            http_status,
+            server_error,
+            server_reason,
+            server_message,
+            server_error_type,
+            server_is_client_safe,
+            redactor,
+        )),
         ClientError::Server {
             status,
             server_error,
@@ -261,7 +237,7 @@ mod tests {
         matchers::{header, method, path},
     };
 
-    use super::{StatusArgs, execute, map_client_error, response_body_error};
+    use super::{StatusArgs, map_client_error, response_body_error};
     use crate::{
         cli::Cli,
         client::{ClientError, WekanClientFactory},
@@ -271,10 +247,18 @@ mod tests {
             CredentialCreateOutcome, CredentialError, CredentialRecord, CredentialStore,
             CredentialTarget,
         },
-        error::ErrorCode,
+        error::{AppError, ErrorCode},
         exit_code::StableExitCode,
         redaction::Redactor,
     };
+
+    async fn execute(
+        args: StatusArgs,
+        client_factory: &WekanClientFactory,
+        credential_store: &dyn CredentialStore,
+    ) -> Result<CommandSuccess, AppError> {
+        super::execute(args, client_factory, credential_store).await
+    }
 
     struct FakeCredentialStore {
         available: bool,

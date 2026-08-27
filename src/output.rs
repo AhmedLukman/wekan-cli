@@ -5,7 +5,9 @@ use serde::Serialize;
 
 use crate::command_result::{
     AuthStatusSuccess, AuthSuccess, CommandSuccess, LogoutScope, LogoutSuccess, ProfileItem,
-    ProfileListSuccess, ProfileRemoveSuccess,
+    ProfileListSuccess, ProfileRemoveSuccess, UserBoardsSuccess, UserCardsSuccess,
+    UserCreateSuccess, UserDeleteSuccess, UserDetail, UserListSuccess, UserLoginChangeSuccess,
+    UserOwnershipSuccess,
 };
 use crate::error::AppError;
 
@@ -84,6 +86,28 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             serde_json::to_string(&SuccessEnvelope { ok: true, data })
                 .expect("authentication status success is always serializable")
         }
+        (OutputFormat::Human, CommandSuccess::UserCurrent(data))
+        | (OutputFormat::Human, CommandSuccess::UserShown(data)) => render_user_detail(data),
+        (OutputFormat::Json, CommandSuccess::UserCurrent(data))
+        | (OutputFormat::Json, CommandSuccess::UserShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserList(data)) => render_user_list(data),
+        (OutputFormat::Json, CommandSuccess::UserList(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserCards(data)) => render_user_cards(data),
+        (OutputFormat::Json, CommandSuccess::UserCards(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserCreated(data)) => render_user_created(data),
+        (OutputFormat::Json, CommandSuccess::UserCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserBoards(data)) => render_user_boards(data),
+        (OutputFormat::Json, CommandSuccess::UserBoards(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserOwnershipTaken(data)) => {
+            render_user_ownership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::UserOwnershipTaken(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserLoginChanged(data)) => {
+            render_user_login_change(data)
+        }
+        (OutputFormat::Json, CommandSuccess::UserLoginChanged(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserDeleted(data)) => render_user_deleted(data),
+        (OutputFormat::Json, CommandSuccess::UserDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ProfileAdded(data)) => {
             render_profile_item("Added profile", data)
         }
@@ -114,6 +138,215 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
                 .expect("profile removal success is always serializable")
         }
     }
+}
+
+fn render_json_success<T: Serialize>(data: &T) -> String {
+    serde_json::to_string(&SuccessEnvelope { ok: true, data })
+        .expect("command success is always serializable")
+}
+
+fn render_user_detail(data: &UserDetail) -> String {
+    let mut lines = vec![format!(
+        "User ID: {}",
+        escape_terminal_controls(&data.user_id)
+    )];
+    push_optional(&mut lines, "Username", data.username.as_deref());
+    push_optional(&mut lines, "Full name", data.full_name.as_deref());
+    push_optional_bool(&mut lines, "Administrator", data.is_admin);
+    push_optional_bool(&mut lines, "Login disabled", data.login_disabled);
+    push_optional(
+        &mut lines,
+        "Authentication method",
+        data.authentication_method.as_deref(),
+    );
+    push_optional(&mut lines, "Created", data.created_at.as_deref());
+    push_optional(&mut lines, "Modified", data.modified_at.as_deref());
+    push_optional(
+        &mut lines,
+        "Last connection",
+        data.last_connection_date.as_deref(),
+    );
+    if !data.emails.is_empty() {
+        let emails = data
+            .emails
+            .iter()
+            .map(|email| {
+                let address =
+                    escape_terminal_controls(email.address.as_deref().unwrap_or("unknown address"));
+                let verified = match email.verified {
+                    Some(true) => "verified",
+                    Some(false) => "unverified",
+                    None => "verification unknown",
+                };
+                format!("{address} ({verified})")
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        lines.push(format!("Emails: {emails}"));
+    }
+    if !data.organizations.is_empty() {
+        lines.push(format!("Organizations: {}", data.organizations.len()));
+    }
+    if !data.teams.is_empty() {
+        lines.push(format!("Teams: {}", data.teams.len()));
+    }
+    if !data.boards.is_empty() {
+        lines.push(format!("Board memberships: {}", data.boards.len()));
+    }
+    lines.join("\n")
+}
+
+fn push_optional(lines: &mut Vec<String>, label: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        lines.push(format!("{label}: {}", escape_terminal_controls(value)));
+    }
+}
+
+fn push_optional_bool(lines: &mut Vec<String>, label: &str, value: Option<bool>) {
+    if let Some(value) = value {
+        lines.push(format!("{label}: {}", if value { "yes" } else { "no" }));
+    }
+}
+
+fn render_user_list(data: &UserListSuccess) -> String {
+    if data.users.is_empty() {
+        return "No users found.".to_owned();
+    }
+    let rows = data
+        .users
+        .iter()
+        .map(|user| {
+            (
+                escape_terminal_controls(&user.user_id),
+                escape_terminal_controls(user.username.as_deref().unwrap_or("<none>")),
+            )
+        })
+        .collect::<Vec<_>>();
+    two_column_table("ID", "USERNAME", &rows)
+}
+
+fn render_user_cards(data: &UserCardsSuccess) -> String {
+    if data.cards.is_empty() {
+        return "No matching cards found.".to_owned();
+    }
+    let mut lines = vec!["ID  TITLE  BOARD  LIST  DUE".to_owned()];
+    lines.extend(data.cards.iter().map(|card| {
+        format!(
+            "{}  {}  {}  {}  {}",
+            escape_terminal_controls(&card.card_id),
+            escape_terminal_controls(card.title.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.board_id.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.list_id.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.due_at.as_deref().unwrap_or("")),
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_user_created(data: &UserCreateSuccess) -> String {
+    let mut lines = vec![format!(
+        "Created user {} ({})",
+        escape_terminal_controls(&data.username),
+        escape_terminal_controls(&data.email)
+    )];
+    if let Some(user_id) = &data.user_id {
+        lines.push(format!("User ID: {}", escape_terminal_controls(user_id)));
+    } else {
+        lines.push("User ID: unavailable".to_owned());
+    }
+    if data.warning.is_some() {
+        lines.push(
+            "Warning [user_id_unavailable_in_wekan_v11_06]: Wekan created the user but did not return its ID."
+                .to_owned(),
+        );
+    }
+    lines.join("\n")
+}
+
+fn render_user_boards(data: &UserBoardsSuccess) -> String {
+    if data.boards.is_empty() {
+        return format!(
+            "No active boards found for user {}.",
+            escape_terminal_controls(&data.user_id)
+        );
+    }
+    let rows = data
+        .boards
+        .iter()
+        .map(|board| {
+            (
+                escape_terminal_controls(&board.board_id),
+                escape_terminal_controls(&board.title),
+            )
+        })
+        .collect::<Vec<_>>();
+    two_column_table("ID", "TITLE", &rows)
+}
+
+fn render_user_ownership(data: &UserOwnershipSuccess) -> String {
+    let mut lines = vec![format!(
+        "Transferred {} board(s) from user {} to user {}.",
+        data.boards.len(),
+        escape_terminal_controls(&data.from_user_id),
+        escape_terminal_controls(&data.to_user_id)
+    )];
+    if !data.boards.is_empty() {
+        let rows = data
+            .boards
+            .iter()
+            .map(|board| {
+                (
+                    escape_terminal_controls(&board.board_id),
+                    escape_terminal_controls(&board.title),
+                )
+            })
+            .collect::<Vec<_>>();
+        lines.push(two_column_table("ID", "TITLE", &rows));
+    }
+    lines.join("\n")
+}
+
+fn render_user_login_change(data: &UserLoginChangeSuccess) -> String {
+    let action = match data.action {
+        crate::command_result::UserLoginAction::Disabled => "Set loginDisabled=true for",
+        crate::command_result::UserLoginAction::Enabled => "Cleared loginDisabled for",
+    };
+    format!(
+        "{action} user {}.",
+        escape_terminal_controls(&data.user.user_id)
+    )
+}
+
+fn render_user_deleted(data: &UserDeleteSuccess) -> String {
+    let mut lines = vec![format!(
+        "Deleted user {}.",
+        escape_terminal_controls(&data.user_id)
+    )];
+    if data.deleted_current_user {
+        lines.push(if data.local_credential_removed {
+            "Removed the matching local credential.".to_owned()
+        } else if data.credential_stored {
+            "The local credential changed concurrently and was preserved.".to_owned()
+        } else {
+            "No matching local credential remained.".to_owned()
+        });
+    }
+    lines.join("\n")
+}
+
+fn two_column_table(left_header: &str, right_header: &str, rows: &[(String, String)]) -> String {
+    let left_width = rows
+        .iter()
+        .map(|(left, _)| left.len())
+        .max()
+        .unwrap_or(left_header.len())
+        .max(left_header.len());
+    let mut lines = vec![format!("{left_header:<left_width$}  {right_header}")];
+    lines.extend(
+        rows.iter()
+            .map(|(left, right)| format!("{left:<left_width$}  {right}")),
+    );
+    lines.join("\n")
 }
 
 fn render_auth_success(action: &str, data: &AuthSuccess) -> String {
@@ -335,7 +568,9 @@ mod tests {
         command_result::{
             AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CancellationSuccess,
             CommandSuccess, DestructiveOperation, LogoutScope, LogoutSuccess, ProfileItem,
-            ProfileListSuccess, ProfileRemoveSuccess,
+            ProfileListSuccess, ProfileRemoveSuccess, UserBoardSummary, UserBoardsSuccess,
+            UserCard, UserCardsSuccess, UserCreateSuccess, UserCreateWarning, UserDeleteSuccess,
+            UserDetail, UserEmail, UserListSuccess, UserOwnershipSuccess, UserSummary,
         },
         error::AppError,
     };
@@ -656,6 +891,153 @@ mod tests {
         assert_eq!(value["ok"], false);
         assert_eq!(value["error"]["code"], "configuration_error");
         assert_eq!(value["error"]["details"], serde_json::json!({}));
+    }
+
+    #[test]
+    fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
+        let success = CommandSuccess::UserCurrent(UserDetail {
+            user_id: "user-1".to_owned(),
+            username: Some("alice\u{1b}]52;c;clipboard\u{7}".to_owned()),
+            full_name: Some("Alice".to_owned()),
+            emails: vec![UserEmail {
+                address: Some("alice@example.com".to_owned()),
+                verified: Some(true),
+            }],
+            is_admin: Some(false),
+            login_disabled: Some(false),
+            authentication_method: Some("password".to_owned()),
+            created_at: None,
+            modified_at: None,
+            last_connection_date: None,
+            organizations: Vec::new(),
+            teams: Vec::new(),
+            boards: Vec::new(),
+        });
+
+        let json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(json["data"]["user_id"], "user-1");
+        for forbidden in [
+            "services",
+            "sessionData",
+            "password",
+            "token",
+            "preferences",
+        ] {
+            assert!(json["data"].get(forbidden).is_none());
+        }
+        let human = render_success(OutputFormat::Human, &success);
+        assert!(!human.contains('\u{1b}'));
+        assert!(!human.contains('\u{7}'));
+        assert!(human.contains(r"alice\u{1b}]52;c;clipboard\u{7}"));
+    }
+
+    #[test]
+    fn user_lists_and_cards_have_stable_empty_and_escaped_output() {
+        let users = CommandSuccess::UserList(UserListSuccess { users: Vec::new() });
+        assert_eq!(
+            render_success(OutputFormat::Human, &users),
+            "No users found."
+        );
+        let user_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &users)).unwrap();
+        assert_eq!(user_json["data"]["users"], serde_json::json!([]));
+
+        let cards = CommandSuccess::UserCards(UserCardsSuccess {
+            cards: vec![UserCard {
+                card_id: "card-1".to_owned(),
+                title: Some("Task\nnext".to_owned()),
+                board_id: Some("board-1".to_owned()),
+                swimlane_id: None,
+                list_id: Some("list-1".to_owned()),
+                due_at: None,
+                start_at: None,
+                end_at: None,
+                members: Vec::new(),
+                assignees: Vec::new(),
+            }],
+        });
+        let human = render_success(OutputFormat::Human, &cards);
+        assert!(human.starts_with("ID  TITLE  BOARD  LIST  DUE"));
+        assert!(human.contains(r"Task\nnext"));
+        assert_eq!(human.lines().count(), 2);
+    }
+
+    #[test]
+    fn user_creation_and_mutation_results_are_stable() {
+        let created = CommandSuccess::UserCreated(UserCreateSuccess {
+            created: true,
+            username: "bob".to_owned(),
+            email: "bob@example.com".to_owned(),
+            user_id: None,
+            warning: Some(UserCreateWarning::UserIdUnavailableInWekanV1106),
+        });
+        let json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &created)).unwrap();
+        assert_eq!(json["data"]["created"], true);
+        assert_eq!(json["data"]["user_id"], serde_json::Value::Null);
+        assert_eq!(
+            json["data"]["warning"],
+            "user_id_unavailable_in_wekan_v11_06"
+        );
+        assert!(
+            render_success(OutputFormat::Human, &created)
+                .contains("Warning [user_id_unavailable_in_wekan_v11_06]")
+        );
+
+        let ownership = CommandSuccess::UserOwnershipTaken(UserOwnershipSuccess {
+            from_user_id: "owner-1".to_owned(),
+            to_user_id: "admin-1".to_owned(),
+            boards: vec![UserBoardSummary {
+                board_id: "board-1".to_owned(),
+                title: "Board".to_owned(),
+            }],
+        });
+        let json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &ownership)).unwrap();
+        assert_eq!(json["data"]["boards"][0]["board_id"], "board-1");
+        assert!(render_success(OutputFormat::Human, &ownership).contains("Transferred 1 board"));
+
+        let boards = CommandSuccess::UserBoards(UserBoardsSuccess {
+            user_id: "user-1".to_owned(),
+            boards: vec![UserBoardSummary {
+                board_id: "board-1".to_owned(),
+                title: "Board\u{1b}".to_owned(),
+            }],
+        });
+        assert!(!render_success(OutputFormat::Human, &boards).contains('\u{1b}'));
+
+        let deleted = CommandSuccess::UserDeleted(UserDeleteSuccess {
+            user_id: "user-1".to_owned(),
+            deleted: true,
+            deleted_current_user: true,
+            credential_stored: false,
+            local_credential_removed: true,
+        });
+        let json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
+        assert_eq!(json["data"]["deleted"], true);
+        assert_eq!(json["data"]["deleted_current_user"], true);
+        assert_eq!(json["data"]["local_credential_removed"], true);
+        let rendered = render_success(OutputFormat::Human, &deleted);
+        assert!(rendered.contains("Deleted user user-1"));
+        assert!(rendered.contains("local credential"));
+
+        let list = CommandSuccess::UserList(UserListSuccess {
+            users: vec![UserSummary {
+                user_id: "user-1".to_owned(),
+                username: Some("alice".to_owned()),
+            }],
+        });
+        assert!(render_success(OutputFormat::Human, &list).starts_with("ID      USERNAME"));
+
+        let email_only = CommandSuccess::UserList(UserListSuccess {
+            users: vec![UserSummary {
+                user_id: "email-only".to_owned(),
+                username: None,
+            }],
+        });
+        assert!(render_success(OutputFormat::Human, &email_only).contains("<none>"));
     }
 
     #[test]

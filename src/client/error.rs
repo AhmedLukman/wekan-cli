@@ -27,6 +27,17 @@ pub enum ClientError {
         message: String,
         success_status_received: bool,
     },
+    #[error(
+        "the Wekan server returned an embedded error without statusCode in an HTTP {http_status} response"
+    )]
+    EmbeddedProtocol {
+        http_status: StatusCode,
+        server_error: Option<String>,
+        server_reason: Option<String>,
+        server_message: Option<String>,
+        server_error_type: Option<String>,
+        server_is_client_safe: Option<bool>,
+    },
     #[error("the Wekan server returned an error ({status})")]
     Server {
         status: StatusCode,

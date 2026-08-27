@@ -39,7 +39,7 @@ impl LoginSecrets {
 }
 
 pub trait SecretInputProvider: Send + Sync {
-    fn read_registration_password(
+    fn read_new_account_password(
         &self,
         from_stdin: bool,
     ) -> Result<SecretString, crate::error::AppError>;
@@ -54,7 +54,7 @@ pub trait SecretInputProvider: Send + Sync {
 pub struct SystemSecretInputProvider;
 
 impl SecretInputProvider for SystemSecretInputProvider {
-    fn read_registration_password(
+    fn read_new_account_password(
         &self,
         from_stdin: bool,
     ) -> Result<SecretString, crate::error::AppError> {

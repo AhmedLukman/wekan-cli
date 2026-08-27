@@ -2952,6 +2952,11 @@ paths:
                         Current user data with board membership summaries. If the bearer token is missing or invalid, this route still returns HTTP 200 and its JSON body is an error object containing `statusCode: 401`.
                     schema:
                         $ref: '#/definitions/CurrentUserResponse'
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
+            summary: Return the currently authenticated user.
+            description: >-
+                Available to any authenticated user. Returns identity, selected profile and account state, organizations, teams, and board-membership roles. Authentication errors are serialized inside HTTP 200.
     /api/user/cards:
         get:
             operationId: get_user_cards
@@ -2964,8 +2969,30 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
-                    schema: {type: array, items: {$ref: '#/definitions/Cards'}}
+                        Compact related-card summaries.
+                    schema: {type: array, items: {$ref: '#/definitions/UserCardSummary'}}
+                '401':
+                    description: Missing or invalid authentication.
+                    schema: {$ref: '#/definitions/UserErrorResponse'}
+            summary: List readable cards related to the current user.
+            description: >-
+                Returns non-archived cards on active readable boards where the caller is a member, assignee, requester, or assigner. `due=true`, `due=1`, and `due=yes` require a due date. Either date bound also enables due-date filtering.
+            parameters:
+                - name: due
+                  in: query
+                  required: false
+                  type: string
+                  enum: ['true', '1', 'yes']
+                - name: from
+                  in: query
+                  required: false
+                  type: string
+                  format: date-time
+                - name: to
+                  in: query
+                  required: false
+                  type: string
+                  format: date-time
     /api/users:
         get:
             operationId: get_users
@@ -2979,7 +3006,11 @@ paths:
                 '200':
                     description: |-
                         200 response
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
                     schema: {type: array, items: {$ref: '#/definitions/UserSummary'}}
+            summary: List users (site admin only).
+            description: Site-administrator access is required.
         post:
             operationId: post_users
             tags:
@@ -2992,8 +3023,13 @@ paths:
                 '200':
                     description: |-
                         User is created, but v11.06 returns `_id: {}` because the handler serializes the unawaited Accounts.createUser Promise. Upstream defect.
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
                     schema: {$ref: '#/definitions/CreateUserV1106Response'}
                     x-wekan-v11.06-defect: unawaited-accounts-create-user
+            summary: Create a user (site admin only).
+            description: >-
+                Site-administrator access is required. The account is created, but Wekan v11.06 serializes the unawaited creation Promise as `_id: {}`.
             consumes: [application/json]
             parameters:
                 - name: body
@@ -3019,7 +3055,12 @@ paths:
                 '200':
                     description: |-
                         200 response
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
                     schema: {$ref: '#/definitions/Users'}
+            summary: Return a user by ID or username (site admin only).
+            description: >-
+                Site-administrator access is required. The selector is resolved as a user ID first and then as a username. Authentication services and sessionData are omitted; board-membership roles are added.
         put:
             operationId: put_user
             tags:
@@ -3031,8 +3072,13 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
-                    schema: {}
+                        Action-specific success body, or an embedded error object.
+                    schema: {$ref: '#/definitions/UserActionResponse'}
+                    x-wekan-error-status-in-body: true
+            summary: Perform an administrative action on a user.
+            description: >-
+                Site-administrator access is required. `takeOwnership` transfers every board administered by the target user to the caller and returns affected board summaries. `disableLogin` sets `loginDisabled` and clears the target's existing sessions, but the v11.06 REST login handler does not inspect that field and can mint a new token with correct credentials. `enableLogin` omits `loginDisabled` from the returned user document; both login actions return sanitized user documents.
+            x-wekan-v11.06-defect: disable-login-does-not-block-rest-login
             consumes: [application/json]
             parameters:
                 - {name: user, in: path, type: string, required: true}
@@ -3058,7 +3104,12 @@ paths:
                 '200':
                     description: |-
                         200 response
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
                     schema: {$ref: '#/definitions/IdResponse'}
+            summary: Delete a user (site admin only).
+            description: >-
+                Attempts to remove the selected user and returns the requested ID. The echoed ID does not confirm that a matching user existed or was removed.
     # ───────────────────────────────────────────────────────────────────────────
     # Attachment / file API (server/routes/attachmentApi.js)
     #
@@ -3731,8 +3782,8 @@ paths:
     /api/users/{userId}/boards:
         get:
             operationId: get_user_boards
-            summary: List active boards for a user.
-            tags: [Boards]
+            summary: List a user's active boards (self or site admin).
+            tags: [Boards, Users]
             produces: [application/json]
             security:
                 - UserSecurity: []
@@ -3743,11 +3794,15 @@ paths:
                   required: true
             responses:
                 '200':
-                    description: Board summaries, or a serialized authorization error.
+                    description: Active board summaries, or an embedded error object.
                     schema:
                         type: array
                         items:
                             $ref: '#/definitions/BoardSummary'
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+                    x-wekan-error-status-in-body: true
+            description: >-
+                Available to the selected user or a site administrator. Returns active, non-archived, non-internal board ID/title summaries.
     /api/boards:
         get:
             operationId: get_public_boards
@@ -5715,11 +5770,6 @@ definitions:
                 description: |
                     authentication method of the user
                 type: string
-            sessionData:
-                description: |
-                    profile settings
-                $ref: "#/definitions/UsersSessiondata"
-                x-nullable: true
             importUsernames:
                 description: |
                     username for imported
@@ -5731,10 +5781,13 @@ definitions:
             lastConnectionDate:
                 type: string
                 x-nullable: true
+            _id: {type: string}
+            boards: {type: array, items: {$ref: '#/definitions/UserBoardMembership'}}
         required:
             - createdAt
             - modifiedAt
             - authenticationMethod
+        additionalProperties: false
     UsersProfile:
         type: object
         properties:
@@ -6163,6 +6216,7 @@ definitions:
             - verticalScrollbars
             - showWeekOfYear
             - cardZoom
+        additionalProperties: false
     UsersSessiondata:
         type: object
         properties:
@@ -6171,6 +6225,7 @@ definitions:
                     Total hits from last searchquery['members.userId'] = Meteor.userId();
                     last hit that was returned
                 type: number
+        additionalProperties: false
     UsersOrgs:
         type: object
         properties:
@@ -6194,6 +6249,7 @@ definitions:
         required:
             - orgId
             - orgDisplayName
+        additionalProperties: false
     UsersTeams:
         type: object
         properties:
@@ -6208,6 +6264,7 @@ definitions:
         required:
             - teamId
             - teamDisplayName
+        additionalProperties: false
     UsersEmails:
         type: object
         properties:
@@ -6222,6 +6279,7 @@ definitions:
         required:
             - address
             - verified
+        additionalProperties: false
     UsersProfileEmailbuffer:
         type: array
         description: >-
@@ -6285,6 +6343,7 @@ definitions:
         items: {type: string}
     CurrentUserResponse:
         type: object
+        additionalProperties: false
         description: >-
             Current-user data on success, or a Meteor error object on authentication failure. No fields are universally required because both variants use HTTP 200. Exact handler evidence: Wekan v11.06 server/models/users.js lines 1979-2000.
         properties:
@@ -6293,19 +6352,15 @@ definitions:
                 description: Authenticated user ID.
             username:
                 type: string
+                x-nullable: true
             emails:
                 type: array
                 items:
                     $ref: '#/definitions/CurrentUserEmail'
             profile:
-                $ref: '#/definitions/CurrentUserProfile'
+                $ref: '#/definitions/UsersProfile'
             isAdmin:
                 type: boolean
-            boards:
-                type: array
-                items:
-                    type: object
-                    additionalProperties: true
             isClientSafe:
                 type: boolean
             error:
@@ -6323,8 +6378,23 @@ definitions:
             statusCode:
                 type: integer
                 format: int32
+            loginDisabled: {type: boolean}
+            authenticationMethod: {type: string}
+            createdAt: {type: string, format: date-time}
+            modifiedAt: {type: string, format: date-time}
+            createdThroughApi: {type: boolean}
+            lastConnectionDate: {type: string, format: date-time}
+            heartbeat: {type: string, format: date-time}
+            sessionData: {$ref: '#/definitions/UsersSessiondata'}
+            importUsernames: {type: array, items: {type: string}}
+            orgs: {type: array, items: {$ref: '#/definitions/UsersOrgs'}}
+            teams: {type: array, items: {$ref: '#/definitions/UsersTeams'}}
+            boards:
+                type: array
+                items: {$ref: '#/definitions/UserBoardMembership'}
     CurrentUserEmail:
         type: object
+        additionalProperties: false
         description: >-
             User email entry defined by Wekan v11.06 models/users.js lines 242-264 and returned by server/models/users.js lines 1979-2000.
         properties:
@@ -6333,13 +6403,6 @@ definitions:
                 format: email
             verified:
                 type: boolean
-    CurrentUserProfile:
-        type: object
-        description: >-
-            Returned user-profile subset; fullname is defined by Wekan v11.06 models/users.js lines 326-332 and the profile object by lines 294-307.
-        properties:
-            fullname:
-                type: string
     ErrorResponse:
         type: object
         description: >-
@@ -6431,6 +6494,7 @@ definitions:
                 type: string
     BoardSummary:
         type: object
+        additionalProperties: false
         description: >-
             Board-list projection from server/models/boards.js lines 847-852 and 870-878.
         required: [_id, title]
@@ -7079,12 +7143,13 @@ definitions:
             assignees: {type: array, items: {type: string}}
     UserSummary:
         type: object
+        additionalProperties: false
         description: >-
-            Admin user-list projection from server/models/users.js lines 2003-2011.
-        required: [_id, username]
+            Admin user-list projection from server/models/users.js lines 2003-2015.
+        required: [_id]
         properties:
             _id: {type: string}
-            username: {type: string}
+            username: {type: string, x-nullable: true}
     SwimlaneSummary:
         type: object
         description: >-
@@ -7096,7 +7161,7 @@ definitions:
     CreateTokenResponse:
         type: object
         description: >-
-            Admin-created token result from server/models/users.js lines 2272-2285.
+            Admin-created token result from server/models/users.js lines 2272-2287.
         required: [_id, authToken]
         properties:
             _id: {type: string}
@@ -7198,6 +7263,58 @@ definitions:
             type: {type: string, enum: [related-to, blocks, is-blocked-by, fixes, is-fixed-by]}
             color: {type: string}
             icon: {type: string}
+    UserCardSummary:
+        type: object
+        required: [_id]
+        additionalProperties: false
+        properties:
+            _id: {type: string}
+            title: {type: string}
+            boardId: {type: string}
+            swimlaneId: {type: string}
+            listId: {type: string}
+            dueAt: {type: string, format: date-time}
+            startAt: {type: string, format: date-time}
+            endAt: {type: string, format: date-time}
+            members: {type: array, items: {type: string}}
+            assignees: {type: array, items: {type: string}}
+    UserBoardMembership:
+        type: object
+        required: [boardId]
+        additionalProperties: false
+        properties:
+            boardId: {type: string}
+            isActive: {type: boolean}
+            isAdmin: {type: boolean}
+            isNoComments: {type: boolean}
+            isCommentOnly: {type: boolean}
+            isWorker: {type: boolean}
+            isNormalAssignedOnly: {type: boolean}
+            isCommentAssignedOnly: {type: boolean}
+            isReadOnly: {type: boolean}
+            isReadAssignedOnly: {type: boolean}
+    UserErrorResponse:
+        type: object
+        additionalProperties: false
+        description: >-
+            Exact Meteor error envelope serialized by the Wekan v11.06 user routes. Some HTTP-200 failures omit statusCode, while GET /api/user/cards returns HTTP 401 with only error.
+        properties:
+            isClientSafe: {type: boolean}
+            error:
+                x-oneOf:
+                    - {type: string}
+                    - {type: number}
+            reason: {type: string}
+            message: {type: string}
+            errorType: {type: string}
+            statusCode: {type: integer, format: int32}
+    UserActionResponse:
+        description: >-
+            `takeOwnership` returns affected board summaries; `disableLogin` and `enableLogin` return the sanitized user document. `enableLogin` omits `loginDisabled` from the returned user document. Errors can be serialized in the HTTP-200 response body.
+        x-oneOf:
+            - {type: array, items: {$ref: '#/definitions/BoardSummary'}}
+            - {$ref: '#/definitions/Users'}
+            - {$ref: '#/definitions/UserErrorResponse'}
     UpdateDropdownItemRequest:
         type: object
         description: >-
@@ -7215,7 +7332,7 @@ definitions:
     CreateUserRequest:
         type: object
         description: >-
-            JSON body passed to Accounts.createUser by Wekan v11.06 server/models/users.js lines 2246-2257.
+            JSON body passed to Accounts.createUser by Wekan v11.06 server/models/users.js lines 2246-2258.
         required: [username, email, password]
         properties:
             username: {type: string}
@@ -7224,7 +7341,7 @@ definitions:
     UpdateUserActionRequest:
         type: object
         description: >-
-            JSON administrative action read from req.body.action by Wekan v11.06 server/models/users.js lines 2066-2097.
+            JSON administrative action read from req.body.action by Wekan v11.06 server/models/users.js lines 2066-2099.
         required: [action]
         properties:
             action:
@@ -7312,13 +7429,14 @@ definitions:
             supportPageText: {type: string}
     CreateUserV1106Response:
         type: object
+        additionalProperties: false
         description: >-
             Wekan v11.06 server/models/users.js lines 2249-2255 omits `await` before Accounts.createUser, so the Promise is JSON-serialized as an empty object in `_id` even though the user is created. This records the observed v11.06 upstream defect exactly.
         required: [_id]
         properties:
             _id:
                 type: object
-                additionalProperties: true
+                additionalProperties: false
                 description: Empty object in v11.06 because an unawaited Promise is serialized.
     BoardImportResult:
         type: object

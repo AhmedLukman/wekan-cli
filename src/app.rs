@@ -1,6 +1,9 @@
 use crate::{
     command_result::CommandSuccess,
-    commands::{self, PreparedCommand, RootCommand},
+    commands::{
+        self, PreparedCommand, RootCommand,
+        auth::{AuthCommand, PreparedAuthCommand},
+    },
     config::{ServerSelection, TargetResolver, profiles::FileProfileStore},
     credentials::{
         CredentialStore, KeyringCredentialStore, SecretInputProvider, SystemSecretInputProvider,
@@ -108,6 +111,7 @@ where
     pub async fn execute(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
         match command {
             RootCommand::Auth(args) => self.execute_auth(args).await,
+            RootCommand::User(args) => self.execute_user(args).await,
             RootCommand::Profile(args) => {
                 if self.target_resolver.has_explicit_target() {
                     return Err(AppError::invalid_input(
@@ -136,17 +140,37 @@ where
             .target_resolver
             .resolve(&self.profile_store, missing_profile_resolution)?;
         let profile = target.profile().to_owned();
-        let result = commands::dispatch(
-            PreparedCommand::Auth {
+        let prepared = match args.command {
+            AuthCommand::Login(args) => Ok(PreparedAuthCommand::Login {
                 args,
                 target: &mut target,
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await;
+            }),
+            AuthCommand::Logout(args) => Ok(PreparedAuthCommand::Logout {
+                args,
+                client_factory: target.client_factory(),
+            }),
+            AuthCommand::Register(args) => Ok(PreparedAuthCommand::Register {
+                args,
+                target: &mut target,
+            }),
+            AuthCommand::Status(args) => Ok(PreparedAuthCommand::Status {
+                args,
+                client_factory: target.client_factory(),
+            }),
+        };
+        let result = match prepared {
+            Ok(command) => {
+                commands::dispatch(
+                    PreparedCommand::Auth { command },
+                    &self.credential_store,
+                    &self.secret_input,
+                    &self.profile_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            Err(error) => Err(error),
+        };
         let profile_created = target.profile_created();
         let profile_active = target.profile_active();
         result.map_err(|error| {
@@ -157,6 +181,30 @@ where
                 error
             }
         })
+    }
+
+    async fn execute_user(
+        &self,
+        args: crate::commands::users::UserArgs,
+    ) -> Result<CommandSuccess, AppError> {
+        args.command.validate()?;
+        let missing_profile_resolution = args.command.missing_profile_resolution();
+        let target = self
+            .target_resolver
+            .resolve(&self.profile_store, missing_profile_resolution)?;
+        let profile = target.profile().to_owned();
+        commands::dispatch(
+            PreparedCommand::User {
+                args,
+                client_factory: target.client_factory(),
+            },
+            &self.credential_store,
+            &self.secret_input,
+            &self.profile_store,
+            &self.confirmation,
+        )
+        .await
+        .map_err(|error| error.with_profile_context(profile))
     }
 }
 
@@ -342,7 +390,7 @@ mod tests {
     }
 
     impl SecretInputProvider for FixedSecretInput {
-        fn read_registration_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
+        fn read_new_account_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
             self.reads.fetch_add(1, Ordering::SeqCst);
             Ok(SecretString::from("test-password".to_owned()))
         }

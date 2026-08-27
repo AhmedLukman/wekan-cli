@@ -1,6 +1,16 @@
 use clap::Args;
 use reqwest::StatusCode;
 
+use crate::commands::{
+    client_error::{
+        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
+        response_error_details, server_error_details,
+    },
+    credential_ops::{
+        credential_target, lock_credential_mutation, map_credential_load_error,
+        preflight_credentials,
+    },
+};
 use crate::{
     client::{ClientError, LogoutRequest, WekanClientFactory},
     command_result::{
@@ -14,12 +24,6 @@ use crate::{
         confirm_or_skip,
     },
     redaction::Redactor,
-};
-
-use super::{
-    credential_target, embedded_server_error_details, lock_credential_mutation,
-    map_credential_load_error, preflight_credentials, protocol_error_details,
-    response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -342,6 +346,35 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
                 ErrorCode::ProtocolError,
                 redactor.redact(&format!("invalid response from Wekan: {message}")),
                 StableExitCode::Transport,
+            )
+            .with_details(details)
+        }
+        ClientError::EmbeddedProtocol {
+            http_status,
+            server_error,
+            server_reason,
+            server_message,
+            server_error_type,
+            server_is_client_safe,
+        } => {
+            let mut details = embedded_protocol_error_details(
+                http_status,
+                server_error,
+                server_reason,
+                server_message,
+                server_error_type,
+                server_is_client_safe,
+                redactor,
+            );
+            details.logout_scope = Some(scope);
+            details.remote_logout_completed = Some(None);
+            details.outcome_unknown = Some(true);
+            details.credential_stored = Some(true);
+            details.local_credential_removed = Some(false);
+            AppError::new(
+                ErrorCode::ProtocolError,
+                "Wekan returned an embedded logout error without statusCode; the remote outcome may be unknown and the stored credential was preserved",
+                StableExitCode::Server,
             )
             .with_details(details)
         }

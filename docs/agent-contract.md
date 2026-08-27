@@ -14,8 +14,9 @@ is one JSON object followed by a newline.
 
 ## Destructive confirmation
 
-`auth logout` in every scope and `profile remove` require interactive
-confirmation or `--yes`. Normal target and removability preflight runs first;
+`auth logout` in every scope, `profile remove`, `user take-ownership`,
+`user disable-login`, and `user delete` require interactive confirmation or
+`--yes`. Normal target and removability preflight runs first;
 its errors retain their documented codes. Otherwise, non-terminal and JSON
 invocations without `--yes` return `invalid_input` with exit status 2 before
 destructive work. `--yes` is accepted only by those commands. For
@@ -37,8 +38,9 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 }
 ```
 
-`operation` is `auth_logout` or `profile_remove`. Human output is
-`Cancelled; no changes made.`
+`operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
+`user_disable_login`, or `user_delete`. Human output is `Cancelled; no changes
+made.`
 
 ## Authentication success
 
@@ -134,6 +136,49 @@ For example, a local-only deletion is:
 }
 ```
 
+## User success
+
+`user current` and `user get` return the same typed, resource-focused user
+shape. Optional scalar values are JSON `null`; collection fields are arrays.
+The exact scalar allowlist is `user_id`, `username`, `full_name`, `emails`,
+`is_admin`, `login_disabled`, `authentication_method`, `created_at`,
+`modified_at`, and `last_connection_date`, plus typed organization, team, and
+board-role memberships. All other profile fields, `created_through_api`, Wekan
+service/session data, password/token material, UI preferences, and unknown
+fields are excluded.
+
+List results are nested under their resource name: `{"users": [...]}` for
+`user list`, `{"cards": [...]}` for `user cards`, and
+`{"user_id": "...", "boards": [...]}` for `user boards`. A list entry's
+`username` is nullable because Wekan permits email-only accounts.
+
+Wekan v11.06's create-user response cannot provide the created ID:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "created": true,
+    "username": "bob",
+    "email": "bob@example.com",
+    "user_id": null,
+    "warning": "user_id_unavailable_in_wekan_v11_06"
+  }
+}
+```
+
+Login actions return `{"action":"disabled|enabled","user":{...}}`. In Wekan
+v11.06, `disabled` means the `loginDisabled` field was set and existing tokens
+were cleared; the REST login route does not enforce that field and can still
+mint a new token with correct credentials. After `enableLogin`, Wekan v11.06
+omits `loginDisabled` from returned user documents, so the CLI outputs
+`login_disabled: null`.
+Ownership transfer returns `from_user_id`, `to_user_id`, and the affected
+`boards` array. Deletion returns
+`user_id`, `deleted`, `deleted_current_user`, `credential_stored`, and
+`local_credential_removed`. The last three fields make self-delete cleanup
+safe for automation.
+
 ## Profile success
 
 Profile objects use a stable `name`, canonical `server`, and boolean `active`
@@ -200,7 +245,11 @@ data. Removal reports both what was removed and the resulting selection:
 
 - `http_status`: HTTP status returned by the server;
 - `wekan_status_code`: application status serialized inside a Wekan response;
-- `server_error` and `server_reason`: structured Wekan error fields;
+- `server_error`, `server_reason`, and `server_message`: structured Wekan error
+  fields;
+- `server_error_type`: the serialized Wekan/Meteor error type, when present;
+- `server_is_client_safe`: whether Wekan marked the serialized error safe for
+  clients;
 - `account_created`: whether account creation is known to have occurred;
 - `session_created`: whether login session creation is known to have occurred;
 - `two_factor_required`: whether Wekan accepted the password but requires a
@@ -218,6 +267,8 @@ data. Removal reports both what was removed and the resulting selection:
   command outcome;
 - `local_credential_removed`: whether this invocation is known to have removed
   the local credential;
+- `user_deleted`: whether remote user deletion is known to have completed when
+  a later local cleanup step fails;
 - `profile_created`: whether this command created the selected profile;
 - `profile_active`: whether that profile is active after the known local
   outcome;
@@ -309,6 +360,7 @@ the process exit status. Stable error codes are:
 - `credential_expired`
 - `credential_already_exists`
 - `authentication_rejected`
+- `permission_denied`
 - `registration_rejected`
 - `registration_disabled`
 - `server_error`

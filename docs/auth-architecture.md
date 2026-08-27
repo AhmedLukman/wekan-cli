@@ -38,7 +38,7 @@ flowchart LR
     app --> resolver
     resolver -->|shared existing or exclusive initialization lease| profiles
     resolver -->|resolved target: factory and lease| app
-    app -->|prepared command and resolved target| dispatch
+    app -->|prepared command and focused target| dispatch
     dispatch --> handlers
     handlers --> secrets
     input -->|password and optional code| secrets
@@ -53,7 +53,10 @@ flowchart LR
 The application layer owns concrete production dependencies, including the
 long-lived `TargetResolver`. For an authentication command, `App` asks that
 resolver for a command-scoped `ResolvedTarget`, retains it through dispatch,
-and passes that focused target into root routing. The `ResolvedTarget` owns its
+and passes the focused factory plus explicit capabilities required by the
+selected handler. Each authenticated leaf handler creates and retains its HTTP
+client, then loads and validates the profile-scoped credential into an
+`AuthenticatedContext` for that command. The `ResolvedTarget` owns its
 `WekanClientFactory`, required profile identity, and retained profile guard. The
 `ProfileStore`, `CredentialStore`, and `SecretInputProvider` traits keep command
 behavior testable without real local configuration, a terminal, or an
@@ -67,11 +70,11 @@ operation-specific orchestration and error mapping.
 | --- | --- | --- |
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
 | CLI model | Define global selectors plus the profile, registration, login, status, and logout command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/profile.rs`](../src/commands/profile.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
-| Application composition | Construct and own long-lived dependencies, decide which commands need a target, retain each resolved target through dispatch, and pass explicit capabilities into root routing | [`src/app.rs`](../src/app.rs) |
+| Application composition | Construct and own long-lived dependencies, decide which commands need a target, retain each resolved target through dispatch, and pass exact capabilities into root routing | [`src/app.rs`](../src/app.rs) |
 | Configuration boundary | Persist strict named profiles; own target-selection policy; canonicalize server identity independently of network permission; and produce a command-scoped target containing its client factory and retained shared or exclusive profile guard | [`src/config.rs`](../src/config.rs), [`src/config/profiles.rs`](../src/config/profiles.rs) |
-| Authentication orchestration | Enforce operation order, load or store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
+| Authentication orchestration | Let each remote leaf create its client, load or store credentials, enforce operation order, redact secrets, and map operation-specific errors | [`src/commands/authenticated.rs`](../src/commands/authenticated.rs), [`src/commands/auth/`](../src/commands/auth/), [`src/commands/users/`](../src/commands/users/) |
 | Command result model | Define secret-free semantic success outcomes and shared outcome vocabulary independently of rendering | [`src/command_result.rs`](../src/command_result.rs) |
-| HTTP boundary | Own the canonical URL type, enforce transport permission on client creation, and apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/auth.rs`](../src/client/auth.rs) |
+| HTTP boundary | Own the canonical URL type, enforce transport permission on client creation, centralize bounded response execution and Wekan error decoding, and apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/transport.rs`](../src/client/transport.rs), [`src/client/auth.rs`](../src/client/auth.rs), [`src/client/users.rs`](../src/client/users.rs) |
 | Secret boundary | Read confirmed registration passwords, single login passwords, and optional two-factor codes from non-echoing prompts or ordered stdin lines | [`src/credentials.rs`](../src/credentials.rs), [`src/credentials/`](../src/credentials/) |
 | Output contract | Render terminal-escaped human success fields, human errors, or stable JSON envelopes without passwords or tokens | [`src/output.rs`](../src/output.rs), [`src/error.rs`](../src/error.rs), [`src/redaction.rs`](../src/redaction.rs) |
 
@@ -115,8 +118,10 @@ network permission, without initializing an HTTP client. `App` retains the
 target for the complete command and passes it explicitly into root dispatch.
 Root dispatch only routes. Auth-family dispatch gives login and registration
 the mutable target needed to commit a pending profile through configuration-owned
-behavior, while status and logout receive only its focused factory. Command code
-does not resolve profiles or construct application infrastructure. The factory
+behavior, logout receives only its focused factory, and status receives an
+explicit focused factory and credential-store capability. Command code does not
+resolve profiles or construct application infrastructure. Each remote leaf
+creates and retains one client through the factory. The factory
 enforces plaintext HTTP permission only when a remote handler calls `create()`;
 local server-scoped operations use the canonical identity without a policy
 bypass.
@@ -230,13 +235,15 @@ a rejected password-only request.
 sequenceDiagram
     autonumber
     actor Caller as Human or agent
+    participant App as Application
     participant Handler as Status handler
     participant Factory as Client factory
     participant Vault as Native credential store
     participant Client as Wekan client
     participant Wekan as Wekan v11.06
 
-    Caller->>Handler: auth status + resolved target
+    Caller->>App: auth status + resolved target
+    App->>Handler: StatusArgs + focused factory and vault capability
     Handler->>Factory: Create client and enforce network policy
     Factory-->>Handler: Configured client + canonical URL
     Handler->>Vault: Check availability and load record

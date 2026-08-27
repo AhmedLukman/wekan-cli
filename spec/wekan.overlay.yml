@@ -438,6 +438,7 @@ actions:
     update:
       CurrentUserResponse:
         type: object
+        additionalProperties: false
         description: >-
           Current-user data on success, or a Meteor error object on authentication
           failure. No fields are universally required because both variants use
@@ -449,12 +450,13 @@ actions:
             description: Authenticated user ID.
           username:
             type: string
+            x-nullable: true
           emails:
             type: array
             items:
               $ref: '#/definitions/CurrentUserEmail'
           profile:
-            $ref: '#/definitions/CurrentUserProfile'
+            $ref: '#/definitions/UsersProfile'
           isAdmin:
             type: boolean
           boards:
@@ -482,6 +484,7 @@ actions:
             format: int32
       CurrentUserEmail:
         type: object
+        additionalProperties: false
         description: >-
           User email entry defined by Wekan v11.06 models/users.js lines
           242-264 and returned by server/models/users.js lines 1979-2000.
@@ -491,15 +494,6 @@ actions:
             format: email
           verified:
             type: boolean
-      CurrentUserProfile:
-        type: object
-        description: >-
-          Returned user-profile subset; fullname is defined by Wekan v11.06
-          models/users.js lines 326-332 and the profile object by lines 294-307.
-        properties:
-          fullname:
-            type: string
-
   - target: '$.paths["/api/admin/attachment-settings"].put'
     description: >-
       Document the partial JSON request body consumed by Wekan v11.06
@@ -842,6 +836,7 @@ actions:
             type: string
       BoardSummary:
         type: object
+        additionalProperties: false
         description: >-
           Board-list projection from server/models/boards.js lines 847-852 and
           870-878.
@@ -1994,13 +1989,14 @@ actions:
           assignees: {type: array, items: {type: string}}
       UserSummary:
         type: object
+        additionalProperties: false
         description: >-
           Admin user-list projection from server/models/users.js lines
-          2003-2011.
-        required: [_id, username]
+          2003-2015.
+        required: [_id]
         properties:
           _id: {type: string}
-          username: {type: string}
+          username: {type: string, x-nullable: true}
       SwimlaneSummary:
         type: object
         description: >-
@@ -2014,7 +2010,7 @@ actions:
         type: object
         description: >-
           Admin-created token result from server/models/users.js lines
-          2272-2285.
+          2272-2287.
         required: [_id, authToken]
         properties:
           _id: {type: string}
@@ -2816,6 +2812,328 @@ actions:
         '403': {description: Export disabled or board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
         '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
 
+  # Complete the authenticated-user and user-administration slice from the
+  # matching Wekan v11.06 route implementations.
+  - target: '$.definitions'
+    description: >-
+      Add the compact card projection and board-membership role shapes returned
+      by Wekan v11.06 server/models/cards.js lines 2055-2122 and
+      server/models/users.js lines 1979-2064.
+    update:
+      UserCardSummary:
+        type: object
+        required: [_id]
+        additionalProperties: false
+        properties:
+          _id: {type: string}
+          title: {type: string}
+          boardId: {type: string}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          dueAt: {type: string, format: date-time}
+          startAt: {type: string, format: date-time}
+          endAt: {type: string, format: date-time}
+          members: {type: array, items: {type: string}}
+          assignees: {type: array, items: {type: string}}
+      UserBoardMembership:
+        type: object
+        required: [boardId]
+        additionalProperties: false
+        properties:
+          boardId: {type: string}
+          isActive: {type: boolean}
+          isAdmin: {type: boolean}
+          isNoComments: {type: boolean}
+          isCommentOnly: {type: boolean}
+          isWorker: {type: boolean}
+          isNormalAssignedOnly: {type: boolean}
+          isCommentAssignedOnly: {type: boolean}
+          isReadOnly: {type: boolean}
+          isReadAssignedOnly: {type: boolean}
+      UserErrorResponse:
+        type: object
+        additionalProperties: false
+        description: >-
+          Exact Meteor error envelope serialized by the Wekan v11.06 user
+          routes. Some HTTP-200 failures omit statusCode, while GET
+          /api/user/cards returns HTTP 401 with only error.
+        properties:
+          isClientSafe: {type: boolean}
+          error:
+            x-oneOf:
+              - {type: string}
+              - {type: number}
+          reason: {type: string}
+          message: {type: string}
+          errorType: {type: string}
+          statusCode: {type: integer, format: int32}
+      UserActionResponse:
+        description: >-
+          `takeOwnership` returns affected board summaries; `disableLogin` and
+          `enableLogin` return the sanitized user document. `enableLogin` omits
+          `loginDisabled` from the returned user document. Errors can be
+          serialized in the HTTP-200 response body.
+        x-oneOf:
+          - {type: array, items: {$ref: '#/definitions/BoardSummary'}}
+          - {$ref: '#/definitions/Users'}
+          - {$ref: '#/definitions/UserErrorResponse'}
+
+  - target: '$.definitions.CurrentUserResponse.properties'
+    description: >-
+      Complete the allowlisted user and membership fields observed in Wekan
+      v11.06 server/models/users.js lines 1979-2001.
+    update:
+      loginDisabled: {type: boolean}
+      authenticationMethod: {type: string}
+      createdAt: {type: string, format: date-time}
+      modifiedAt: {type: string, format: date-time}
+      createdThroughApi: {type: boolean}
+      lastConnectionDate: {type: string, format: date-time}
+      heartbeat: {type: string, format: date-time}
+      sessionData: {$ref: '#/definitions/UsersSessiondata'}
+      importUsernames: {type: array, items: {type: string}}
+      orgs: {type: array, items: {$ref: '#/definitions/UsersOrgs'}}
+      teams: {type: array, items: {$ref: '#/definitions/UsersTeams'}}
+
+  - target: '$.definitions.CurrentUserResponse.properties.boards.items'
+    description: >-
+      Replace the open board object with the exact membership-role projection
+      assembled by Wekan v11.06 server/models/users.js lines 1985-1997.
+    update:
+      $ref: '#/definitions/UserBoardMembership'
+
+  - target: '$.definitions.Users.properties'
+    description: >-
+      Add the ID and board membership projection attached to user-detail and
+      login-action responses by Wekan v11.06 server/models/users.js lines
+      2038-2064 and 2066-2099.
+    update:
+      _id: {type: string}
+      boards: {type: array, items: {$ref: '#/definitions/UserBoardMembership'}}
+
+  - target: '$.definitions.Users.properties.sessionData'
+    description: >-
+      Remove sessionData because Wekan v11.06 server/models/users.js lines
+      2031-2035 explicitly strips it from user-detail and login-action responses.
+    remove: true
+
+  - target: '$.definitions.Users'
+    description: Close the sanitized v11.06 administrative user response.
+    update:
+      additionalProperties: false
+
+  - target: '$.definitions.UsersProfile'
+    description: Close the top-level v11.06 user profile field allowlist.
+    update:
+      additionalProperties: false
+
+  - target: '$.definitions.UsersSessiondata'
+    description: Close the v11.06 session-data shape used only by the self response.
+    update:
+      additionalProperties: false
+
+  - target: '$.definitions.UsersEmails'
+    description: Close the v11.06 user email-entry shape.
+    update:
+      additionalProperties: false
+
+  - target: '$.definitions.UsersOrgs'
+    description: Close the v11.06 organization-membership shape.
+    update:
+      additionalProperties: false
+
+  - target: '$.definitions.UsersTeams'
+    description: Close the v11.06 team-membership shape.
+    update:
+      additionalProperties: false
+
+  - target: '$.paths["/api/user"].get'
+    description: >-
+      Document the authenticated-current-user permissions and embedded error
+      behavior in Wekan v11.06 server/models/users.js lines 1979-2001.
+    update:
+      summary: Return the currently authenticated user.
+      description: >-
+        Available to any authenticated user. Returns identity, selected profile
+        and account state, organizations, teams, and board-membership roles.
+        Authentication errors are serialized inside HTTP 200.
+
+  - target: '$.paths["/api/user"].get.responses["200"]'
+    description: Record the alternate embedded authentication-error body.
+    update:
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/user/cards"].get'
+    description: >-
+      Add the undocumented filters and compact projection implemented by Wekan
+      v11.06 server/models/cards.js lines 2055-2122.
+    update:
+      summary: List readable cards related to the current user.
+      description: >-
+        Returns non-archived cards on active readable boards where the caller is
+        a member, assignee, requester, or assigner. `due=true`, `due=1`, and
+        `due=yes` require a due date. Either date bound also enables due-date
+        filtering.
+      parameters:
+        - name: due
+          in: query
+          required: false
+          type: string
+          enum: ['true', '1', 'yes']
+        - name: from
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: to
+          in: query
+          required: false
+          type: string
+          format: date-time
+
+  - target: '$.paths["/api/user/cards"].get.responses["200"]'
+    description: >-
+      Correct the generated full-card schema to the compact projection returned
+      by Wekan v11.06 server/models/cards.js lines 2089-2103. Authentication
+      failures are a separate HTTP 401 response.
+    update:
+      description: Compact related-card summaries.
+      schema: {type: array, items: {$ref: '#/definitions/UserCardSummary'}}
+
+  - target: '$.paths["/api/user/cards"].get.responses'
+    description: >-
+      Record the explicit unauthenticated branch in Wekan v11.06
+      server/models/cards.js lines 2058-2063, confirmed against the pinned
+      local v11.06 stack as HTTP 401 with `{ "error": "Unauthorized" }`.
+    update:
+      '401':
+        description: Missing or invalid authentication.
+        schema: {$ref: '#/definitions/UserErrorResponse'}
+
+  - target: '$.paths["/api/users"].get'
+    description: >-
+      Record site-administrator authorization enforced by checkUserId in Wekan
+      v11.06 server/models/users.js lines 2003-2015.
+    update:
+      summary: List users (site admin only).
+      description: Site-administrator access is required.
+
+  - target: '$.paths["/api/users"].get.responses["200"]'
+    description: Record HTTP-200 embedded authorization failures.
+    update:
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/users"].post'
+    description: >-
+      Record site-administrator authorization and the v11.06 creation response
+      defect in server/models/users.js lines 2246-2258.
+    update:
+      summary: Create a user (site admin only).
+      description: >-
+        Site-administrator access is required. The account is created, but
+        Wekan v11.06 serializes the unawaited creation Promise as `_id: {}`.
+
+  - target: '$.paths["/api/users"].post.responses["200"]'
+    description: Record HTTP-200 embedded authentication and authorization errors.
+    update:
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/users/{user}"].get'
+    description: >-
+      Record selector and site-administrator behavior from Wekan v11.06
+      server/models/users.js lines 2038-2064.
+    update:
+      summary: Return a user by ID or username (site admin only).
+      description: >-
+        Site-administrator access is required. The selector is resolved as a
+        user ID first and then as a username. Authentication services and
+        sessionData are omitted; board-membership roles are added.
+
+  - target: '$.paths["/api/users/{user}"].get.responses["200"]'
+    description: >-
+      Record embedded server-error bodies. Missing selectors do not have a
+      clean, consistent not-found identifier in v11.06.
+    update:
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/users/{user}"].put'
+    description: >-
+      Document the three explicit administrative actions in Wekan v11.06
+      server/models/users.js lines 2066-2099.
+    update:
+      summary: Perform an administrative action on a user.
+      description: >-
+        Site-administrator access is required. `takeOwnership` transfers every
+        board administered by the target user to the caller and returns affected
+        board summaries. `disableLogin` sets
+        `loginDisabled` and clears the target's existing sessions, but the
+        v11.06 REST login handler does not inspect that field and can mint a new
+        token with correct credentials. `enableLogin` omits `loginDisabled`
+        from the returned user document; both login actions return sanitized
+        user documents.
+      x-wekan-v11.06-defect: disable-login-does-not-block-rest-login
+
+  - target: '$.paths["/api/users/{user}"].put.responses["200"]'
+    description: Add action-specific success and embedded error alternatives.
+    update:
+      description: Action-specific success body, or an embedded error object.
+      schema: {$ref: '#/definitions/UserActionResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/users/{user}"].delete'
+    description: >-
+      Record site-administrator authorization from Wekan v11.06
+      server/models/users.js lines 2261-2269.
+    update:
+      summary: Delete a user (site admin only).
+      description: >-
+        Attempts to remove the selected user and returns the requested ID. The
+        echoed ID does not confirm that a matching user existed or was removed.
+
+  - target: '$.paths["/api/users/{user}"].delete.responses["200"]'
+    description: >-
+      Record embedded server-error bodies. The route returns the requested ID
+      even when no matching user was removed, so it has no not-found response.
+    update:
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/users/{userId}/boards"].get'
+    description: >-
+      Correct permissions and result filtering from Wekan v11.06
+      server/models/boards.js user-board route: the caller must be the selected
+      user or a site administrator, and only active non-internal boards are
+      returned.
+    update:
+      summary: List a user's active boards (self or site admin).
+      tags: [Users]
+      description: >-
+        Available to the selected user or a site administrator. Returns active,
+        non-archived, non-internal board ID/title summaries.
+
+  - target: '$.paths["/api/users/{userId}/boards"].get.responses["200"]'
+    description: Record the compact success shape and embedded authorization errors.
+    update:
+      description: Active board summaries, or an embedded error object.
+      schema: {type: array, items: {$ref: '#/definitions/BoardSummary'}}
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.definitions.CurrentUserResponse.properties.boards'
+    description: Remove the inherited open board-membership shape before replacement.
+    remove: true
+
+  - target: '$.definitions.CurrentUserResponse.properties'
+    description: Install the exact v11.06 board-membership role projection.
+    update:
+      boards:
+        type: array
+        items: {$ref: '#/definitions/UserBoardMembership'}
+
   - target: '$.paths["/api/boards/{board}/exportZip"].get'
     description: >-
       Correct authentication, selection/scope parameters and ZIP media type
@@ -2863,7 +3181,7 @@ actions:
       Add the four remaining JSON request models whose generated Swagger 2.0
       annotations incorrectly expose formData. Exact Wekan v11.06 evidence is
       server/models/customFields.js lines 247-277 and
-      server/models/users.js lines 2066-2097, 2194-2242, and 2246-2257.
+      server/models/users.js lines 2066-2099, 2194-2242, and 2246-2258.
     update:
       UpdateDropdownItemRequest:
         type: object
@@ -2885,7 +3203,7 @@ actions:
         type: object
         description: >-
           JSON body passed to Accounts.createUser by Wekan v11.06
-          server/models/users.js lines 2246-2257.
+          server/models/users.js lines 2246-2258.
         required: [username, email, password]
         properties:
           username: {type: string}
@@ -2895,7 +3213,7 @@ actions:
         type: object
         description: >-
           JSON administrative action read from req.body.action by Wekan v11.06
-          server/models/users.js lines 2066-2097.
+          server/models/users.js lines 2066-2099.
         required: [action]
         properties:
           action:
@@ -2938,7 +3256,7 @@ actions:
   - target: '$.paths["/api/users"].post'
     description: >-
       Replace generated formData with the JSON body passed to Accounts.createUser
-      by Wekan v11.06 server/models/users.js lines 2246-2257.
+      by Wekan v11.06 server/models/users.js lines 2246-2258.
     update:
       consumes: [application/json]
       parameters:
@@ -2950,7 +3268,7 @@ actions:
   - target: '$.paths["/api/users/{user}"].put'
     description: >-
       Replace generated formData with the JSON administrative action read by
-      Wekan v11.06 server/models/users.js lines 2066-2097.
+      Wekan v11.06 server/models/users.js lines 2066-2099.
     update:
       consumes: [application/json]
       parameters:
@@ -3242,7 +3560,7 @@ actions:
     description: >-
       Remove authentication services from the REST user schema. Wekan v11.06
       server/models/users.js lines 1979-1984 deletes it for GET /api/user, and
-      lines 2031-2035 removes it from user-detail responses.
+      lines 2031-2035 removes it from user-detail and login-action responses.
     remove: true
 
   - target: '$.paths["/api/boards/{board}/rules"].get.responses["200"].schema.items.properties.trigger'
@@ -3527,11 +3845,12 @@ actions:
     description: >-
       Record two HTTP-200 response shapes whose success/error behavior cannot
       be represented by the original IdResponse. Exact Wekan v11.06 evidence
-      is server/models/users.js lines 2246-2257 and
+      is server/models/users.js lines 2246-2258 and
       server/models/boards.js lines 991-1014 and 1034-1050.
     update:
       CreateUserV1106Response:
         type: object
+        additionalProperties: false
         description: >-
           Wekan v11.06 server/models/users.js lines 2249-2255 omits `await`
           before Accounts.createUser, so the Promise is JSON-serialized as an
@@ -3541,7 +3860,7 @@ actions:
         properties:
           _id:
             type: object
-            additionalProperties: true
+            additionalProperties: false
             description: Empty object in v11.06 because an unawaited Promise is serialized.
       BoardImportResult:
         type: object
@@ -3559,7 +3878,7 @@ actions:
   - target: '$.paths["/api/users"].post.responses["200"]'
     description: >-
       Record the unawaited Accounts.createUser result implemented by Wekan
-      v11.06 server/models/users.js lines 2246-2257 and confirmed against the
+      v11.06 server/models/users.js lines 2246-2258 and confirmed against the
       pinned v11.06 container.
     update:
       description: >-
@@ -3954,10 +4273,10 @@ actions:
 
   - target: '$.paths["/api/user/cards"].get.responses["200"]'
     description: >-
-      Add the card array returned by Wekan v11.06 server/models/cards.js lines
-      2180-2236.
+      Add the compact card array returned by Wekan v11.06
+      server/models/cards.js lines 2055-2122.
     update:
-      schema: {type: array, items: {$ref: '#/definitions/Cards'}}
+      schema: {type: array, items: {$ref: '#/definitions/UserCardSummary'}}
 
   - target: '$.paths["/api/boards/{board}/swimlanes"].get.responses["200"]'
     description: >-
@@ -4004,7 +4323,7 @@ actions:
   - target: '$.paths["/api/users"].get.responses["200"]'
     description: >-
       Add the admin user-summary array from Wekan v11.06
-      server/models/users.js lines 2003-2013.
+      server/models/users.js lines 2003-2015.
     update:
       schema: {type: array, items: {$ref: '#/definitions/UserSummary'}}
 
@@ -4019,23 +4338,22 @@ actions:
   - target: '$.paths["/api/users/{user}"].get.responses["200"]'
     description: >-
       Add the secret-stripped user document from Wekan v11.06
-      server/models/users.js lines 2017-2062.
+      server/models/users.js lines 2038-2064.
     update:
       schema: {$ref: '#/definitions/Users'}
 
   - target: '$.paths["/api/users/{user}"].put.responses["200"]'
     description: >-
       Describe the user document or board-summary array selected by action in
-      Wekan v11.06 server/models/users.js lines 2066-2097. Swagger 2 cannot
-      express the two unrelated success shapes, so the schema is intentionally
-      unconstrained rather than falsely choosing one.
+      Wekan v11.06 server/models/users.js lines 2066-2099, including the exact
+      serialized Meteor error envelope.
     update:
-      schema: {}
+      schema: {$ref: '#/definitions/UserActionResponse'}
 
   - target: '$.paths["/api/users/{user}"].delete.responses["200"]'
     description: >-
       Add the deleted user ID from Wekan v11.06
-      server/models/users.js lines 2261-2268.
+      server/models/users.js lines 2261-2269.
     update:
       schema: {$ref: '#/definitions/IdResponse'}
 
@@ -4449,3 +4767,11 @@ actions:
         '401': {description: Invalid login token., schema: {$ref: '#/definitions/ErrorResponse'}}
         '403': {description: Board access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
         '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  # Final user-slice corrections must follow the generic response-coverage
+  # actions above.
+  - target: '$.paths["/api/user/cards"].get.responses["200"].schema'
+    description: Preserve the verified compact v11.06 current-user card projection.
+    update:
+      type: array
+      items: {$ref: '#/definitions/UserCardSummary'}

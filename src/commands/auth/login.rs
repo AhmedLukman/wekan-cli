@@ -1,5 +1,12 @@
 use clap::Args;
 
+use crate::commands::{
+    client_error::{
+        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
+        response_error_details, server_error_details,
+    },
+    credential_ops::{credential_target, lock_credential_mutation, preflight_credentials},
+};
 use crate::{
     client::{ClientError, LoginRequest},
     command_result::CommandSuccess,
@@ -10,11 +17,7 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{
-    credential_target, embedded_server_error_details, ensure_credential_absent,
-    lock_credential_mutation, non_empty_identity, persist_session, preflight_credentials,
-    protocol_error_details, response_error_details, server_error_details,
-};
+use super::{ensure_credential_absent, non_empty_identity, persist_session};
 
 #[derive(Debug, Args)]
 pub struct LoginArgs {
@@ -161,6 +164,31 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 ErrorCode::ProtocolError,
                 redactor.redact(&format!("invalid response from Wekan: {message}")),
                 StableExitCode::Transport,
+            )
+            .with_details(details)
+        }
+        ClientError::EmbeddedProtocol {
+            http_status,
+            server_error,
+            server_reason,
+            server_message,
+            server_error_type,
+            server_is_client_safe,
+        } => {
+            let mut details = embedded_protocol_error_details(
+                http_status,
+                server_error,
+                server_reason,
+                server_message,
+                server_error_type,
+                server_is_client_safe,
+                redactor,
+            );
+            details.outcome_unknown = Some(true);
+            AppError::new(
+                ErrorCode::ProtocolError,
+                "Wekan returned an embedded login error without statusCode; the remote outcome may be unknown",
+                StableExitCode::Server,
             )
             .with_details(details)
         }
@@ -471,7 +499,7 @@ mod tests {
     }
 
     impl SecretInputProvider for FakeSecretInput {
-        fn read_registration_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
+        fn read_new_account_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
             self.read.store(true, Ordering::SeqCst);
             Ok(SecretString::from("test-password".to_owned()))
         }

@@ -114,6 +114,12 @@ reports both `http_status: 200` and `wekan_status_code: 401`. It does not delete
 the rejected credential. Remove that entry with
 `wekan auth logout --local-only` before logging in again.
 
+The `GET /api/user` request and typed response decoding are owned by the shared
+user client module and are also used by `wekan user current`. `auth status`
+remains separate because it reports local profile, credential-store, and
+token-expiry health. `user current` reports only the Wekan user resource; it
+does not expose token expiry or credential-store state.
+
 Successful status requires the returned `_id` to be nonempty and to match the
 stored user ID. Output allowlists only the user ID, username, profile full name,
 administrator flag, email addresses and verification flags. Board memberships,

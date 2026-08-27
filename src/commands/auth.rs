@@ -4,22 +4,23 @@ pub mod register;
 pub mod status;
 
 use clap::{Args, Subcommand};
-use reqwest::StatusCode;
 use time::format_description::well_known::Rfc3339;
 
 use crate::{
-    client::AuthSession,
+    client::{AuthSession, WekanClientFactory},
     command_result::{AuthSuccess, CommandSuccess},
     config::{MissingProfileResolution, ResolvedTarget},
     credentials::{
-        CredentialCreateOutcome, CredentialError, CredentialMutation, CredentialRecord,
-        CredentialStore, CredentialTarget, SecretInputProvider,
+        CredentialCreateOutcome, CredentialMutation, CredentialRecord, CredentialStore,
+        SecretInputProvider,
     },
-    error::{AppError, ErrorCode, ErrorDetails},
+    error::{AppError, ErrorCode},
     exit_code::StableExitCode,
     input::ConfirmationProvider,
     redaction::Redactor,
 };
+
+use super::credential_ops::map_credential_load_error;
 
 #[derive(Debug, Args)]
 pub struct AuthArgs {
@@ -54,73 +55,47 @@ impl AuthCommand {
     }
 }
 
+pub(crate) enum PreparedAuthCommand<'command, 'store> {
+    Login {
+        args: login::LoginArgs,
+        target: &'command mut ResolvedTarget<'store>,
+    },
+    Logout {
+        args: logout::LogoutArgs,
+        client_factory: &'command WekanClientFactory,
+    },
+    Register {
+        args: register::RegisterArgs,
+        target: &'command mut ResolvedTarget<'store>,
+    },
+    Status {
+        args: status::StatusArgs,
+        client_factory: &'command WekanClientFactory,
+    },
+}
+
 pub(crate) async fn dispatch(
-    command: AuthCommand,
-    target: &mut ResolvedTarget<'_>,
+    command: PreparedAuthCommand<'_, '_>,
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
-        AuthCommand::Login(args) => {
+        PreparedAuthCommand::Login { args, target } => {
             login::execute(args, target, credential_store, secret_input).await
         }
-        AuthCommand::Logout(args) => {
-            logout::execute(
-                args,
-                target.client_factory(),
-                credential_store,
-                confirmation,
-            )
-            .await
-        }
-        AuthCommand::Register(args) => {
+        PreparedAuthCommand::Logout {
+            args,
+            client_factory,
+        } => logout::execute(args, client_factory, credential_store, confirmation).await,
+        PreparedAuthCommand::Register { args, target } => {
             register::execute(args, target, credential_store, secret_input).await
         }
-        AuthCommand::Status(args) => {
-            status::execute(args, target.client_factory(), credential_store).await
-        }
+        PreparedAuthCommand::Status {
+            args,
+            client_factory,
+        } => status::execute(args, client_factory, credential_store).await,
     }
-}
-
-pub(super) fn map_credential_load_error(error: CredentialError) -> AppError {
-    let (code, message) = match error {
-        CredentialError::Unavailable(message) => (
-            ErrorCode::CredentialStoreUnavailable,
-            format!("the operating-system credential store is unavailable: {message}"),
-        ),
-        error => (
-            ErrorCode::CredentialStoreFailed,
-            format!("the stored credential could not be loaded: {error}"),
-        ),
-    };
-    AppError::new(code, message, StableExitCode::Credential)
-}
-
-pub(super) fn preflight_credentials(
-    credential_store: &dyn CredentialStore,
-    target: &CredentialTarget,
-) -> Result<(), AppError> {
-    credential_store.check_available(target).map_err(|error| {
-        AppError::new(
-            ErrorCode::CredentialStoreUnavailable,
-            error.to_string(),
-            StableExitCode::Credential,
-        )
-    })
-}
-
-pub(super) fn lock_credential_mutation<'a>(
-    credential_store: &'a dyn CredentialStore,
-    target: &CredentialTarget,
-) -> Result<Box<dyn CredentialMutation + Send + 'a>, AppError> {
-    credential_store.lock_mutation(target).map_err(|error| {
-        AppError::new(
-            ErrorCode::CredentialStoreFailed,
-            format!("the stored credential could not be synchronized: {error}"),
-            StableExitCode::Credential,
-        )
-    })
 }
 
 pub(super) fn persist_session(
@@ -179,14 +154,6 @@ pub(super) fn persist_session(
     })
 }
 
-pub(super) fn credential_target(
-    profile: &str,
-    credential_namespace: &str,
-    server_url: String,
-) -> CredentialTarget {
-    CredentialTarget::profile_in_store(profile, credential_namespace, server_url)
-}
-
 pub(super) fn ensure_credential_absent(
     credential_mutation: &dyn CredentialMutation,
     target: &ResolvedTarget<'_>,
@@ -221,69 +188,5 @@ pub(super) fn non_empty_identity(value: &str) -> Result<String, String> {
         Err("value must not be empty".to_owned())
     } else {
         Ok(value.to_owned())
-    }
-}
-
-pub(super) fn protocol_error_details(success_status_received: bool) -> ErrorDetails {
-    ErrorDetails {
-        http_status: success_status_received.then_some(StatusCode::OK.as_u16()),
-        ..ErrorDetails::default()
-    }
-}
-
-pub(super) fn response_error_details(
-    status: StatusCode,
-    retry_after_seconds: Option<u64>,
-) -> ErrorDetails {
-    ErrorDetails {
-        http_status: Some(status.as_u16()),
-        retry_after_seconds: retry_after_for_status(status, retry_after_seconds),
-        ..ErrorDetails::default()
-    }
-}
-
-fn retry_after_for_status(status: StatusCode, retry_after_seconds: Option<u64>) -> Option<u64> {
-    (status == StatusCode::TOO_MANY_REQUESTS)
-        .then_some(retry_after_seconds)
-        .flatten()
-}
-
-pub(super) fn server_error_details(
-    status: StatusCode,
-    server_error: Option<String>,
-    server_reason: Option<String>,
-    retry_after_seconds: Option<u64>,
-    redactor: &Redactor<'_>,
-) -> ErrorDetails {
-    let mut details = response_error_details(status, retry_after_seconds);
-    details.server_error = server_error.map(|value| redactor.redact(&value));
-    details.server_reason = server_reason.map(|value| redactor.redact(&value));
-    details
-}
-
-pub(super) fn embedded_server_error_details(
-    http_status: reqwest::StatusCode,
-    wekan_status_code: u16,
-    server_error: Option<String>,
-    server_reason: Option<String>,
-    redactor: &Redactor<'_>,
-) -> ErrorDetails {
-    ErrorDetails {
-        http_status: Some(http_status.as_u16()),
-        wekan_status_code: Some(wekan_status_code),
-        server_error: server_error.map(|value| redactor.redact(&value)),
-        server_reason: server_reason.map(|value| redactor.redact(&value)),
-        ..ErrorDetails::default()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::credential_target;
-
-    #[test]
-    fn namespaced_profile_factory_creates_an_isolated_credential_target() {
-        let target = credential_target("work", "store-one", "https://wekan.example/".to_owned());
-        assert_eq!(target.account(), "profile:store-one:work");
     }
 }

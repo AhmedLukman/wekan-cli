@@ -1,5 +1,7 @@
 pub mod auth;
 pub mod error;
+mod transport;
+pub mod users;
 
 use std::{net::IpAddr, time::Duration};
 
@@ -7,10 +9,13 @@ use reqwest::{Client, redirect::Policy};
 use thiserror::Error;
 use url::{Host, Url};
 
-pub use auth::{
-    AuthSession, CurrentUser, CurrentUserEmail, LoginRequest, LogoutRequest, RegisterRequest,
-};
+pub use auth::{AuthSession, LoginRequest, LogoutRequest, RegisterRequest};
 pub use error::ClientError;
+pub use users::{
+    BoardSummary, CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard,
+    CurrentUserEmail, CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery,
+    UserEmail, UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam,
+};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

@@ -30,6 +30,10 @@ wekan-cli/
 │   │
 │   ├── commands.rs                    # Root command enum, module declarations and dispatch
 │   ├── commands/
+│   │   ├── authenticated.rs           # Handler-owned authenticated command state
+│   │   ├── client_error.rs            # Shared client-to-command error-detail mapping
+│   │   ├── credential_ops.rs          # Shared credential-store operation policy
+│   │   │
 │   │   ├── profile.rs                 # `wekan profile` family enum, dispatch and shared policy
 │   │   ├── profile/
 │   │   │   ├── add.rs                 # AddArgs and add handler
@@ -55,10 +59,17 @@ wekan-cli/
 │   │   │
 │   │   ├── users.rs                   # `wekan user` family
 │   │   ├── users/
+│   │   │   ├── current.rs
+│   │   │   ├── cards.rs
 │   │   │   ├── list.rs
 │   │   │   ├── get.rs
 │   │   │   ├── create.rs
-│   │   │   └── ...
+│   │   │   ├── boards.rs
+│   │   │   ├── take_ownership.rs
+│   │   │   ├── disable_login.rs
+│   │   │   ├── enable_login.rs
+│   │   │   ├── delete.rs
+│   │   │   └── tests.rs
 │   │   │
 │   │   ├── boards.rs                  # `wekan board` family
 │   │   ├── boards/
