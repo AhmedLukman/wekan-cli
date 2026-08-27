@@ -20,6 +20,7 @@ use crate::{
     credentials::{CredentialError, CredentialStore, CredentialTarget},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
+    input::ConfirmationProvider,
 };
 
 #[derive(Debug, Args)]
@@ -48,6 +49,7 @@ pub(crate) fn dispatch(
     command: ProfileCommand,
     profile_store: &dyn ProfileStore,
     credential_store: &dyn CredentialStore,
+    confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
         ProfileCommand::Add(args) => {
@@ -69,7 +71,10 @@ pub(crate) fn dispatch(
         }
         ProfileCommand::Remove(args) => {
             let name = args.name.clone();
-            with_profile_context(name, remove::execute(args, profile_store, credential_store))
+            with_profile_context(
+                name,
+                remove::execute(args, profile_store, credential_store, confirmation),
+            )
         }
     }
 }

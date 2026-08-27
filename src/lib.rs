@@ -7,6 +7,7 @@ pub mod config;
 pub mod credentials;
 pub mod error;
 pub mod exit_code;
+pub mod input;
 pub mod output;
 pub mod redaction;
 
@@ -48,11 +49,10 @@ pub async fn run() -> ExitCode {
     };
 
     let output_format = cli.output;
-    let app = App::production(ServerSelection::new(
-        cli.server,
-        cli.profile_name,
-        cli.allow_insecure_http,
-    ));
+    let app = App::production_with_confirmation_interactivity(
+        ServerSelection::new(cli.server, cli.profile_name, cli.allow_insecure_http),
+        output_format == OutputFormat::Human,
+    );
 
     match app.execute(cli.command).await {
         Ok(success) => {

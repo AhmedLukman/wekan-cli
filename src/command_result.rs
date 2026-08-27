@@ -2,6 +2,7 @@ use serde::Serialize;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    Cancelled(CancellationSuccess),
     Registration(AuthSuccess),
     Login(AuthSuccess),
     Logout(LogoutSuccess),
@@ -12,6 +13,37 @@ pub enum CommandSuccess {
     ProfileUsed(ProfileItem),
     ProfileUpdated(ProfileItem),
     ProfileRemoved(ProfileRemoveSuccess),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DestructiveOperation {
+    AuthLogout,
+    ProfileRemove,
+}
+
+impl DestructiveOperation {
+    pub const fn as_command(self) -> &'static str {
+        match self {
+            Self::AuthLogout => "auth logout",
+            Self::ProfileRemove => "profile remove",
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CancellationSuccess {
+    pub cancelled: bool,
+    pub operation: DestructiveOperation,
+}
+
+impl CancellationSuccess {
+    pub const fn new(operation: DestructiveOperation) -> Self {
+        Self {
+            cancelled: true,
+            operation,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

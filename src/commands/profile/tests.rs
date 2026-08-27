@@ -4,17 +4,46 @@ use secrecy::SecretString;
 use time::{Duration, OffsetDateTime};
 
 use super::{
-    AddArgs, ListArgs, ProfileCommand, RemoveArgs, ShowArgs, UpdateArgs, UseArgs, dispatch,
+    AddArgs, ListArgs, ProfileCommand, RemoveArgs, ShowArgs, UpdateArgs, UseArgs,
+    dispatch as dispatch_with_confirmation,
 };
 use crate::{
     command_result::CommandSuccess,
-    config::profiles::{FileProfileStore, ProfileStore},
+    config::profiles::{FileProfileStore, Profile, ProfileStore},
     credentials::{
         CredentialDeleteOutcome, CredentialError, CredentialRecord, CredentialStore,
         CredentialTarget,
     },
     error::ErrorCode,
+    input::{
+        ConfirmationArgs, ConfirmationProvider, ConfirmationRequest, FakeConfirmationProvider,
+    },
 };
+
+struct CallbackConfirmation<F>(F);
+
+impl<F> ConfirmationProvider for CallbackConfirmation<F>
+where
+    F: Fn() + Send + Sync,
+{
+    fn confirm(&self, _request: &ConfirmationRequest) -> Result<bool, crate::error::AppError> {
+        (self.0)();
+        Ok(true)
+    }
+}
+
+fn dispatch(
+    command: ProfileCommand,
+    store: &dyn ProfileStore,
+    credentials: &dyn CredentialStore,
+) -> Result<CommandSuccess, crate::error::AppError> {
+    dispatch_with_confirmation(
+        command,
+        store,
+        credentials,
+        &FakeConfirmationProvider::accepting(),
+    )
+}
 
 struct TestDirectory(std::path::PathBuf);
 
@@ -273,6 +302,7 @@ fn update_and_remove_require_the_profile_to_be_logged_out() {
         ProfileCommand::Remove(RemoveArgs {
             name: "local".to_owned(),
             force: false,
+            confirmation: ConfirmationArgs::assume_yes(),
         }),
         &store,
         &credentials,
@@ -284,6 +314,7 @@ fn update_and_remove_require_the_profile_to_be_logged_out() {
         ProfileCommand::Remove(RemoveArgs {
             name: "local".to_owned(),
             force: true,
+            confirmation: ConfirmationArgs::assume_yes(),
         }),
         &store,
         &credentials,
@@ -296,6 +327,7 @@ fn update_and_remove_require_the_profile_to_be_logged_out() {
         ProfileCommand::Remove(RemoveArgs {
             name: "local".to_owned(),
             force: true,
+            confirmation: ConfirmationArgs::assume_yes(),
         }),
         &store,
         &credentials,
@@ -305,6 +337,222 @@ fn update_and_remove_require_the_profile_to_be_logged_out() {
     };
     assert!(removed.removed);
     assert_eq!(removed.active_profile, None);
+}
+
+#[test]
+fn removal_decline_and_confirmation_failure_leave_the_profile_unchanged() {
+    for (confirmation, expected_error) in [
+        (FakeConfirmationProvider::declining(), false),
+        (
+            FakeConfirmationProvider::failing(crate::error::AppError::invalid_input(
+                "test confirmation unavailable",
+            )),
+            true,
+        ),
+    ] {
+        let directory = TestDirectory::new();
+        let store = directory.store();
+        let credentials = FakeCredentialStore::default();
+        add(
+            &store,
+            &credentials,
+            "local",
+            "http://localhost:3000",
+            false,
+        )
+        .unwrap();
+
+        let result = dispatch_with_confirmation(
+            ProfileCommand::Remove(RemoveArgs {
+                name: "local".to_owned(),
+                force: true,
+                confirmation: ConfirmationArgs::default(),
+            }),
+            &store,
+            &credentials,
+            &confirmation,
+        );
+
+        assert!(store.read().unwrap().document().profile("local").is_some());
+        assert_eq!(confirmation.requests().len(), 1);
+        assert!(
+            confirmation.requests()[0]
+                .prompt()
+                .contains("clear the active selection")
+        );
+        if expected_error {
+            assert_eq!(result.unwrap_err().code(), ErrorCode::InvalidInput);
+        } else {
+            let success = result.unwrap();
+            let CommandSuccess::Cancelled(cancelled) = success else {
+                panic!("expected cancellation")
+            };
+            assert!(cancelled.cancelled);
+        }
+    }
+}
+
+fn inactive_profile(store: &FileProfileStore, credentials: &FakeCredentialStore) -> String {
+    add(store, credentials, "active", "http://localhost:3000", false).unwrap();
+    add(store, credentials, "target", "http://localhost:4000", false).unwrap();
+    "http://localhost:4000/".to_owned()
+}
+
+#[test]
+fn profile_changed_while_awaiting_confirmation_is_not_removed() {
+    let directory = TestDirectory::new();
+    let store = directory.store();
+    let credentials = FakeCredentialStore::default();
+    inactive_profile(&store, &credentials);
+    let confirmation = CallbackConfirmation(|| {
+        let mut mutation = store.lock_mutation().unwrap();
+        let mut document = mutation.document().clone();
+        document.insert(
+            "target".to_owned(),
+            Profile::new("http://localhost:5000/".to_owned()),
+        );
+        mutation.save(document).unwrap();
+    });
+
+    let error = dispatch_with_confirmation(
+        ProfileCommand::Remove(RemoveArgs {
+            name: "target".to_owned(),
+            force: false,
+            confirmation: ConfirmationArgs::default(),
+        }),
+        &store,
+        &credentials,
+        &confirmation,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::ConfigurationError);
+    assert_eq!(
+        store
+            .read()
+            .unwrap()
+            .document()
+            .profile("target")
+            .unwrap()
+            .server(),
+        "http://localhost:5000/"
+    );
+}
+
+#[test]
+fn profile_recreated_with_the_same_values_while_awaiting_confirmation_is_not_removed() {
+    let directory = TestDirectory::new();
+    let store = directory.store();
+    let credentials = FakeCredentialStore::default();
+    let server = inactive_profile(&store, &credentials);
+    let confirmation = CallbackConfirmation(|| {
+        {
+            let mut mutation = store.lock_mutation().unwrap();
+            let mut document = mutation.document().clone();
+            document.remove("target");
+            mutation.save(document).unwrap();
+        }
+
+        let mut mutation = store.lock_mutation().unwrap();
+        let mut document = mutation.document().clone();
+        document.insert("target".to_owned(), Profile::new(server.clone()));
+        mutation.save(document).unwrap();
+    });
+
+    let error = dispatch_with_confirmation(
+        ProfileCommand::Remove(RemoveArgs {
+            name: "target".to_owned(),
+            force: false,
+            confirmation: ConfirmationArgs::default(),
+        }),
+        &store,
+        &credentials,
+        &confirmation,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::ConfigurationError);
+    assert_eq!(
+        store
+            .read()
+            .unwrap()
+            .document()
+            .profile("target")
+            .unwrap()
+            .server(),
+        server
+    );
+}
+
+#[test]
+fn profile_removed_or_activated_while_awaiting_confirmation_is_not_deleted_again() {
+    for activate in [false, true] {
+        let directory = TestDirectory::new();
+        let store = directory.store();
+        let credentials = FakeCredentialStore::default();
+        inactive_profile(&store, &credentials);
+        let confirmation = CallbackConfirmation(|| {
+            let mut mutation = store.lock_mutation().unwrap();
+            let mut document = mutation.document().clone();
+            if activate {
+                document.set_active_profile(Some("target".to_owned()));
+            } else {
+                document.remove("target");
+            }
+            mutation.save(document).unwrap();
+        });
+
+        let error = dispatch_with_confirmation(
+            ProfileCommand::Remove(RemoveArgs {
+                name: "target".to_owned(),
+                force: false,
+                confirmation: ConfirmationArgs::default(),
+            }),
+            &store,
+            &credentials,
+            &confirmation,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error.code(),
+            if activate {
+                ErrorCode::ConfigurationError
+            } else {
+                ErrorCode::ProfileNotFound
+            }
+        );
+        assert_eq!(
+            store.read().unwrap().document().profile("target").is_some(),
+            activate
+        );
+    }
+}
+
+#[test]
+fn credential_added_while_awaiting_confirmation_blocks_profile_removal() {
+    let directory = TestDirectory::new();
+    let store = directory.store();
+    let credentials = FakeCredentialStore::default();
+    let server = inactive_profile(&store, &credentials);
+    let namespace = store.credential_namespace().unwrap();
+    let target = CredentialTarget::profile_in_store("target", &namespace, server);
+    let confirmation = CallbackConfirmation(|| credentials.insert(target.account()));
+
+    let error = dispatch_with_confirmation(
+        ProfileCommand::Remove(RemoveArgs {
+            name: "target".to_owned(),
+            force: false,
+            confirmation: ConfirmationArgs::default(),
+        }),
+        &store,
+        &credentials,
+        &confirmation,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::ProfileHasCredential);
+    assert!(store.read().unwrap().document().profile("target").is_some());
 }
 
 #[test]

@@ -16,6 +16,7 @@ use crate::{
     },
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
+    input::ConfirmationProvider,
     redaction::Redactor,
 };
 
@@ -45,12 +46,15 @@ pub(crate) async fn dispatch(
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
+    confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
         AuthCommand::Login(args) => {
             login::execute(args, client_factory, credential_store, secret_input).await
         }
-        AuthCommand::Logout(args) => logout::execute(args, client_factory, credential_store).await,
+        AuthCommand::Logout(args) => {
+            logout::execute(args, client_factory, credential_store, confirmation).await
+        }
         AuthCommand::Register(args) => {
             register::execute(args, client_factory, credential_store, secret_input).await
         }

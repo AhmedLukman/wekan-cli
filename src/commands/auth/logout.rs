@@ -3,10 +3,16 @@ use reqwest::StatusCode;
 
 use crate::{
     client::{ClientError, LogoutRequest, WekanClientFactory},
-    command_result::{CommandSuccess, LogoutScope, LogoutSuccess},
+    command_result::{
+        CancellationSuccess, CommandSuccess, DestructiveOperation, LogoutScope, LogoutSuccess,
+    },
     credentials::{CredentialDeleteOutcome, CredentialMutation, CredentialRecord, CredentialStore},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
+    input::{
+        ConfirmationArgs, ConfirmationDecision, ConfirmationProvider, ConfirmationRequest,
+        confirm_or_skip,
+    },
     redaction::Redactor,
 };
 
@@ -25,15 +31,37 @@ pub struct LogoutArgs {
     /// Remove only the local credential without contacting Wekan.
     #[arg(long, conflicts_with = "all")]
     pub local_only: bool,
+
+    #[command(flatten)]
+    pub confirmation: ConfirmationArgs,
 }
 
 pub(crate) async fn execute(
     args: LogoutArgs,
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
+    confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     if args.local_only {
-        return execute_local_only(client_factory, credential_store);
+        let server = client_factory.server_identity().as_str().to_owned();
+        let credential_target = credential_target(client_factory, server.clone());
+        let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
+            .map_err(|error| {
+                error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
+            })?;
+        if let Some(cancelled) = confirm_logout(
+            &args,
+            client_factory,
+            &server,
+            LogoutScope::LocalOnly,
+            confirmation,
+        )? {
+            return Ok(cancelled);
+        }
+        preflight_credentials(credential_store, &credential_target).map_err(|error| {
+            error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
+        })?;
+        return execute_local_only(client_factory, credential_mutation.as_ref());
     }
 
     let scope = if args.all {
@@ -46,9 +74,12 @@ pub(crate) async fn execute(
     })?;
     let server = client.server().as_str().to_owned();
     let credential_target = credential_target(client_factory, server.clone());
-    preflight_credentials(credential_store, &credential_target)
-        .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
     let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
+        .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
+    if let Some(cancelled) = confirm_logout(&args, client_factory, &server, scope, confirmation)? {
+        return Ok(cancelled);
+    }
+    preflight_credentials(credential_store, &credential_target)
         .map_err(|error| error.with_details(no_remote_mutation_details(scope, None)))?;
     let record = credential_mutation
         .load()
@@ -89,6 +120,37 @@ pub(crate) async fn execute(
     ))
 }
 
+fn confirm_logout(
+    args: &LogoutArgs,
+    client_factory: &WekanClientFactory,
+    server: &str,
+    scope: LogoutScope,
+    confirmation: &dyn ConfirmationProvider,
+) -> Result<Option<CommandSuccess>, AppError> {
+    let target = match client_factory.profile() {
+        Some(profile) => format!("profile `{profile}` on {server}"),
+        None => server.to_owned(),
+    };
+    let prompt = match scope {
+        LogoutScope::CurrentToken => format!(
+            "Revoke the current Wekan login token and remove its local credential for {target}?"
+        ),
+        LogoutScope::AllTokens => format!(
+            "Revoke all Wekan login tokens for {target}, including browser and other CLI sessions, and remove the local credential?"
+        ),
+        LogoutScope::LocalOnly => format!(
+            "Remove the local credential for {target} without revoking its Wekan login token?"
+        ),
+    };
+    let request = ConfirmationRequest::new(DestructiveOperation::AuthLogout, prompt);
+    match confirm_or_skip(&args.confirmation, confirmation, &request)? {
+        ConfirmationDecision::Proceed => Ok(None),
+        ConfirmationDecision::Cancelled => Ok(Some(CommandSuccess::Cancelled(
+            CancellationSuccess::new(DestructiveOperation::AuthLogout),
+        ))),
+    }
+}
+
 fn delete_completed_logout_credential(
     credential_mutation: &dyn CredentialMutation,
     record: &CredentialRecord,
@@ -117,17 +179,9 @@ fn delete_completed_logout_credential(
 
 fn execute_local_only(
     client_factory: &WekanClientFactory,
-    credential_store: &dyn CredentialStore,
+    credential_mutation: &dyn CredentialMutation,
 ) -> Result<CommandSuccess, AppError> {
     let server = client_factory.server_identity().as_str().to_owned();
-    let credential_target = credential_target(client_factory, server.clone());
-    preflight_credentials(credential_store, &credential_target).map_err(|error| {
-        error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
-    })?;
-    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
-        .map_err(|error| {
-            error.with_details(no_remote_mutation_details(LogoutScope::LocalOnly, None))
-        })?;
     let removed = credential_mutation.delete().map_err(|error| {
         AppError::new(
             ErrorCode::CredentialStoreFailed,
@@ -400,11 +454,11 @@ mod tests {
         matchers::{body_json, header, method, path},
     };
 
-    use super::{LogoutArgs, execute};
+    use super::{LogoutArgs, execute as execute_with_confirmation};
     use crate::{
         cli::Cli,
         client::WekanClientFactory,
-        command_result::{CommandSuccess, LogoutScope},
+        command_result::{CommandSuccess, DestructiveOperation, LogoutScope},
         commands::{RootCommand, auth::AuthCommand},
         credentials::{
             CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
@@ -412,8 +466,38 @@ mod tests {
         },
         error::ErrorCode,
         exit_code::StableExitCode,
+        input::{
+            ConfirmationArgs, ConfirmationProvider, ConfirmationRequest, FakeConfirmationProvider,
+        },
         output::{OutputFormat, render_error},
     };
+
+    async fn execute(
+        args: LogoutArgs,
+        client_factory: &WekanClientFactory,
+        credential_store: &dyn CredentialStore,
+    ) -> Result<CommandSuccess, crate::error::AppError> {
+        execute_with_confirmation(
+            args,
+            client_factory,
+            credential_store,
+            &FakeConfirmationProvider::accepting(),
+        )
+        .await
+    }
+
+    struct BlockingConfirmationProvider {
+        entered: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+
+    impl ConfirmationProvider for BlockingConfirmationProvider {
+        fn confirm(&self, _request: &ConfirmationRequest) -> Result<bool, crate::error::AppError> {
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            Ok(true)
+        }
+    }
 
     struct StoredCredential {
         account: String,
@@ -628,6 +712,7 @@ mod tests {
         LogoutArgs {
             all,
             local_only: false,
+            confirmation: ConfirmationArgs::assume_yes(),
         }
     }
 
@@ -666,6 +751,7 @@ mod tests {
         };
         assert!(!args.all);
         assert!(!args.local_only);
+        assert!(!args.confirmation.yes());
 
         let all = Cli::try_parse_from([
             "wekan",
@@ -674,6 +760,7 @@ mod tests {
             "auth",
             "logout",
             "--all",
+            "--yes",
         ])
         .unwrap();
         let RootCommand::Auth(auth) = all.command else {
@@ -684,6 +771,7 @@ mod tests {
         };
         assert!(args.all);
         assert!(!args.local_only);
+        assert!(args.confirmation.yes());
 
         assert!(
             Cli::try_parse_from([
@@ -700,12 +788,123 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn declining_remote_logout_preserves_credentials_and_skips_http_for_each_scope() {
+        for (all, warning) in [
+            (false, "current Wekan login token"),
+            (true, "including browser and other CLI sessions"),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/users/logout"))
+                .respond_with(ResponseTemplate::new(500))
+                .expect(0)
+                .mount(&server)
+                .await;
+            let store = FakeCredentialStore::with_record(
+                &server,
+                OffsetDateTime::now_utc() + Duration::days(1),
+            );
+            let confirmation = FakeConfirmationProvider::declining();
+
+            let success = execute_with_confirmation(
+                LogoutArgs {
+                    all,
+                    local_only: false,
+                    confirmation: ConfirmationArgs::default(),
+                },
+                &factory(&server),
+                &store,
+                &confirmation,
+            )
+            .await
+            .unwrap();
+
+            let CommandSuccess::Cancelled(cancelled) = success else {
+                panic!("expected cancellation")
+            };
+            assert_eq!(cancelled.operation, DestructiveOperation::AuthLogout);
+            assert!(store.has_credential());
+            assert_eq!(store.loads.load(Ordering::SeqCst), 0);
+            assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+            let requests = confirmation.requests();
+            assert_eq!(requests.len(), 1);
+            assert!(requests[0].prompt().contains(warning));
+        }
+    }
+
+    #[tokio::test]
+    async fn declining_or_failing_local_only_confirmation_never_touches_the_vault() {
+        for (confirmation, expected_error) in [
+            (FakeConfirmationProvider::declining(), false),
+            (
+                FakeConfirmationProvider::failing(crate::error::AppError::invalid_input(
+                    "test confirmation unavailable",
+                )),
+                true,
+            ),
+        ] {
+            let store = FakeCredentialStore::local_only(true);
+            let result = execute_with_confirmation(
+                LogoutArgs {
+                    all: false,
+                    local_only: true,
+                    confirmation: ConfirmationArgs::default(),
+                },
+                &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+                &store,
+                &confirmation,
+            )
+            .await;
+
+            assert_eq!(store.loads.load(Ordering::SeqCst), 0);
+            assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
+            assert!(store.has_credential());
+            assert!(
+                confirmation.requests()[0]
+                    .prompt()
+                    .contains("without revoking its Wekan login token")
+            );
+            if expected_error {
+                assert_eq!(result.unwrap_err().code(), ErrorCode::InvalidInput);
+            } else {
+                assert!(matches!(result.unwrap(), CommandSuccess::Cancelled(_)));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn yes_bypasses_the_confirmation_provider() {
+        let store = FakeCredentialStore::local_only(true);
+        let confirmation = FakeConfirmationProvider::failing(
+            crate::error::AppError::invalid_input("must not be called"),
+        );
+
+        let success = execute_with_confirmation(
+            LogoutArgs {
+                all: false,
+                local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
+            },
+            &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
+            &store,
+            &confirmation,
+        )
+        .await
+        .unwrap();
+
+        assert!(matches!(success, CommandSuccess::Logout(_)));
+        assert!(confirmation.requests().is_empty());
+        assert!(!store.has_credential());
+    }
+
+    #[tokio::test]
     async fn local_only_deletes_without_loading_or_contacting_wekan() {
         let store = FakeCredentialStore::local_only(true);
         let success = execute(
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
             &store,
@@ -740,6 +939,7 @@ mod tests {
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &factory,
             &other_profile,
@@ -758,6 +958,7 @@ mod tests {
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &factory,
             &selected_profile,
@@ -777,6 +978,7 @@ mod tests {
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
             &store,
@@ -802,6 +1004,7 @@ mod tests {
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
             &store,
@@ -867,6 +1070,7 @@ mod tests {
             LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             },
             &WekanClientFactory::new(Some("https://wekan.example".to_owned()), false),
             &store,
@@ -920,6 +1124,100 @@ mod tests {
         assert!(success.remote_logout_completed);
         assert!(success.local_credential_removed);
         assert!(!store.has_credential());
+    }
+
+    #[test]
+    fn confirmation_holds_the_credential_lock_until_logout_finishes() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let server_url = format!("http://{}", listener.local_addr().unwrap());
+        let account = format!("{server_url}/");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+
+            let body = r#"{"message":"logout complete"}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+        let store = Arc::new(FakeCredentialStore {
+            credential: Mutex::new(Some(StoredCredential {
+                account: account.clone(),
+                user_id: "user-1".to_owned(),
+                token: "logout-token".to_owned(),
+                token_expires: OffsetDateTime::now_utc() + Duration::days(1),
+            })),
+            available: true,
+            ..FakeCredentialStore::default()
+        });
+        let (confirmation_entered_sender, confirmation_entered_receiver) = mpsc::channel();
+        let (release_confirmation_sender, release_confirmation_receiver) = mpsc::channel();
+        let confirmation = BlockingConfirmationProvider {
+            entered: confirmation_entered_sender,
+            release: Mutex::new(release_confirmation_receiver),
+        };
+        let (logout_sender, logout_receiver) = mpsc::channel();
+        let logout_store = Arc::clone(&store);
+        let logout_server = server_url.clone();
+        let logout = thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result = runtime.block_on(execute_with_confirmation(
+                LogoutArgs {
+                    all: true,
+                    local_only: false,
+                    confirmation: ConfirmationArgs::default(),
+                },
+                &WekanClientFactory::new(Some(logout_server), false),
+                logout_store.as_ref(),
+                &confirmation,
+            ));
+            logout_sender.send(result).unwrap();
+        });
+
+        confirmation_entered_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap();
+        let (contender_started_sender, contender_started_receiver) = mpsc::channel();
+        let (contender_acquired_sender, contender_acquired_receiver) = mpsc::channel();
+        let contender_store = Arc::clone(&store);
+        let contender = thread::spawn(move || {
+            contender_started_sender.send(()).unwrap();
+            let target = CredentialTarget::direct(account);
+            let _mutation = contender_store.lock_mutation(&target).unwrap();
+            contender_acquired_sender.send(()).unwrap();
+        });
+        contender_started_receiver
+            .recv_timeout(StdDuration::from_secs(1))
+            .unwrap();
+        let acquired_before_confirmation = contender_acquired_receiver
+            .recv_timeout(StdDuration::from_millis(250))
+            .is_ok();
+
+        release_confirmation_sender.send(()).unwrap();
+        let result = logout_receiver
+            .recv_timeout(StdDuration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        assert!(matches!(result, CommandSuccess::Logout(_)));
+        if !acquired_before_confirmation {
+            contender_acquired_receiver
+                .recv_timeout(StdDuration::from_secs(1))
+                .unwrap();
+        }
+        assert!(
+            !acquired_before_confirmation,
+            "another credential mutation acquired the target while confirmation was pending"
+        );
+
+        logout.join().unwrap();
+        contender.join().unwrap();
+        server.join().unwrap();
     }
 
     #[test]

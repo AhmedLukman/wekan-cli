@@ -10,7 +10,7 @@ wekan profile list
 wekan profile show <NAME>
 wekan profile use <NAME>
 wekan profile update <NAME> <URL>
-wekan profile remove <NAME> [--force]
+wekan profile remove <NAME> [--force] [--yes]
 ```
 
 Profile names must match `[a-z0-9][a-z0-9._-]{0,63}`. Names are immutable and
@@ -33,6 +33,15 @@ wekan --profile <NAME> auth logout --local-only
 
 The first form revokes the token remotely before deleting it; the second only
 deletes the local credential.
+
+Profile removal also requires confirmation. In interactive human mode the
+prompt identifies the profile and server, and states when the active selection
+will be cleared. Answering no exits successfully without changing the profile
+store. JSON or non-terminal invocations must pass command-local `--yes`.
+`--force` and `--yes` are independent: removing an active profile requires
+both. The CLI releases its preview lease while prompting, then reacquires the
+exclusive mutation lease and refuses to remove a profile whose server, active
+state, existence, or credential state changed after confirmation.
 
 ## Target selection
 
@@ -75,6 +84,7 @@ The strict version-1 schema is:
 ```json
 {
   "version": 1,
+  "revision": 1,
   "active_profile": "work",
   "profiles": {
     "personal": { "server": "https://personal.example/" },
@@ -105,7 +115,7 @@ Profiles never store secrets. The native credential vault uses service
 - `profile:<store-identity>:<name>` for a named profile, where the opaque
   store identity is derived from the canonical profile configuration directory.
 
-The existing version-1 secret record still includes and validates the expected
+The version-1 credential record includes and validates the expected
 canonical server URL. Named profiles do not copy or fall back to URL-keyed
 credentials, so two profiles for the same server can hold independent tokens.
 Existing URL-keyed credentials remain available through direct URL selection.

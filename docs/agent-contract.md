@@ -9,6 +9,36 @@ is one JSON object followed by a newline.
 - Error envelopes are written to stderr and stdout is empty.
 - `--help` and `--version` remain human-readable text on stdout.
 - Human-mode errors are written to stderr.
+- Interactive confirmation prompts are written to stderr. JSON output never
+  prompts; destructive automation must pass command-local `--yes`.
+
+## Destructive confirmation
+
+`auth logout` in every scope and `profile remove` require interactive
+confirmation or `--yes`. Normal target and removability preflight runs first;
+its errors retain their documented codes. Otherwise, non-terminal and JSON
+invocations without `--yes` return `invalid_input` with exit status 2 before
+destructive work. `--yes` is accepted only by those commands. For
+active-profile removal, `--force` remains a separate requirement.
+
+Logout holds the selected credential target's mutation guards while awaiting
+interactive confirmation, binding approval to that target state and preventing
+a concurrent login or logout from replacing it before execution.
+
+Declining an interactive prompt is an exit-0 no-op. Its structured result is:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "cancelled": true,
+    "operation": "auth_logout"
+  }
+}
+```
+
+`operation` is `auth_logout` or `profile_remove`. Human output is
+`Cancelled; no changes made.`
 
 ## Authentication success
 

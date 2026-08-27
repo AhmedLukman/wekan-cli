@@ -248,8 +248,10 @@ sequenceDiagram
 
     Caller->>Handler: auth logout [--all]
     Handler->>Factory: Create client and enforce network policy
-    Handler->>Vault: Preflight and acquire account/server mutation guards
-    Handler->>Vault: Load credential while the guard is held
+    Handler->>Vault: Acquire account/server mutation guards
+    Handler->>Caller: Request confirmation unless --yes
+    Caller-->>Handler: Approve
+    Handler->>Vault: Preflight and load credential while guards are held
     Vault-->>Handler: Valid credential, including expired records
     Handler->>Client: logout(all, stored token)
     Client->>Wekan: POST users/logout + bearer token
@@ -273,7 +275,9 @@ both a target-account guard and a canonical-server guard before their remote
 request and retain them until their local save or deletion completes. That
 serializes the full authentication transaction across current CLI processes and
 all direct or named aliases, so an all-token logout cannot retain a token that a
-concurrent login had already created.
+concurrent login had already created. Logout acquires both guards before its
+confirmation prompt so approval cannot race with replacement of the selected
+credential.
 
 For `auth logout --local-only`, target resolution supplies the expected server
 URL and direct or named vault account. The handler preflights and deletes that

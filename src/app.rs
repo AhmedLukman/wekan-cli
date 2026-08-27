@@ -6,27 +6,44 @@ use crate::{
         CredentialStore, KeyringCredentialStore, SecretInputProvider, SystemSecretInputProvider,
     },
     error::AppError,
+    input::{ConfirmationProvider, SystemConfirmationProvider},
 };
 
-pub struct App<S, P, F = FileProfileStore> {
+pub struct App<S, P, F = FileProfileStore, C = SystemConfirmationProvider> {
     target_resolver: TargetResolver,
     credential_store: S,
     secret_input: P,
     profile_store: F,
+    confirmation: C,
 }
 
-impl App<KeyringCredentialStore, SystemSecretInputProvider, FileProfileStore> {
+impl
+    App<
+        KeyringCredentialStore,
+        SystemSecretInputProvider,
+        FileProfileStore,
+        SystemConfirmationProvider,
+    >
+{
     pub fn production(selection: ServerSelection) -> Self {
-        Self::with_profile_store(
+        Self::production_with_confirmation_interactivity(selection, true)
+    }
+
+    pub fn production_with_confirmation_interactivity(
+        selection: ServerSelection,
+        allow_interactive_confirmation: bool,
+    ) -> Self {
+        Self::with_dependencies(
             selection,
             KeyringCredentialStore,
             SystemSecretInputProvider,
             FileProfileStore::production(),
+            SystemConfirmationProvider::for_output(allow_interactive_confirmation),
         )
     }
 }
 
-impl<S, P> App<S, P, FileProfileStore>
+impl<S, P> App<S, P, FileProfileStore, SystemConfirmationProvider>
 where
     S: CredentialStore,
     P: SecretInputProvider,
@@ -37,16 +54,17 @@ where
         credential_store: S,
         secret_input: P,
     ) -> Self {
-        Self::with_profile_store(
+        Self::with_dependencies(
             ServerSelection::direct(server, allow_insecure_http),
             credential_store,
             secret_input,
             FileProfileStore::production(),
+            SystemConfirmationProvider::interactive(),
         )
     }
 }
 
-impl<S, P, F> App<S, P, F>
+impl<S, P, F> App<S, P, F, SystemConfirmationProvider>
 where
     S: CredentialStore,
     P: SecretInputProvider,
@@ -58,11 +76,49 @@ where
         secret_input: P,
         profile_store: F,
     ) -> Self {
+        Self::with_dependencies(
+            selection,
+            credential_store,
+            secret_input,
+            profile_store,
+            SystemConfirmationProvider::interactive(),
+        )
+    }
+}
+
+impl<S, P, F, C> App<S, P, F, C>
+where
+    S: CredentialStore,
+    P: SecretInputProvider,
+    F: crate::config::profiles::ProfileStore,
+    C: ConfirmationProvider,
+{
+    pub const fn with_dependencies(
+        selection: ServerSelection,
+        credential_store: S,
+        secret_input: P,
+        profile_store: F,
+        confirmation: C,
+    ) -> Self {
         Self {
             target_resolver: TargetResolver::new(selection),
             credential_store,
             secret_input,
             profile_store,
+            confirmation,
+        }
+    }
+
+    pub fn with_confirmation_provider<C2>(self, confirmation: C2) -> App<S, P, F, C2>
+    where
+        C2: ConfirmationProvider,
+    {
+        App {
+            target_resolver: self.target_resolver,
+            credential_store: self.credential_store,
+            secret_input: self.secret_input,
+            profile_store: self.profile_store,
+            confirmation,
         }
     }
 
@@ -84,6 +140,7 @@ where
                     &self.credential_store,
                     &self.secret_input,
                     &self.profile_store,
+                    &self.confirmation,
                 )
                 .await
             }
@@ -104,6 +161,7 @@ where
             &self.credential_store,
             &self.secret_input,
             &self.profile_store,
+            &self.confirmation,
         )
         .await
         .map_err(|error| error.with_profile_context(profile))
@@ -132,6 +190,7 @@ mod tests {
             CredentialDeleteOutcome, CredentialError, CredentialRecord, CredentialStore,
             CredentialTarget, SystemSecretInputProvider,
         },
+        input::ConfirmationArgs,
     };
 
     struct BlockingCredentialStore {
@@ -192,6 +251,7 @@ mod tests {
             command: AuthCommand::Logout(LogoutArgs {
                 all: false,
                 local_only: true,
+                confirmation: ConfirmationArgs::assume_yes(),
             }),
         });
 

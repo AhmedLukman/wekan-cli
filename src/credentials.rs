@@ -345,6 +345,7 @@ struct StoredCredential<'a> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct StoredCredentialOwned {
     version: u8,
     server_url: String,
@@ -430,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn encodes_a_versioned_credential_record() {
+    fn encodes_a_version_1_credential_record() {
         let expiry = OffsetDateTime::parse("2030-01-02T03:04:05Z", &Rfc3339).unwrap();
         let record = CredentialRecord::new(
             "https://wekan.example/".to_owned(),
@@ -449,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn decodes_and_validates_a_versioned_credential_record() {
+    fn decodes_and_validates_a_version_1_credential_record() {
         let encoded = serde_json::to_vec(&serde_json::json!({
             "version": 1,
             "server_url": "https://wekan.example/",
@@ -471,14 +472,14 @@ mod tests {
     }
 
     #[test]
-    fn rejects_malformed_or_unsupported_credential_records() {
+    fn rejects_malformed_and_non_version_1_credential_records() {
         assert!(matches!(
             CredentialRecord::decode("https://wekan.example/", b"not json"),
             Err(CredentialError::Deserialize(_))
         ));
 
         let unsupported = serde_json::to_vec(&serde_json::json!({
-            "version": 2,
+            "version": 0,
             "server_url": "https://wekan.example/",
             "user_id": "user-1",
             "token": "server-token",
@@ -487,7 +488,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             CredentialRecord::decode("https://wekan.example/", &unsupported),
-            Err(CredentialError::UnsupportedVersion(2))
+            Err(CredentialError::UnsupportedVersion(0))
         ));
     }
 

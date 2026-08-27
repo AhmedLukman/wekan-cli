@@ -3,9 +3,9 @@ use std::ffi::OsString;
 use clap::ValueEnum;
 use serde::Serialize;
 
-pub use crate::command_result::{
-    AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess, LogoutScope,
-    LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
+use crate::command_result::{
+    AuthStatusSuccess, AuthSuccess, CommandSuccess, LogoutScope, LogoutSuccess, ProfileItem,
+    ProfileListSuccess, ProfileRemoveSuccess,
 };
 use crate::error::AppError;
 
@@ -53,6 +53,13 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::Cancelled(_)) => {
+            "Cancelled; no changes made.".to_owned()
+        }
+        (OutputFormat::Json, CommandSuccess::Cancelled(data)) => {
+            serde_json::to_string(&SuccessEnvelope { ok: true, data })
+                .expect("cancellation success is always serializable")
+        }
         (OutputFormat::Human, CommandSuccess::Registration(data)) => {
             render_auth_success("Registered user", data)
         }
@@ -318,8 +325,9 @@ mod tests {
     use super::{OutputFormat, render_error, render_success};
     use crate::{
         command_result::{
-            AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CommandSuccess,
-            LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
+            AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CancellationSuccess,
+            CommandSuccess, DestructiveOperation, LogoutScope, LogoutSuccess, ProfileItem,
+            ProfileListSuccess, ProfileRemoveSuccess,
         },
         error::AppError,
     };
@@ -342,6 +350,23 @@ mod tests {
         assert_eq!(value["data"]["user_id"], "user-1");
         assert_eq!(value["data"]["credential_stored"], true);
         assert!(value["data"].get("token").is_none());
+    }
+
+    #[test]
+    fn cancellation_has_stable_human_and_json_output() {
+        let cancellation = CommandSuccess::Cancelled(CancellationSuccess::new(
+            DestructiveOperation::ProfileRemove,
+        ));
+
+        assert_eq!(
+            render_success(OutputFormat::Human, &cancellation),
+            "Cancelled; no changes made."
+        );
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &cancellation)).unwrap();
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["data"]["cancelled"], true);
+        assert_eq!(value["data"]["operation"], "profile_remove");
     }
 
     #[test]

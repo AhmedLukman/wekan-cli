@@ -87,7 +87,65 @@ fn auth_help_lists_logout_and_logout_help_documents_scopes() {
         .success()
         .stdout(predicate::str::contains("--all"))
         .stdout(predicate::str::contains("--local-only"))
+        .stdout(predicate::str::contains("--yes"))
         .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn yes_is_command_local_to_destructive_commands() {
+    for arguments in [
+        vec!["--yes", "auth", "status"],
+        vec![
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "login",
+            "--username",
+            "alice",
+            "--yes",
+        ],
+        vec![
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "register",
+            "--username",
+            "alice",
+            "--yes",
+        ],
+        vec![
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "status",
+            "--yes",
+        ],
+        vec!["profile", "add", "work", "https://wekan.example", "--yes"],
+        vec!["profile", "list", "--yes"],
+        vec!["profile", "show", "work", "--yes"],
+        vec!["profile", "use", "work", "--yes"],
+        vec![
+            "profile",
+            "update",
+            "work",
+            "https://wekan.example",
+            "--yes",
+        ],
+    ] {
+        cargo_bin_cmd!("wekan")
+            .args(arguments)
+            .assert()
+            .code(2)
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::contains("unexpected argument '--yes'"));
+    }
+
+    cargo_bin_cmd!("wekan")
+        .args(["profile", "remove", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--force"))
+        .stdout(predicate::str::contains("--yes"));
 }
 
 #[test]
@@ -118,6 +176,41 @@ fn missing_local_only_server_is_a_configuration_error_before_vault_access() {
         .code(3)
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+}
+
+#[test]
+fn json_logout_requires_yes_before_vault_access() {
+    cargo_bin_cmd!("wekan")
+        .args([
+            "--output=json",
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "logout",
+            "--local-only",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#))
+        .stderr(predicate::str::contains("--yes"));
+}
+
+#[test]
+fn non_terminal_human_logout_requires_yes_before_vault_access() {
+    cargo_bin_cmd!("wekan")
+        .args([
+            "--server",
+            "https://wekan.example",
+            "auth",
+            "logout",
+            "--local-only",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("Error [invalid_input]"))
+        .stderr(predicate::str::contains("--yes"));
 }
 
 #[test]
@@ -378,6 +471,23 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .code(3)
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(r#""code":"profile_in_use""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "profile", "remove", "work"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#))
+        .stderr(predicate::str::contains("--yes"));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "profile", "remove", "work", "--yes"])
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty())
+        .stdout(predicate::str::contains(r#""removed":true"#));
 }
 
 #[test]

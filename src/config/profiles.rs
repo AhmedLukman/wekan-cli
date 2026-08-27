@@ -41,11 +41,16 @@ impl Profile {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ProfileDocument {
+    revision: u64,
     active_profile: Option<String>,
     profiles: BTreeMap<String, Profile>,
 }
 
 impl ProfileDocument {
+    pub(crate) const fn revision(&self) -> u64 {
+        self.revision
+    }
+
     pub fn active_profile(&self) -> Option<&str> {
         self.active_profile.as_deref()
     }
@@ -200,7 +205,15 @@ impl ProfileMutation for FileProfileMutation {
         &self.document
     }
 
-    fn save(&mut self, document: ProfileDocument) -> Result<(), ProfileStoreError> {
+    fn save(&mut self, mut document: ProfileDocument) -> Result<(), ProfileStoreError> {
+        if document.revision != self.document.revision {
+            return Err(ProfileStoreError::Invalid(
+                "the profile configuration changed before it could be saved".to_owned(),
+            ));
+        }
+        document.revision = document.revision.checked_add(1).ok_or_else(|| {
+            ProfileStoreError::Invalid("the profile configuration revision is exhausted".to_owned())
+        })?;
         validate_document(&document)?;
         persist_document(&self.paths, &document)?;
         self.document = document;
@@ -248,6 +261,7 @@ pub enum ProfileStoreError {
 #[serde(deny_unknown_fields)]
 struct StoredDocument {
     version: u8,
+    revision: u64,
     active_profile: Option<String>,
     profiles: BTreeMap<String, StoredProfile>,
 }
@@ -412,6 +426,7 @@ fn load_document(paths: &ProfilePaths) -> Result<ProfileDocument, ProfileStoreEr
         return Err(ProfileStoreError::UnsupportedVersion(stored.version));
     }
     let document = ProfileDocument {
+        revision: stored.revision,
         active_profile: stored.active_profile,
         profiles: stored
             .profiles
@@ -451,6 +466,7 @@ fn persist_document(
 ) -> Result<(), ProfileStoreError> {
     let stored = StoredDocument {
         version: CONFIG_VERSION,
+        revision: document.revision,
         active_profile: document.active_profile.clone(),
         profiles: document
             .profiles
@@ -645,16 +661,17 @@ mod tests {
 
         let encoded = fs::read_to_string(directory.path().join(CONFIG_FILE_NAME)).unwrap();
         assert!(encoded.contains("\"version\": 1"));
+        assert!(encoded.contains("\"revision\": 1"));
         assert!(!encoded.contains("token"));
     }
 
     #[test]
-    fn rejects_unknown_fields_versions_and_oversized_files() {
+    fn rejects_unknown_fields_unsupported_versions_and_oversized_files() {
         let directory = TestDirectory::new("invalid");
         let path = directory.path().join(CONFIG_FILE_NAME);
         fs::write(
             &path,
-            r#"{"version":1,"active_profile":null,"profiles":{},"unknown":true}"#,
+            r#"{"version":1,"revision":0,"active_profile":null,"profiles":{},"unknown":true}"#,
         )
         .unwrap();
         let store = FileProfileStore::at(directory.path().to_owned());
@@ -665,12 +682,12 @@ mod tests {
 
         fs::write(
             &path,
-            r#"{"version":2,"active_profile":null,"profiles":{}}"#,
+            r#"{"version":0,"revision":0,"active_profile":null,"profiles":{}}"#,
         )
         .unwrap();
         assert!(matches!(
             store.read(),
-            Err(ProfileStoreError::UnsupportedVersion(2))
+            Err(ProfileStoreError::UnsupportedVersion(0))
         ));
 
         fs::write(&path, vec![b' '; MAX_CONFIG_BYTES as usize + 1]).unwrap();
@@ -683,7 +700,7 @@ mod tests {
         let path = directory.path().join(CONFIG_FILE_NAME);
         fs::write(
             &path,
-            r#"{"version":1,"active_profile":"missing","profiles":{"local":{"server":"https://example.com"}}}"#,
+            r#"{"version":1,"revision":0,"active_profile":"missing","profiles":{"local":{"server":"https://example.com"}}}"#,
         )
         .unwrap();
         let store = FileProfileStore::at(directory.path().to_owned());
@@ -695,7 +712,7 @@ mod tests {
         let directory = TestDirectory::new("backup");
         fs::write(
             directory.path().join(BACKUP_FILE_NAME),
-            r#"{"version":1,"active_profile":"local","profiles":{"local":{"server":"http://localhost:3000/"}}}"#,
+            r#"{"version":1,"revision":0,"active_profile":"local","profiles":{"local":{"server":"http://localhost:3000/"}}}"#,
         )
         .unwrap();
         let store = FileProfileStore::at(directory.path().to_owned());
@@ -707,6 +724,9 @@ mod tests {
         let mut mutation = store.lock_mutation().unwrap();
         mutation.save(mutation.document().clone()).unwrap();
         assert!(directory.path().join(CONFIG_FILE_NAME).exists());
+        let encoded = fs::read_to_string(directory.path().join(CONFIG_FILE_NAME)).unwrap();
+        assert!(encoded.contains("\"version\": 1"));
+        assert!(encoded.contains("\"revision\": 1"));
     }
 
     #[test]
@@ -718,7 +738,7 @@ mod tests {
         paths.config = directory.path().join("invalid\0primary");
         fs::write(
             &paths.backup,
-            r#"{"version":1,"active_profile":null,"profiles":{}}"#,
+            r#"{"version":1,"revision":0,"active_profile":null,"profiles":{}}"#,
         )
         .unwrap();
 
@@ -753,7 +773,7 @@ mod tests {
         symlink("missing-profile-document", &paths.config).unwrap();
         fs::write(
             &paths.backup,
-            r#"{"version":1,"active_profile":null,"profiles":{}}"#,
+            r#"{"version":1,"revision":0,"active_profile":null,"profiles":{}}"#,
         )
         .unwrap();
 
@@ -768,7 +788,7 @@ mod tests {
         let directory = TestDirectory::new("backup-failure");
         fs::write(
             directory.path().join(BACKUP_FILE_NAME),
-            r#"{"version":1,"active_profile":"local","profiles":{"local":{"server":"http://localhost:3000/"}}}"#,
+            r#"{"version":1,"revision":0,"active_profile":"local","profiles":{"local":{"server":"http://localhost:3000/"}}}"#,
         )
         .unwrap();
         let store = FileProfileStore::at(directory.path().to_owned());

@@ -17,7 +17,7 @@ wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecur
       auth status
 
 wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
-      auth logout [--all | --local-only]
+      auth logout [--all | --local-only] [--yes]
 ```
 
 ## Server selection
@@ -114,7 +114,19 @@ other profile data, and all service/session data are discarded.
 bearer-authenticated `POST users/logout` request. The default JSON body is
 `{"all": false}` and revokes only the presented token. `--all` sends
 `{"all": true}` and revokes every login token for that user, including browser
-and other CLI sessions. The two modes do not prompt for confirmation.
+and other CLI sessions.
+
+Every logout scope requires confirmation because it revokes remote tokens,
+deletes a local credential, or both. Human output with terminal stdin and stderr
+shows a scope-specific prompt that defaults to no. `--all` explicitly warns
+that browser and other CLI sessions will be revoked; `--local-only` warns that
+the remote token will remain valid. Answering no is an exit-0 cancellation and
+performs no vault or HTTP mutation. Pass command-local `--yes` to skip the
+prompt. JSON output and non-terminal execution never prompt and return
+`invalid_input` unless `--yes` is present. The CLI acquires the target's
+credential mutation guards before prompting and retains them through the
+operation, so another login or logout cannot replace the credential after the
+confirmation request is shown.
 
 Logout deliberately submits a locally expired credential because Wekan may
 still have that token stored and be able to remove it. A missing record returns
@@ -158,7 +170,8 @@ resolved target's vault entry without loading or decoding it. It therefore
 clears expired, rejected, malformed, or unsupported records. An absent entry is
 an idempotent success with `local_credential_removed: false`. Human output
 explicitly states that no Wekan tokens were revoked; any still-valid remote
-token remains usable until revoked or expired.
+token remains usable until revoked or expired. Confirmation occurs before the
+vault is accessed.
 
 ## Request safety and server errors
 

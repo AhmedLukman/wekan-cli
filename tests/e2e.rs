@@ -311,6 +311,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "auth",
         "logout",
         "--local-only",
+        "--yes",
     ])
     .expect("the local-only logout command must parse");
     let local_only = app
@@ -373,6 +374,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "--output=json",
         "auth",
         "logout",
+        "--yes",
     ])
     .expect("the current-token logout command must parse");
     let current_logout = app
@@ -422,6 +424,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "auth",
         "logout",
         "--all",
+        "--yes",
     ])
     .expect("the all-token logout command must parse");
     let all_logout = app
@@ -471,6 +474,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "--output=json",
         "auth",
         "logout",
+        "--yes",
     ])
     .expect("the invalid-token logout command must parse");
     let invalid_logout = app
@@ -498,6 +502,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "auth",
         "logout",
         "--local-only",
+        "--yes",
     ])
     .expect("the rejected-credential cleanup command must parse");
     app.execute(cleanup_cli.command)
@@ -643,6 +648,7 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
         "--output=json",
         "auth",
         "logout",
+        "--yes",
     ])
     .expect("the named-profile logout command must parse");
     let logout = app
@@ -728,6 +734,9 @@ fn spawn_production_cli(server: &str, args: &[&str], stdin: Option<&str>) -> Chi
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    if args.first() == Some(&"logout") && !args.contains(&"--yes") {
+        command.arg("--yes");
+    }
     let mut child = command.spawn().expect("the CLI child process must start");
     if let Some(input) = stdin {
         child

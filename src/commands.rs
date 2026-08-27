@@ -9,6 +9,7 @@ use crate::{
     config::profiles::ProfileStore,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
+    input::ConfirmationProvider,
 };
 
 #[derive(Debug, Subcommand)]
@@ -35,14 +36,24 @@ pub(crate) async fn dispatch(
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
     profile_store: &dyn ProfileStore,
+    confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
         PreparedCommand::Auth {
             args,
             client_factory,
-        } => auth::dispatch(args.command, client_factory, credential_store, secret_input).await,
+        } => {
+            auth::dispatch(
+                args.command,
+                client_factory,
+                credential_store,
+                secret_input,
+                confirmation,
+            )
+            .await
+        }
         PreparedCommand::Profile { args } => {
-            profile::dispatch(args.command, profile_store, credential_store)
+            profile::dispatch(args.command, profile_store, credential_store, confirmation)
         }
     }
 }
