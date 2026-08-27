@@ -9,8 +9,8 @@ use fs4::FileExt;
 use keyring::Entry;
 
 use super::{
-    CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
-    CredentialStore, CredentialTarget,
+    CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialMutation,
+    CredentialRecord, CredentialStore, CredentialTarget,
 };
 
 const SERVICE_NAME: &str = "wekan-cli";
@@ -34,12 +34,16 @@ impl CredentialStore for KeyringCredentialStore {
         load_record(target)
     }
 
-    fn save(
+    fn exists(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
+        record_exists(target.account())
+    }
+
+    fn create(
         &self,
         target: &CredentialTarget,
         record: &CredentialRecord,
-    ) -> Result<(), CredentialError> {
-        self.lock_mutation(target)?.save(record)
+    ) -> Result<CredentialCreateOutcome, CredentialError> {
+        self.lock_mutation(target)?.create(record)
     }
 
     fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
@@ -75,17 +79,28 @@ struct KeyringCredentialMutation {
 }
 
 impl CredentialMutation for KeyringCredentialMutation {
+    fn exists(&self) -> Result<bool, CredentialError> {
+        record_exists(self.target.account())
+    }
+
     fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
         load_record(&self.target)
     }
 
-    fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
+    fn create(
+        &self,
+        record: &CredentialRecord,
+    ) -> Result<CredentialCreateOutcome, CredentialError> {
+        if self.exists()? {
+            return Ok(CredentialCreateOutcome::AlreadyExists);
+        }
         if record.server_url() != self.target.server_url() {
             return Err(CredentialError::InvalidRecord(
                 "the record server URL did not match the selected credential target",
             ));
         }
-        save_record(self.target.account(), &record.encode()?)
+        upsert_record_after_absence_check(self.target.account(), &record.encode()?)?;
+        Ok(CredentialCreateOutcome::Created)
     }
 
     fn delete(&self) -> Result<bool, CredentialError> {
@@ -117,6 +132,15 @@ fn load_record(target: &CredentialTarget) -> Result<Option<CredentialRecord>, Cr
     load_record_from_account(target.account(), target.server_url())
 }
 
+fn record_exists(account: &str) -> Result<bool, CredentialError> {
+    let entry = Entry::new(SERVICE_NAME, account).map_err(map_load_error)?;
+    match entry.get_secret() {
+        Ok(_) => Ok(true),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(error) => Err(map_load_error(error)),
+    }
+}
+
 fn load_record_from_account(
     account: &str,
     expected_server_url: &str,
@@ -129,7 +153,7 @@ fn load_record_from_account(
     }
 }
 
-fn save_record(account: &str, encoded: &[u8]) -> Result<(), CredentialError> {
+fn upsert_record_after_absence_check(account: &str, encoded: &[u8]) -> Result<(), CredentialError> {
     let entry = Entry::new(SERVICE_NAME, account)
         .map_err(|error| CredentialError::Store(error.to_string()))?;
     entry
@@ -259,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn credential_mutation_lock_excludes_another_process_until_release() {
+    fn credential_mutation_lock_serializes_another_cooperating_process_until_release() {
         let account = format!("https://process-lock-test-{}.invalid/", std::process::id());
         let path = mutation_lock_path(&account).unwrap();
         let parent_lock = acquire_mutation_lock(&account).unwrap();
@@ -327,18 +351,18 @@ mod tests {
     }
 
     #[test]
-    fn direct_and_namespaced_profile_aliases_share_a_canonical_server_lock() {
+    fn profiles_for_the_same_server_share_a_canonical_server_lock() {
         let server = format!("https://alias-lock-test-{}.invalid/", std::process::id());
-        let direct = CredentialTarget::direct(server.clone());
-        let profile = CredentialTarget::profile_in_store("work", "test-store", server);
-        let server_lock_path = mutation_lock_path(&direct.server_lock_key()).unwrap();
-        let direct_account_lock_path = mutation_lock_path(direct.account_lock_key()).unwrap();
-        let profile_account_lock_path = mutation_lock_path(profile.account_lock_key()).unwrap();
-        assert_ne!(direct_account_lock_path, profile_account_lock_path);
+        let first = CredentialTarget::profile_in_store("personal", "test-store", server.clone());
+        let second = CredentialTarget::profile_in_store("work", "test-store", server);
+        let server_lock_path = mutation_lock_path(&first.server_lock_key()).unwrap();
+        let first_account_lock_path = mutation_lock_path(first.account_lock_key()).unwrap();
+        let second_account_lock_path = mutation_lock_path(second.account_lock_key()).unwrap();
+        assert_ne!(first_account_lock_path, second_account_lock_path);
 
         let store = KeyringCredentialStore;
-        let mutation = store.lock_mutation(&direct).unwrap();
-        let contender = open_mutation_lock(&profile.server_lock_key()).unwrap();
+        let mutation = store.lock_mutation(&first).unwrap();
+        let contender = open_mutation_lock(&second.server_lock_key()).unwrap();
         assert!(matches!(
             FileExt::try_lock(&contender),
             Err(TryLockError::WouldBlock)
@@ -347,7 +371,7 @@ mod tests {
         drop(mutation);
         FileExt::lock(&contender).unwrap();
         drop(contender);
-        for path in [server_lock_path, direct_account_lock_path] {
+        for path in [server_lock_path, first_account_lock_path] {
             std::fs::remove_file(path).unwrap();
         }
     }

@@ -215,9 +215,17 @@ impl ProfileMutation for FileProfileMutation {
             ProfileStoreError::Invalid("the profile configuration revision is exhausted".to_owned())
         })?;
         validate_document(&document)?;
-        persist_document(&self.paths, &document)?;
-        self.document = document;
-        Ok(())
+        match persist_document(&self.paths, &document) {
+            Ok(()) => {
+                self.document = document;
+                Ok(())
+            }
+            Err(error) if error.profile_was_installed() => {
+                self.document = document;
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
     }
 }
 
@@ -255,6 +263,14 @@ pub enum ProfileStoreError {
     Serialize(#[source] serde_json::Error),
     #[error("the profile configuration could not be written safely: {0}")]
     Write(#[source] io::Error),
+    #[error("the profile configuration was installed but could not be finalized safely: {0}")]
+    WriteAfterInstall(#[source] io::Error),
+}
+
+impl ProfileStoreError {
+    pub(crate) const fn profile_was_installed(&self) -> bool {
+        matches!(self, Self::WriteAfterInstall(_))
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -512,28 +528,38 @@ fn persist_document(
     if result.is_err() {
         let _ = fs::remove_file(&temp_path);
     }
-    result.map_err(ProfileStoreError::Write)
+    result
 }
 
-fn replace_with_backup(paths: &ProfilePaths, temp_path: &Path) -> io::Result<()> {
-    let had_config = metadata_if_present(&paths.config)?.is_some();
+fn replace_with_backup(paths: &ProfilePaths, temp_path: &Path) -> Result<(), ProfileStoreError> {
+    let before_install = ProfileStoreError::Write;
+    let after_install = ProfileStoreError::WriteAfterInstall;
+    let had_config = metadata_if_present(&paths.config)
+        .map_err(before_install)?
+        .is_some();
     if had_config {
-        if metadata_if_present(&paths.backup)?.is_some() {
-            fs::remove_file(&paths.backup)?;
+        if metadata_if_present(&paths.backup)
+            .map_err(before_install)?
+            .is_some()
+        {
+            fs::remove_file(&paths.backup).map_err(before_install)?;
         }
-        fs::rename(&paths.config, &paths.backup)?;
-        sync_directory(&paths.directory)?;
+        fs::rename(&paths.config, &paths.backup).map_err(before_install)?;
+        sync_directory(&paths.directory).map_err(before_install)?;
     }
 
     if let Err(error) = fs::rename(temp_path, &paths.config) {
         if had_config {
             let _ = fs::rename(&paths.backup, &paths.config);
         }
-        return Err(error);
+        return Err(before_install(error));
     }
 
-    sync_directory(&paths.directory)?;
-    if metadata_if_present(&paths.backup)?.is_some() {
+    sync_directory(&paths.directory).map_err(after_install)?;
+    if metadata_if_present(&paths.backup)
+        .map_err(after_install)?
+        .is_some()
+    {
         // The new configuration is already committed. Failure to remove a
         // stale backup is safe; it will be cleaned after a later mutation.
         let _ = fs::remove_file(&paths.backup);

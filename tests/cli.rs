@@ -32,6 +32,14 @@ fn no_target_cli(directory: &TestDirectory) -> assert_cmd::Command {
     command
 }
 
+fn add_profile(directory: &TestDirectory, name: &str, server: &str) {
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["profile", "add", name, server])
+        .assert()
+        .success();
+}
+
 #[test]
 fn help_is_text_on_stdout() {
     cargo_bin_cmd!("wekan")
@@ -168,23 +176,27 @@ fn logout_scopes_conflict_using_the_json_parse_error_contract() {
 }
 
 #[test]
-fn missing_local_only_server_is_a_configuration_error_before_vault_access() {
+fn missing_local_only_profile_is_reported_before_vault_access() {
     let directory = TestDirectory::new("missing-local-only-server");
     no_target_cli(&directory)
         .args(["--output=json", "auth", "logout", "--local-only"])
         .assert()
         .code(3)
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"default""#));
 }
 
 #[test]
-fn json_logout_requires_yes_before_vault_access() {
-    cargo_bin_cmd!("wekan")
+fn missing_profile_local_only_with_server_reaches_confirmation_without_creating_metadata() {
+    let directory = TestDirectory::new("orphaned-local-only-recovery");
+    no_target_cli(&directory)
         .args([
             "--output=json",
             "--server",
             "https://wekan.example",
+            "--profile",
+            "orphaned",
             "auth",
             "logout",
             "--local-only",
@@ -194,18 +206,30 @@ fn json_logout_requires_yes_before_vault_access() {
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(r#""code":"invalid_input""#))
         .stderr(predicate::str::contains("--yes"));
+    assert!(!directory.0.join("profiles.json").exists());
+}
+
+#[test]
+fn json_logout_requires_yes_before_vault_access() {
+    let directory = TestDirectory::new("json-logout-confirmation");
+    add_profile(&directory, "default", "https://wekan.example");
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["--output=json", "auth", "logout", "--local-only"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(r#""code":"invalid_input""#))
+        .stderr(predicate::str::contains("--yes"));
 }
 
 #[test]
 fn non_terminal_human_logout_requires_yes_before_vault_access() {
+    let directory = TestDirectory::new("human-logout-confirmation");
+    add_profile(&directory, "default", "https://wekan.example");
     cargo_bin_cmd!("wekan")
-        .args([
-            "--server",
-            "https://wekan.example",
-            "auth",
-            "logout",
-            "--local-only",
-        ])
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args(["auth", "logout", "--local-only"])
         .assert()
         .code(2)
         .stdout(predicate::str::is_empty())
@@ -225,14 +249,15 @@ fn status_rejects_command_specific_arguments() {
 }
 
 #[test]
-fn missing_status_server_is_a_json_configuration_error_before_vault_access() {
+fn missing_status_profile_is_reported_before_vault_access() {
     let directory = TestDirectory::new("missing-status-server");
     no_target_cli(&directory)
         .args(["--output=json", "auth", "status"])
         .assert()
         .code(3)
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"default""#));
 }
 
 #[test]
@@ -272,7 +297,7 @@ fn login_code_stdin_requires_password_stdin() {
 }
 
 #[test]
-fn missing_login_server_is_a_json_configuration_error_before_stdin_is_read() {
+fn missing_login_profile_without_a_server_is_reported_before_stdin_is_read() {
     let directory = TestDirectory::new("missing-login-server");
     no_target_cli(&directory)
         .args([
@@ -286,7 +311,8 @@ fn missing_login_server_is_a_json_configuration_error_before_stdin_is_read() {
         .assert()
         .code(3)
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"default""#));
 }
 
 #[test]
@@ -308,7 +334,7 @@ fn json_parse_errors_use_stderr_and_exit_two() {
 }
 
 #[test]
-fn missing_server_is_a_json_configuration_error() {
+fn missing_registration_profile_without_a_server_is_reported() {
     let directory = TestDirectory::new("missing-registration-server");
     no_target_cli(&directory)
         .args([
@@ -323,7 +349,8 @@ fn missing_server_is_a_json_configuration_error() {
         .assert()
         .code(3)
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(r#""code":"configuration_error""#));
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"default""#));
 }
 
 #[test]
@@ -368,7 +395,8 @@ fn environment_supplies_the_server_when_the_flag_is_absent() {
 
 #[test]
 fn remote_plaintext_http_requires_explicit_opt_in() {
-    cargo_bin_cmd!("wekan")
+    let directory = TestDirectory::new("remote-plaintext-http");
+    no_target_cli(&directory)
         .args([
             "--output=json",
             "--server",
@@ -506,7 +534,7 @@ fn profile_names_and_explicit_selectors_use_cli_validation() {
         .code(2)
         .stderr(predicate::str::contains(r#""code":"invalid_input""#));
 
-    cargo_bin_cmd!("wekan")
+    no_target_cli(&directory)
         .args([
             "--output=json",
             "--server",
@@ -517,8 +545,9 @@ fn profile_names_and_explicit_selectors_use_cli_validation() {
             "status",
         ])
         .assert()
-        .code(2)
-        .stderr(predicate::str::contains(r#""code":"invalid_input""#));
+        .code(3)
+        .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
+        .stderr(predicate::str::contains(r#""profile":"work""#));
 
     cargo_bin_cmd!("wekan")
         .env("WEKAN_CONFIG_DIR", &directory.0)
@@ -562,11 +591,29 @@ fn profile_selection_separates_server_identity_from_network_permission() {
 
     cargo_bin_cmd!("wekan")
         .env("WEKAN_CONFIG_DIR", &directory.0)
-        .env("WEKAN_URL", "not a url")
+        .env("WEKAN_URL", "http://wekan.example")
         .args(["--output=json", "--profile", "insecure", "auth", "status"])
         .assert()
         .code(3)
         .stderr(predicate::str::contains(r#""code":"insecure_transport""#))
+        .stderr(predicate::str::contains(r#""profile":"insecure""#));
+
+    cargo_bin_cmd!("wekan")
+        .env("WEKAN_CONFIG_DIR", &directory.0)
+        .args([
+            "--output=json",
+            "--profile",
+            "insecure",
+            "--server",
+            "http://other.example",
+            "auth",
+            "status",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains(
+            r#""code":"profile_server_mismatch""#,
+        ))
         .stderr(predicate::str::contains(r#""profile":"insecure""#));
 
     cargo_bin_cmd!("wekan")
@@ -577,7 +624,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         .assert()
         .code(3)
         .stderr(predicate::str::contains("relative URL without a base"))
-        .stderr(predicate::str::contains(r#""profile":null"#));
+        .stderr(predicate::str::contains(r#""profile":"missing""#));
 
     cargo_bin_cmd!("wekan")
         .env("WEKAN_CONFIG_DIR", &directory.0)

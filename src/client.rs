@@ -134,7 +134,12 @@ impl WekanClientFactory {
                 .expect("test client factories require a server identity"),
         )
         .expect("test client factories require a valid server identity");
-        Self::for_server(server, allow_insecure_http)
+        Self::for_resolved_profile(
+            server,
+            "default".to_owned(),
+            "test-store".to_owned(),
+            allow_insecure_http,
+        )
     }
 
     #[cfg(test)]

@@ -57,7 +57,7 @@ pub enum LogoutScope {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct LogoutSuccess {
     pub server: String,
-    pub profile: Option<String>,
+    pub profile: String,
     pub logout_scope: LogoutScope,
     pub remote_logout_completed: bool,
     pub credential_stored: bool,
@@ -67,16 +67,18 @@ pub struct LogoutSuccess {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct AuthSuccess {
     pub server: String,
-    pub profile: Option<String>,
+    pub profile: String,
     pub user_id: String,
     pub token_expires: String,
     pub credential_stored: bool,
+    pub profile_created: bool,
+    pub profile_active: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct AuthStatusSuccess {
     pub server: String,
-    pub profile: Option<String>,
+    pub profile: String,
     pub authenticated: bool,
     pub token_expires: String,
     pub credential_stored: bool,

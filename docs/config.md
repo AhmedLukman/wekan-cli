@@ -45,18 +45,25 @@ state, existence, or credential state changed after confirmation.
 
 ## Target selection
 
-Ordinary Wekan commands resolve their target in this order:
+Ordinary Wekan commands resolve a profile name and an optional supplied URL
+independently. The profile name is selected by `--profile`, then
+`WEKAN_PROFILE`, then the persisted active profile, and finally the literal
+name `default`. The supplied URL is selected by `--server`, then `WEKAN_URL`.
+`--profile` and `--server` may be used together.
 
-1. Explicit `--server <URL>` or `--profile <NAME>`. Supplying both is a usage
-   error.
-2. `WEKAN_URL`.
-3. `WEKAN_PROFILE`.
-4. The persisted active profile.
-5. Otherwise, `configuration_error` explains all four selectors.
+An existing profile supplies its stored URL when no URL is supplied. A supplied
+URL is canonicalized and must match the stored URL exactly; otherwise the
+command returns `profile_server_mismatch` without changing the profile or
+accessing its credential.
 
-An explicitly selected profile must exist. An unknown profile from
-`WEKAN_PROFILE`, or a missing persisted active profile in a malformed store,
-also produces an error without contacting Wekan.
+A missing profile returns `profile_not_found` for status, remote logout, and
+login or registration without a supplied URL. `auth logout --local-only` can
+instead remove that missing profile's orphaned vault entry when a URL is
+supplied with `--server` or `WEKAN_URL`; it does not recreate profile metadata.
+Login and registration with a supplied URL may initialize the missing profile,
+but only after Wekan returns a complete, valid authentication session. A profile
+created this way becomes active only when the profile store is empty. Later
+profiles remain inactive; selecting one for authentication does not activate it.
 
 Profile-management commands reject explicit `--server` and `--profile`
 selectors and ignore `WEKAN_URL` and `WEKAN_PROFILE`.
@@ -104,28 +111,28 @@ backup until replacement succeeds so an interrupted replacement is
 recoverable. On Unix, the profile directory and files created by the CLI use
 private permissions. A pre-existing `WEKAN_CONFIG_DIR` retains its existing
 directory permissions. Unreadable or unwritable storage is reported as
-`configuration_error`.
+`configuration_error`. Write errors distinguish failure before the replacement
+was installed from a failure to finalize an installed replacement, so
+structured profile state does not incorrectly claim that a visible profile was
+never created.
 
 ## Credential scope
 
 Profiles never store secrets. The native credential vault uses service
-`wekan-cli` and one of two account-key forms:
+`wekan-cli` and the account key `profile:<store-identity>:<name>`, where the
+opaque store identity is derived from the canonical profile configuration
+directory. The version-1 credential record includes and validates the expected
+canonical server URL. Two profiles for the same server, and identically named
+profiles in separate `WEKAN_CONFIG_DIR` stores, therefore have independent
+vault accounts. No migration or compatibility fallback is attempted for
+credentials written by older builds.
 
-- a canonical URL for direct `--server` or `WEKAN_URL` selection; or
-- `profile:<store-identity>:<name>` for a named profile, where the opaque
-  store identity is derived from the canonical profile configuration directory.
-
-The version-1 credential record includes and validates the expected
-canonical server URL. Named profiles do not copy or fall back to URL-keyed
-credentials, so two profiles for the same server can hold independent tokens.
-Existing URL-keyed credentials remain available through direct URL selection.
-Identically named profiles in separate `WEKAN_CONFIG_DIR` stores also have
-independent vault accounts.
-
-Named-profile authentication holds a shared profile-store lease from target
-resolution through the complete vault/network transaction. Profile mutations
-take the exclusive lease, preventing an update or removal from racing login or
-logout.
+Existing-profile authentication holds a shared profile-store lease from target
+resolution through the complete vault/network transaction. Initializing a
+missing profile holds an exclusive mutation lease through authentication,
+profile persistence, and credential creation. All paths acquire the profile
+lease before credential mutation guards, preventing profile changes and
+cross-process initialization races between Wekan CLI processes.
 
 ## Output and errors
 
@@ -135,7 +142,8 @@ removed name and server, `removed: true`, and the resulting nullable active
 profile. Human list output has deterministic Name, Server, and Active columns;
 an empty store prints a clear no-profiles message.
 
-Missing, duplicate, active-in-use, and credential-bearing profiles use the
-stable codes `profile_not_found`, `profile_already_exists`, `profile_in_use`,
-and `profile_has_credential`, all with exit status 3. Native-vault failures
-retain the credential error family and exit status 6.
+Missing, duplicate, mismatched-server, active-in-use, and credential-bearing
+profiles use the stable codes `profile_not_found`, `profile_already_exists`,
+`profile_server_mismatch`, `profile_in_use`, and `profile_has_credential`, all
+with exit status 3. `credential_already_exists` also uses exit 3. Native-vault
+failures retain the credential error family and exit status 6.

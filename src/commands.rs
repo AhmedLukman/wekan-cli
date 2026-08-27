@@ -4,9 +4,8 @@ pub mod profile;
 use clap::Subcommand;
 
 use crate::{
-    client::WekanClientFactory,
     command_result::CommandSuccess,
-    config::profiles::ProfileStore,
+    config::{ResolvedTarget, profiles::ProfileStore},
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
     input::ConfirmationProvider,
@@ -21,10 +20,10 @@ pub enum RootCommand {
     Profile(profile::ProfileArgs),
 }
 
-pub(crate) enum PreparedCommand<'a> {
+pub(crate) enum PreparedCommand<'command, 'store> {
     Auth {
         args: auth::AuthArgs,
-        client_factory: &'a WekanClientFactory,
+        target: &'command mut ResolvedTarget<'store>,
     },
     Profile {
         args: profile::ProfileArgs,
@@ -32,20 +31,17 @@ pub(crate) enum PreparedCommand<'a> {
 }
 
 pub(crate) async fn dispatch(
-    command: PreparedCommand<'_>,
+    command: PreparedCommand<'_, '_>,
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
     profile_store: &dyn ProfileStore,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
-        PreparedCommand::Auth {
-            args,
-            client_factory,
-        } => {
+        PreparedCommand::Auth { args, target } => {
             auth::dispatch(
                 args.command,
-                client_factory,
+                target,
                 credential_store,
                 secret_input,
                 confirmation,

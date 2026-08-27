@@ -14,6 +14,7 @@ pub enum ErrorCode {
     ConfigurationError,
     ProfileNotFound,
     ProfileAlreadyExists,
+    ProfileServerMismatch,
     ProfileInUse,
     ProfileHasCredential,
     InsecureTransport,
@@ -24,6 +25,7 @@ pub enum ErrorCode {
     LoginRateLimited,
     CredentialNotFound,
     CredentialExpired,
+    CredentialAlreadyExists,
     AuthenticationRejected,
     RegistrationRejected,
     RegistrationDisabled,
@@ -40,6 +42,7 @@ impl ErrorCode {
             Self::ConfigurationError => "configuration_error",
             Self::ProfileNotFound => "profile_not_found",
             Self::ProfileAlreadyExists => "profile_already_exists",
+            Self::ProfileServerMismatch => "profile_server_mismatch",
             Self::ProfileInUse => "profile_in_use",
             Self::ProfileHasCredential => "profile_has_credential",
             Self::InsecureTransport => "insecure_transport",
@@ -50,6 +53,7 @@ impl ErrorCode {
             Self::LoginRateLimited => "login_rate_limited",
             Self::CredentialNotFound => "credential_not_found",
             Self::CredentialExpired => "credential_expired",
+            Self::CredentialAlreadyExists => "credential_already_exists",
             Self::AuthenticationRejected => "authentication_rejected",
             Self::RegistrationRejected => "registration_rejected",
             Self::RegistrationDisabled => "registration_disabled",
@@ -63,10 +67,8 @@ impl ErrorCode {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
-    // The outer option controls presence. The inner option renders a direct
-    // server target as JSON null and a named target as its profile name.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub profile: Option<Option<String>>,
+    pub profile: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -95,6 +97,10 @@ pub struct ErrorDetails {
     pub remote_logout_completed: Option<Option<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub credential_stored: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_created: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_active: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub local_credential_removed: Option<bool>,
 }
@@ -138,8 +144,29 @@ impl AppError {
         self
     }
 
-    pub fn with_profile_context(mut self, profile: Option<String>) -> Self {
+    pub fn with_profile_context(mut self, profile: String) -> Self {
         self.details.profile = Some(profile);
+        self
+    }
+
+    pub fn with_session_created(mut self, created: bool) -> Self {
+        self.details.session_created = Some(created);
+        self
+    }
+
+    pub fn with_account_created(mut self, created: bool) -> Self {
+        self.details.account_created = Some(created);
+        self
+    }
+
+    pub fn with_profile_state(mut self, created: bool, active: bool) -> Self {
+        self.details.profile_created = Some(created);
+        self.details.profile_active = Some(active);
+        self
+    }
+
+    pub fn with_credential_stored(mut self, stored: bool) -> Self {
+        self.details.credential_stored = Some(stored);
         self
     }
 

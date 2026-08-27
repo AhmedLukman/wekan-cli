@@ -25,8 +25,8 @@ use wekan_cli::{
         profiles::{FileProfileStore, Profile, ProfileDocument, ProfileStore},
     },
     credentials::{
-        CredentialDeleteOutcome, CredentialError, CredentialRecord, CredentialStore,
-        CredentialTarget, KeyringCredentialStore, LoginSecretMode, LoginSecrets,
+        CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialRecord,
+        CredentialStore, CredentialTarget, KeyringCredentialStore, LoginSecretMode, LoginSecrets,
         SecretInputProvider,
     },
     error::{AppError, ErrorCode},
@@ -69,6 +69,15 @@ impl CredentialStore for CapturingStore {
         Ok(())
     }
 
+    fn exists(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
+        Ok(self
+            .credential
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|(stored_account, ..)| stored_account == target.account()))
+    }
+
     fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError> {
         Ok(self
             .credential
@@ -86,19 +95,26 @@ impl CredentialStore for CapturingStore {
             }))
     }
 
-    fn save(
+    fn create(
         &self,
         target: &CredentialTarget,
         record: &CredentialRecord,
-    ) -> Result<(), CredentialError> {
-        *self.credential.lock().unwrap() = Some((
+    ) -> Result<CredentialCreateOutcome, CredentialError> {
+        let mut credential = self.credential.lock().unwrap();
+        if credential
+            .as_ref()
+            .is_some_and(|(stored_account, ..)| stored_account == target.account())
+        {
+            return Ok(CredentialCreateOutcome::AlreadyExists);
+        }
+        *credential = Some((
             target.account().to_owned(),
             record.server_url().to_owned(),
             record.user_id().to_owned(),
             record.token().expose_secret().to_owned(),
             record.token_expires(),
         ));
-        Ok(())
+        Ok(CredentialCreateOutcome::Created)
     }
 
     fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
@@ -181,11 +197,53 @@ async fn authentication_flow_matches_wekan_v11_06() {
     .expect("the live-test command must parse");
     let store = CapturingStore::default();
     let passwords = FixedPassword(SecretString::from(password));
-    let app = App::new(cli.server, cli.allow_insecure_http, store, passwords);
+    let directory = TestDirectory::new("default-profile-auth");
+    let app = App::with_profile_store(
+        ServerSelection::new(
+            cli.server,
+            Some("default".to_owned()),
+            cli.allow_insecure_http,
+        ),
+        store,
+        passwords,
+        FileProfileStore::at(directory.path().to_owned()),
+    );
 
-    app.execute(cli.command)
+    let registration = app
+        .execute(cli.command)
         .await
         .expect("registration must succeed against Wekan v11.06");
+    let CommandSuccess::Registration(registration) = registration else {
+        panic!("expected registration output")
+    };
+    assert_eq!(registration.profile, "default");
+    assert!(registration.profile_created);
+    assert!(registration.profile_active);
+
+    let (credential_account, canonical_server, user_id, token, _) = app
+        .credential_store()
+        .credential
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .expect("registration must save the credential");
+    assert_token_authenticates(&canonical_server, &user_id, &token).await;
+
+    let clear_registration_cli = Cli::try_parse_from([
+        "wekan",
+        "--server",
+        &server,
+        "--output=json",
+        "auth",
+        "logout",
+        "--local-only",
+        "--yes",
+    ])
+    .expect("the post-registration cleanup command must parse");
+    app.execute(clear_registration_cli.command)
+        .await
+        .expect("local-only logout must permit a subsequent authentication attempt");
 
     let duplicate_cli = Cli::try_parse_from([
         "wekan",
@@ -219,16 +277,6 @@ async fn authentication_flow_matches_wekan_v11_06() {
     );
     assert_eq!(duplicate_error.details().outcome_unknown, Some(true));
 
-    let (_, canonical_server, user_id, token, _) = app
-        .credential_store()
-        .credential
-        .lock()
-        .unwrap()
-        .as_ref()
-        .cloned()
-        .expect("registration must save the credential");
-    assert_token_authenticates(&canonical_server, &user_id, &token).await;
-
     let username_login = Cli::try_parse_from([
         "wekan",
         "--server",
@@ -251,9 +299,24 @@ async fn authentication_flow_matches_wekan_v11_06() {
         .unwrap()
         .as_ref()
         .cloned()
-        .expect("username login must replace the stored credential");
+        .expect("username login must save the stored credential");
     assert_eq!(username_user_id, user_id);
     assert_token_authenticates(&username_server, &username_user_id, &username_token).await;
+
+    let clear_username_login_cli = Cli::try_parse_from([
+        "wekan",
+        "--server",
+        &server,
+        "--output=json",
+        "auth",
+        "logout",
+        "--local-only",
+        "--yes",
+    ])
+    .expect("the post-username-login cleanup command must parse");
+    app.execute(clear_username_login_cli.command)
+        .await
+        .expect("local-only logout must permit the email login");
 
     let email_login = Cli::try_parse_from([
         "wekan",
@@ -299,7 +362,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
         .unwrap()
         .as_ref()
         .cloned()
-        .expect("email login must replace the stored credential");
+        .expect("email login must save the stored credential");
     assert_eq!(email_user_id, user_id);
     assert_token_authenticates(&email_server, &email_user_id, &email_token).await;
 
@@ -444,7 +507,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     }
 
     *app.credential_store().credential.lock().unwrap() = Some((
-        canonical_server.clone(),
+        credential_account,
         canonical_server.clone(),
         user_id.clone(),
         "definitely-invalid-token".to_owned(),
@@ -522,11 +585,16 @@ async fn authentication_flow_matches_wekan_v11_06() {
         "--password-stdin",
     ])
     .expect("the rejected login command must parse");
-    let rejected_app = App::new(
-        rejected_cli.server,
-        rejected_cli.allow_insecure_http,
+    let rejected_directory = TestDirectory::new("rejected-default-profile-auth");
+    let rejected_app = App::with_profile_store(
+        ServerSelection::new(
+            rejected_cli.server,
+            Some("default".to_owned()),
+            rejected_cli.allow_insecure_http,
+        ),
         CapturingStore::default(),
         FixedPassword(SecretString::from("definitely-wrong-password".to_owned())),
+        FileProfileStore::at(rejected_directory.path().to_owned()),
     );
     let rejected_error = rejected_app
         .execute(rejected_cli.command)
@@ -606,7 +674,7 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
         panic!("expected registration output")
     };
     assert_eq!(registration.server, canonical_server);
-    assert_eq!(registration.profile.as_deref(), Some(PROFILE_NAME));
+    assert_eq!(registration.profile, PROFILE_NAME);
     assert!(registration.credential_stored);
 
     let (stored_account, stored_server, stored_user_id, stored_token, _) = app
@@ -638,7 +706,7 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
         panic!("expected authentication status output")
     };
     assert_eq!(status.server, canonical_server);
-    assert_eq!(status.profile.as_deref(), Some(PROFILE_NAME));
+    assert_eq!(status.profile, PROFILE_NAME);
     assert_eq!(status.user.user_id, registration.user_id);
 
     let logout_cli = Cli::try_parse_from([
@@ -659,7 +727,7 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
         panic!("expected logout output")
     };
     assert_eq!(logout.server, canonical_server);
-    assert_eq!(logout.profile.as_deref(), Some(PROFILE_NAME));
+    assert_eq!(logout.profile, PROFILE_NAME);
     assert_eq!(logout.logout_scope, LogoutScope::CurrentToken);
     assert!(logout.remote_logout_completed);
     assert!(logout.local_credential_removed);
@@ -722,9 +790,17 @@ struct ProcessOutput {
     stderr: String,
 }
 
-fn spawn_production_cli(server: &str, args: &[&str], stdin: Option<&str>) -> Child {
+fn spawn_production_cli(
+    config_directory: &Path,
+    server: &str,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> Child {
     let mut command = Command::new(env!("CARGO_BIN_EXE_wekan"));
     command
+        .env("WEKAN_CONFIG_DIR", config_directory)
+        .env_remove("WEKAN_PROFILE")
+        .env_remove("WEKAN_URL")
         .args(["--server", server, "--output=json", "auth"])
         .args(args)
         .stdin(if stdin.is_some() {
@@ -760,8 +836,13 @@ fn finish_production_cli(child: Child) -> ProcessOutput {
     }
 }
 
-fn run_production_cli(server: &str, args: &[&str], stdin: Option<&str>) -> ProcessOutput {
-    finish_production_cli(spawn_production_cli(server, args, stdin))
+fn run_production_cli(
+    config_directory: &Path,
+    server: &str,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> ProcessOutput {
+    finish_production_cli(spawn_production_cli(config_directory, server, args, stdin))
 }
 
 fn success_json(output: &ProcessOutput) -> serde_json::Value {
@@ -803,11 +884,19 @@ async fn token_state(server: &str, token: &str) -> (u16, serde_json::Value) {
     (status, body)
 }
 
-struct NativeCredentialCleanup(String);
+struct NativeCredentialCleanup {
+    config_directory: PathBuf,
+    server: String,
+}
 
 impl Drop for NativeCredentialCleanup {
     fn drop(&mut self) {
-        let _ = run_production_cli(&self.0, &["logout", "--local-only"], None);
+        let _ = run_production_cli(
+            &self.config_directory,
+            &self.server,
+            &["logout", "--local-only"],
+            None,
+        );
     }
 }
 
@@ -828,12 +917,18 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     let password = format!("Wekan-os-e2e-{nonce}!");
     let password_input = format!("{password}\n");
     let store = KeyringCredentialStore;
+    let config_directory = TestDirectory::new("os-backed-auth");
+    let profile_store = FileProfileStore::at(config_directory.path().to_owned());
 
     let probe = ServerUrl::parse(&server)
         .expect("the dedicated server URL must be valid for the CLI")
         .as_str()
         .to_owned();
-    let credential_target = CredentialTarget::direct(probe.clone());
+    let credential_namespace = profile_store
+        .credential_namespace()
+        .expect("the isolated profile credential namespace must resolve");
+    let credential_target =
+        CredentialTarget::profile_in_store("default", &credential_namespace, probe.clone());
     assert!(
         store
             .load(&credential_target)
@@ -841,7 +936,10 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
             .is_none(),
         "the dedicated OS E2E server already has a credential; use a fresh stack/port"
     );
-    let _cleanup = NativeCredentialCleanup(server.clone());
+    let _cleanup = NativeCredentialCleanup {
+        config_directory: config_directory.path().to_owned(),
+        server: server.clone(),
+    };
 
     let registration_args = [
         "register",
@@ -852,7 +950,14 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         "--password-stdin",
     ];
     let registrations: Vec<_> = (0..4)
-        .map(|_| spawn_production_cli(&server, &registration_args, Some(&password_input)))
+        .map(|_| {
+            spawn_production_cli(
+                config_directory.path(),
+                &server,
+                &registration_args,
+                Some(&password_input),
+            )
+        })
         .collect();
     let registrations: Vec<_> = registrations
         .into_iter()
@@ -872,20 +977,18 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         .expect("registration must report the canonical server")
         .to_owned();
     assert_eq!(registration["data"]["credential_stored"], true);
-    let duplicate_statuses: Vec<_> = registrations
+    assert_eq!(registration["data"]["profile"], "default");
+    assert_eq!(registration["data"]["profile_created"], true);
+    assert_eq!(registration["data"]["profile_active"], true);
+    for output in registrations
         .iter()
         .filter(|output| !output.status.success())
-        .map(|output| {
-            let error = error_json(output, 5, "registration_rejected");
-            (
-                error["error"]["details"]["http_status"].as_u64(),
-                error["error"]["details"]["server_error"]
-                    .as_str()
-                    .map(str::to_owned),
-            )
-        })
-        .collect();
-    println!("parallel duplicate registration responses: {duplicate_statuses:?}");
+    {
+        let error = error_json(output, 3, "credential_already_exists");
+        assert_eq!(error["error"]["details"]["profile"], "default");
+        assert_eq!(error["error"]["details"]["account_created"], false);
+        assert_eq!(error["error"]["details"]["credential_stored"], true);
+    }
 
     let registration_record = store
         .load(&credential_target)
@@ -896,7 +999,12 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(http_status, 200);
     assert_eq!(body["_id"], registration_record.user_id());
 
-    let local_only = run_production_cli(&server, &["logout", "--local-only"], None);
+    let local_only = run_production_cli(
+        config_directory.path(),
+        &server,
+        &["logout", "--local-only"],
+        None,
+    );
     let local_only = success_json(&local_only);
     assert_eq!(local_only["data"]["remote_logout_completed"], false);
     assert_eq!(local_only["data"]["local_credential_removed"], true);
@@ -905,18 +1013,23 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(http_status, 200);
     assert_eq!(body["_id"], registration_record.user_id());
 
-    let idempotent = run_production_cli(&server, &["logout", "--local-only"], None);
+    let idempotent = run_production_cli(
+        config_directory.path(),
+        &server,
+        &["logout", "--local-only"],
+        None,
+    );
     let idempotent = success_json(&idempotent);
     assert_eq!(idempotent["data"]["local_credential_removed"], false);
 
-    let missing_status = run_production_cli(&server, &["status"], None);
+    let missing_status = run_production_cli(config_directory.path(), &server, &["status"], None);
     let missing_status = error_json(&missing_status, 5, "credential_not_found");
     println!(
         "missing status response details: {}",
         missing_status["error"]["details"]
     );
 
-    let missing_logout = run_production_cli(&server, &["logout"], None);
+    let missing_logout = run_production_cli(config_directory.path(), &server, &["logout"], None);
     let missing_logout = error_json(&missing_logout, 5, "credential_not_found");
     assert_eq!(
         missing_logout["error"]["details"]["remote_logout_completed"],
@@ -928,6 +1041,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     );
 
     let empty_password = run_production_cli(
+        config_directory.path(),
         &server,
         &["login", "--username", &username, "--password-stdin"],
         Some("\n"),
@@ -942,7 +1056,9 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         .port();
     drop(unused_listener);
     let unreachable_server = format!("http://127.0.0.1:{unused_port}");
+    let transport_config_directory = TestDirectory::new("os-backed-transport-failure");
     let transport_failure = run_production_cli(
+        transport_config_directory.path(),
         &unreachable_server,
         &["login", "--username", &username, "--password-stdin"],
         Some(&password_input),
@@ -953,10 +1069,18 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         transport_failure["error"]["details"]["outcome_unknown"],
         true
     );
+    assert!(
+        FileProfileStore::at(transport_config_directory.path().to_owned())
+            .read()
+            .unwrap()
+            .document()
+            .is_empty()
+    );
 
     let wrong_password = format!("wrong-{password}");
     let wrong_password_input = format!("{wrong_password}\n");
     let rejected = run_production_cli(
+        config_directory.path(),
         &server,
         &["login", "--username", &username, "--password-stdin"],
         Some(&wrong_password_input),
@@ -966,13 +1090,18 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(rejected["error"]["details"]["http_status"], 401);
 
     let login_args = ["login", "--username", &username, "--password-stdin"];
-    let login = run_production_cli(&server, &login_args, Some(&password_input));
+    let login = run_production_cli(
+        config_directory.path(),
+        &server,
+        &login_args,
+        Some(&password_input),
+    );
     assert_secret_absent(&login, &password);
     success_json(&login);
     let current_record = store.load(&credential_target).unwrap().unwrap();
     let current_token = current_record.token().expose_secret().to_owned();
 
-    let remote_logout = run_production_cli(&server, &["logout"], None);
+    let remote_logout = run_production_cli(config_directory.path(), &server, &["logout"], None);
     let remote_logout = success_json(&remote_logout);
     assert_eq!(remote_logout["data"]["logout_scope"], "current_token");
     assert_eq!(remote_logout["data"]["remote_logout_completed"], true);
@@ -986,6 +1115,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(older_body["_id"], registration_record.user_id());
 
     success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &login_args,
         Some(&password_input),
@@ -1013,7 +1143,8 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         .as_str()
         .expect("the independent login must return a token")
         .to_owned();
-    let all_logout = run_production_cli(&server, &["logout", "--all"], None);
+    let all_logout =
+        run_production_cli(config_directory.path(), &server, &["logout", "--all"], None);
     let all_logout = success_json(&all_logout);
     assert_eq!(all_logout["data"]["logout_scope"], "all_tokens");
     assert_eq!(all_logout["data"]["remote_logout_completed"], true);
@@ -1027,6 +1158,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     );
 
     success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &login_args,
         Some(&password_input),
@@ -1039,6 +1171,7 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
         .expose_secret()
         .to_owned();
     success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &["logout", "--local-only"],
         None,
@@ -1047,14 +1180,48 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(status, 200);
     assert_eq!(body["_id"], registration_record.user_id());
 
+    let expired_record = CredentialRecord::new(
+        canonical_server.clone(),
+        registration_record.user_id().to_owned(),
+        SecretString::from("expired-os-backed-token".to_owned()),
+        OffsetDateTime::now_utc() - Duration::hours(1),
+    );
+    assert_eq!(
+        store.create(&credential_target, &expired_record).unwrap(),
+        CredentialCreateOutcome::Created
+    );
+    let expired_login = run_production_cli(
+        config_directory.path(),
+        &server,
+        &login_args,
+        Some(&password_input),
+    );
+    error_json(&expired_login, 3, "credential_already_exists");
+    success_json(&run_production_cli(
+        config_directory.path(),
+        &server,
+        &["logout", "--local-only"],
+        None,
+    ));
+
     let invalid_record = CredentialRecord::new(
         canonical_server.clone(),
         registration_record.user_id().to_owned(),
         SecretString::from("definitely-invalid-os-backed-token".to_owned()),
         OffsetDateTime::now_utc() + Duration::hours(1),
     );
-    store.save(&credential_target, &invalid_record).unwrap();
-    let invalid_logout = run_production_cli(&server, &["logout"], None);
+    assert_eq!(
+        store.create(&credential_target, &invalid_record).unwrap(),
+        CredentialCreateOutcome::Created
+    );
+    let occupied_login = run_production_cli(
+        config_directory.path(),
+        &server,
+        &login_args,
+        Some(&password_input),
+    );
+    error_json(&occupied_login, 3, "credential_already_exists");
+    let invalid_logout = run_production_cli(config_directory.path(), &server, &["logout"], None);
     let invalid_logout = error_json(&invalid_logout, 5, "authentication_rejected");
     assert_eq!(invalid_logout["error"]["details"]["http_status"], 401);
     assert_eq!(
@@ -1067,38 +1234,84 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     );
     assert!(store.load(&credential_target).unwrap().is_some());
     success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &["logout", "--local-only"],
         None,
     ));
 
-    keyring::Entry::new("wekan-cli", &canonical_server)
+    keyring::Entry::new("wekan-cli", credential_target.account())
         .unwrap()
         .set_secret(b"{malformed credential")
         .unwrap();
-    let corrupt_status = run_production_cli(&server, &["status"], None);
+    let corrupt_login = run_production_cli(
+        config_directory.path(),
+        &server,
+        &login_args,
+        Some(&password_input),
+    );
+    error_json(&corrupt_login, 3, "credential_already_exists");
+    let corrupt_status = run_production_cli(config_directory.path(), &server, &["status"], None);
     let corrupt_status = error_json(&corrupt_status, 6, "credential_store_failed");
     println!(
         "corrupt status response details: {}",
         corrupt_status["error"]["details"]
     );
     success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &["logout", "--local-only"],
         None,
     ));
 
     let parallel_logins: Vec<_> = (0..PARALLELISM)
-        .map(|_| spawn_production_cli(&server, &login_args, Some(&password_input)))
+        .map(|_| {
+            spawn_production_cli(
+                config_directory.path(),
+                &server,
+                &login_args,
+                Some(&password_input),
+            )
+        })
         .collect();
-    for output in parallel_logins.into_iter().map(finish_production_cli) {
-        assert_secret_absent(&output, &password);
-        success_json(&output);
+    let parallel_logins: Vec<_> = parallel_logins
+        .into_iter()
+        .map(finish_production_cli)
+        .collect();
+    for output in &parallel_logins {
+        assert_secret_absent(output, &password);
     }
-    success_json(&run_production_cli(&server, &["status"], None));
+    assert_eq!(
+        parallel_logins
+            .iter()
+            .filter(|output| output.status.success())
+            .count(),
+        1,
+        "{parallel_logins:#?}"
+    );
+    for output in parallel_logins
+        .iter()
+        .filter(|output| !output.status.success())
+    {
+        let error = error_json(output, 3, "credential_already_exists");
+        assert_eq!(error["error"]["details"]["session_created"], false);
+    }
+    success_json(&run_production_cli(
+        config_directory.path(),
+        &server,
+        &["status"],
+        None,
+    ));
 
     let parallel_local_logouts: Vec<_> = (0..PARALLELISM)
-        .map(|_| spawn_production_cli(&server, &["logout", "--local-only"], None))
+        .map(|_| {
+            spawn_production_cli(
+                config_directory.path(),
+                &server,
+                &["logout", "--local-only"],
+                None,
+            )
+        })
         .collect();
     let removed_count = parallel_local_logouts
         .into_iter()
@@ -1111,15 +1324,33 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
 
     for _ in 0..RACE_ROUNDS {
         success_json(&run_production_cli(
+            config_directory.path(),
+            &server,
+            &["logout", "--local-only"],
+            None,
+        ));
+        success_json(&run_production_cli(
+            config_directory.path(),
             &server,
             &login_args,
             Some(&password_input),
         ));
-        let login = spawn_production_cli(&server, &login_args, Some(&password_input));
-        let logout = spawn_production_cli(&server, &["logout"], None);
-        success_json(&finish_production_cli(login));
+        let login = spawn_production_cli(
+            config_directory.path(),
+            &server,
+            &login_args,
+            Some(&password_input),
+        );
+        let logout = spawn_production_cli(config_directory.path(), &server, &["logout"], None);
+        let login = finish_production_cli(login);
+        if login.status.success() {
+            success_json(&login);
+        } else {
+            let error = error_json(&login, 3, "credential_already_exists");
+            assert_eq!(error["error"]["details"]["session_created"], false);
+        }
         success_json(&finish_production_cli(logout));
-        let status = run_production_cli(&server, &["status"], None);
+        let status = run_production_cli(config_directory.path(), &server, &["status"], None);
         if status.status.success() {
             let status = success_json(&status);
             assert_eq!(status["data"]["authenticated"], true);
@@ -1130,15 +1361,38 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
 
     for _ in 0..RACE_ROUNDS {
         success_json(&run_production_cli(
+            config_directory.path(),
+            &server,
+            &["logout", "--local-only"],
+            None,
+        ));
+        success_json(&run_production_cli(
+            config_directory.path(),
             &server,
             &login_args,
             Some(&password_input),
         ));
-        let login = spawn_production_cli(&server, &login_args, Some(&password_input));
-        let logout = spawn_production_cli(&server, &["logout", "--local-only"], None);
-        success_json(&finish_production_cli(login));
+        let login = spawn_production_cli(
+            config_directory.path(),
+            &server,
+            &login_args,
+            Some(&password_input),
+        );
+        let logout = spawn_production_cli(
+            config_directory.path(),
+            &server,
+            &["logout", "--local-only"],
+            None,
+        );
+        let login = finish_production_cli(login);
+        if login.status.success() {
+            success_json(&login);
+        } else {
+            let error = error_json(&login, 3, "credential_already_exists");
+            assert_eq!(error["error"]["details"]["session_created"], false);
+        }
         success_json(&finish_production_cli(logout));
-        let status = run_production_cli(&server, &["status"], None);
+        let status = run_production_cli(config_directory.path(), &server, &["status"], None);
         if status.status.success() {
             let status = success_json(&status);
             assert_eq!(status["data"]["authenticated"], true);
@@ -1148,11 +1402,23 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     }
 
     success_json(&run_production_cli(
+        config_directory.path(),
+        &server,
+        &["logout", "--local-only"],
+        None,
+    ));
+    success_json(&run_production_cli(
+        config_directory.path(),
         &server,
         &login_args,
         Some(&password_input),
     ));
-    success_json(&run_production_cli(&server, &["logout", "--all"], None));
+    success_json(&run_production_cli(
+        config_directory.path(),
+        &server,
+        &["logout", "--all"],
+        None,
+    ));
     assert!(store.load(&credential_target).unwrap().is_none());
     println!(
         "OS-backed cross-process stress passed: {PARALLELISM} parallel logins, {PARALLELISM} parallel local logouts, {RACE_ROUNDS} login/remote-logout races, {RACE_ROUNDS} login/local-logout races"

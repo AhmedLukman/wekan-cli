@@ -83,7 +83,7 @@ fn with_profile_context(
     name: String,
     result: Result<CommandSuccess, AppError>,
 ) -> Result<CommandSuccess, AppError> {
-    result.map_err(|error| error.with_profile_context(Some(name)))
+    result.map_err(|error| error.with_profile_context(name))
 }
 
 fn ensure_logged_out(
@@ -93,9 +93,9 @@ fn ensure_logged_out(
     credential_namespace: &str,
 ) -> Result<(), AppError> {
     let target = CredentialTarget::profile_in_store(name, credential_namespace, server.to_owned());
-    match credential_store.load(&target) {
-        Ok(None) => Ok(()),
-        Ok(Some(_)) => Err(profile_error(
+    match credential_store.exists(&target) {
+        Ok(false) => Ok(()),
+        Ok(true) => Err(profile_error(
             ErrorCode::ProfileHasCredential,
             name,
             format!(
@@ -107,13 +107,13 @@ fn ensure_logged_out(
             format!("the operating-system credential store is unavailable: {message}"),
             StableExitCode::Credential,
         )
-        .with_profile_context(Some(name.to_owned()))),
+        .with_profile_context(name.to_owned())),
         Err(error) => Err(AppError::new(
             ErrorCode::CredentialStoreFailed,
             format!("the stored credential could not be checked: {error}"),
             StableExitCode::Credential,
         )
-        .with_profile_context(Some(name.to_owned()))),
+        .with_profile_context(name.to_owned())),
     }
 }
 
@@ -127,7 +127,7 @@ fn profile_not_found(name: &str) -> AppError {
 
 fn profile_error(code: ErrorCode, name: &str, message: String) -> AppError {
     AppError::new(code, message, StableExitCode::Configuration).with_details(ErrorDetails {
-        profile: Some(Some(name.to_owned())),
+        profile: Some(name.to_owned()),
         ..ErrorDetails::default()
     })
 }

@@ -4,30 +4,38 @@ The implemented authentication surface supports registration, login, logout,
 and live authentication status:
 
 ```text
-wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth register (--username <NAME> | --email <EMAIL> | both)
       [--password-stdin]
 
-wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth login (--username <NAME> | --email <EMAIL>)
       [--password-stdin]
       [--code | --code-stdin]
 
-wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth status
 
-wekan [--server <URL> | --profile <NAME>] [--output human|json] [--allow-insecure-http]
+wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth logout [--all | --local-only] [--yes]
 ```
 
 ## Server selection
 
-Authentication resolves its target through an explicit `--server` or
-`--profile`, then `WEKAN_URL`, then `WEKAN_PROFILE`, and finally the persisted
-active profile. Supplying both explicit selectors is a usage error. If no
-selector resolves, the command returns `configuration_error` without reading
-secrets or contacting Wekan. See [Server profiles and configuration](config.md)
-for profile-management and storage behavior.
+Authentication always resolves a profile name: `--profile`, then
+`WEKAN_PROFILE`, then the persisted active profile, then `default`. It resolves
+an optional supplied URL independently from `--server`, then `WEKAN_URL`, so
+both explicit selectors may be used together.
+
+For an existing profile, an omitted URL uses the stored URL and a supplied URL
+must canonicalize to the same value. A mismatch returns
+`profile_server_mismatch` before vault access or HTTP. A missing profile returns
+`profile_not_found`, except that login and registration may initialize it when
+a URL is supplied and `auth logout --local-only` may remove its orphaned vault
+entry with a supplied URL. Local-only recovery never recreates profile metadata.
+Initialization happens only after Wekan returns a complete, valid session. See
+[Server profiles and configuration](config.md) for profile lifecycle and storage
+behavior.
 
 The URL must:
 
@@ -95,13 +103,16 @@ The stored version-1 record must contain the same canonical server URL, a
 nonempty user ID and token, and an RFC 3339 expiry. A missing record returns
 `credential_not_found`. A record whose expiry is at or before the current time
 returns `credential_expired` with `token_expires` details and is not sent to
-Wekan.
+Wekan. Because login never overwrites an existing vault entry, remove an
+expired credential with `wekan auth logout --local-only` before logging in
+again.
 
 For a nonexpired record, the CLI sends one bearer-authenticated `GET api/user`
 request. Wekan v11.06 reports a missing or invalid token as HTTP 200 with an
 embedded `statusCode: 401`; the CLI maps this to `authentication_rejected` and
 reports both `http_status: 200` and `wekan_status_code: 401`. It does not delete
-the rejected credential.
+the rejected credential. Remove that entry with
+`wekan auth logout --local-only` before logging in again.
 
 Successful status requires the returned `_id` to be nonempty and to match the
 stored user ID. Output allowlists only the user ID, username, profile full name,
@@ -125,8 +136,8 @@ performs no vault or HTTP mutation. Pass command-local `--yes` to skip the
 prompt. JSON output and non-terminal execution never prompt and return
 `invalid_input` unless `--yes` is present. The CLI acquires the target's
 credential mutation guards before prompting and retains them through the
-operation, so another login or logout cannot replace the credential after the
-confirmation request is shown.
+operation, so a concurrent Wekan CLI login or logout cannot mutate the
+credential after the confirmation request is shown.
 
 Logout deliberately submits a locally expired credential because Wekan may
 still have that token stored and be able to remove it. A missing record returns
@@ -146,24 +157,28 @@ logout completed until the body validates. If a validated remote success is
 followed by a vault deletion failure, the command returns
 `credential_store_failed` with `remote_logout_completed: true`.
 
-After validated remote success, deletion is conditional on the stored record
-still matching the record submitted to Wekan. If the record has been replaced
-before that comparison, the newer credential is preserved and success reports
-`credential_stored: true` and `local_credential_removed: false`. A deletion by
-this invocation reports `local_credential_removed: true`; an already-absent
-record reports `false`. Native-vault mutations use stable lock files in the
-user's private local application-data directory, never the shared temporary
-directory. Each transaction holds its target-account lock and a canonical-server
-lock from before remote authentication work through its local save or deletion.
-The whole transaction is therefore serialized across current CLI processes and
-all direct or named aliases of a server: an all-token logout cannot retain a
-token that a concurrent login had already created, and a successful logout
-cannot remove a concurrently saved login.
+After validated remote success, deletion compares the stored record with the
+record submitted to Wekan. If that comparison observes a replacement, the CLI
+preserves the newer credential and reports `credential_stored: true` and
+`local_credential_removed: false`. A deletion by this invocation reports
+`local_credential_removed: true`; an already-absent record reports `false`.
+Native-vault mutations use stable lock files in the user's private local
+application-data directory, never the shared temporary directory. Each
+transaction holds its target-account lock and a canonical-server lock from
+before remote authentication work through its local creation or deletion. The
+whole transaction is therefore serialized across current Wekan CLI processes
+and all profiles for a server: an all-token logout cannot retain a token that a
+concurrent CLI login had already created, and a successful logout cannot remove
+a concurrently created CLI login.
 
-An externally changed record can still be preserved by the conditional delete.
-For an all-token logout, human output tells the caller to verify that record
-before using it because an older CLI or another vault writer might have stored
-a token that the remote all-token operation revoked.
+This serialization does not make the native vault transaction atomic against
+other software. Generic OS keyring APIs provide neither a cross-process atomic
+create nor a compare-and-swap operation, so an external vault writer can race
+between the CLI's presence or comparison check and its write or deletion. The
+CLI preserves an external replacement it observes, but cannot guarantee that
+against a non-cooperating writer. For an all-token logout, human output tells
+the caller to verify any locally retained record before using it because it may
+contain a token that the remote all-token operation revoked.
 
 `--local-only` conflicts with `--all`, makes no HTTP request, and deletes the
 resolved target's vault entry without loading or decoding it. It therefore
@@ -216,20 +231,38 @@ credential store:
 - Keychain Services on macOS; and
 - Secret Service on Linux and other supported Unix systems.
 
-No plaintext fallback exists. The entry uses service `wekan-cli`. Direct URL
-selection uses the canonical server URL as its account key; named selection
-uses `profile:<store-identity>:<name>`, where the opaque store identity is
-derived from the canonical profile configuration directory. A later successful
-registration or login replaces only that target's entry. Replacing the local
-record does not revoke older tokens on Wekan.
+No plaintext fallback exists. The entry uses service `wekan-cli` and account
+key `profile:<store-identity>:<name>`, where the opaque store identity is
+derived from the canonical profile configuration directory. Two profiles can
+therefore maintain independent credentials even when they use the same
+canonical URL, and identically named profiles in separate `WEKAN_CONFIG_DIR`
+stores cannot collide. The CLI neither migrates nor looks up credentials
+written by older builds.
 
-Two named profiles can therefore maintain independent credentials even when
-they use the same canonical URL, and identically named profiles in separate
-`WEKAN_CONFIG_DIR` stores cannot collide. Named profiles never copy or fall
-back to an existing URL-keyed credential; those direct credentials remain
-usable only through direct URL selection. Named authentication operations hold
-a shared profile-store lease through target resolution, network work, and vault
-mutation so a profile update or removal cannot race the transaction.
+Registration and login serialize their create-if-absent flow across Wekan CLI
+processes. Under the credential mutation guards, the CLI checks for any raw
+entry before reading a password or contacting Wekan. A valid, expired,
+malformed, or unsupported entry observed by the CLI returns
+`credential_already_exists` with exit 3; the CLI does not decode or overwrite
+that observed entry. Clear that profile first with `auth logout`, or use
+`auth logout --local-only` when the record cannot be decoded or the remote token
+should remain untouched.
+
+Credential presence is checked again after Wekan returns a valid session. A
+late conflict that the CLI observes preserves the existing entry and reports
+that the remote session or account may already have been created.
+Existing-profile authentication holds a shared profile-store lease throughout
+the transaction. Missing-profile login and registration hold an exclusive
+profile mutation lease, save the new profile first, and then create its
+credential. A profile-save failure prevents the credential write; a
+failure before the new profile document is installed reports
+`profile_created: false`. If the document was installed but final durability or
+inspection failed, the error explicitly reports `profile_created: true` and the
+resulting `profile_active` state. A credential-save failure likewise retains
+the new profile. The native-vault API has no
+cross-process atomic create or compare-and-swap, so these guards serialize
+Wekan CLI mutations but cannot guarantee non-overwrite behavior against an
+external writer that races the check and write.
 
 The stored secret is a versioned JSON record:
 
@@ -246,10 +279,11 @@ The stored secret is a versioned JSON record:
 Passwords and two-factor codes are never stored. Tokens are never rendered in
 human or JSON output.
 
-Registration, login, logout, and status success data includes a nullable
-`profile` field. It contains the selected profile name for a named target and
-is `null` for direct URL selection. Named-target errors include the same profile
-context.
+Registration, login, logout, and status success data includes the required
+`profile` name. Registration and login also report `profile_created` and
+`profile_active`. Errors include the profile context, and partial-success errors
+include the profile-creation state when authentication succeeded before local
+persistence failed.
 
 Credential reads distinguish an absent entry from an unavailable vault or an
 invalid record. Missing credentials are an unauthenticated state; vault access,
@@ -260,8 +294,10 @@ record decoding and directly deletes the vault entry.
 
 A credential-store write can fail after Wekan reports success. Registration
 then returns `credential_store_failed` with `account_created: true`; login uses
-the same error code with `session_created: true`. The CLI discards the in-memory
-token and does not attempt remote rollback or revocation.
+the same error code with `session_created: true`. Both include
+`profile_created` and `profile_active`; an automatically initialized profile is
+retained. The CLI discards the in-memory token and does not attempt remote
+rollback or revocation.
 
 A credential-store deletion can likewise fail after Wekan completes logout.
 That failure reports `credential_store_failed` with

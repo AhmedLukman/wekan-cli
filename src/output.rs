@@ -122,9 +122,18 @@ fn render_auth_success(action: &str, data: &AuthSuccess) -> String {
         escape_terminal_controls(&data.user_id),
         escape_terminal_controls(&data.server)
     )];
-    if let Some(profile) = &data.profile {
-        lines.push(format!("Profile: {}", escape_terminal_controls(profile)));
-    }
+    lines.push(format!(
+        "Profile: {}",
+        escape_terminal_controls(&data.profile)
+    ));
+    lines.push(format!(
+        "Profile created: {}",
+        if data.profile_created { "yes" } else { "no" }
+    ));
+    lines.push(format!(
+        "Profile active: {}",
+        if data.profile_active { "yes" } else { "no" }
+    ));
     lines.push(format!(
         "Token expires: {}",
         escape_terminal_controls(&data.token_expires)
@@ -207,13 +216,11 @@ fn render_logout(data: &LogoutSuccess) -> String {
             }
         ),
     };
-    if let Some(profile) = &data.profile {
-        let first_newline = rendered.find('\n').unwrap_or(rendered.len());
-        rendered.insert_str(
-            first_newline,
-            &format!("\nProfile: {}", escape_terminal_controls(profile)),
-        );
-    }
+    let first_newline = rendered.find('\n').unwrap_or(rendered.len());
+    rendered.insert_str(
+        first_newline,
+        &format!("\nProfile: {}", escape_terminal_controls(&data.profile)),
+    );
     rendered
 }
 
@@ -245,9 +252,10 @@ fn render_auth_status(data: &AuthStatusSuccess) -> String {
         format!("User ID: {}", escape_terminal_controls(&data.user.user_id)),
     ];
 
-    if let Some(profile) = &data.profile {
-        lines.push(format!("Profile: {}", escape_terminal_controls(profile)));
-    }
+    lines.push(format!(
+        "Profile: {}",
+        escape_terminal_controls(&data.profile)
+    ));
 
     if let Some(full_name) = &data.user.full_name {
         lines.push(format!(
@@ -335,10 +343,12 @@ mod tests {
     fn success() -> CommandSuccess {
         CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
+            profile_created: true,
+            profile_active: true,
         })
     }
 
@@ -383,10 +393,12 @@ mod tests {
     fn human_success_escapes_terminal_control_sequences() {
         let success = CommandSuccess::Registration(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             user_id: "user\u{1b}]52;c;clipboard\u{7}\nnext-line".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
+            profile_created: false,
+            profile_active: true,
         });
 
         let rendered = render_success(OutputFormat::Human, &success);
@@ -400,10 +412,12 @@ mod tests {
     fn login_success_uses_the_same_secret_free_json_shape() {
         let success = CommandSuccess::Login(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
+            profile_created: false,
+            profile_active: true,
         });
 
         let value: serde_json::Value =
@@ -417,7 +431,7 @@ mod tests {
     fn logout_success_reports_scope_and_local_credential_state() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             logout_scope: LogoutScope::AllTokens,
             remote_logout_completed: true,
             credential_stored: false,
@@ -438,7 +452,7 @@ mod tests {
     fn local_only_output_warns_that_remote_tokens_were_not_revoked() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/\u{1b}]52;c;clipboard\u{7}".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             logout_scope: LogoutScope::LocalOnly,
             remote_logout_completed: false,
             credential_stored: false,
@@ -455,7 +469,7 @@ mod tests {
     fn local_only_output_distinguishes_an_already_absent_credential() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             logout_scope: LogoutScope::LocalOnly,
             remote_logout_completed: false,
             credential_stored: false,
@@ -471,7 +485,7 @@ mod tests {
     fn remote_output_reports_that_a_newer_credential_was_preserved() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             logout_scope: LogoutScope::CurrentToken,
             remote_logout_completed: true,
             credential_stored: true,
@@ -488,7 +502,7 @@ mod tests {
     fn all_tokens_output_requires_verification_of_a_changed_credential() {
         let success = CommandSuccess::Logout(LogoutSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             logout_scope: LogoutScope::AllTokens,
             remote_logout_completed: true,
             credential_stored: true,
@@ -502,7 +516,7 @@ mod tests {
     fn status_success_uses_the_stable_nested_profile_shape() {
         let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             authenticated: true,
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -534,7 +548,7 @@ mod tests {
     fn human_status_omits_absent_profile_lines_and_escapes_controls() {
         let success = CommandSuccess::AuthStatus(AuthStatusSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: None,
+            profile: "default".to_owned(),
             authenticated: true,
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
@@ -614,22 +628,22 @@ mod tests {
     }
 
     #[test]
-    fn auth_output_identifies_named_and_direct_targets() {
+    fn auth_output_identifies_profile_and_initialization_state() {
         let named = CommandSuccess::Login(AuthSuccess {
             server: "https://wekan.example/".to_owned(),
-            profile: Some("work".to_owned()),
+            profile: "work".to_owned(),
             user_id: "user-1".to_owned(),
             token_expires: "2030-01-02T03:04:05Z".to_owned(),
             credential_stored: true,
+            profile_created: true,
+            profile_active: false,
         });
         let value: serde_json::Value =
             serde_json::from_str(&render_success(OutputFormat::Json, &named)).unwrap();
         assert_eq!(value["data"]["profile"], "work");
+        assert_eq!(value["data"]["profile_created"], true);
+        assert_eq!(value["data"]["profile_active"], false);
         assert!(render_success(OutputFormat::Human, &named).contains("Profile: work"));
-
-        let value: serde_json::Value =
-            serde_json::from_str(&render_success(OutputFormat::Json, &success())).unwrap();
-        assert_eq!(value["data"]["profile"], serde_json::Value::Null);
     }
 
     #[test]

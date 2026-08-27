@@ -36,9 +36,9 @@ flowchart LR
     caller -->|arguments and environment| entry
     entry --> app
     app --> resolver
-    resolver -->|shared lease for named auth| profiles
+    resolver -->|shared existing or exclusive initialization lease| profiles
     resolver -->|resolved target: factory and lease| app
-    app -->|prepared command and client factory| dispatch
+    app -->|prepared command and resolved target| dispatch
     dispatch --> handlers
     handlers --> secrets
     input -->|password and optional code| secrets
@@ -53,13 +53,13 @@ flowchart LR
 The application layer owns concrete production dependencies, including the
 long-lived `TargetResolver`. For an authentication command, `App` asks that
 resolver for a command-scoped `ResolvedTarget`, retains it through dispatch,
-and injects its focused `WekanClientFactory` capability. The `ResolvedTarget`
-also retains any named-profile lease. The `ProfileStore`, `CredentialStore`,
-and `SecretInputProvider` traits keep command behavior testable without real
-local configuration, a terminal, or an operating-system vault. The HTTP client
-owns URL and transport policy, shared auth-session decoding, and allowlisted
-current-user decoding; each handler owns operation-specific orchestration and
-error mapping.
+and passes that focused target into root routing. The `ResolvedTarget` owns its
+`WekanClientFactory`, required profile identity, and retained profile guard. The
+`ProfileStore`, `CredentialStore`, and `SecretInputProvider` traits keep command
+behavior testable without real local configuration, a terminal, or an
+operating-system vault. The HTTP client owns URL and transport policy, shared
+auth-session decoding, and allowlisted current-user decoding; each handler owns
+operation-specific orchestration and error mapping.
 
 ## Component responsibilities
 
@@ -68,7 +68,7 @@ error mapping.
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
 | CLI model | Define global selectors plus the profile, registration, login, status, and logout command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/profile.rs`](../src/commands/profile.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
 | Application composition | Construct and own long-lived dependencies, decide which commands need a target, retain each resolved target through dispatch, and pass explicit capabilities into root routing | [`src/app.rs`](../src/app.rs) |
-| Configuration boundary | Persist strict named profiles; own target-selection policy; canonicalize server identity independently of network permission; produce a command-scoped target containing its client factory and any shared profile lease; and coordinate exclusive mutation leases | [`src/config.rs`](../src/config.rs), [`src/config/profiles.rs`](../src/config/profiles.rs) |
+| Configuration boundary | Persist strict named profiles; own target-selection policy; canonicalize server identity independently of network permission; and produce a command-scoped target containing its client factory and retained shared or exclusive profile guard | [`src/config.rs`](../src/config.rs), [`src/config/profiles.rs`](../src/config/profiles.rs) |
 | Authentication orchestration | Enforce operation order, load or store credentials, redact secrets, and map operation-specific errors | [`src/commands/auth/`](../src/commands/auth/) |
 | Command result model | Define secret-free semantic success outcomes and shared outcome vocabulary independently of rendering | [`src/command_result.rs`](../src/command_result.rs) |
 | HTTP boundary | Own the canonical URL type, enforce transport permission on client creation, and apply timeouts, no redirects, no retries, and loopback proxy bypass | [`src/client.rs`](../src/client.rs), [`src/client/auth.rs`](../src/client/auth.rs) |
@@ -82,34 +82,44 @@ parsing or output rendering.
 
 ## Target resolution and credential scope
 
-Ordinary commands resolve an explicit `--server` or `--profile`, then
-`WEKAN_URL`, then `WEKAN_PROFILE`, and finally the persisted active profile.
-Both explicit selectors together are rejected. Profile-management commands
-reject explicit selectors and ignore selector environment variables.
+Ordinary commands resolve the profile name through `--profile`,
+`WEKAN_PROFILE`, the active profile, then `default`. They independently resolve
+an optional URL through `--server`, then `WEKAN_URL`; both explicit selectors
+may appear together. Profile-management commands reject explicit selectors and
+ignore selector environment variables.
 
-The resolved target carries two identities: the expected canonical server URL
-for HTTP and version-1 record validation, and the native-vault account key.
-Direct selection uses the URL for both. Named selection uses
-`profile:<store-identity>:<name>` as the vault key while retaining the
-profile's URL as the expected server. The opaque store identity derives from
-the canonical profile configuration directory, so independently overridden
-configuration stores cannot collide. No lookup falls back to URL-keyed
-credentials.
+An existing profile supplies its stored canonical server URL. A supplied URL
+must canonicalize to the same value or resolution returns
+`profile_server_mismatch` before vault access. A missing profile normally
+returns `profile_not_found`; login and registration may instead initialize it
+when a URL was supplied, after a valid Wekan session has been decoded.
+`auth logout --local-only` may instead remove its orphaned vault entry when a
+URL is supplied, without recreating profile metadata.
 
-Resolving a named authentication target retains a shared profile-store lease
-through preflight, remote work, and the final vault save or deletion. Profile
-updates and removals require an exclusive lease, so they cannot change the
-name-to-server binding during an authentication transaction.
+The resolved target carries the expected canonical server URL and the
+profile-only native-vault account key `profile:<store-identity>:<name>`. The
+opaque store identity derives from the canonical profile configuration
+directory, so independently overridden configuration stores cannot collide.
+Older credential formats receive no compatibility lookup or mutation.
+
+Resolving an existing authentication target retains a shared profile-store
+lease through preflight, remote work, and final vault creation or deletion.
+Missing-profile login and registration retain an exclusive mutation lease
+through remote authentication, profile creation, and credential creation.
+Every transaction therefore acquires profile locking before credential locking.
 
 The configuration boundary's `TargetResolver` returns a `ResolvedTarget` that
-owns the `WekanClientFactory`, optional profile identity, and shared lease.
+owns the `WekanClientFactory`, required profile identity, and retained lease.
 The resolver canonicalizes and validates server identity independently of
 network permission, without initializing an HTTP client. `App` retains the
-target for the complete command and passes its factory explicitly into root
-dispatch. Root dispatch only routes, and command code neither resolves profiles
-nor constructs application infrastructure. The factory enforces plaintext HTTP
-permission only when a remote handler calls `create()`; local server-scoped
-operations use the canonical identity without a policy bypass.
+target for the complete command and passes it explicitly into root dispatch.
+Root dispatch only routes. Auth-family dispatch gives login and registration
+the mutable target needed to commit a pending profile through configuration-owned
+behavior, while status and logout receive only its focused factory. Command code
+does not resolve profiles or construct application infrastructure. The factory
+enforces plaintext HTTP permission only when a remote handler calls `create()`;
+local server-scoped operations use the canonical identity without a policy
+bypass.
 
 ## Successful registration sequence
 
@@ -123,25 +133,26 @@ sequenceDiagram
     participant Dispatch as Command dispatch
     participant Handler as Register handler
     participant Factory as Client factory
+    participant Profiles as Profile store
     participant Vault as Native credential store
     participant Password as Password provider
     participant Client as Wekan client
     participant Wekan as Wekan v11.06
 
-    Caller->>CLI: auth register + identity + resolved target
+    Caller->>CLI: auth register + identity + target selectors
     CLI->>CLI: Parse arguments and select output format
     CLI->>App: execute(RootCommand)
-    App->>Resolver: Resolve selected server or profile
+    App->>Resolver: Resolve profile and optional supplied server
     Resolver->>Resolver: Canonicalize identity (no network policy)
     Resolver-->>App: ResolvedTarget (factory + retained lease)
     Note over App,Factory: Factory exists; no HTTP client yet
-    App->>Dispatch: dispatch(AuthCommand + factory)
-    Dispatch->>Handler: execute(RegisterArgs)
+    App->>Dispatch: dispatch(AuthCommand + ResolvedTarget)
+    Dispatch->>Handler: execute(RegisterArgs + mutable target)
     Handler->>Factory: Create client
     Factory->>Factory: Enforce network transport policy
     Factory-->>Handler: Configured client + canonical URL
-    Handler->>Vault: Check availability for target account
-    Vault-->>Handler: Available
+    Handler->>Vault: Acquire CLI mutation guards and check raw presence
+    Vault-->>Handler: Available and absent
     Handler->>Password: Read password
     Password-->>Handler: SecretString
     Handler->>Client: register(identity, password)
@@ -152,8 +163,10 @@ sequenceDiagram
     Wekan-->>Client: 200 {id, token, tokenExpires}
     Client->>Client: Enforce 1 MiB limit and validate fields
     Client-->>Handler: AuthSession
-    Handler->>Vault: Save versioned credential record
-    Note over Handler,Vault: Account key is URL or namespaced profile
+    Handler->>Profiles: Persist profile if it was missing
+    Profiles-->>Handler: Created/active state
+    Handler->>Vault: Check then create versioned record
+    Note over Handler,Vault: Account key is profile-namespaced only
     Note over Handler,Vault: The password is never stored
     Vault-->>Handler: Saved
     Handler-->>Dispatch: AuthSuccess without token
@@ -162,11 +175,17 @@ sequenceDiagram
     CLI-->>Caller: stdout + exit 0
 ```
 
-The credential-store preflight deliberately happens before password input and
-before the remote mutation. A successful response is not reported as success
-until the returned token has been stored. The token remains secret throughout:
-it is accepted from Wekan, wrapped as secret data, written to the vault, and
-omitted from both human and JSON output.
+The raw credential-presence check deliberately happens under mutation guards,
+before password input and before the remote mutation. An entry present when the
+CLI checks blocks authentication without being decoded or overwritten by that
+CLI invocation. The guards serialize Wekan CLI mutations, not arbitrary native
+vault clients: generic OS keyring APIs do not provide a cross-process atomic
+create or compare-and-swap operation. An external writer can therefore race
+between the check and the CLI's write. A successful response is not reported as
+success until a missing profile has been persisted and the returned token has
+been created in the vault. The token remains secret throughout: it is accepted
+from Wekan, wrapped as secret data, written to the vault, and omitted from both
+human and JSON output.
 
 ## Successful login sequence
 
@@ -176,6 +195,7 @@ sequenceDiagram
     actor Caller as Human or agent
     participant Handler as Login handler
     participant Factory as Client factory
+    participant Profiles as Profile store
     participant Vault as Native credential store
     participant Secrets as Secret input provider
     participant Client as Wekan client
@@ -184,8 +204,8 @@ sequenceDiagram
     Caller->>Handler: auth login + one identity + resolved target
     Handler->>Factory: Create client and enforce network policy
     Factory-->>Handler: Configured client + canonical URL
-    Handler->>Vault: Check availability
-    Vault-->>Handler: Available
+    Handler->>Vault: Acquire CLI mutation guards; check raw entry absent
+    Vault-->>Handler: Available and absent
     Handler->>Secrets: Read password and optional code
     Secrets-->>Handler: LoginSecrets
     Handler->>Client: login(identity, password, optional code)
@@ -193,8 +213,10 @@ sequenceDiagram
     Note over Client,Wekan: Redirects and retries are disabled
     Wekan-->>Client: 200 {id, token, tokenExpires}
     Client-->>Handler: Validated AuthSession
-    Handler->>Vault: Replace credential for target account
-    Vault-->>Handler: Saved
+    Handler->>Profiles: Persist profile if it was missing
+    Profiles-->>Handler: Created/active state
+    Handler->>Vault: Check then create credential
+    Vault-->>Handler: Created
     Handler-->>Caller: Secret-free success envelope
 ```
 
@@ -232,7 +254,8 @@ sequenceDiagram
 A missing or expired record stops before HTTP. Wekan v11.06 serializes an
 invalid-token error with `statusCode: 401` inside HTTP 200; the client preserves
 both statuses and the handler returns `authentication_rejected`. Status never
-saves, removes, or repairs a credential.
+saves, removes, or repairs a credential. An expired or rejected entry must be
+removed with `auth logout --local-only` before login can create a replacement.
 
 ## Successful logout sequences
 
@@ -248,7 +271,7 @@ sequenceDiagram
 
     Caller->>Handler: auth logout [--all]
     Handler->>Factory: Create client and enforce network policy
-    Handler->>Vault: Acquire account/server mutation guards
+    Handler->>Vault: Acquire CLI account/server mutation guards
     Handler->>Caller: Request confirmation unless --yes
     Caller-->>Handler: Approve
     Handler->>Vault: Preflight and load credential while guards are held
@@ -257,8 +280,8 @@ sequenceDiagram
     Client->>Wekan: POST users/logout + bearer token
     Wekan-->>Client: 200 {message}
     Client-->>Handler: Validated success
-    Handler->>Vault: Delete only if record still matches
-    Vault-->>Handler: Deleted, absent, or replacement preserved
+    Handler->>Vault: Compare loaded record, then delete if it still matches
+    Vault-->>Handler: Deleted, absent, or observed replacement preserved
     Handler->>Vault: Release account mutation guard
     Handler-->>Caller: Secret-free logout scope
 ```
@@ -273,17 +296,25 @@ The native credential store uses stable, private per-user application-data
 lock paths. Login, registration, remote logout, and local-only logout acquire
 both a target-account guard and a canonical-server guard before their remote
 request and retain them until their local save or deletion completes. That
-serializes the full authentication transaction across current CLI processes and
-all direct or named aliases, so an all-token logout cannot retain a token that a
-concurrent login had already created. Logout acquires both guards before its
-confirmation prompt so approval cannot race with replacement of the selected
-credential.
+serializes the full authentication transaction across current Wekan CLI
+processes and all profiles for a server, so an all-token logout cannot retain a
+token that a concurrent CLI login had already created. Logout acquires both
+guards before its confirmation prompt so approval cannot race with replacement
+of the selected credential by another CLI mutation.
+
+The locks do not make a generic native-vault write or conditional deletion
+atomic. OS keyring APIs offer no cross-process atomic create or
+compare-and-swap operation, so a non-cooperating external writer can race the
+CLI between its presence or record comparison and its write or deletion.
 
 For `auth logout --local-only`, target resolution supplies the expected server
-URL and direct or named vault account. The handler preflights and deletes that
-entry without creating an HTTP client, loading the record, or contacting Wekan.
-Missing entries succeed idempotently with `local_credential_removed: false`,
-and output warns that no remote tokens were revoked.
+URL and profile-namespaced vault account. With a supplied URL, it can also
+target an otherwise missing profile solely to recover its orphaned vault entry;
+that path retains a read guard and never recreates profile metadata. The handler
+preflights and deletes the entry without creating an HTTP client, loading the
+record, or contacting Wekan. Missing entries succeed idempotently with
+`local_credential_removed: false`, and output warns that no remote tokens were
+revoked.
 
 ## Registration validation and outcome flow
 
@@ -291,13 +322,16 @@ and output warns that no remote tokens were revoked.
 flowchart TD
     start([Command invoked]) --> parse{Arguments valid?}
     parse -- No --> usage[invalid_input<br/>exit 2]
-    parse -- Yes --> server{Server present, valid,<br/>and transport allowed?}
-    server -- No --> config[configuration_error or insecure_transport<br/>exit 3]
+    parse -- Yes --> target{Profile exists, or missing profile<br/>has a supplied valid URL?}
+    target -- No --> config[profile_not_found, profile_server_mismatch,<br/>or configuration error; exit 3]
+    target -- Yes --> server{Transport allowed?}
+    server -- No --> insecure[insecure_transport<br/>exit 3]
     server -- Yes --> clientinit{HTTP client<br/>initialized?}
     clientinit -- No --> internal[internal_error<br/>exit 1]
-    clientinit -- Yes --> vault{Credential store<br/>available?}
+    clientinit -- Yes --> vault{Credential store available<br/>and raw entry absent?}
     vault -- No --> unavailable[credential_store_unavailable<br/>exit 6<br/>account_created = false]
-    vault -- Yes --> password{Password input valid?}
+    vault -- Existing --> occupied[credential_already_exists<br/>exit 3<br/>no secrets or HTTP]
+    vault -- Absent --> password{Password input valid?}
     password -- No --> input[invalid_input<br/>exit 2]
     password -- Yes --> endpoint{Registration endpoint<br/>constructed?}
     endpoint -- No --> endpointerr[protocol_error<br/>exit 4<br/>account_created = false]
@@ -315,9 +349,13 @@ flowchart TD
     valid -- No --> protocol[protocol_error<br/>exit 4<br/>account_created = true]
     valid -- Yes --> expiry{Validated expiry<br/>formatted?}
     expiry -- No --> internal
-    expiry -- Yes --> save{Credential saved?}
-    save -- No --> storefail[credential_store_failed<br/>exit 6<br/>account_created = true]
-    save -- Yes --> success([Success envelope<br/>exit 0])
+    expiry -- Yes --> profilesave{Missing profile save outcome?}
+    profilesave -- Not installed --> profilefail[configuration_error<br/>profile_created = false<br/>no credential write]
+    profilesave -- Installed but not finalized --> profilefinalize[configuration_error<br/>profile_created = true<br/>no credential write]
+    profilesave -- Saved --> save{Attempt credential<br/>creation}
+    save -- Failed --> storefail[credential_store_failed<br/>exit 6<br/>account_created = true]
+    save -- Existing --> late[credential_already_exists<br/>account_created = true<br/>preserve observed entry]
+    save -- Created --> success([Success envelope<br/>profile_created/profile_active<br/>exit 0])
 ```
 
 `account_created` states what the CLI knows about the mutation. An HTTP 200
@@ -332,11 +370,12 @@ especially important because registration is intentionally never retried.
 flowchart TD
     start([Login invoked]) --> parse{Exactly one identity and<br/>valid secret-input mode?}
     parse -- No --> usage[invalid_input<br/>exit 2]
-    parse -- Yes --> server{Server and client valid?}
-    server -- No --> config[configuration/internal error]
-    server -- Yes --> vault{Credential store available?}
+    parse -- Yes --> server{Profile target and client valid?}
+    server -- No --> config[profile/configuration/internal error]
+    server -- Yes --> vault{Credential store available<br/>and raw entry absent?}
     vault -- No --> unavailable[credential_store_unavailable<br/>session_created = false]
-    vault -- Yes --> secrets{Password and optional code valid?}
+    vault -- Existing --> occupied[credential_already_exists<br/>session_created = false<br/>no secrets or HTTP]
+    vault -- Absent --> secrets{Password and optional code valid?}
     secrets -- No --> input[invalid_input<br/>exit 2]
     secrets -- Yes --> request[Send one POST users/login]
     request --> response{Observed result}
@@ -349,13 +388,18 @@ flowchart TD
     response -- 429 --> limited[login_rate_limited<br/>retry_after_seconds]
     response -- Other error --> servererr[server_error<br/>exit 5]
     response -- 200 unusable --> protocol[protocol_error<br/>session_created = true]
-    response -- 200 valid --> save{Credential saved?}
-    save -- No --> storefail[credential_store_failed<br/>session_created = true]
-    save -- Yes --> success([Success envelope<br/>exit 0])
+    response -- 200 valid --> profilesave{Missing profile save outcome?}
+    profilesave -- Not installed --> profilefail[configuration_error<br/>session_created = true<br/>profile_created = false<br/>no credential write]
+    profilesave -- Installed but not finalized --> profilefinalize[configuration_error<br/>session_created = true<br/>profile_created = true<br/>no credential write]
+    profilesave -- Saved --> save{Attempt credential<br/>creation}
+    save -- Failed --> storefail[credential_store_failed<br/>session_created = true]
+    save -- Existing --> late[credential_already_exists<br/>session_created = true<br/>preserve observed entry]
+    save -- Created --> success([Success envelope<br/>profile_created/profile_active<br/>exit 0])
 ```
 
-`session_created` is the login counterpart to `account_created`. Local
-credential replacement does not revoke any older tokens that Wekan has issued.
+`session_created` is the login counterpart to `account_created`. Authentication
+does not replace an entry it observes during its guarded CLI transaction; a
+caller must explicitly log out the profile before requesting another session.
 
 ## Status validation flow
 

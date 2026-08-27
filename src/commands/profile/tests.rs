@@ -11,8 +11,8 @@ use crate::{
     command_result::CommandSuccess,
     config::profiles::{FileProfileStore, Profile, ProfileStore},
     credentials::{
-        CredentialDeleteOutcome, CredentialError, CredentialRecord, CredentialStore,
-        CredentialTarget,
+        CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialRecord,
+        CredentialStore, CredentialTarget,
     },
     error::ErrorCode,
     input::{
@@ -90,6 +90,10 @@ impl CredentialStore for FakeCredentialStore {
         Ok(())
     }
 
+    fn exists(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
+        Ok(self.present.lock().unwrap().contains(target.account()))
+    }
+
     fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError> {
         Ok(self
             .present
@@ -106,11 +110,11 @@ impl CredentialStore for FakeCredentialStore {
             }))
     }
 
-    fn save(
+    fn create(
         &self,
         _target: &CredentialTarget,
         _record: &CredentialRecord,
-    ) -> Result<(), CredentialError> {
+    ) -> Result<CredentialCreateOutcome, CredentialError> {
         panic!("profile commands must never save credentials")
     }
 

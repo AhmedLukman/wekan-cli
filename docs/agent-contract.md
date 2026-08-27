@@ -23,7 +23,7 @@ active-profile removal, `--force` remains a separate requirement.
 
 Logout holds the selected credential target's mutation guards while awaiting
 interactive confirmation, binding approval to that target state and preventing
-a concurrent login or logout from replacing it before execution.
+a concurrent Wekan CLI login or logout from mutating it before execution.
 
 Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 
@@ -49,18 +49,21 @@ Registration and login use the same secret-free data shape:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
-    "profile": null,
+    "profile": "default",
     "user_id": "XQMZgynx9M79qTtQc",
     "token_expires": "2030-01-02T03:04:05Z",
-    "credential_stored": true
+    "credential_stored": true,
+    "profile_created": true,
+    "profile_active": true
   }
 }
 ```
 
-The `server` value is canonicalized. `profile` is the selected named profile or
-`null` for a direct URL target. The returned token is absent because it is
-stored in the native credential store. Passwords and two-factor codes are also
-never rendered.
+The `server` value is canonicalized and `profile` is always the selected profile
+name. `profile_created` reports whether this command initialized that profile;
+`profile_active` reports whether it is active after the command. The returned
+token is absent because it is stored in the native credential store. Passwords
+and two-factor codes are also never rendered.
 
 Authentication status uses a nested allowlisted profile. Optional scalar
 profile fields are always present and use `null` when Wekan omits them; missing
@@ -71,7 +74,7 @@ emails use an empty array, and optional email-entry fields also use `null`.
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
-    "profile": null,
+    "profile": "default",
     "authenticated": true,
     "token_expires": "2030-01-02T03:04:05Z",
     "credential_stored": true,
@@ -98,7 +101,7 @@ Logout reports the completed scope and the resulting local credential state:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
-    "profile": null,
+    "profile": "default",
     "logout_scope": "current_token",
     "remote_logout_completed": true,
     "credential_stored": false,
@@ -111,8 +114,8 @@ Logout reports the completed scope and the resulting local credential state:
 success sets `remote_logout_completed: false`; it means only that the selected
 local credential is absent, not that any Wekan token was revoked.
 `local_credential_removed` distinguishes a deletion performed by this command
-from an idempotent already-absent result. If remote logout succeeds but the
-record was concurrently replaced, the newer record is preserved and success
+from an idempotent already-absent result. If remote logout succeeds but its
+comparison observes a replacement, the newer record is preserved and success
 sets `credential_stored: true` and `local_credential_removed: false`.
 
 For example, a local-only deletion is:
@@ -122,7 +125,7 @@ For example, a local-only deletion is:
   "ok": true,
   "data": {
     "server": "https://wekan.example/",
-    "profile": null,
+    "profile": "default",
     "logout_scope": "local_only",
     "remote_logout_completed": false,
     "credential_stored": false,
@@ -184,7 +187,7 @@ data. Removal reports both what was removed and the resulting selection:
     "code": "login_rate_limited",
     "message": "too many failed login attempts; try again later; retry after 30 seconds",
     "details": {
-      "profile": null,
+      "profile": "default",
       "http_status": 429,
       "server_error": "too-many-requests",
       "retry_after_seconds": 30
@@ -215,8 +218,11 @@ data. Removal reports both what was removed and the resulting selection:
   command outcome;
 - `local_credential_removed`: whether this invocation is known to have removed
   the local credential;
-- `profile`: the named target associated with an authentication error, or
-  `null` for a direct target, when target context is relevant.
+- `profile_created`: whether this command created the selected profile;
+- `profile_active`: whether that profile is active after the known local
+  outcome;
+- `profile`: the selected profile associated with the error, when target
+  context is relevant.
 
 Registration HTTP 400 errors always set `outcome_unknown: true` because Wekan
 `v11.06` can return that status before or after account creation. Authentication
@@ -228,6 +234,25 @@ An invalid, unreadable, or oversized HTTP 200 registration response sets
 A vault write failure uses the same operation-specific field because it happens
 after a validated success response.
 
+A profile-write error distinguishes whether the new document was installed.
+Errors before installation report `profile_created: false`. If installation
+completed but final synchronization or inspection failed, the error reports
+`profile_created: true` and the resulting `profile_active` state. Neither path
+writes the credential.
+
+Registration and login serialize their raw-entry checks and credential creation
+with current Wekan CLI processes. When the CLI observes a raw entry in the
+selected profile account before secret input or HTTP, it returns
+`credential_already_exists` without decoding or overwriting that observed
+entry. A conflict the CLI observes after remote success includes
+`account_created: true` or `session_created: true` plus the known
+`profile_created`, `profile_active`, and `credential_stored` state. Generic OS
+keyring APIs do not provide a cross-process atomic create or compare-and-swap
+operation, so a non-cooperating external vault writer can still race between
+the CLI's check and its write.
+`profile_server_mismatch` means a supplied URL did not match the selected
+existing profile; resolution stops before credential access.
+
 Login HTTP 400 is a malformed-request `protocol_error`. HTTP 401 is
 `login_rejected`; when Wekan specifically returns `no-2fa-code`, details include
 `two_factor_required: true` so automation can request a code without depending
@@ -238,7 +263,9 @@ Status uses `credential_not_found` when the resolved target has no saved record,
 `authentication_rejected` when Wekan rejects the bearer token. Wekan v11.06's
 current-user route serializes rejection inside HTTP 200, so details contain
 both the actual `http_status` and the embedded `wekan_status_code`. Status is
-read-only and never removes the offending record.
+read-only and never removes the offending record. Since login will not
+overwrite any stored entry, callers must remove an expired or rejected entry
+with `auth logout --local-only` before logging in again.
 
 Normal logout also uses `credential_not_found` when no record can be submitted.
 It preserves the record on every remote error. Transport failures, redirects,
@@ -252,7 +279,7 @@ The relevant details for an unusable current-token HTTP 200 are:
 
 ```json
 {
-  "profile": null,
+  "profile": "default",
   "http_status": 200,
   "outcome_unknown": true,
   "logout_scope": "current_token",
@@ -270,6 +297,7 @@ the process exit status. Stable error codes are:
 - `insecure_transport`
 - `profile_not_found`
 - `profile_already_exists`
+- `profile_server_mismatch`
 - `profile_in_use`
 - `profile_has_credential`
 - `transport_error`
@@ -279,6 +307,7 @@ the process exit status. Stable error codes are:
 - `login_rate_limited`
 - `credential_not_found`
 - `credential_expired`
+- `credential_already_exists`
 - `authentication_rejected`
 - `registration_rejected`
 - `registration_disabled`
@@ -289,9 +318,10 @@ the process exit status. Stable error codes are:
 
 Passwords, two-factor codes, and tokens are redacted from all fields.
 
-The four `profile_*` codes use exit status 3. Malformed, unsupported,
-unreadable, or unwritable profile storage uses `configuration_error`; native
-vault failures retain the credential error family and exit status 6.
+The profile conflict codes and `credential_already_exists` use exit status 3.
+Malformed, unsupported, unreadable, or unwritable profile storage uses
+`configuration_error`; native vault failures retain the credential error family
+and exit status 6.
 
 ## Exit statuses
 

@@ -16,6 +16,8 @@ use super::{
     preflight_credentials, protocol_error_details, response_error_details, server_error_details,
 };
 
+const REJECTED_CREDENTIAL_MESSAGE: &str = "the stored credential was rejected by Wekan; remove it with `wekan auth logout --local-only`, then log in again to create a new session";
+
 #[derive(Debug, Args)]
 pub struct StatusArgs {}
 
@@ -26,7 +28,15 @@ pub(crate) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let client = client_factory.create()?;
     let server = client.server().as_str().to_owned();
-    let credential_target = credential_target(client_factory, server.clone());
+    let credential_target = credential_target(
+        client_factory
+            .profile()
+            .expect("authentication requires a named profile"),
+        client_factory
+            .profile_store_namespace()
+            .expect("authentication requires a profile credential namespace"),
+        server.clone(),
+    );
     preflight_credentials(credential_store, &credential_target)?;
 
     let record = credential_store
@@ -51,7 +61,7 @@ pub(crate) async fn execute(
         return Err(AppError::new(
             ErrorCode::CredentialExpired,
             format!(
-                "the stored credential expired at {token_expires}; log in again to create a new session"
+                "the stored credential expired at {token_expires}; remove it with `wekan auth logout --local-only`, then log in again to create a new session"
             ),
             StableExitCode::Server,
         )
@@ -78,7 +88,10 @@ pub(crate) async fn execute(
     let (user_id, username, full_name, is_admin, emails) = current_user.into_parts();
     Ok(CommandSuccess::AuthStatus(AuthStatusSuccess {
         server,
-        profile: client_factory.profile().map(str::to_owned),
+        profile: client_factory
+            .profile()
+            .expect("authentication requires a named profile")
+            .to_owned(),
         authenticated: true,
         token_expires,
         credential_stored: true,
@@ -162,7 +175,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
                     ErrorCode::ServerError
                 },
                 if authentication_rejected {
-                    "the stored credential was rejected by Wekan; log in again to create a new session"
+                    REJECTED_CREDENTIAL_MESSAGE
                 } else {
                     "the Wekan server returned an unexpected error while checking authentication status"
                 },
@@ -190,7 +203,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
                     ErrorCode::ServerError
                 },
                 if authentication_rejected {
-                    "the stored credential was rejected by Wekan; log in again to create a new session"
+                    REJECTED_CREDENTIAL_MESSAGE
                 } else {
                     "the Wekan server returned an embedded error while checking authentication status"
                 },
@@ -226,8 +239,7 @@ fn response_body_error(
             ErrorCode::ServerError
         },
         if authentication_rejected {
-            "the stored credential was rejected by Wekan; log in again to create a new session"
-                .to_owned()
+            REJECTED_CREDENTIAL_MESSAGE.to_owned()
         } else {
             message
         },
@@ -249,13 +261,16 @@ mod tests {
         matchers::{header, method, path},
     };
 
-    use super::{StatusArgs, execute, map_client_error};
+    use super::{StatusArgs, execute, map_client_error, response_body_error};
     use crate::{
         cli::Cli,
         client::{ClientError, WekanClientFactory},
         command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
-        credentials::{CredentialError, CredentialRecord, CredentialStore, CredentialTarget},
+        credentials::{
+            CredentialCreateOutcome, CredentialError, CredentialRecord, CredentialStore,
+            CredentialTarget,
+        },
         error::ErrorCode,
         exit_code::StableExitCode,
         redaction::Redactor,
@@ -294,6 +309,10 @@ mod tests {
             }
         }
 
+        fn exists(&self, _target: &CredentialTarget) -> Result<bool, CredentialError> {
+            Ok(self.record.lock().unwrap().is_some())
+        }
+
         fn load(
             &self,
             _target: &CredentialTarget,
@@ -304,11 +323,11 @@ mod tests {
             Ok(self.record.lock().unwrap().clone())
         }
 
-        fn save(
+        fn create(
             &self,
             _target: &CredentialTarget,
             _record: &CredentialRecord,
-        ) -> Result<(), CredentialError> {
+        ) -> Result<CredentialCreateOutcome, CredentialError> {
             panic!("authentication status must never save credentials")
         }
 
@@ -397,6 +416,43 @@ mod tests {
         assert_eq!(limited.details().retry_after_seconds, Some(47));
     }
 
+    #[test]
+    fn rejected_credentials_require_removal_before_login() {
+        let token = SecretString::from("status-token".to_owned());
+        let redactor = Redactor::with_secret(&token);
+        let errors = [
+            map_client_error(
+                ClientError::Server {
+                    status: reqwest::StatusCode::UNAUTHORIZED,
+                    server_error: None,
+                    server_reason: None,
+                    retry_after_seconds: None,
+                },
+                &redactor,
+            ),
+            map_client_error(
+                ClientError::EmbeddedServer {
+                    http_status: reqwest::StatusCode::OK,
+                    wekan_status_code: reqwest::StatusCode::UNAUTHORIZED.as_u16(),
+                    server_error: None,
+                    server_reason: None,
+                },
+                &redactor,
+            ),
+            response_body_error(
+                "unreadable rejection".to_owned(),
+                reqwest::StatusCode::UNAUTHORIZED,
+                None,
+            ),
+        ];
+
+        for error in errors {
+            assert_eq!(error.code(), ErrorCode::AuthenticationRejected);
+            assert!(error.message().contains("auth logout --local-only"));
+            assert!(error.message().contains("then log in again"));
+        }
+    }
+
     #[tokio::test]
     async fn missing_credentials_return_a_stable_error_without_http() {
         let server = MockServer::start().await;
@@ -442,6 +498,8 @@ mod tests {
             error.details().token_expires.as_deref(),
             Some("2000-01-02T03:04:05Z")
         );
+        assert!(error.message().contains("auth logout --local-only"));
+        assert!(error.message().contains("then log in again"));
     }
 
     #[tokio::test]

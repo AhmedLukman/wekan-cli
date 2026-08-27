@@ -1,8 +1,9 @@
 use clap::Args;
 
 use crate::{
-    client::{ClientError, LoginRequest, WekanClientFactory},
+    client::{ClientError, LoginRequest},
     command_result::CommandSuccess,
+    config::ResolvedTarget,
     credentials::{CredentialStore, LoginSecretMode, SecretInputProvider},
     error::{AppError, ErrorCode, ErrorDetails},
     exit_code::StableExitCode,
@@ -10,9 +11,9 @@ use crate::{
 };
 
 use super::{
-    credential_target, embedded_server_error_details, lock_credential_mutation, non_empty_identity,
-    persist_session, preflight_credentials, protocol_error_details, response_error_details,
-    server_error_details,
+    credential_target, embedded_server_error_details, ensure_credential_absent,
+    lock_credential_mutation, non_empty_identity, persist_session, preflight_credentials,
+    protocol_error_details, response_error_details, server_error_details,
 };
 
 #[derive(Debug, Args)]
@@ -66,20 +67,24 @@ impl LoginArgs {
 
 pub(crate) async fn execute(
     args: LoginArgs,
-    client_factory: &WekanClientFactory,
+    target: &mut ResolvedTarget<'_>,
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
 ) -> Result<CommandSuccess, AppError> {
-    let client = client_factory.create().map_err(AppError::from)?;
+    let client = target.client_factory().create().map_err(AppError::from)?;
     let server_url = client.server().as_str().to_owned();
-    let credential_target = credential_target(client_factory, server_url.clone());
+    let credential_target = credential_target(
+        target.profile(),
+        target.credential_namespace(),
+        server_url.clone(),
+    );
 
-    preflight_credentials(credential_store, &credential_target).map_err(|error| {
-        error.with_details(ErrorDetails {
-            session_created: Some(false),
-            ..ErrorDetails::default()
-        })
-    })?;
+    preflight_credentials(credential_store, &credential_target)
+        .map_err(|error| error.with_session_created(false))?;
+    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
+        .map_err(|error| error.with_session_created(false))?;
+    ensure_credential_absent(credential_mutation.as_ref(), target)
+        .map_err(|error| error.with_session_created(false))?;
 
     let secrets = secret_input.read_login_secrets(args.secret_mode())?;
     let (password, code) = secrets.into_parts();
@@ -93,30 +98,13 @@ pub(crate) async fn execute(
     if let Some(code) = request.code.as_ref() {
         redactor = redactor.and_secret(code);
     }
-    let credential_mutation = lock_credential_mutation(credential_store, &credential_target)
-        .map_err(|error| {
-            error.with_details(ErrorDetails {
-                session_created: Some(false),
-                ..ErrorDetails::default()
-            })
-        })?;
     let session = client
         .login(&request)
         .await
         .map_err(|error| map_client_error(error, &redactor))?;
 
-    let success = persist_session(
-        credential_mutation.as_ref(),
-        server_url,
-        client_factory.profile().map(str::to_owned),
-        session,
-    )
-    .map_err(|error| {
-        error.with_details(ErrorDetails {
-            session_created: Some(true),
-            ..ErrorDetails::default()
-        })
-    })?;
+    let success = persist_session(target, credential_mutation.as_ref(), server_url, session)
+        .map_err(|error| error.with_session_created(true))?;
     Ok(CommandSuccess::Login(success))
 }
 
@@ -321,20 +309,32 @@ mod tests {
         matchers::{method, path},
     };
 
-    use super::{LoginArgs, execute, map_client_error};
+    use super::{LoginArgs, execute as execute_target, map_client_error};
     use crate::{
         cli::Cli,
         client::{ClientError, LoginRequest, WekanClientFactory},
         command_result::CommandSuccess,
         commands::{RootCommand, auth::AuthCommand},
+        config::ResolvedTarget,
         credentials::{
-            CredentialDeleteOutcome, CredentialError, CredentialMutation, CredentialRecord,
-            CredentialStore, CredentialTarget, LoginSecretMode, LoginSecrets, SecretInputProvider,
+            CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialMutation,
+            CredentialRecord, CredentialStore, CredentialTarget, LoginSecretMode, LoginSecrets,
+            SecretInputProvider,
         },
         error::{AppError, ErrorCode},
         exit_code::StableExitCode,
         redaction::Redactor,
     };
+
+    async fn execute(
+        args: LoginArgs,
+        client_factory: &WekanClientFactory,
+        credential_store: &dyn CredentialStore,
+        secret_input: &dyn SecretInputProvider,
+    ) -> Result<CommandSuccess, AppError> {
+        let mut target = ResolvedTarget::for_test(client_factory);
+        execute_target(args, &mut target, credential_store, secret_input).await
+    }
 
     #[derive(Clone, Debug, Eq, PartialEq)]
     struct SavedCredential {
@@ -369,6 +369,15 @@ mod tests {
             }
         }
 
+        fn exists(&self, target: &CredentialTarget) -> Result<bool, CredentialError> {
+            Ok(self
+                .saved
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|credential| credential.account == target.account()))
+        }
+
         fn load(
             &self,
             _target: &CredentialTarget,
@@ -376,11 +385,14 @@ mod tests {
             Ok(None)
         }
 
-        fn save(
+        fn create(
             &self,
             target: &CredentialTarget,
             record: &CredentialRecord,
-        ) -> Result<(), CredentialError> {
+        ) -> Result<CredentialCreateOutcome, CredentialError> {
+            if self.exists(target)? {
+                return Ok(CredentialCreateOutcome::AlreadyExists);
+            }
             if self.fail_save.load(Ordering::SeqCst) {
                 return Err(CredentialError::Store(format!(
                     "failed while handling {}",
@@ -388,13 +400,12 @@ mod tests {
                 )));
             }
             let mut saved = self.saved.lock().unwrap();
-            saved.retain(|credential| credential.account != target.account());
             saved.push(SavedCredential {
                 account: target.account().to_owned(),
                 user_id: record.user_id().to_owned(),
                 token: record.token().expose_secret().to_owned(),
             });
-            Ok(())
+            Ok(CredentialCreateOutcome::Created)
         }
 
         fn delete(&self, _target: &CredentialTarget) -> Result<bool, CredentialError> {
@@ -427,12 +438,19 @@ mod tests {
     }
 
     impl CredentialMutation for FakeCredentialMutation<'_> {
+        fn exists(&self) -> Result<bool, CredentialError> {
+            self.store.exists(&self.target)
+        }
+
         fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
             self.store.load(&self.target)
         }
 
-        fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
-            self.store.save(&self.target, record)
+        fn create(
+            &self,
+            record: &CredentialRecord,
+        ) -> Result<CredentialCreateOutcome, CredentialError> {
+            self.store.create(&self.target, record)
         }
 
         fn delete(&self) -> Result<bool, CredentialError> {
@@ -814,15 +832,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn successful_login_replaces_the_stored_credential_and_returns_only_metadata() {
+    async fn successful_login_creates_a_credential_and_returns_only_metadata() {
         let server = MockServer::start().await;
         mount_success(&server, "new-token").await;
         let store = FakeCredentialStore::available();
-        store.saved.lock().unwrap().push(SavedCredential {
-            account: format!("{}/", server.uri()),
-            user_id: "old-user".to_owned(),
-            token: "old-token".to_owned(),
-        });
         let read = Arc::new(AtomicBool::new(false));
         let secrets = secret_input(read.clone());
         let client_factory = WekanClientFactory::new(Some(server.uri()), false);
@@ -850,7 +863,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn same_server_profiles_store_independent_credentials_and_preserve_direct_login() {
+    async fn same_server_profiles_store_independent_credentials_and_ignore_legacy_url_entries() {
         let server = MockServer::start().await;
         mount_success(&server, "profile-token").await;
         let store = FakeCredentialStore::available();
@@ -868,7 +881,7 @@ mod tests {
             let CommandSuccess::Login(output) = success else {
                 panic!("expected login success")
             };
-            assert_eq!(output.profile.as_deref(), Some(profile));
+            assert_eq!(output.profile, profile);
         }
 
         let saved = store.saved.lock().unwrap();
@@ -907,6 +920,37 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::CredentialStoreUnavailable);
         assert_eq!(error.details().session_created, Some(false));
         assert!(!read.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn existing_raw_credential_blocks_login_before_secrets_or_http() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/users/login"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(0)
+            .mount(&server)
+            .await;
+        let store = FakeCredentialStore::available();
+        store.saved.lock().unwrap().push(SavedCredential {
+            account: "profile:test-store:default".to_owned(),
+            user_id: "unreadable".to_owned(),
+            token: "malformed-raw-entry".to_owned(),
+        });
+        let read = Arc::new(AtomicBool::new(false));
+        let secrets = secret_input(read.clone());
+        let client_factory = WekanClientFactory::new(Some(server.uri()), false);
+
+        let error = execute(args(), &client_factory, &store, &secrets)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.code(), ErrorCode::CredentialAlreadyExists);
+        assert_eq!(error.exit_code(), StableExitCode::Configuration);
+        assert_eq!(error.details().session_created, Some(false));
+        assert_eq!(error.details().credential_stored, Some(true));
+        assert!(!read.load(Ordering::SeqCst));
+        server.verify().await;
     }
 
     #[tokio::test]

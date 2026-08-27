@@ -10,15 +10,14 @@ use crate::{commands::RootCommand, output::OutputFormat};
     arg_required_else_help = true
 )]
 pub struct Cli {
-    /// Wekan server base URL. Overrides environment and profile selection.
-    #[arg(long, global = true, group = "server_selector")]
+    /// Wekan server base URL. Initializes or verifies the selected profile, or identifies an orphaned credential for local-only logout.
+    #[arg(long, global = true)]
     pub server: Option<String>,
 
     /// Named local server profile. Overrides environment and active selection.
     #[arg(
         long = "profile",
         global = true,
-        group = "server_selector",
         value_parser = crate::config::profiles::parse_profile_name
     )]
     pub profile_name: Option<String>,

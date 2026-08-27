@@ -139,13 +139,6 @@ pub struct CredentialTarget {
 }
 
 impl CredentialTarget {
-    pub fn direct(server_url: String) -> Self {
-        Self {
-            account: server_url.clone(),
-            server_url,
-        }
-    }
-
     pub fn profile_in_store(name: &str, store_namespace: &str, server_url: String) -> Self {
         Self {
             account: format!("profile:{store_namespace}:{name}"),
@@ -172,12 +165,14 @@ impl CredentialTarget {
 
 pub trait CredentialStore: Send + Sync {
     fn check_available(&self, target: &CredentialTarget) -> Result<(), CredentialError>;
+    /// Checks whether any native-vault entry exists without decoding it.
+    fn exists(&self, target: &CredentialTarget) -> Result<bool, CredentialError>;
     fn load(&self, target: &CredentialTarget) -> Result<Option<CredentialRecord>, CredentialError>;
-    fn save(
+    fn create(
         &self,
         target: &CredentialTarget,
         record: &CredentialRecord,
-    ) -> Result<(), CredentialError>;
+    ) -> Result<CredentialCreateOutcome, CredentialError>;
     fn delete(&self, target: &CredentialTarget) -> Result<bool, CredentialError>;
     /// Deletes only the expected record. Implementations must serialize this
     /// comparison and deletion with credential saves for the same account.
@@ -199,8 +194,10 @@ pub trait CredentialStore: Send + Sync {
 }
 
 pub trait CredentialMutation: Send {
+    fn exists(&self) -> Result<bool, CredentialError>;
     fn load(&self) -> Result<Option<CredentialRecord>, CredentialError>;
-    fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError>;
+    fn create(&self, record: &CredentialRecord)
+    -> Result<CredentialCreateOutcome, CredentialError>;
     fn delete(&self) -> Result<bool, CredentialError>;
     fn delete_if_matches(
         &self,
@@ -214,12 +211,19 @@ struct UnlockedCredentialMutation<'a, S: CredentialStore + ?Sized> {
 }
 
 impl<S: CredentialStore + ?Sized> CredentialMutation for UnlockedCredentialMutation<'_, S> {
+    fn exists(&self) -> Result<bool, CredentialError> {
+        self.store.exists(&self.target)
+    }
+
     fn load(&self) -> Result<Option<CredentialRecord>, CredentialError> {
         self.store.load(&self.target)
     }
 
-    fn save(&self, record: &CredentialRecord) -> Result<(), CredentialError> {
-        self.store.save(&self.target, record)
+    fn create(
+        &self,
+        record: &CredentialRecord,
+    ) -> Result<CredentialCreateOutcome, CredentialError> {
+        self.store.create(&self.target, record)
     }
 
     fn delete(&self) -> Result<bool, CredentialError> {
@@ -232,6 +236,12 @@ impl<S: CredentialStore + ?Sized> CredentialMutation for UnlockedCredentialMutat
     ) -> Result<CredentialDeleteOutcome, CredentialError> {
         self.store.delete_if_matches(&self.target, expected)
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CredentialCreateOutcome {
+    Created,
+    AlreadyExists,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -393,15 +403,12 @@ mod tests {
     #[test]
     fn namespaced_profile_targets_are_isolated_but_share_a_server_transaction_key() {
         let server = "https://wekan.example/".to_owned();
-        let direct = CredentialTarget::direct(server.clone());
         let first = CredentialTarget::profile_in_store("work", "store-one", server.clone());
         let second = CredentialTarget::profile_in_store("work", "store-two", server);
 
-        assert_eq!(direct.account(), "https://wekan.example/");
         assert_eq!(first.account(), "profile:store-one:work");
         assert_eq!(second.account(), "profile:store-two:work");
         assert_ne!(first.account(), second.account());
-        assert_eq!(direct.server_lock_key(), first.server_lock_key());
         assert_eq!(first.server_lock_key(), second.server_lock_key());
         assert_ne!(first.account_lock_key(), second.account_lock_key());
     }
