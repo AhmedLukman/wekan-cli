@@ -75,6 +75,32 @@ equivalent CLI command and status in the coverage table, then recalculate the
 values at the top of the document. Likewise if `spec/wekan.corrected.yml` gains or loses
 operations, add or remove the matching table rows and update the total operation count.
 
+## Unknown API response fields
+
+API response DTOs must tolerate additional fields returned by Wekan so a newly
+observed field does not break normal CLI commands. Capture unmodeled properties
+internally with a flattened map such as `BTreeMap<String, serde_json::Value>`;
+do not expose that map through stable structured output.
+
+Production commands must:
+
+- Continue successfully when only unknown fields are present.
+- Return only documented, typed CLI fields.
+- Never log or display unknown field values.
+- Continue rejecting invalid types or missing required values for known fields.
+
+Contract and live integration tests must assert that the captured unknown-field
+map is empty. When the assertion fails report it.
+
+For every newly observed field:
+
+1. Verify its meaning and type against the matching Wekan version's source.
+2. Confirm its presence and omission conditions with live tests.
+3. Add it to the corrected API overlay when the contract is incomplete.
+4. Regenerate the corrected specification and documentation.
+5. Add it to the typed response and stable output only after its behavior is understood.
+6. Add regression tests covering its type and optionality.
+
 ## Inconsistencies and verification
 
 Wekan's REST API documentation might be incomplete and generated annotations can be stale or wrong. Content types, request bodies, permissions, status codes, response shapes, and even documented operations may differ from real server behavior.
