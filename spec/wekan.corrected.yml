@@ -6513,6 +6513,7 @@ definitions:
                 type: string
     BoardCounts:
         type: object
+        additionalProperties: false
         description: >-
             Private/public count object from server/models/boards.js lines 887-898.
         required: [private, public]
@@ -6526,39 +6527,263 @@ definitions:
     Board:
         type: object
         description: >-
-            Board document returned by server/models/boards.js lines 907-921. Additional version-specific board collection fields may be present.
-        required: [_id, title]
-        additionalProperties: true
+            Complete Wekan v11.06 board document from models/boards.js, as returned by server/models/boards.js and verified against a live v11.06 lifecycle.
+        required: [_id, title, members]
+        additionalProperties: false
         properties:
             _id:
                 type: string
+                minLength: 1
             title:
                 type: string
-            permission:
-                type: string
-                enum: [private, public]
-            color:
+            slug:
                 type: string
             archived:
                 type: boolean
-            members:
-                type: array
-                items:
-                    type: object
-                    additionalProperties: true
+            archivedAt:
+                type: string
+                format: date-time
+            createdAt:
+                type: string
+                format: date-time
+            modifiedAt:
+                type: string
+                format: date-time
+            stars:
+                type: number
             labels:
                 type: array
                 items:
                     $ref: '#/definitions/BoardLabel'
+            members:
+                type: array
+                items:
+                    $ref: '#/definitions/BoardMember'
+            watchers:
+                type: array
+                items:
+                    $ref: '#/definitions/BoardWatcher'
+            permission:
+                type: string
+                enum: [private, public]
+            orgs:
+                type: array
+                items:
+                    $ref: '#/definitions/BoardOrganization'
+            teams:
+                type: array
+                items:
+                    $ref: '#/definitions/BoardTeam'
             domains:
                 type: array
                 items:
                     $ref: '#/definitions/BoardDomain'
+            importUsernames:
+                type: array
+                items:
+                    type: string
+            color:
+                type: string
+                enum: [belize, nephritis, pomegranate, pumpkin, wisteria, moderatepink, strongcyan, limegreen, midnight, dark, relax, corteza, appleglasspastel, clearblue, cleargreen, clearorange, clearpink, clearpurple, clearred, natural, modern, moderndark, exodark, cleandark, cleanlight]
+            customThemeColors:
+                type: array
+                items:
+                    type: string
+            backgroundImageURL:
+                type: string
+            backgroundImageId:
+                type: string
+            allowsCardCounterList:
+                type: boolean
+            cardAging:
+                type: boolean
+            showDependencies:
+                type: boolean
+            cardAgingDays1:
+                type: number
+            cardAgingDays2:
+                type: number
+            cardAgingDays3:
+                type: number
+            allowsBoardMemberList:
+                type: boolean
+            description:
+                type: string
+            subtasksDefaultBoardId:
+                type: string
+                x-nullable: true
+            migrationVersion:
+                type: number
+            subtasksDefaultListId:
+                type: string
+                x-nullable: true
+            dateSettingsDefaultBoardId:
+                type: string
+                x-nullable: true
+            dateSettingsDefaultListId:
+                type: string
+                x-nullable: true
+            allowsSubtasks:
+                type: boolean
+            allowsSubtasksOnMinicard:
+                type: boolean
+            allowsAttachments:
+                type: boolean
+            allowsAttachmentsOnMinicard:
+                type: boolean
+            allowsChecklists:
+                type: boolean
+            allowsChecklistsOnMinicard:
+                type: boolean
+            allowsCustomFields:
+                type: boolean
+            allowsCustomFieldsOnMinicard:
+                type: boolean
+            allowsChecklistCountBadgeOnMinicard:
+                type: boolean
+            allowsComments:
+                type: boolean
+            allowsDescriptionTitle:
+                type: boolean
+            allowsDescriptionTitleOnMinicard:
+                type: boolean
+            allowsDescriptionText:
+                type: boolean
+            allowsDescriptionTextOnMinicard:
+                type: boolean
+            allowsCoverAttachmentOnMinicard:
+                type: boolean
+            allowsCoverAttachmentOnCard:
+                type: boolean
+            allowsBadgeAttachmentOnMinicard:
+                type: boolean
+            allowsAttachmentCountOnCard:
+                type: boolean
+            allowsChecklistCountBadgeOnCard:
+                type: boolean
+            allowsCardSortingByNumberOnMinicard:
+                type: boolean
+            allowsCardNumber:
+                type: boolean
+            allowsCardNumberOnMinicard:
+                type: boolean
+            allowsActivities:
+                type: boolean
+            allowsLabels:
+                type: boolean
+            allowsLabelsOnMinicard:
+                type: boolean
+            allowsCreator:
+                type: boolean
+            allowsCreatorOnMinicard:
+                type: boolean
+            allowsAssignee:
+                type: boolean
+            allowsAssigneeOnMinicard:
+                type: boolean
+            allowsMembers:
+                type: boolean
+            allowsMembersOnMinicard:
+                type: boolean
+            allowsRequestedBy:
+                type: boolean
+            allowsRequestedByOnMinicard:
+                type: boolean
+            allowsCardSortingByNumber:
+                type: boolean
+            allowsShowLists:
+                type: boolean
+            allowsAssignedBy:
+                type: boolean
+            allowsAssignedByOnMinicard:
+                type: boolean
+            allowsShowListsOnMinicard:
+                type: boolean
+            allowsChecklistAtMinicard:
+                type: boolean
+            allowsReceivedDate:
+                type: boolean
+            restrictCommentEditing:
+                type: boolean
+            allowsPersonalListWidth:
+                type: boolean
+            autoWidth:
+                type: boolean
+            allowsReceivedDateOnMinicard:
+                type: boolean
+            allowsStartDate:
+                type: boolean
+            allowsStartDateOnMinicard:
+                type: boolean
+            allowsEndDate:
+                type: boolean
+            allowsEndDateOnMinicard:
+                type: boolean
+            allowsDueDate:
+                type: boolean
+            allowsDueDateOnMinicard:
+                type: boolean
+            allowsDueComplete:
+                type: boolean
+            allowsDueCompleteOnMinicard:
+                type: boolean
+            presentParentTask:
+                type: string
+                enum: [prefix-with-full-path, prefix-with-parent, subtext-with-full-path, subtext-with-parent, no-parent]
+            receivedAt:
+                type: string
+                format: date-time
+            startAt:
+                type: string
+                format: date-time
+            dueAt:
+                type: string
+                format: date-time
+            endAt:
+                type: string
+                format: date-time
+            spentTime:
+                type: number
+            isOvertime:
+                type: boolean
+            type:
+                type: string
+                enum: [board, template-board, template-container]
+            sort:
+                type: number
+            showActivities:
+                type: boolean
+    BoardMember:
+        type: object
+        additionalProperties: false
+        description: Member and board-role flags embedded in a Wekan v11.06 board.
+        required: [userId, isAdmin, isActive]
+        properties:
+            userId: {type: string}
+            isAdmin: {type: boolean}
+            isActive: {type: boolean}
+            isNoComments: {type: boolean}
+            isCommentOnly: {type: boolean}
+            isWorker: {type: boolean}
+            isNormalAssignedOnly: {type: boolean}
+            isCommentAssignedOnly: {type: boolean}
+            isReadOnly: {type: boolean}
+            isReadAssignedOnly: {type: boolean}
+    BoardWatcher:
+        type: object
+        additionalProperties: false
+        description: >-
+            Watcher state embedded in a Wekan v11.06 board by models/watchable.js.
+        required: [userId, level]
+        properties:
+            userId: {type: string}
+            level: {type: string, enum: [watching, tracking, muted]}
     BoardLabel:
         type: object
+        additionalProperties: false
         description: >-
-            Stored board-label shape written by server/models/boards.js lines 1125-1150 and normalized by models/lib/restLabel.js lines 28-77.
-        required: [_id, name, color]
+            Label embedded in a Wekan v11.06 board and returned by the board route.
+        required: [_id, color]
         properties:
             _id:
                 type: string
@@ -6566,10 +6791,29 @@ definitions:
                 type: string
             color:
                 type: string
+    BoardOrganization:
+        type: object
+        additionalProperties: false
+        description: Organization membership embedded in a Wekan v11.06 board.
+        required: [orgId, orgDisplayName, isActive]
+        properties:
+            orgId: {type: string}
+            orgDisplayName: {type: string}
+            isActive: {type: boolean}
+    BoardTeam:
+        type: object
+        additionalProperties: false
+        description: Team membership embedded in a Wekan v11.06 board.
+        required: [teamId, teamDisplayName, isActive]
+        properties:
+            teamId: {type: string}
+            teamDisplayName: {type: string}
+            isActive: {type: boolean}
     BoardDomain:
         type: object
+        additionalProperties: false
         description: >-
-            Domain entry returned and written by server/models/boards.js lines 1391-1400, 1444-1468 and 1511-1516.
+            Domain membership embedded in a Wekan v11.06 board.
         required: [domain, isActive]
         properties:
             domain:
@@ -6603,7 +6847,7 @@ definitions:
     BoardCreateRequest:
         type: object
         description: >-
-            Board-create body consumed by server/models/boards.js lines 925-952.
+            Board-create body consumed by Wekan v11.06 server/models/boards.js. The route always makes the initial owner an active administrator; isAdmin and isActive are therefore not meaningful caller controls.
         required: [title]
         properties:
             title:
@@ -6617,11 +6861,14 @@ definitions:
                 default: private
             color:
                 type: string
+                enum: [belize, nephritis, pomegranate, pumpkin, wisteria, moderatepink, strongcyan, limegreen, midnight, dark, relax, corteza, appleglasspastel, clearblue, cleargreen, clearorange, clearpink, clearpurple, clearred, natural, modern, moderndark, exodark, cleandark, cleanlight]
                 default: belize
             isAdmin:
                 type: boolean
+                description: Accepted by the route but always forced to true in v11.06.
             isActive:
                 type: boolean
+                description: Accepted by the route but always forced to true in v11.06.
             isNoComments:
                 type: boolean
             isCommentOnly:
@@ -6630,6 +6877,7 @@ definitions:
                 type: boolean
     BoardCreateResponse:
         type: object
+        additionalProperties: false
         description: >-
             Board/default-swimlane result from server/models/boards.js lines 953-963.
         required: [_id, defaultSwimlaneId]
@@ -6661,6 +6909,7 @@ definitions:
                 type: string
     BoardTitleResponse:
         type: object
+        additionalProperties: false
         description: >-
             Board-title result from server/models/boards.js lines 1081-1087.
         required: [_id, title]

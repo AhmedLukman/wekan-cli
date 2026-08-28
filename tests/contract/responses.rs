@@ -6,15 +6,16 @@ use std::{
 
 use secrecy::ExposeSecret;
 use serde_json::json;
-use wekan_cli::client::ClientError;
+use wekan_cli::client::{BoardType, BoardWatchLevel, ClientError};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
 };
 
 use super::{
-    client, client_from_url, create_user_request, login_request, logout_request, logout_token,
-    register_request, status_token, user_card_query, user_token,
+    SecretString, client, client_from_url, create_board_request, create_user_request,
+    login_request, logout_request, logout_token, register_request, status_token, user_card_query,
+    user_token,
 };
 
 #[tokio::test]
@@ -66,6 +67,612 @@ async fn user_resource_responses_decode_the_mapped_shapes() {
     assert_eq!(cards[0].members, ["user-1"]);
     let boards = client.user_boards("user-1", &user_token()).await.unwrap();
     assert_eq!(boards[0].title, "Board");
+}
+
+#[tokio::test]
+async fn compact_user_responses_reject_unmapped_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/users"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "user-1",
+            "username": "alice",
+            "services": {"secret": true}
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/user/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "card-1",
+            "description": "unmapped"
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.users(&user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.user_cards(&user_card_query(), &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn error_envelopes_reject_unmapped_fields_in_production_paths() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/users"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+            "error": "invalid-request",
+            "unexpected": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/users/missing"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "statusCode": 404,
+            "error": "user-not-found",
+            "unexpected": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.users(&user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: false,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.user("missing", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn board_document_decodes_the_complete_v11_06_shape() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "title": "Delivery",
+            "slug": "delivery",
+            "archived": false,
+            "archivedAt": "2026-08-28T01:00:00.000Z",
+            "createdAt": "2026-08-27T01:00:00.000Z",
+            "modifiedAt": "2026-08-28T02:00:00.000Z",
+            "stars": 3,
+            "labels": [{"_id": "label-1", "name": "Urgent", "color": "red"}],
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true,
+                "isNoComments": false,
+                "isCommentOnly": false,
+                "isWorker": false,
+                "isNormalAssignedOnly": false,
+                "isCommentAssignedOnly": false,
+                "isReadOnly": false,
+                "isReadAssignedOnly": false
+            }],
+            "watchers": [{"userId": "watcher-1", "level": "tracking"}],
+            "permission": "private",
+            "orgs": [{"orgId": "org-1", "orgDisplayName": "Org", "isActive": true}],
+            "teams": [{"teamId": "team-1", "teamDisplayName": "Team", "isActive": true}],
+            "domains": [{"domain": "example.test", "isActive": true}],
+            "importUsernames": ["legacy-user"],
+            "color": "belize",
+            "customThemeColors": ["#112233", "#445566"],
+            "backgroundImageURL": "https://images.example/board.png",
+            "backgroundImageId": "attachment-1",
+            "allowsCardCounterList": false,
+            "cardAging": true,
+            "showDependencies": true,
+            "cardAgingDays1": 7,
+            "cardAgingDays2": 14,
+            "cardAgingDays3": 28,
+            "allowsBoardMemberList": true,
+            "description": "Board description",
+            "subtasksDefaultBoardId": "board-2",
+            "migrationVersion": 1,
+            "subtasksDefaultListId": "list-2",
+            "dateSettingsDefaultBoardId": "board-3",
+            "dateSettingsDefaultListId": "list-3",
+            "allowsSubtasks": true,
+            "allowsSubtasksOnMinicard": true,
+            "allowsAttachments": true,
+            "allowsAttachmentsOnMinicard": true,
+            "allowsChecklists": true,
+            "allowsChecklistsOnMinicard": true,
+            "allowsCustomFields": true,
+            "allowsCustomFieldsOnMinicard": false,
+            "allowsChecklistCountBadgeOnMinicard": false,
+            "allowsComments": true,
+            "allowsDescriptionTitle": true,
+            "allowsDescriptionTitleOnMinicard": true,
+            "allowsDescriptionText": true,
+            "allowsDescriptionTextOnMinicard": false,
+            "allowsCoverAttachmentOnMinicard": true,
+            "allowsCoverAttachmentOnCard": false,
+            "allowsBadgeAttachmentOnMinicard": false,
+            "allowsAttachmentCountOnCard": false,
+            "allowsChecklistCountBadgeOnCard": false,
+            "allowsCardSortingByNumberOnMinicard": false,
+            "allowsCardNumber": false,
+            "allowsCardNumberOnMinicard": false,
+            "allowsActivities": true,
+            "allowsLabels": true,
+            "allowsLabelsOnMinicard": true,
+            "allowsCreator": true,
+            "allowsCreatorOnMinicard": false,
+            "allowsAssignee": true,
+            "allowsAssigneeOnMinicard": true,
+            "allowsMembers": true,
+            "allowsMembersOnMinicard": true,
+            "allowsRequestedBy": true,
+            "allowsRequestedByOnMinicard": true,
+            "allowsCardSortingByNumber": true,
+            "allowsShowLists": true,
+            "allowsAssignedBy": true,
+            "allowsAssignedByOnMinicard": true,
+            "allowsShowListsOnMinicard": false,
+            "allowsChecklistAtMinicard": false,
+            "allowsReceivedDate": true,
+            "restrictCommentEditing": false,
+            "allowsPersonalListWidth": false,
+            "autoWidth": false,
+            "allowsReceivedDateOnMinicard": true,
+            "allowsStartDate": true,
+            "allowsStartDateOnMinicard": true,
+            "allowsEndDate": true,
+            "allowsEndDateOnMinicard": true,
+            "allowsDueDate": true,
+            "allowsDueDateOnMinicard": true,
+            "allowsDueComplete": false,
+            "allowsDueCompleteOnMinicard": false,
+            "presentParentTask": "no-parent",
+            "receivedAt": "2026-08-27T02:00:00.000Z",
+            "startAt": "2026-08-27T03:00:00.000Z",
+            "dueAt": "2026-08-29T03:00:00.000Z",
+            "endAt": "2026-08-30T03:00:00.000Z",
+            "spentTime": 90,
+            "isOvertime": false,
+            "type": "board",
+            "sort": 1,
+            "showActivities": false
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let board = client(&server)
+        .board("board-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(board.board_id, "board-1");
+    assert_eq!(
+        board.background_image_url.as_deref(),
+        Some("https://images.example/board.png")
+    );
+    assert_eq!(board.board_type, Some(BoardType::Board));
+    assert_eq!(board.watchers[0].user_id, "watcher-1");
+    assert_eq!(board.watchers[0].level, BoardWatchLevel::Tracking);
+
+    let output = serde_json::to_value(board).unwrap();
+    assert_eq!(output["board_id"], "board-1");
+    assert_eq!(
+        output["background_image_url"],
+        "https://images.example/board.png"
+    );
+    assert_eq!(output["board_type"], "board");
+    assert_eq!(output["watchers"][0]["user_id"], "watcher-1");
+    assert_eq!(output["watchers"][0]["level"], "tracking");
+    assert!(output.get("_id").is_none());
+    assert!(output.get("backgroundImageURL").is_none());
+}
+
+#[tokio::test]
+async fn board_document_accepts_verified_null_default_board_and_list_ids() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "title": "Fresh board",
+            "members": [],
+            "subtasksDefaultBoardId": null,
+            "subtasksDefaultListId": null,
+            "dateSettingsDefaultBoardId": null,
+            "dateSettingsDefaultListId": null
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client_from_url(&format!("{}/", server.uri()));
+    let board = client
+        .board("board-1", &SecretString::from("token".to_owned()))
+        .await
+        .unwrap();
+
+    assert_eq!(board.subtasks_default_board_id, None);
+    assert_eq!(board.subtasks_default_list_id, None);
+    assert_eq!(board.date_settings_default_board_id, None);
+    assert_eq!(board.date_settings_default_list_id, None);
+}
+
+#[tokio::test]
+async fn board_document_defaults_omitted_optional_collections() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true
+            }]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let board = client(&server)
+        .board("board-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(board.members.len(), 1);
+    assert_eq!(board.members[0].user_id, "user-1");
+    assert!(board.watchers.is_empty());
+    assert!(board.labels.is_empty());
+    assert!(board.orgs.is_empty());
+    assert!(board.teams.is_empty());
+    assert!(board.domains.is_empty());
+    assert!(board.import_usernames.is_empty());
+    assert!(board.custom_theme_colors.is_empty());
+}
+
+#[tokio::test]
+async fn board_document_rejects_null_collections_outside_the_corrected_contract() {
+    for field in [
+        "labels",
+        "watchers",
+        "orgs",
+        "teams",
+        "domains",
+        "importUsernames",
+        "customThemeColors",
+    ] {
+        let server = MockServer::start().await;
+        let mut response = json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true
+            }]
+        });
+        response
+            .as_object_mut()
+            .unwrap()
+            .insert(field.to_owned(), serde_json::Value::Null);
+        Mock::given(method("GET"))
+            .and(path("/api/boards/board-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        assert!(matches!(
+            client(&server).board("board-1", &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn board_document_rejects_invalid_watcher_entries() {
+    for watchers in [
+        json!([{"userId": "watcher-1", "level": "following"}]),
+        json!([{"userId": "watcher-1"}]),
+        json!([{
+            "userId": "watcher-1",
+            "level": "watching",
+            "futureWatcherField": true
+        }]),
+        json!(["watcher-1"]),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/boards/board-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id": "board-1",
+                "title": "Board",
+                "members": [],
+                "watchers": watchers
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        assert!(matches!(
+            client(&server).board("board-1", &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn board_document_rejects_values_outside_the_corrected_scalar_contract() {
+    for (field, value) in [
+        ("permission", json!("shared")),
+        ("color", json!("future-theme")),
+        ("presentParentTask", json!("beside-parent")),
+        ("type", json!("future-board")),
+        ("archivedAt", json!("not-a-date")),
+        ("createdAt", json!("not-a-date")),
+        ("modifiedAt", json!("not-a-date")),
+        ("receivedAt", json!("not-a-date")),
+        ("startAt", json!("not-a-date")),
+        ("dueAt", json!("not-a-date")),
+        ("endAt", json!("not-a-date")),
+    ] {
+        let server = MockServer::start().await;
+        let mut response = json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true
+            }]
+        });
+        response
+            .as_object_mut()
+            .unwrap()
+            .insert(field.to_owned(), value);
+        Mock::given(method("GET"))
+            .and(path("/api/boards/board-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        assert!(matches!(
+            client(&server).board("board-1", &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn board_document_rejects_missing_required_v11_06_fields() {
+    for response in [
+        json!({"_id": "board-1", "title": "Board"}),
+        json!({"_id": "board-1", "title": "Board", "members": null}),
+        json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [{"userId": "user-1", "isAdmin": true}]
+        }),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/boards/board-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        assert!(matches!(
+            client(&server).board("board-1", &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn board_document_rejects_unmapped_top_level_and_nested_fields() {
+    for response in [
+        json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [],
+            "futureSetting": true
+        }),
+        json!({
+            "_id": "board-1",
+            "title": "Board",
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true,
+                "futureRole": "observer"
+            }]
+        }),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/boards/board-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        assert!(matches!(
+            client(&server).board("board-1", &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn board_projection_and_mutation_responses_reject_unmapped_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {
+                "_id": "board-1",
+                "title": "Board",
+                "futureBoardField": true
+            }
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards_count"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "private": 2,
+            "public": 1,
+            "futureCount": 3
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "defaultSwimlaneId": "swimlane-1",
+            "futureCreationField": "value"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/title"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "title": "Renamed",
+            "futureRenameField": false
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "futureDeleteField": ["value"]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.public_boards(&user_token()).await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client.board_counts(&user_token()).await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .create_board(&create_board_request(), &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .rename_board("board-1", "Renamed", &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client.delete_board("board-1", &user_token()).await,
+        Err(ClientError::Protocol { .. })
+    ));
+}
+
+#[tokio::test]
+async fn board_responses_reject_malformed_and_oversized_bodies_and_preserve_embedded_errors() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/malformed"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards_count"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "error": "forbidden",
+            "reason": "site policy",
+            "statusCode": 403
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.board("malformed", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.board_counts(&user_token()).await,
+        Err(ClientError::ResponseTooLarge { .. })
+    ));
+    assert!(matches!(
+        client.public_boards(&user_token()).await,
+        Err(ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code: 403,
+            ..
+        }) if http_status == reqwest::StatusCode::OK
+    ));
 }
 
 #[tokio::test]
@@ -970,45 +1577,5 @@ async fn truncated_logout_success_preserves_the_http_status() {
             status: reqwest::StatusCode::OK,
             ..
         }
-    ));
-}
-
-#[tokio::test]
-async fn compact_user_responses_reject_unmapped_fields() {
-    let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/api/users"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "_id": "user-1",
-            "username": "alice",
-            "services": {"secret": true}
-        }])))
-        .expect(1)
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/api/user/cards"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "_id": "card-1",
-            "description": "unmapped"
-        }])))
-        .expect(1)
-        .mount(&server)
-        .await;
-
-    let client = client(&server);
-    assert!(matches!(
-        client.users(&user_token()).await,
-        Err(ClientError::Protocol {
-            success_status_received: true,
-            ..
-        })
-    ));
-    assert!(matches!(
-        client.user_cards(&user_card_query(), &user_token()).await,
-        Err(ClientError::Protocol {
-            success_status_received: true,
-            ..
-        })
     ));
 }

@@ -2,7 +2,7 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
-**Coverage:** 11 of 140 operations implemented (7.9%); 129 remaining.
+**Coverage:** 17 of 140 operations implemented (12.1%); 123 remaining.
 
 ## Status rules
 
@@ -138,15 +138,15 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 | 121 | Boards | `PUT` | `/api/boards/{boardId}/cardSettings` | `edit_board_card_settings` | Update a board's card settings (display toggles + card aging). | — | ✗ |
 | 122 | Cards | `POST` | `/api/boards/{boardId}/swimlanes/{swimlaneId}/lists/{listId}/ics` | `import_ics` | Import an iCalendar (.ics) file into a board as cards. | — | ✗ |
 | 123 | Authentication | `POST` | `/users/logout` | `logout` | Revoke the current login token or all login tokens. | `wekan auth logout` | ✓ |
-| 124 | Users | `GET` | `/api/users/{userId}/boards` | `get_user_boards` | List a user's active boards (self or site admin). | `wekan user boards` | ✓ |
-| 125 | Boards | `GET` | `/api/boards` | `get_public_boards` | List public boards. | — | ✗ |
-| 126 | Boards | `POST` | `/api/boards` | `create_board` | Create a board and its default swimlane. | — | ✗ |
-| 127 | Boards | `GET` | `/api/boards_count` | `get_boards_count` | Count private and public boards. | — | ✗ |
-| 128 | Boards | `GET` | `/api/boards/{boardId}` | `get_board` | Get a board. | — | ✗ |
-| 129 | Boards | `DELETE` | `/api/boards/{boardId}` | `delete_board` | Delete a board. | — | ✗ |
+| 124 | Users | `GET` | `/api/users/{userId}/boards` | `get_user_boards` | List a user's active boards (self or site admin). | `wekan user boards`<br>`wekan board list` | ✓ |
+| 125 | Boards | `GET` | `/api/boards` | `get_public_boards` | List public boards. | `wekan board list --public` | ✓ |
+| 126 | Boards | `POST` | `/api/boards` | `create_board` | Create a board and its default swimlane. | `wekan board create` | ✓ |
+| 127 | Boards | `GET` | `/api/boards_count` | `get_boards_count` | Count private and public boards. | `wekan board count` | ✓ |
+| 128 | Boards | `GET` | `/api/boards/{boardId}` | `get_board` | Get a board. | `wekan board get` | ✓ |
+| 129 | Boards | `DELETE` | `/api/boards/{boardId}` | `delete_board` | Delete a board. | `wekan board delete` | ✓ |
 | 130 | Boards | `POST` | `/api/boards/import` | `import_board` | Import a Wekan board export. | — | ✗ |
 | 131 | Boards | `POST` | `/api/boards/import/{source}` | `import_board_from` | Import a board exported by a supported external tool. | — | ✗ |
-| 132 | Boards | `PUT` | `/api/boards/{boardId}/title` | `update_board_title` | Update a board title. | — | ✗ |
+| 132 | Boards | `PUT` | `/api/boards/{boardId}/title` | `update_board_title` | Update a board title. | `wekan board rename` | ✓ |
 | 133 | Boards | `PUT` | `/api/boards/{boardId}/labels` | `add_board_label` | Add a board label if it does not already exist. | — | ✗ |
 | 134 | Boards | `POST` | `/api/boards/{boardId}/copy` | `copy_board` | Copy a board. | — | ✗ |
 | 135 | Boards | `POST` | `/api/boards/{boardId}/members/{memberId}` | `update_board_member_permissions` | Set a board member's role or individual permission flags. | — | ✗ |

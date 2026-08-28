@@ -1,5 +1,7 @@
 use serde_json::json;
-use wekan_cli::client::{ClientError, UserAction, UserActionResult};
+use wekan_cli::client::{
+    BoardColor, BoardPermission, ClientError, CreateBoardRequest, UserAction, UserActionResult,
+};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
@@ -9,9 +11,121 @@ use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
 
 use super::{
-    client, create_user_request, login_request, logout_request, logout_token, register_request,
-    status_token, user_card_query, user_token,
+    client, create_board_request, create_user_request, login_request, logout_request, logout_token,
+    register_request, status_token, user_card_query, user_token,
 };
+
+#[tokio::test]
+async fn board_lifecycle_uses_verified_paths_and_bodies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards"))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards_count"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "private": 2,
+            "public": 1
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board%2F1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board/1",
+            "title": "Delivery",
+            "members": [{
+                "userId": "user-1",
+                "isAdmin": true,
+                "isActive": true
+            }]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards"))
+        .and(body_json(json!({
+            "title": "Delivery",
+            "owner": "owner/1",
+            "permission": "public",
+            "color": "cleanlight",
+            "isNoComments": true,
+            "isCommentOnly": true,
+            "isWorker": true
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-1",
+            "defaultSwimlaneId": "swimlane-1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards"))
+        .and(body_json(json!({
+            "title": "Default board",
+            "permission": "private",
+            "color": "belize"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board-2",
+            "defaultSwimlaneId": "swimlane-2"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board%2F1/title"))
+        .and(body_json(json!({"title": "Renamed"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "board/1",
+            "title": "Renamed"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board%2F1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "board/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    client.public_boards(&user_token()).await.unwrap();
+    client.board_counts(&user_token()).await.unwrap();
+    client.board("board/1", &user_token()).await.unwrap();
+    client
+        .create_board(&create_board_request(), &user_token())
+        .await
+        .unwrap();
+    client
+        .create_board(
+            &CreateBoardRequest {
+                title: "Default board".to_owned(),
+                owner: None,
+                permission: BoardPermission::Private,
+                color: BoardColor::Belize,
+                is_no_comments: false,
+                is_comment_only: false,
+                is_worker: false,
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .rename_board("board/1", "Renamed", &user_token())
+        .await
+        .unwrap();
+    client.delete_board("board/1", &user_token()).await.unwrap();
+}
 
 #[tokio::test]
 async fn user_cards_sends_all_verified_filters() {

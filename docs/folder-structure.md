@@ -74,10 +74,12 @@ wekan-cli/
 │   │   ├── boards.rs                  # `wekan board` family
 │   │   ├── boards/
 │   │   │   ├── list.rs
+│   │   │   ├── count.rs
 │   │   │   ├── get.rs
 │   │   │   ├── create.rs
-│   │   │   ├── export.rs
-│   │   │   └── ...
+│   │   │   ├── rename.rs
+│   │   │   ├── delete.rs
+│   │   │   └── tests.rs
 │   │   │
 │   │   ├── lists.rs                   # `wekan list` family
 │   │   ├── lists/
@@ -317,6 +319,7 @@ wekan-cli/
 │   ├── architecture.md                # Architectural boundaries and dependency rules
 │   ├── agent-contract.md              # JSON contracts, stdout/stderr and exit codes
 │   ├── auth.md                        # Authentication and credential behavior
+│   ├── boards.md                      # Core board lifecycle and stable results
 │   ├── config.md                      # Profiles, environment and precedence
 │   ├── compatibility.md               # Supported Wekan versions
 │   ├── development.md                 # Local development and testing

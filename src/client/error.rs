@@ -22,7 +22,7 @@ pub enum ClientError {
         #[source]
         source: reqwest::Error,
     },
-    #[error("the server returned an invalid success response: {message}")]
+    #[error("the server returned an invalid response: {message}")]
     Protocol {
         message: String,
         success_status_received: bool,

@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Number, Value};
 
-use super::{ClientError, WekanClient, transport::embedded_error};
+use super::{ClientError, WekanClient, boards::BoardSummary, transport::decode_success};
 
 #[derive(Debug)]
 pub struct CreateUserRequest {
@@ -53,14 +53,6 @@ pub struct UserSummary {
     #[serde(rename = "_id")]
     pub user_id: String,
     pub username: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct BoardSummary {
-    #[serde(rename = "_id")]
-    pub board_id: String,
-    pub title: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -545,35 +537,11 @@ fn validate_user_record(user: UserRecord, operation: &str) -> Result<UserRecord,
     }
 }
 
-fn decode_success<T: DeserializeOwned>(
-    body: &[u8],
-    operation: &str,
-    require_body: bool,
-) -> Result<T, ClientError> {
-    if require_body && body.is_empty() {
-        return Err(ClientError::Protocol {
-            message: format!("the {operation} response body was empty"),
-            success_status_received: true,
-        });
-    }
-    let value: Value = serde_json::from_slice(body).map_err(|_| ClientError::Protocol {
-        message: format!("the {operation} response was not valid JSON"),
-        success_status_received: true,
-    })?;
-    if let Some(error) = embedded_error(&value, StatusCode::OK)? {
-        return Err(error);
-    }
-    serde_json::from_value(value).map_err(|_| ClientError::Protocol {
-        message: format!("the {operation} response had an invalid shape"),
-        success_status_received: true,
-    })
-}
-
 #[cfg(test)]
 mod strict_response_tests {
     use serde_json::json;
 
-    use super::{BoardSummary, IdResponse, UserCard, UserRecord, UserSummary};
+    use super::{IdResponse, UserCard, UserRecord, UserSummary};
 
     #[test]
     fn user_responses_accept_mapped_dynamic_properties() {
@@ -613,14 +581,6 @@ mod strict_response_tests {
         assert!(
             serde_json::from_value::<UserSummary>(json!({
                 "_id": "user-1",
-                "unexpected": true
-            }))
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<BoardSummary>(json!({
-                "_id": "board-1",
-                "title": "Board",
                 "unexpected": true
             }))
             .is_err()

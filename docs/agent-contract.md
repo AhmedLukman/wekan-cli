@@ -15,8 +15,8 @@ is one JSON object followed by a newline.
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, and `user delete` require interactive confirmation or
-`--yes`. Normal target and removability preflight runs first;
+`user disable-login`, `user delete`, and `board delete` require interactive
+confirmation or `--yes`. Normal target and removability preflight runs first;
 its errors retain their documented codes. Otherwise, non-terminal and JSON
 invocations without `--yes` return `invalid_input` with exit status 2 before
 destructive work. `--yes` is accepted only by those commands. For
@@ -39,8 +39,8 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, or `user_delete`. Human output is `Cancelled; no changes
-made.`
+`user_disable_login`, `user_delete`, or `board_delete`. Human output is
+`Cancelled; no changes made.`
 
 ## Authentication success
 
@@ -178,6 +178,30 @@ Ownership transfer returns `from_user_id`, `to_user_id`, and the affected
 `user_id`, `deleted`, `deleted_current_user`, `credential_stored`, and
 `local_credential_removed`. The last three fields make self-delete cleanup
 safe for automation.
+
+## Board success
+
+Board list data is `{"scope":"active|public","boards":[...]}`. Each board
+summary contains only `board_id` and `title`. Active scope means the
+authenticated user's active boards; public scope means the server-wide public
+projection. Count data is `{"private":N,"public":N}` and represents
+server-wide totals, not caller-visible totals.
+
+`board get` returns the complete typed Wekan v11.06 board document with
+snake_case names. `_id` is `board_id`, `backgroundImageURL` is
+`background_image_url`, and `type` is `board_type`. Board ID and title are
+required and non-empty. Every other known scalar is present as its value or
+JSON `null`; every known collection is an array. Member, label, organization,
+team, domain, and watcher entries are typed. An unmapped top-level or nested response
+field causes `protocol_error` before the command produces success data.
+Enum-constrained fields reject values outside the corrected v11.06 contract,
+and timestamp fields reject values that are not RFC 3339 date-times.
+
+Creation returns `{"board_id":"...","default_swimlane_id":"..."}`. Rename
+returns `{"board_id":"...","title":"..."}`. Delete returns
+`{"board_id":"...","deleted":true}` and verifies that Wekan returned the
+requested ID. Declining board deletion returns the standard cancellation shape
+with `operation: "board_delete"`.
 
 ## Profile success
 
@@ -361,6 +385,7 @@ the process exit status. Stable error codes are:
 - `credential_already_exists`
 - `authentication_rejected`
 - `permission_denied`
+- `not_found`
 - `registration_rejected`
 - `registration_disabled`
 - `server_error`
@@ -387,5 +412,7 @@ and exit status 6.
 | `5` | Unauthenticated state, authentication rejection, or another Wekan application/server rejection |
 | `6` | Credential store unavailable or failed, including a created account or session whose token could not be stored |
 
-When an error response body cannot be read safely, its HTTP status still
-determines the error classification and exit status.
+When a non-success error response body is empty or is not JSON, its HTTP status
+still determines the error classification and exit status. A syntactically
+valid JSON error object with unmapped fields or invalid known-field types is a
+`protocol_error`; it is never silently reduced to a generic server error.

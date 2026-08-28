@@ -4,10 +4,11 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use crate::command_result::{
-    AuthStatusSuccess, AuthSuccess, CommandSuccess, LogoutScope, LogoutSuccess, ProfileItem,
-    ProfileListSuccess, ProfileRemoveSuccess, UserBoardsSuccess, UserCardsSuccess,
-    UserCreateSuccess, UserDeleteSuccess, UserDetail, UserListSuccess, UserLoginChangeSuccess,
-    UserOwnershipSuccess,
+    AuthStatusSuccess, AuthSuccess, BoardCountSuccess, BoardCreateSuccess, BoardDeleteSuccess,
+    BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CommandSuccess, LogoutScope,
+    LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess, UserBoardsSuccess,
+    UserCardsSuccess, UserCreateSuccess, UserDeleteSuccess, UserDetail, UserListSuccess,
+    UserLoginChangeSuccess, UserOwnershipSuccess,
 };
 use crate::error::AppError;
 
@@ -108,6 +109,18 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::UserLoginChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::UserDeleted(data)) => render_user_deleted(data),
         (OutputFormat::Json, CommandSuccess::UserDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardList(data)) => render_board_list(data),
+        (OutputFormat::Json, CommandSuccess::BoardList(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardCount(data)) => render_board_count(data),
+        (OutputFormat::Json, CommandSuccess::BoardCount(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardShown(data)) => render_board_detail(data),
+        (OutputFormat::Json, CommandSuccess::BoardShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardCreated(data)) => render_board_created(data),
+        (OutputFormat::Json, CommandSuccess::BoardCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardRenamed(data)) => render_board_renamed(data),
+        (OutputFormat::Json, CommandSuccess::BoardRenamed(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardDeleted(data)) => render_board_deleted(data),
+        (OutputFormat::Json, CommandSuccess::BoardDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ProfileAdded(data)) => {
             render_profile_item("Added profile", data)
         }
@@ -332,6 +345,155 @@ fn render_user_deleted(data: &UserDeleteSuccess) -> String {
         });
     }
     lines.join("\n")
+}
+
+fn render_board_list(data: &BoardListSuccess) -> String {
+    if data.boards.is_empty() {
+        return match data.scope {
+            BoardListScope::Active => "No active boards found.".to_owned(),
+            BoardListScope::Public => "No public boards found.".to_owned(),
+        };
+    }
+    let rows = data
+        .boards
+        .iter()
+        .map(|board| {
+            (
+                escape_terminal_controls(&board.board_id),
+                escape_terminal_controls(&board.title),
+            )
+        })
+        .collect::<Vec<_>>();
+    two_column_table("ID", "TITLE", &rows)
+}
+
+fn render_board_count(data: &BoardCountSuccess) -> String {
+    format!(
+        "Private boards: {}\nPublic boards: {}",
+        data.private, data.public
+    )
+}
+
+fn render_board_created(data: &BoardCreateSuccess) -> String {
+    format!(
+        "Created board {}.\nDefault swimlane ID: {}",
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&data.default_swimlane_id)
+    )
+}
+
+fn render_board_renamed(data: &BoardRenameSuccess) -> String {
+    format!(
+        "Renamed board {} to {}.",
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&data.title)
+    )
+}
+
+fn render_board_deleted(data: &BoardDeleteSuccess) -> String {
+    format!(
+        "Deleted board {}.",
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_board_detail(data: &BoardDetail) -> String {
+    let value = serde_json::to_value(data).expect("board documents are always serializable");
+    let serde_json::Value::Object(mut fields) = value else {
+        unreachable!("board documents serialize as objects")
+    };
+    fields.remove("board_id");
+    fields.remove("title");
+
+    let mut groups = [
+        ("Core", Vec::new()),
+        ("Sharing", Vec::new()),
+        ("Appearance", Vec::new()),
+        ("Dates and defaults", Vec::new()),
+        ("Settings", Vec::new()),
+    ];
+    for (name, value) in fields {
+        if value.is_null() {
+            continue;
+        }
+        let group = board_field_group(&name);
+        groups[group].1.push((name, value));
+    }
+
+    let mut lines = vec![
+        format!("Board ID: {}", escape_terminal_controls(&data.board_id)),
+        format!("Title: {}", escape_terminal_controls(&data.title)),
+    ];
+    for (heading, values) in groups {
+        if values.is_empty() {
+            continue;
+        }
+        lines.push(format!("{heading}:"));
+        for (name, value) in values {
+            render_named_value(&mut lines, 2, &name, &value);
+        }
+    }
+    lines.join("\n")
+}
+
+fn board_field_group(name: &str) -> usize {
+    if matches!(
+        name,
+        "members" | "watchers" | "labels" | "orgs" | "teams" | "domains" | "import_usernames"
+    ) {
+        1
+    } else if matches!(
+        name,
+        "color" | "custom_theme_colors" | "background_image_url" | "background_image_id"
+    ) {
+        2
+    } else if name.contains("_at")
+        || name.ends_with("_board_id")
+        || name.ends_with("_list_id")
+        || matches!(name, "spent_time" | "is_overtime")
+    {
+        3
+    } else if name.starts_with("allows_")
+        || name.starts_with("card_aging")
+        || matches!(
+            name,
+            "show_dependencies" | "restrict_comment_editing" | "auto_width" | "present_parent_task"
+        )
+    {
+        4
+    } else {
+        0
+    }
+}
+
+fn render_named_value(
+    lines: &mut Vec<String>,
+    indent: usize,
+    name: &str,
+    value: &serde_json::Value,
+) {
+    let padding = " ".repeat(indent);
+    match value {
+        serde_json::Value::Array(values) => {
+            lines.push(format!("{padding}{name}: [{}]", values.len()));
+            for (index, value) in values.iter().enumerate() {
+                render_named_value(lines, indent + 2, &format!("[{index}]"), value);
+            }
+        }
+        serde_json::Value::Object(values) => {
+            lines.push(format!("{padding}{name}:"));
+            for (name, value) in values {
+                if !value.is_null() {
+                    render_named_value(lines, indent + 2, name, value);
+                }
+            }
+        }
+        serde_json::Value::String(value) => lines.push(format!(
+            "{padding}{name}: {}",
+            escape_terminal_controls(value)
+        )),
+        other => lines.push(format!("{padding}{name}: {other}")),
+    }
 }
 
 fn two_column_table(left_header: &str, right_header: &str, rows: &[(String, String)]) -> String {
@@ -566,11 +728,13 @@ mod tests {
     use super::{OutputFormat, render_error, render_success};
     use crate::{
         command_result::{
-            AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, CancellationSuccess,
-            CommandSuccess, DestructiveOperation, LogoutScope, LogoutSuccess, ProfileItem,
-            ProfileListSuccess, ProfileRemoveSuccess, UserBoardSummary, UserBoardsSuccess,
-            UserCard, UserCardsSuccess, UserCreateSuccess, UserCreateWarning, UserDeleteSuccess,
-            UserDetail, UserEmail, UserListSuccess, UserOwnershipSuccess, UserSummary,
+            AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, BoardCountSuccess,
+            BoardCreateSuccess, BoardDeleteSuccess, BoardListScope, BoardListSuccess,
+            BoardRenameSuccess, BoardSummary, CancellationSuccess, CommandSuccess,
+            DestructiveOperation, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
+            ProfileRemoveSuccess, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
+            UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
+            UserListSuccess, UserOwnershipSuccess, UserSummary,
         },
         error::AppError,
     };
@@ -1051,5 +1215,67 @@ mod tests {
             ]),
             OutputFormat::Json
         );
+    }
+
+    #[test]
+    fn board_outputs_are_stable_comprehensive_and_terminal_safe() {
+        let list = CommandSuccess::BoardList(BoardListSuccess {
+            scope: BoardListScope::Public,
+            boards: vec![BoardSummary {
+                board_id: "board-1".to_owned(),
+                title: "Board\nnext".to_owned(),
+            }],
+        });
+        let list_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &list)).unwrap();
+        assert_eq!(list_json["data"]["scope"], "public");
+        assert_eq!(list_json["data"]["boards"][0]["board_id"], "board-1");
+        assert!(render_success(OutputFormat::Human, &list).contains(r"Board\nnext"));
+
+        let board = serde_json::from_value(serde_json::json!({
+            "board_id": "board-1",
+            "title": "Board\u{1b}]52;c;clipboard\u{7}",
+            "permission": "private",
+            "allows_comments": true,
+            "members": [{"user_id": "user-1", "is_admin": true, "is_active": true}],
+            "watchers": [{"user_id": "watcher-1", "level": "tracking"}],
+            "unknownSecret": "must-not-render"
+        }))
+        .unwrap();
+        let shown = CommandSuccess::BoardShown(Box::new(board));
+        let shown_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
+        assert_eq!(shown_json["data"]["board_id"], "board-1");
+        assert_eq!(shown_json["data"]["allows_comments"], true);
+        assert_eq!(shown_json["data"]["watchers"][0]["level"], "tracking");
+        assert!(shown_json["data"].get("unknownSecret").is_none());
+        let shown_human = render_success(OutputFormat::Human, &shown);
+        assert!(!shown_human.contains('\u{1b}'));
+        assert!(!shown_human.contains('\u{7}'));
+        assert!(!shown_human.contains("must-not-render"));
+        assert!(shown_human.contains("Settings:"));
+        assert!(shown_human.contains("watchers: [1]"));
+
+        let count = CommandSuccess::BoardCount(BoardCountSuccess {
+            private: 4,
+            public: 2,
+        });
+        assert!(render_success(OutputFormat::Human, &count).contains("Private boards: 4"));
+
+        let created = CommandSuccess::BoardCreated(BoardCreateSuccess {
+            board_id: "board-1".to_owned(),
+            default_swimlane_id: "swimlane-1".to_owned(),
+        });
+        let renamed = CommandSuccess::BoardRenamed(BoardRenameSuccess {
+            board_id: "board-1".to_owned(),
+            title: "Renamed".to_owned(),
+        });
+        let deleted = CommandSuccess::BoardDeleted(BoardDeleteSuccess {
+            board_id: "board-1".to_owned(),
+            deleted: true,
+        });
+        assert!(render_success(OutputFormat::Human, &created).contains("swimlane-1"));
+        assert!(render_success(OutputFormat::Human, &renamed).contains("Renamed"));
+        assert!(render_success(OutputFormat::Human, &deleted).contains("Deleted board"));
     }
 }

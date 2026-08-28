@@ -1,5 +1,5 @@
 use reqwest::{StatusCode, header::RETRY_AFTER};
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use super::{ClientError, WekanClient};
@@ -47,7 +47,14 @@ impl ResponseBody {
             return Ok(self.body);
         }
 
-        let error = serde_json::from_slice::<WekanErrorResponse>(&self.body).unwrap_or_default();
+        let error = match serde_json::from_slice::<Value>(&self.body) {
+            Ok(value) => decode_error_response(
+                value,
+                "the Wekan error response had an invalid shape",
+                false,
+            )?,
+            Err(_) => WekanErrorResponse::default(),
+        };
         Err(ClientError::Server {
             status: self.status,
             server_error: error.error.map(WekanErrorCode::into_string),
@@ -96,11 +103,22 @@ pub(super) fn embedded_error(
     value: &Value,
     http_status: StatusCode,
 ) -> Result<Option<ClientError>, ClientError> {
-    if !value.is_object() {
+    let Some(object) = value.as_object() else {
+        return Ok(None);
+    };
+
+    if !["statusCode", "error", "reason", "message", "errorType"]
+        .iter()
+        .any(|field| object.contains_key(*field))
+    {
         return Ok(None);
     }
 
-    let error = serde_json::from_value::<WekanErrorResponse>(value.clone()).unwrap_or_default();
+    let error = decode_error_response(
+        value.clone(),
+        "the embedded Wekan error response had an invalid shape",
+        http_status.is_success(),
+    )?;
     if let Some(status_code) = error.status_code {
         let wekan_status_code = u16::try_from(status_code).map_err(|_| ClientError::Protocol {
             message: "the embedded Wekan statusCode was outside the valid range".to_owned(),
@@ -128,6 +146,41 @@ pub(super) fn embedded_error(
         }));
     }
     Ok(None)
+}
+
+fn decode_error_response(
+    value: Value,
+    message: &str,
+    success_status_received: bool,
+) -> Result<WekanErrorResponse, ClientError> {
+    serde_json::from_value(value).map_err(|_| ClientError::Protocol {
+        message: message.to_owned(),
+        success_status_received,
+    })
+}
+
+pub(super) fn decode_success<T: DeserializeOwned>(
+    body: &[u8],
+    operation: &str,
+    require_body: bool,
+) -> Result<T, ClientError> {
+    if require_body && body.is_empty() {
+        return Err(ClientError::Protocol {
+            message: format!("the {operation} response body was empty"),
+            success_status_received: true,
+        });
+    }
+    let value: Value = serde_json::from_slice(body).map_err(|_| ClientError::Protocol {
+        message: format!("the {operation} response was not valid JSON"),
+        success_status_received: true,
+    })?;
+    if let Some(error) = embedded_error(&value, StatusCode::OK)? {
+        return Err(error);
+    }
+    serde_json::from_value(value).map_err(|_| ClientError::Protocol {
+        message: format!("the {operation} response had an invalid shape"),
+        success_status_received: true,
+    })
 }
 
 async fn read_limited_body(
@@ -170,9 +223,11 @@ async fn read_limited_body(
 
 #[cfg(test)]
 mod strict_response_tests {
+    use reqwest::StatusCode;
     use serde_json::json;
 
-    use super::WekanErrorResponse;
+    use super::{ResponseBody, WekanErrorResponse, embedded_error};
+    use crate::client::ClientError;
 
     #[test]
     fn wekan_error_response_rejects_unmapped_fields() {
@@ -194,6 +249,77 @@ mod strict_response_tests {
                 "unexpected": true
             }))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn non_success_json_errors_reject_unmapped_and_invalid_fields() {
+        for body in [
+            json!({"error": "forbidden", "unexpected": true}),
+            json!({"error": ["wrong", "type"]}),
+        ] {
+            let error = ResponseBody {
+                status: StatusCode::BAD_REQUEST,
+                retry_after_seconds: None,
+                body: serde_json::to_vec(&body).unwrap(),
+            }
+            .require_status(StatusCode::OK)
+            .unwrap_err();
+
+            assert!(matches!(
+                error,
+                ClientError::Protocol {
+                    success_status_received: false,
+                    ..
+                }
+            ));
+        }
+    }
+
+    #[test]
+    fn unreadable_non_success_error_bodies_retain_status_classification() {
+        let error = ResponseBody {
+            status: StatusCode::BAD_GATEWAY,
+            retry_after_seconds: None,
+            body: b"not json".to_vec(),
+        }
+        .require_status(StatusCode::OK)
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ClientError::Server {
+                status: StatusCode::BAD_GATEWAY,
+                server_error: None,
+                server_reason: None,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn embedded_errors_reject_unmapped_and_invalid_fields() {
+        for value in [
+            json!({
+                "statusCode": 404,
+                "error": "not-found",
+                "unexpected": true
+            }),
+            json!({"statusCode": "404", "error": "not-found"}),
+        ] {
+            assert!(matches!(
+                embedded_error(&value, StatusCode::OK),
+                Err(ClientError::Protocol {
+                    success_status_received: true,
+                    ..
+                })
+            ));
+        }
+
+        assert!(
+            embedded_error(&json!({"_id": "user-1"}), StatusCode::OK)
+                .unwrap()
+                .is_none()
         );
     }
 }

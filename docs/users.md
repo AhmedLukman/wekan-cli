@@ -39,7 +39,8 @@ HTTP-200 embedded authentication error returned by `GET /api/user`.
 `delete` require a Wekan site administrator. `get` accepts a user ID or
 username. `boards` requires either the selected user's own credential or a site
 administrator and returns active, non-archived, non-internal board ID/title
-summaries. Wekan usernames are optional, so `list` emits JSON `null` and the
+summaries. The authenticated-self form is also exposed as `wekan board list`.
+Wekan usernames are optional, so `list` emits JSON `null` and the
 human table displays `<none>` for an email-only account.
 
 ## Creating users

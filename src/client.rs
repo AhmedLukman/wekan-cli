@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod boards;
 pub mod error;
 mod transport;
 pub mod users;
@@ -10,11 +11,16 @@ use thiserror::Error;
 use url::{Host, Url};
 
 pub use auth::{AuthSession, LoginRequest, LogoutRequest, RegisterRequest};
+pub use boards::{
+    BoardColor, BoardCounts, BoardDocument, BoardPermission, BoardSummary, BoardType,
+    BoardWatchLevel, BoardWatcher, CreateBoardRequest, CreateBoardResult, DeleteBoardResult,
+    PresentParentTask, RenameBoardResult,
+};
 pub use error::ClientError;
 pub use users::{
-    BoardSummary, CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard,
-    CurrentUserEmail, CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery,
-    UserEmail, UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam,
+    CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard, CurrentUserEmail,
+    CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery, UserEmail,
+    UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam,
 };
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);

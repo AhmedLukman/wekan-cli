@@ -70,6 +70,10 @@ pub fn confirm_or_skip(
     })
 }
 
+pub fn escape_terminal_text(value: &str) -> String {
+    value.chars().flat_map(char::escape_default).collect()
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct SystemConfirmationProvider {
     allow_interactive: bool,
@@ -303,5 +307,13 @@ pub(crate) mod tests {
     fn prompt_read_failures_are_invalid_input() {
         let error = read_confirmation(FailingReader, Vec::new(), "Continue?").unwrap_err();
         assert!(error.message().contains("test read failure"));
+    }
+
+    #[test]
+    fn terminal_text_escapes_control_characters() {
+        assert_eq!(
+            super::escape_terminal_text("board\u{1b}]52;c;clipboard\u{7}\n"),
+            r"board\u{1b}]52;c;clipboard\u{7}\n"
+        );
     }
 }

@@ -80,6 +80,14 @@ This isolation supports one stack per parallel integration-test worker or CI
 shard. Tests using the same stack still share its database and should create
 unique test data.
 
+The ignored core-board lifecycle test requires a fresh isolated stack. Point it
+at that stack and run only the dedicated test:
+
+```powershell
+$env:WEKAN_BOARD_E2E_URL = "http://localhost:3101"
+cargo test --test e2e complete_board_lifecycle_matches_wekan_v11_06 -- --ignored --nocapture
+```
+
 Adding `--volumes` deletes only the selected project's database and uploaded
 files. Omitting `--volumes` preserves them for the next start with that project
 name.
