@@ -66,6 +66,15 @@ npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/
 Regenerating the API reference artifacts requires Speakeasy OpenAPI CLI
 on PATH and Node.js/npm for the pinned Redocly invocation.
 
+## API-to-CLI coverage
+
+Keep [`docs/api-coverage.md`](docs/api-coverage.md) synchronized with the
+corrected Wekan contract and the CLI implementation. Whenever an API-backed
+CLI command is added, changed, or removed, update the corresponding operation's
+equivalent CLI command and status in the coverage table, then recalculate the
+values at the top of the document. Likewise if `spec/wekan.corrected.yml` gains or loses
+operations, add or remove the matching table rows and update the total operation count.
+
 ## Inconsistencies and verification
 
 Wekan's REST API documentation might be incomplete and generated annotations can be stale or wrong. Content types, request bodies, permissions, status codes, response shapes, and even documented operations may differ from real server behavior.
