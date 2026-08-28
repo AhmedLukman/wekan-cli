@@ -2,7 +2,7 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
-**Coverage:** 17 of 140 operations implemented (12.1%); 123 remaining.
+**Coverage:** 22 of 140 operations implemented (15.7%); 118 remaining.
 
 ## Status rules
 
@@ -70,11 +70,11 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 | 53 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}` | `delete_board_int` | Delete a board integration. | — | ✗ |
 | 54 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}/activities` | `delete_board_int_activities` | Delete activities recorded for a board integration. | — | ✗ |
 | 55 | Integrations | `POST` | `/api/boards/{board}/integrations/{int}/activities` | `post_board_int_activities` | Create an activity for a board integration. | — | ✗ |
-| 56 | Lists | `GET` | `/api/boards/{board}/lists` | `get_board_lists` | List the lists on a board. | — | ✗ |
-| 57 | Lists | `POST` | `/api/boards/{board}/lists` | `post_board_lists` | Create a list on a board. | — | ✗ |
-| 58 | Lists | `GET` | `/api/boards/{board}/lists/{list}` | `get_board_list` | Get one list on a board. | — | ✗ |
-| 59 | Lists | `PUT` | `/api/boards/{board}/lists/{list}` | `put_board_list` | Update a list on a board. | — | ✗ |
-| 60 | Lists | `DELETE` | `/api/boards/{board}/lists/{list}` | `delete_board_list` | Delete a list from a board. | — | ✗ |
+| 56 | Lists | `GET` | `/api/boards/{board}/lists` | `get_board_lists` | List the lists on a board. | `wekan list list <BOARD_ID>` | ✓ |
+| 57 | Lists | `POST` | `/api/boards/{board}/lists` | `post_board_lists` | Create a list on a board. | `wekan list create <BOARD_ID> --title <TITLE> [--swimlane-id <ID>]` | ✓ |
+| 58 | Lists | `GET` | `/api/boards/{board}/lists/{list}` | `get_board_list` | Get one list on a board. | `wekan list get <BOARD_ID> <LIST_ID>` | ✓ |
+| 59 | Lists | `PUT` | `/api/boards/{board}/lists/{list}` | `put_board_list` | Update a list on a board. | `wekan list update <BOARD_ID> <LIST_ID> <FIELDS...>` | ✓ |
+| 60 | Lists | `DELETE` | `/api/boards/{board}/lists/{list}` | `delete_board_list` | Delete a list from a board. | `wekan list delete <BOARD_ID> <LIST_ID> [--yes]` | ✓ |
 | 61 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards` | `get_board_list_cards` | List the cards in a board list. | — | ✗ |
 | 62 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards` | `post_board_list_cards` | Create a card in a board list. | — | ✗ |
 | 63 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}` | `get_board_list_card` | Get one card from a board list. | — | ✗ |

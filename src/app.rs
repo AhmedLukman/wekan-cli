@@ -113,6 +113,7 @@ where
             RootCommand::Auth(args) => self.execute_auth(args).await,
             RootCommand::User(args) => self.execute_user(args).await,
             RootCommand::Board(args) => self.execute_board(args).await,
+            RootCommand::List(args) => self.execute_list(args).await,
             RootCommand::Profile(args) => {
                 if self.target_resolver.has_explicit_target() {
                     return Err(AppError::invalid_input(
@@ -219,6 +220,29 @@ where
         let profile = target.profile().to_owned();
         commands::dispatch(
             PreparedCommand::Board {
+                args,
+                client_factory: target.client_factory(),
+            },
+            &self.credential_store,
+            &self.secret_input,
+            &self.profile_store,
+            &self.confirmation,
+        )
+        .await
+        .map_err(|error| error.with_profile_context(profile))
+    }
+
+    async fn execute_list(
+        &self,
+        args: crate::commands::lists::ListArgs,
+    ) -> Result<CommandSuccess, AppError> {
+        let missing_profile_resolution = args.command.missing_profile_resolution();
+        let target = self
+            .target_resolver
+            .resolve(&self.profile_store, missing_profile_resolution)?;
+        let profile = target.profile().to_owned();
+        commands::dispatch(
+            PreparedCommand::List {
                 args,
                 client_factory: target.client_factory(),
             },

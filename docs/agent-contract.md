@@ -15,7 +15,7 @@ is one JSON object followed by a newline.
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, and `board delete` require interactive
+`user disable-login`, `user delete`, `board delete`, and `list delete` require interactive
 confirmation or `--yes`. Normal target and removability preflight runs first;
 its errors retain their documented codes. Otherwise, non-terminal and JSON
 invocations without `--yes` return `invalid_input` with exit status 2 before
@@ -39,7 +39,7 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, `user_delete`, or `board_delete`. Human output is
+`user_disable_login`, `user_delete`, `board_delete`, or `list_delete`. Human output is
 `Cancelled; no changes made.`
 
 ## Authentication success
@@ -202,6 +202,32 @@ returns `{"board_id":"...","title":"..."}`. Delete returns
 `{"board_id":"...","deleted":true}` and verifies that Wekan returned the
 requested ID. Declining board deletion returns the standard cancellation shape
 with `operation: "board_delete"`.
+
+## List success
+
+`list list` returns `{"board_id":"...","lists":[...]}`. Each list summary
+contains `list_id`, `title`, nullable `modified_at`, and nullable
+`cards_modified_at`. Wekan v11.06 can include soft-deleted lists in this route
+without exposing their deletion state; the CLI preserves the returned
+collection and does not label it as active-only.
+
+`list get` returns the complete typed Wekan v11.06 list document. `_id` is
+`list_id`, `_updatedAt` is `position_updated_at`, and `type` is `list_type`.
+Optional scalar fields are present as their value or JSON `null`, and the WIP
+object is fully typed. The list type remains a string so values accepted by
+Wekan are preserved. An empty color string is Wekan's valid persisted
+unset-color state and is preserved. Unknown top-level or WIP fields, invalid
+timestamps, nonempty colors, widths, and required empty identifiers cause
+`protocol_error`.
+
+Creation returns `{"board_id":"...","list_id":"..."}`. Update returns the
+same identifiers plus a canonical-order `updated_fields` array containing any
+of `title`, `color`, `starred`, and `wip_limit`. Delete returns
+`{"board_id":"...","list_id":"...","deleted":true,"delete_mode":"soft"}`.
+The delete result means Wekan accepted and validated the idempotent request; it
+does not prove that the list previously existed or was newly deleted. Declining
+list deletion returns the standard cancellation shape with
+`operation: "list_delete"`.
 
 ## Profile success
 

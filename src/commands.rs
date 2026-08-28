@@ -3,6 +3,7 @@ pub(crate) mod authenticated;
 pub mod boards;
 pub(crate) mod client_error;
 pub(crate) mod credential_ops;
+pub mod lists;
 pub mod profile;
 pub mod users;
 
@@ -30,6 +31,9 @@ pub enum RootCommand {
 
     /// Inspect and manage Wekan boards.
     Board(boards::BoardArgs),
+
+    /// Inspect and manage lists on Wekan boards.
+    List(lists::ListArgs),
 }
 
 pub(crate) enum PreparedCommand<'command, 'store> {
@@ -45,6 +49,10 @@ pub(crate) enum PreparedCommand<'command, 'store> {
     },
     Board {
         args: boards::BoardArgs,
+        client_factory: &'command WekanClientFactory,
+    },
+    List {
+        args: lists::ListArgs,
         client_factory: &'command WekanClientFactory,
     },
 }
@@ -80,5 +88,9 @@ pub(crate) async fn dispatch(
             args,
             client_factory,
         } => boards::dispatch(args.command, client_factory, credential_store, confirmation).await,
+        PreparedCommand::List {
+            args,
+            client_factory,
+        } => lists::dispatch(args.command, client_factory, credential_store, confirmation).await,
     }
 }

@@ -6,7 +6,9 @@ use std::{
 
 use secrecy::ExposeSecret;
 use serde_json::json;
-use wekan_cli::client::{BoardType, BoardWatchLevel, ClientError};
+use wekan_cli::client::{
+    BoardType, BoardWatchLevel, ClientError, CreateListRequest, UpdateListRequest,
+};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
@@ -106,6 +108,313 @@ async fn compact_user_responses_reject_unmapped_fields() {
             success_status_received: true,
             ..
         })
+    ));
+}
+
+#[tokio::test]
+async fn list_responses_decode_the_complete_v11_06_shapes() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "list-1",
+            "title": "Todo",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "cardsModifiedAt": null
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "list-1",
+            "title": "Todo",
+            "starred": true,
+            "archived": false,
+            "archivedAt": "2026-08-26T00:00:00Z",
+            "deletedAt": "2026-08-27T00:00:00Z",
+            "deletedBy": "user-1",
+            "deleteBatchId": "batch-1",
+            "boardId": "board-1",
+            "swimlaneId": "swimlane-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "sort": 1.5,
+            "updatedAt": "2026-08-28T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "_updatedAt": "2026-08-28T00:30:00Z",
+            "wipLimit": {"value": 3, "enabled": true, "soft": false},
+            "color": "#12aBcF",
+            "type": "template-list",
+            "width": 320
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    let summaries = client.board_lists("board-1", &user_token()).await.unwrap();
+    assert_eq!(summaries[0].list_id, "list-1");
+    assert_eq!(summaries[0].cards_modified_at, None);
+
+    let list = client
+        .list("board-1", "list-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(list.list_type, "template-list");
+    assert_eq!(
+        list.position_updated_at.as_deref(),
+        Some("2026-08-28T00:30:00Z")
+    );
+    assert_eq!(list.wip_limit.unwrap().value, 3.into());
+}
+
+#[tokio::test]
+async fn list_document_accepts_omitted_optional_fields_and_unrestricted_type() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "list-1",
+            "title": "Todo",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "custom-list-type"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let list = client(&server)
+        .list("board-1", "list-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(list.starred, None);
+    assert_eq!(list.swimlane_id, None);
+    assert_eq!(list.wip_limit, None);
+    assert_eq!(list.width, None);
+    assert_eq!(list.list_type, "custom-list-type");
+
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/blank-color"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "blank-color",
+            "title": "No color",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "list",
+            "color": ""
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let blank_color = client(&server)
+        .list("board-1", "blank-color", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(blank_color.color.as_deref(), Some(""));
+}
+
+#[tokio::test]
+async fn list_responses_reject_unmapped_top_level_and_nested_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "list-1",
+            "title": "Todo",
+            "modifiedAt": null,
+            "cardsModifiedAt": null,
+            "future": true
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "list-1",
+            "title": "Todo",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "list",
+            "wipLimit": {"value": 3, "enabled": true, "soft": false, "future": true}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.board_lists("board-1", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.list("board-1", "list-1", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn list_documents_reject_invalid_known_values() {
+    for (suffix, field) in [
+        ("date", json!({"modifiedAt": "not-a-date"})),
+        ("color", json!({"color": "belize"})),
+        ("width", json!({"width": 99})),
+    ] {
+        let server = MockServer::start().await;
+        let mut response = json!({
+            "_id": suffix,
+            "title": "Todo",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "list"
+        });
+        response
+            .as_object_mut()
+            .unwrap()
+            .extend(field.as_object().unwrap().clone());
+        Mock::given(method("GET"))
+            .and(path(format!("/api/boards/board-1/lists/{suffix}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(matches!(
+            client(&server).list("board-1", suffix, &user_token()).await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn list_missing_and_mutation_response_shapes_are_strict() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/missing"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "list-1",
+            "future": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/lists/list-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": 1})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.list("board-1", "missing", &user_token()).await,
+        Err(ClientError::EmbeddedServer {
+            http_status: reqwest::StatusCode::OK,
+            wekan_status_code: 404,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .create_list(
+                "board-1",
+                &CreateListRequest {
+                    title: "Todo".to_owned(),
+                    swimlane_id: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .update_list(
+                "board-1",
+                "list-1",
+                &UpdateListRequest {
+                    title: Some("Doing".to_owned()),
+                    color: None,
+                    starred: None,
+                    wip_limit: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+}
+
+#[tokio::test]
+async fn list_responses_preserve_embedded_errors_and_reject_malformed_or_oversized_bodies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/embedded/lists"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "error": "forbidden",
+            "reason": "board access denied",
+            "statusCode": 403
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/malformed"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/oversized"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.board_lists("embedded", &user_token()).await,
+        Err(ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code: 403,
+            ..
+        }) if http_status == reqwest::StatusCode::OK
+    ));
+    assert!(matches!(
+        client.list("board-1", "malformed", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.list("board-1", "oversized", &user_token()).await,
+        Err(ClientError::ResponseTooLarge { .. })
     ));
 }
 

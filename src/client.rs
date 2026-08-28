@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod boards;
 pub mod error;
+pub mod lists;
 mod transport;
 pub mod users;
 
@@ -17,6 +18,10 @@ pub use boards::{
     PresentParentTask, RenameBoardResult,
 };
 pub use error::ClientError;
+pub use lists::{
+    CreateListRequest, CreateListResult, DeleteListResult, ListDocument, ListSummary, ListWipLimit,
+    UpdateListRequest, UpdateListResult,
+};
 pub use users::{
     CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard, CurrentUserEmail,
     CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery, UserEmail,

@@ -2047,22 +2047,39 @@ actions:
         type: object
         description: >-
           List title and optional swimlane from server/models/lists.js lines
-          807-823.
+          754-768.
         required: [title]
         properties:
           title: {type: string}
           swimlaneId: {type: string}
+      ListWipLimitRequest:
+        type: object
+        description: >-
+          WIP-limit object forwarded without nested-field filtering by Wekan
+          v11.06 models/lib/listApiUpdate.js lines 50-55 and stored by
+          server/models/lists.js lines 795-805. The known fields are modeled
+          on the response; requests can contain additional or partial fields,
+          but Wekan strips unsupported nested fields before storage.
+        properties:
+          value: {type: number}
+          enabled: {type: boolean}
+          soft: {type: boolean}
+        additionalProperties: true
       ListUpdateRequest:
         type: object
         description: >-
-          Partial list fields passed by server/models/lists.js lines 827-871 to
-          models/lib/listApiUpdate.js lines 22-63.
+          Partial list fields passed by server/models/lists.js lines 773-813 to
+          models/lib/listApiUpdate.js lines 19-57.
         properties:
-          title: {type: string, maxLength: 1000}
+          title:
+            type: string
+            description: >-
+              Wekan truncates this value to the first 1000 JavaScript UTF-16
+              code units.
           color: {type: string}
           starred: {type: boolean}
           wipLimit:
-            $ref: '#/definitions/ListsWiplimit'
+            $ref: '#/definitions/ListWipLimitRequest'
       ListTransferRequest:
         type: object
         description: >-
@@ -2208,10 +2225,11 @@ actions:
           type: {type: string}
       ListSummary:
         type: object
+        additionalProperties: false
         description: >-
           List projection with synchronization dates from
-          server/models/lists.js lines 751-783.
-        required: [_id, title]
+          server/models/lists.js lines 702-732.
+        required: [_id, title, modifiedAt, cardsModifiedAt]
         properties:
           _id: {type: string}
           title: {type: string}
@@ -2723,7 +2741,7 @@ actions:
   - target: '$.paths["/api/boards/{board}/lists"].post'
     description: >-
       Add list title and optional swimlane from Wekan v11.06
-      server/models/lists.js lines 807-823.
+      server/models/lists.js lines 754-768.
     update:
       consumes: [application/json]
       parameters:
@@ -2739,8 +2757,8 @@ actions:
   - target: '$.paths["/api/boards/{board}/lists/{list}"].put'
     description: >-
       Add title, color, starred and wipLimit from Wekan v11.06
-      server/models/lists.js lines 827-871 and models/lib/listApiUpdate.js
-      lines 22-63.
+      server/models/lists.js lines 773-813 and models/lib/listApiUpdate.js
+      lines 19-57.
     update:
       consumes: [application/json]
       parameters:
@@ -4372,23 +4390,92 @@ actions:
   - target: '$.paths["/api/boards/{board}/lists"].get.responses["200"]'
     description: >-
       Add the list summary array with sync timestamps from Wekan v11.06
-      server/models/lists.js lines 751-785.
+      server/models/lists.js lines 702-732.
     update:
       schema: {type: array, items: {$ref: '#/definitions/ListSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/lists"].get'
+    description: >-
+      Record that Wekan v11.06 server/models/lists.js lines 718-731 selects
+      archived:false without excluding soft-deleted documents and projects no
+      deletion marker, so deleted entries can remain indistinguishable here.
+    update:
+      x-wekan-v11.06-defect: soft-deleted-lists-are-not-filtered-or-marked
 
   - target: '$.paths["/api/boards/{board}/lists/{list}"].get.responses["200"]'
     description: >-
       Add the list document from Wekan v11.06 server/models/lists.js lines
-      789-803.
+      737-749.
     update:
       schema: {$ref: '#/definitions/Lists'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].get'
+    description: >-
+      Record the missing-list behavior from Wekan v11.06
+      server/models/lists.js lines 737-752 and server/apiMiddleware.js lines
+      103-116: undefined data produces an empty HTTP 200 response.
+    update:
+      x-wekan-v11.06-defect: missing-list-returns-empty-http-200
 
   - target: '$.paths["/api/boards/{board}/lists/{list}"].delete.responses["200"]'
     description: >-
       Add the soft-deleted list ID from Wekan v11.06
-      server/models/lists.js lines 877-889.
+      server/models/lists.js lines 818-831.
     update:
       schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}"].delete'
+    description: >-
+      Record the idempotent soft deletion and live-card cascade implemented by
+      Wekan v11.06 server/models/lists.js lines 36-64 and 818-831.
+    update:
+      summary: Soft-delete a list and its live cards.
+      description: >-
+        Marks an existing live list and its live cards with one deletion batch.
+        Repeating the request or targeting an absent list still returns the
+        requested list ID, so the response does not prove prior existence.
+      x-wekan-delete-mode: soft-idempotent
+
+  - target: '$.definitions.Lists.required'
+    description: >-
+      Replace the incomplete generated required-field list with the raw list
+      document requirements verified for Wekan v11.06.
+    remove: true
+
+  - target: '$.definitions.Lists'
+    description: >-
+      Complete and close the raw list document returned by Wekan v11.06
+      server/models/lists.js lines 737-749 using models/lists.js lines 79-275
+      and the position timestamp written at server/models/lists.js lines
+      694-698.
+    update:
+      additionalProperties: false
+      required: [_id, title, archived, boardId, createdAt, modifiedAt, type]
+      properties:
+        _id: {type: string}
+        archivedAt: {type: string, format: date-time, x-nullable: true}
+        deletedAt: {type: string, format: date-time, x-nullable: true}
+        deletedBy: {type: string, x-nullable: true}
+        deleteBatchId: {type: string, x-nullable: true}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time, x-nullable: true}
+        modifiedAt: {type: string, format: date-time}
+        _updatedAt: {type: string, format: date-time, x-nullable: true}
+        type: {type: string}
+        width: {type: number, minimum: 100, maximum: 1000, x-nullable: true}
+        color:
+          type: string
+          x-nullable: true
+          description: >-
+            Named or custom list color. Null, omission, and an empty string
+            represent the unset state in Wekan v11.06.
+
+  - target: '$.definitions.ListsWiplimit'
+    description: >-
+      Close the WIP object defined by Wekan v11.06 models/lists.js lines
+      205-232.
+    update:
+      additionalProperties: false
 
   - target: '$.paths["/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}"].get.responses["200"]'
     description: >-

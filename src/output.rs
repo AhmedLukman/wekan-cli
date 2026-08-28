@@ -5,10 +5,11 @@ use serde::Serialize;
 
 use crate::command_result::{
     AuthStatusSuccess, AuthSuccess, BoardCountSuccess, BoardCreateSuccess, BoardDeleteSuccess,
-    BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CommandSuccess, LogoutScope,
-    LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess, UserBoardsSuccess,
-    UserCardsSuccess, UserCreateSuccess, UserDeleteSuccess, UserDetail, UserListSuccess,
-    UserLoginChangeSuccess, UserOwnershipSuccess,
+    BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CommandSuccess,
+    ListCollectionSuccess, ListCreateSuccess, ListDeleteSuccess, ListDetail, ListUpdateSuccess,
+    LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
+    UserBoardsSuccess, UserCardsSuccess, UserCreateSuccess, UserDeleteSuccess, UserDetail,
+    UserListSuccess, UserLoginChangeSuccess, UserOwnershipSuccess,
 };
 use crate::error::AppError;
 
@@ -121,6 +122,16 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::BoardRenamed(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardDeleted(data)) => render_board_deleted(data),
         (OutputFormat::Json, CommandSuccess::BoardDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ListCollection(data)) => render_list_collection(data),
+        (OutputFormat::Json, CommandSuccess::ListCollection(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ListShown(data)) => render_list_detail(data),
+        (OutputFormat::Json, CommandSuccess::ListShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ListCreated(data)) => render_list_created(data),
+        (OutputFormat::Json, CommandSuccess::ListCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ListUpdated(data)) => render_list_updated(data),
+        (OutputFormat::Json, CommandSuccess::ListUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ListDeleted(data)) => render_list_deleted(data),
+        (OutputFormat::Json, CommandSuccess::ListDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ProfileAdded(data)) => {
             render_profile_item("Added profile", data)
         }
@@ -393,6 +404,83 @@ fn render_board_renamed(data: &BoardRenameSuccess) -> String {
 fn render_board_deleted(data: &BoardDeleteSuccess) -> String {
     format!(
         "Deleted board {}.",
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_list_collection(data: &ListCollectionSuccess) -> String {
+    if data.lists.is_empty() {
+        return format!(
+            "No lists found on board {}.",
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    let mut lines = vec!["ID  TITLE  MODIFIED  CARDS MODIFIED".to_owned()];
+    lines.extend(data.lists.iter().map(|list| {
+        format!(
+            "{}  {}  {}  {}",
+            escape_terminal_controls(&list.list_id),
+            escape_terminal_controls(&list.title),
+            escape_terminal_controls(list.modified_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(list.cards_modified_at.as_deref().unwrap_or("")),
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_list_detail(data: &ListDetail) -> String {
+    let value = serde_json::to_value(data).expect("list documents are always serializable");
+    let serde_json::Value::Object(mut fields) = value else {
+        unreachable!("list documents serialize as objects")
+    };
+    fields.remove("list_id");
+    fields.remove("title");
+
+    let mut lines = vec![
+        format!("List ID: {}", escape_terminal_controls(&data.list_id)),
+        format!("Title: {}", escape_terminal_controls(&data.title)),
+    ];
+    for (name, value) in fields {
+        if !value.is_null() {
+            render_named_value(&mut lines, 0, &name, &value);
+        }
+    }
+    lines.join("\n")
+}
+
+fn render_list_created(data: &ListCreateSuccess) -> String {
+    format!(
+        "Created list {} on board {}.",
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_list_updated(data: &ListUpdateSuccess) -> String {
+    let fields = data
+        .updated_fields
+        .iter()
+        .map(|field| {
+            serde_json::to_value(field)
+                .expect("updated list fields are always serializable")
+                .as_str()
+                .expect("updated list fields serialize as strings")
+                .to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "Updated list {} on board {}: {}.",
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&fields)
+    )
+}
+
+fn render_list_deleted(data: &ListDeleteSuccess) -> String {
+    format!(
+        "Soft-deleted list {} on board {} and its live cards.",
+        escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)
     )
 }
@@ -731,7 +819,9 @@ mod tests {
             AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, BoardCountSuccess,
             BoardCreateSuccess, BoardDeleteSuccess, BoardListScope, BoardListSuccess,
             BoardRenameSuccess, BoardSummary, CancellationSuccess, CommandSuccess,
-            DestructiveOperation, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
+            DestructiveOperation, ListCollectionSuccess, ListCreateSuccess, ListDeleteMode,
+            ListDeleteSuccess, ListDetail, ListSummary, ListUpdateSuccess, ListUpdatedField,
+            ListWipLimitDetail, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
             ProfileRemoveSuccess, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
             UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
             UserListSuccess, UserOwnershipSuccess, UserSummary,
@@ -1277,5 +1367,87 @@ mod tests {
         assert!(render_success(OutputFormat::Human, &created).contains("swimlane-1"));
         assert!(render_success(OutputFormat::Human, &renamed).contains("Renamed"));
         assert!(render_success(OutputFormat::Human, &deleted).contains("Deleted board"));
+    }
+
+    #[test]
+    fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
+        let collection = CommandSuccess::ListCollection(ListCollectionSuccess {
+            board_id: "board-1".to_owned(),
+            lists: vec![ListSummary {
+                list_id: "list-1".to_owned(),
+                title: "Todo\nnext".to_owned(),
+                modified_at: Some("2026-08-28T00:00:00Z".to_owned()),
+                cards_modified_at: None,
+            }],
+        });
+        let collection_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &collection)).unwrap();
+        assert_eq!(collection_json["data"]["board_id"], "board-1");
+        assert_eq!(
+            collection_json["data"]["lists"][0]["cards_modified_at"],
+            serde_json::Value::Null
+        );
+        assert!(render_success(OutputFormat::Human, &collection).contains(r"Todo\nnext"));
+
+        let shown = CommandSuccess::ListShown(ListDetail {
+            list_id: "list-1".to_owned(),
+            title: "Todo\u{1b}]52;c;x\u{7}".to_owned(),
+            starred: Some(true),
+            archived: false,
+            archived_at: None,
+            deleted_at: None,
+            deleted_by: None,
+            delete_batch_id: None,
+            board_id: "board-1".to_owned(),
+            swimlane_id: Some("swimlane-1".to_owned()),
+            created_at: "2026-08-28T00:00:00Z".to_owned(),
+            sort: Some(1.into()),
+            updated_at: None,
+            modified_at: "2026-08-28T00:00:00Z".to_owned(),
+            position_updated_at: None,
+            wip_limit: Some(ListWipLimitDetail {
+                value: 2.into(),
+                enabled: true,
+                soft: false,
+            }),
+            color: Some("silver".to_owned()),
+            list_type: "list".to_owned(),
+            width: Some(220.into()),
+        });
+        let shown_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
+        assert_eq!(shown_json["data"]["wip_limit"]["value"], 2);
+        assert_eq!(shown_json["data"]["list_type"], "list");
+        let shown_human = render_success(OutputFormat::Human, &shown);
+        assert!(!shown_human.contains('\u{1b}'));
+        assert!(!shown_human.contains('\u{7}'));
+
+        let created = CommandSuccess::ListCreated(ListCreateSuccess {
+            board_id: "board-1".to_owned(),
+            list_id: "list-1".to_owned(),
+        });
+        let updated = CommandSuccess::ListUpdated(ListUpdateSuccess {
+            board_id: "board-1".to_owned(),
+            list_id: "list-1".to_owned(),
+            updated_fields: vec![ListUpdatedField::Title, ListUpdatedField::WipLimit],
+        });
+        let deleted = CommandSuccess::ListDeleted(ListDeleteSuccess {
+            board_id: "board-1".to_owned(),
+            list_id: "list-1".to_owned(),
+            deleted: true,
+            delete_mode: ListDeleteMode::Soft,
+        });
+        let updated_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &updated)).unwrap();
+        assert_eq!(
+            updated_json["data"]["updated_fields"],
+            serde_json::json!(["title", "wip_limit"])
+        );
+        let deleted_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
+        assert_eq!(deleted_json["data"]["delete_mode"], "soft");
+        assert!(render_success(OutputFormat::Human, &created).contains("Created list"));
+        assert!(render_success(OutputFormat::Human, &updated).contains("title, wip_limit"));
+        assert!(render_success(OutputFormat::Human, &deleted).contains("Soft-deleted"));
     }
 }

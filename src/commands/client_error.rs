@@ -31,6 +31,21 @@ pub(crate) fn map_client_error_with_not_found(
     )
 }
 
+pub(crate) fn map_mutation_client_error_with_not_found(
+    error: ClientError,
+    redactor: &Redactor<'_>,
+    operation: &str,
+    not_found_message: &str,
+) -> AppError {
+    map_client_error_with_optional_not_found(
+        error,
+        redactor,
+        operation,
+        true,
+        Some(not_found_message),
+    )
+}
+
 fn map_client_error_with_optional_not_found(
     error: ClientError,
     redactor: &Redactor<'_>,
