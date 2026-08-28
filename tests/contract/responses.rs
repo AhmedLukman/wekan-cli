@@ -18,13 +18,13 @@ use super::{
 };
 
 #[tokio::test]
-async fn user_resource_responses_decode_only_the_allowlisted_shapes() {
+async fn user_resource_responses_decode_the_mapped_shapes() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/users"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            { "_id": "user-1", "username": "alice", "services": { "secret": true } },
-            { "_id": "email-only", "services": { "secret": true } }
+            { "_id": "user-1", "username": "alice" },
+            { "_id": "email-only" }
         ])))
         .expect(1)
         .mount(&server)
@@ -39,8 +39,7 @@ async fn user_resource_responses_decode_only_the_allowlisted_shapes() {
             "listId": "list-1",
             "dueAt": "2026-08-27T12:00:00.000Z",
             "members": ["user-1"],
-            "assignees": ["user-2"],
-            "description": "not in the compact contract"
+            "assignees": ["user-2"]
         }])))
         .expect(1)
         .mount(&server)
@@ -48,7 +47,7 @@ async fn user_resource_responses_decode_only_the_allowlisted_shapes() {
     Mock::given(method("GET"))
         .and(path("/api/users/user-1/boards"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            { "_id": "board-1", "title": "Board", "members": ["secret"] }
+            { "_id": "board-1", "title": "Board" }
         ])))
         .expect(1)
         .mount(&server)
@@ -231,7 +230,7 @@ async fn user_responses_enforce_the_shared_size_limit() {
 }
 
 #[tokio::test]
-async fn logout_success_requires_the_documented_message_field() {
+async fn logout_success_rejects_unmapped_fields() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/users/logout"))
@@ -243,10 +242,17 @@ async fn logout_success_requires_the_documented_message_field() {
         .mount(&server)
         .await;
 
-    client(&server)
+    let error = client(&server)
         .logout(&logout_request(false), &logout_token())
         .await
-        .expect("the matching logout response should decode");
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ClientError::Protocol {
+            success_status_received: true,
+            ..
+        }
+    ));
 }
 
 #[tokio::test]
@@ -327,7 +333,7 @@ async fn logout_responses_enforce_the_size_limit() {
 }
 
 #[tokio::test]
-async fn current_user_success_fields_are_allowlisted_and_decoded() {
+async fn current_user_success_fields_are_mapped_and_decoded() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/user"))
@@ -335,7 +341,7 @@ async fn current_user_success_fields_are_allowlisted_and_decoded() {
             "_id": "user-1",
             "username": "alice",
             "emails": [{"address": "alice@example.com", "verified": true}],
-            "profile": {"fullname": "Alice Example", "ignored": "value"},
+            "profile": {"fullname": "Alice Example", "language": "en"},
             "isAdmin": true,
             "boards": [{"boardId": "ignored"}]
         })))
@@ -964,5 +970,45 @@ async fn truncated_logout_success_preserves_the_http_status() {
             status: reqwest::StatusCode::OK,
             ..
         }
+    ));
+}
+
+#[tokio::test]
+async fn compact_user_responses_reject_unmapped_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/users"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "user-1",
+            "username": "alice",
+            "services": {"secret": true}
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/user/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "card-1",
+            "description": "unmapped"
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.users(&user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.user_cards(&user_card_query(), &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
     ));
 }

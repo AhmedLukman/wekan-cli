@@ -3961,7 +3961,7 @@ paths:
                 '200':
                     description: Imported board ID, empty object when an importer returns undefined, or a serialized import error; all variants use HTTP 200.
                     schema:
-                        $ref: '#/definitions/BoardImportResult'
+                        $ref: '#/definitions/BoardImportFromResult'
                     x-wekan-error-status-in-body: true
     /api/boards/{boardId}/title:
         put:
@@ -4043,7 +4043,7 @@ paths:
                 '200':
                     description: New board ID.
                     schema:
-                        $ref: '#/definitions/IdResponse'
+                        type: string
                 '500':
                     description: Board copy failed.
                     schema:
@@ -6405,9 +6405,12 @@ definitions:
                 type: boolean
     ErrorResponse:
         type: object
+        additionalProperties: false
         description: >-
-            Error fields serialized by server/apiAuthRoutes.js lines 177-186 and 312-318, and the attachment error envelope in server/routes/attachmentApi.js lines 130-139.
+            Complete shared error fields serialized by Wekan v11.06 REST routes and Meteor.Error. Individual routes return subsets of these fields.
         properties:
+            isClientSafe:
+                type: boolean
             error:
                 description: >-
                     Error identifier. Authentication routes can return either a string identifier or a numeric Meteor.Error code.
@@ -6418,6 +6421,8 @@ definitions:
                 type: string
             message:
                 type: string
+            errorType:
+                type: string
             statusCode:
                 type: integer
                 format: int32
@@ -6425,6 +6430,7 @@ definitions:
                 type: boolean
     IdResponse:
         type: object
+        additionalProperties: false
         description: >-
             Common mutation result used, for example, by server/models/cards.js lines 1174, 1700 and 1768 and server/models/lists.js lines 821 and 871.
         required: [_id]
@@ -6433,6 +6439,7 @@ definitions:
                 type: string
     AuthTokenResponse:
         type: object
+        additionalProperties: false
         description: >-
             Login/register token result from server/apiAuthRoutes.js lines 157-175 and 296-310.
         required: [id, token, tokenExpires]
@@ -6486,6 +6493,7 @@ definitions:
                 description: Revoke all of the user's login tokens instead of only this token.
     LogoutResponse:
         type: object
+        additionalProperties: false
         description: >-
             Logout success body from server/apiAuthRoutes.js lines 226-232.
         required: [message]
@@ -7439,15 +7447,18 @@ definitions:
                 additionalProperties: false
                 description: Empty object in v11.06 because an unawaited Promise is serialized.
     BoardImportResult:
-        type: object
         description: >-
-            Imported board ID, empty result, or serialized error returned with HTTP 200 by Wekan v11.06 server/models/boards.js lines 991-1014 and 1034-1050. No field is universal across those variants.
-        properties:
-            _id: {type: string}
-            error: {type: string}
-            reason: {type: string}
-            message: {type: string}
-            statusCode: {type: integer, format: int32}
+            Imported board ID or serialized error returned with HTTP 200 by Wekan v11.06 server/models/boards.js lines 991-1014.
+        x-oneOf:
+            - {$ref: '#/definitions/IdResponse'}
+            - {$ref: '#/definitions/ErrorResponse'}
+    BoardImportFromResult:
+        description: >-
+            Imported board ID, empty result, or serialized error returned with HTTP 200 by Wekan v11.06 server/models/boards.js lines 1034-1050.
+        x-oneOf:
+            - {$ref: '#/definitions/IdResponse'}
+            - {type: object, additionalProperties: false}
+            - {$ref: '#/definitions/ErrorResponse'}
 x-wekan-request-body-parsers:
     source: server/apiMiddleware.js lines 12-15
     acceptedMediaTypes:

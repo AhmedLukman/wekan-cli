@@ -77,20 +77,22 @@ operations, add or remove the matching table rows and update the total operation
 
 ## Unknown API response fields
 
-API response DTOs must tolerate additional fields returned by Wekan so a newly
-observed field does not break normal CLI commands. Capture unmodeled properties
-internally with a flattened map such as `BTreeMap<String, serde_json::Value>`;
-do not expose that map through stable structured output.
+API response DTOs must reject additional fields returned by Wekan. Apply
+`#[serde(deny_unknown_fields)]` to every response object, including nested
+objects. Do not capture unmodeled properties in flattened maps and do not rely
+on Serde's default behavior of silently discarding them.
+
+Dynamic raw API commands are the exception: they perform no field mapping and preserve the complete response as JSON or raw bytes.
 
 Production commands must:
 
-- Continue successfully when only unknown fields are present.
-- Return only documented, typed CLI fields.
-- Never log or display unknown field values.
+- Fail with an explicit protocol error when any unmapped field is present.
+- Return only fully mapped, typed CLI fields after successful decoding.
 - Continue rejecting invalid types or missing required values for known fields.
 
-Contract and live integration tests must assert that the captured unknown-field
-map is empty. When the assertion fails report it.
+Contract tests must exercise rejection of unmapped top-level and nested fields.
+Live integration tests must fail naturally at the strict response-decoding
+boundary when Wekan returns a field that the pinned-version DTO does not map.
 
 For every newly observed field:
 
@@ -98,8 +100,8 @@ For every newly observed field:
 2. Confirm its presence and omission conditions with live tests.
 3. Add it to the corrected API overlay when the contract is incomplete.
 4. Regenerate the corrected specification and documentation.
-5. Add it to the typed response and stable output only after its behavior is understood.
-6. Add regression tests covering its type and optionality.
+5. Add it to the typed response and stable output after its behavior is understood.
+6. Add regression tests covering its type, optionality, and strict decoding.
 
 ## Inconsistencies and verification
 

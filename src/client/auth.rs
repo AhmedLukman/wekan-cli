@@ -72,7 +72,7 @@ struct LoginRequestBody<'a> {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct AuthTokenResponse {
     id: String,
     token: String,
@@ -80,6 +80,7 @@ struct AuthTokenResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct LogoutResponse {
     message: String,
 }
@@ -196,5 +197,32 @@ impl WekanClient {
             token: SecretString::from(response.token),
             token_expires,
         })
+    }
+}
+
+#[cfg(test)]
+mod strict_response_tests {
+    use serde_json::json;
+
+    use super::{AuthTokenResponse, LogoutResponse};
+
+    #[test]
+    fn authentication_responses_reject_unmapped_fields() {
+        assert!(
+            serde_json::from_value::<AuthTokenResponse>(json!({
+                "id": "user-1",
+                "token": "token",
+                "tokenExpires": "2030-01-02T03:04:05Z",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<LogoutResponse>(json!({
+                "message": "logged out",
+                "unexpected": true
+            }))
+            .is_err()
+        );
     }
 }

@@ -496,10 +496,9 @@ mod tests {
                 "_id": "user-1",
                 "username": "alice",
                 "emails": [{"address": "alice@example.com", "verified": true}],
-                "profile": {"fullname": "Alice Example", "privateValue": "ignore-me"},
+                "profile": {"fullname": "Alice Example", "language": "en"},
                 "isAdmin": false,
-                "boards": [{"boardId": "secret-board"}],
-                "services": {"resume": {"loginTokens": ["never-output"]}}
+                "boards": [{"boardId": "private-board"}]
             })))
             .expect(1)
             .mount(&server)
@@ -526,9 +525,8 @@ mod tests {
         assert_eq!(status.user.emails[0].verified, Some(true));
         let rendered = serde_json::to_string(&status).unwrap();
         assert!(!rendered.contains("status-token"));
-        assert!(!rendered.contains("secret-board"));
-        assert!(!rendered.contains("never-output"));
-        assert!(!rendered.contains("privateValue"));
+        assert!(!rendered.contains("private-board"));
+        assert!(!rendered.contains("language"));
     }
 
     #[tokio::test]

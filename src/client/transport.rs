@@ -7,7 +7,7 @@ use super::{ClientError, WekanClient};
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 
 #[derive(Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct WekanErrorResponse {
     error: Option<WekanErrorCode>,
     reason: Option<String>,
@@ -15,6 +15,8 @@ struct WekanErrorResponse {
     error_type: Option<String>,
     is_client_safe: Option<bool>,
     status_code: Option<i64>,
+    #[serde(rename = "success")]
+    _success: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -164,4 +166,34 @@ async fn read_limited_body(
         body.extend_from_slice(&chunk);
     }
     Ok(body)
+}
+
+#[cfg(test)]
+mod strict_response_tests {
+    use serde_json::json;
+
+    use super::WekanErrorResponse;
+
+    #[test]
+    fn wekan_error_response_rejects_unmapped_fields() {
+        assert!(
+            serde_json::from_value::<WekanErrorResponse>(json!({
+                "isClientSafe": true,
+                "error": "forbidden",
+                "reason": "denied",
+                "message": "denied [forbidden]",
+                "errorType": "Meteor.Error",
+                "statusCode": 403,
+                "success": false
+            }))
+            .is_ok()
+        );
+        assert!(
+            serde_json::from_value::<WekanErrorResponse>(json!({
+                "error": "forbidden",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+    }
 }

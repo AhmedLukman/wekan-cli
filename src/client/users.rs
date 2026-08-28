@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use reqwest::{StatusCode, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
-use serde_json::Value;
+use serde_json::{Number, Value};
 
 use super::{ClientError, WekanClient, transport::embedded_error};
 
@@ -46,6 +48,7 @@ pub struct UserCardQuery {
 pub struct CreateUserResult;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct UserSummary {
     #[serde(rename = "_id")]
     pub user_id: String,
@@ -53,7 +56,7 @@ pub struct UserSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct BoardSummary {
     #[serde(rename = "_id")]
     pub board_id: String,
@@ -61,6 +64,7 @@ pub struct BoardSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct UserEmail {
     pub address: Option<String>,
     pub verified: Option<bool>,
@@ -83,15 +87,92 @@ impl UserEmail {
 pub type CurrentUserEmail = UserEmail;
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserProfile {
     pub fullname: Option<String>,
+    avatar_url: Option<String>,
+    email_buffer: Option<Vec<Option<String>>>,
+    show_desktop_drag_handles: Option<bool>,
+    left_menu_collapsed: Option<bool>,
+    collapsed_workspaces: Option<BTreeMap<String, bool>>,
+    left_menu_width: Option<Number>,
+    submit_on_enter: Option<bool>,
+    open_many_cards_at_once: Option<bool>,
+    all_boards_theme_tiles: Option<bool>,
+    global_theme_color: Option<String>,
+    global_theme_custom_colors: Option<Vec<Option<String>>>,
+    ui_font: Option<String>,
+    ui_font_size: Option<String>,
+    ui_text_color: Option<String>,
+    ui_text_bg_color: Option<String>,
+    dismissed_announcement_version: Option<String>,
+    card_maximized: Option<bool>,
+    card_collapsed: Option<bool>,
+    show_activities: Option<bool>,
+    custom_fields_grid: Option<bool>,
+    trello_api_saved: Option<bool>,
+    hidden_minicard_label_text: Option<bool>,
+    initials: Option<String>,
+    board_workspaces_tree: Option<Vec<BTreeMap<String, Value>>>,
+    board_workspace_assignments: Option<BTreeMap<String, String>>,
+    invited_boards: Option<Vec<Option<String>>>,
+    language: Option<String>,
+    map_provider: Option<String>,
+    move_and_copy_dialog: Option<BTreeMap<String, Value>>,
+    move_checklist_dialog: Option<BTreeMap<String, Value>>,
+    copy_checklist_dialog: Option<BTreeMap<String, Value>>,
+    notifications: Option<Vec<UserProfileNotification>>,
+    rescue_card_description: Option<bool>,
+    show_cards_count_at: Option<Number>,
+    start_day_of_week: Option<Number>,
+    starred_boards: Option<Vec<Option<String>>>,
+    starred_pages: Option<Vec<UserProfileStarredPage>>,
+    default_board_id: Option<String>,
+    icode: Option<String>,
+    board_view: Option<String>,
+    list_sort_by: Option<String>,
+    all_boards_sort_by: Option<String>,
+    templates_board_id: Option<String>,
+    card_templates_swimlane_id: Option<String>,
+    list_templates_swimlane_id: Option<String>,
+    board_templates_swimlane_id: Option<String>,
+    sidebar_width: Option<Number>,
+    list_widths: Option<BTreeMap<String, BTreeMap<String, Number>>>,
+    list_constraints: Option<BTreeMap<String, BTreeMap<String, Value>>>,
+    auto_width_boards: Option<BTreeMap<String, bool>>,
+    board_sort_index: Option<BTreeMap<String, Number>>,
+    fixed_list_width_boards: Option<BTreeMap<String, bool>>,
+    fixed_list_widths: Option<BTreeMap<String, Number>>,
+    swimlane_heights: Option<BTreeMap<String, BTreeMap<String, Number>>>,
+    collapsed_lists: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    collapsed_swimlanes: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    collapsed_card_sections: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    keyboard_shortcuts: Option<bool>,
+    vertical_scrollbars: Option<bool>,
+    show_week_of_year: Option<bool>,
+    date_format: Option<String>,
+    mobile_mode: Option<bool>,
+    card_zoom: Option<Number>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct UserProfileNotification {
+    activity: String,
+    read: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct UserProfileStarredPage {
+    url: String,
+    title: String,
 }
 
 pub type CurrentUserProfile = UserProfile;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserOrganization {
     pub org_id: Option<String>,
     pub org_display_name: Option<String>,
@@ -99,14 +180,14 @@ pub struct UserOrganization {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserTeam {
     pub team_id: Option<String>,
     pub team_display_name: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CurrentUserBoard {
     pub board_id: String,
     pub is_active: Option<bool>,
@@ -121,7 +202,7 @@ pub struct CurrentUserBoard {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserRecord {
     #[serde(rename = "_id")]
     pub user_id: String,
@@ -135,13 +216,24 @@ pub struct UserRecord {
     pub authentication_method: Option<String>,
     pub created_at: Option<String>,
     pub modified_at: Option<String>,
+    pub created_through_api: Option<bool>,
+    pub heartbeat: Option<String>,
     pub last_connection_date: Option<String>,
+    pub session_data: Option<UserSessionData>,
+    #[serde(default, deserialize_with = "deserialize_default_on_null")]
+    pub import_usernames: Vec<String>,
     #[serde(default, deserialize_with = "deserialize_default_on_null")]
     pub orgs: Vec<UserOrganization>,
     #[serde(default, deserialize_with = "deserialize_default_on_null")]
     pub teams: Vec<UserTeam>,
     #[serde(default, deserialize_with = "deserialize_default_on_null")]
     pub boards: Vec<CurrentUserBoard>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct UserSessionData {
+    pub total_hits: Option<Number>,
 }
 
 impl UserRecord {
@@ -187,7 +279,7 @@ impl UserRecord {
 pub type CurrentUser = UserRecord;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserCard {
     #[serde(rename = "_id")]
     pub card_id: String,
@@ -236,6 +328,7 @@ struct CreateUserV1106Response {
 struct EmptyObject {}
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct IdResponse {
     #[serde(rename = "_id")]
     id: String,
@@ -474,4 +567,77 @@ fn decode_success<T: DeserializeOwned>(
         message: format!("the {operation} response had an invalid shape"),
         success_status_received: true,
     })
+}
+
+#[cfg(test)]
+mod strict_response_tests {
+    use serde_json::json;
+
+    use super::{BoardSummary, IdResponse, UserCard, UserRecord, UserSummary};
+
+    #[test]
+    fn user_responses_accept_mapped_dynamic_properties() {
+        let user = serde_json::from_value::<UserRecord>(json!({
+            "_id": "user-1",
+            "profile": {
+                "fullname": "Alice",
+                "collapsedWorkspaces": {"workspace-1": true},
+                "boardWorkspaceAssignments": {"board-1": "workspace-1"},
+                "moveAndCopyDialog": {"boardId": "board-1"},
+                "listWidths": {"board-1": {"list-1": 320}},
+                "listConstraints": {"board-1": {"list-1": "unlimited"}}
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(user.user_id(), "user-1");
+        assert_eq!(user.full_name(), Some("Alice"));
+    }
+
+    #[test]
+    fn user_responses_reject_unmapped_top_level_and_nested_fields() {
+        assert!(
+            serde_json::from_value::<UserRecord>(json!({
+                "_id": "user-1",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<UserRecord>(json!({
+                "_id": "user-1",
+                "profile": {"unexpected": true}
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<UserSummary>(json!({
+                "_id": "user-1",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<BoardSummary>(json!({
+                "_id": "board-1",
+                "title": "Board",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<UserCard>(json!({
+                "_id": "card-1",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<IdResponse>(json!({
+                "_id": "user-1",
+                "unexpected": true
+            }))
+            .is_err()
+        );
+    }
 }

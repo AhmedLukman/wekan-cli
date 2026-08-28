@@ -253,9 +253,7 @@ async fn current_projects_the_shared_typed_user_record() {
             "username": "alice",
             "profile": { "fullname": "Alice", "language": "en" },
             "emails": [{ "address": "alice@example.com", "verified": true }],
-            "isAdmin": true,
-            "services": { "resume": { "loginTokens": [{ "hashedToken": "secret" }] } },
-            "unknown": "ignored"
+            "isAdmin": true
         })))
         .expect(1)
         .mount(&server)
