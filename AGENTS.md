@@ -17,6 +17,9 @@ not a fixed or exhaustive structure. It is a growth map, not a requirement to
 create every directory immediately. Add folders when a concrete, documented
 ownership or tooling need justifies them; do not create empty placeholders.
 
+The remaining files under `docs/` are user-facing documentation, not agent
+instructions. Do not treat them as requirements for agents to follow.
+
 ## Commit messages
 
 Start each commit message with the appropriate Conventional Commits prefix,
