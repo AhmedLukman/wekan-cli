@@ -110,20 +110,33 @@ fn map_client_error_with_optional_not_found(
             server_message,
             server_error_type,
             server_is_client_safe,
-        } => (
-            ErrorCode::ProtocolError,
-            format!("the {operation} response contained a Wekan error without statusCode"),
-            StableExitCode::Server,
-            embedded_protocol_error_details(
-                http_status,
-                server_error,
-                server_reason,
-                server_message,
-                server_error_type,
-                server_is_client_safe,
-                redactor,
-            ),
-        ),
+        } => {
+            let is_not_found =
+                not_found_message.is_some() && server_error.as_deref() == Some("not-found");
+            let code = if is_not_found {
+                ErrorCode::NotFound
+            } else {
+                ErrorCode::ProtocolError
+            };
+            (
+                code,
+                if is_not_found {
+                    status_error_message(code, operation, not_found_message)
+                } else {
+                    format!("the {operation} response contained a Wekan error without statusCode")
+                },
+                StableExitCode::Server,
+                embedded_protocol_error_details(
+                    http_status,
+                    server_error,
+                    server_reason,
+                    server_message,
+                    server_error_type,
+                    server_is_client_safe,
+                    redactor,
+                ),
+            )
+        }
         ClientError::Server {
             status,
             server_error,

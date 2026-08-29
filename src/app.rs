@@ -114,6 +114,7 @@ where
             RootCommand::User(args) => self.execute_user(args).await,
             RootCommand::Board(args) => self.execute_board(args).await,
             RootCommand::List(args) => self.execute_list(args).await,
+            RootCommand::Swimlane(args) => self.execute_swimlane(args).await,
             RootCommand::Profile(args) => {
                 if self.target_resolver.has_explicit_target() {
                     return Err(AppError::invalid_input(
@@ -243,6 +244,29 @@ where
         let profile = target.profile().to_owned();
         commands::dispatch(
             PreparedCommand::List {
+                args,
+                client_factory: target.client_factory(),
+            },
+            &self.credential_store,
+            &self.secret_input,
+            &self.profile_store,
+            &self.confirmation,
+        )
+        .await
+        .map_err(|error| error.with_profile_context(profile))
+    }
+
+    async fn execute_swimlane(
+        &self,
+        args: crate::commands::swimlanes::SwimlaneArgs,
+    ) -> Result<CommandSuccess, AppError> {
+        let missing_profile_resolution = args.command.missing_profile_resolution();
+        let target = self
+            .target_resolver
+            .resolve(&self.profile_store, missing_profile_resolution)?;
+        let profile = target.profile().to_owned();
+        commands::dispatch(
+            PreparedCommand::Swimlane {
                 args,
                 client_factory: target.client_factory(),
             },

@@ -2093,7 +2093,7 @@ actions:
         type: object
         description: >-
           Swimlane title and optional sort from server/models/swimlanes.js lines
-          171-195.
+          171-202.
         required: [title]
         properties:
           title: {type: string}
@@ -2101,7 +2101,7 @@ actions:
       SwimlaneUpdateRequest:
         type: object
         description: >-
-          Swimlane title update from server/models/swimlanes.js lines 204-226.
+          Swimlane title update from server/models/swimlanes.js lines 204-233.
         required: [title]
         properties:
           title: {type: string}
@@ -2276,7 +2276,8 @@ actions:
         type: object
         description: >-
           Swimlane list projection from server/models/swimlanes.js lines
-          126-140.
+          126-147.
+        additionalProperties: false
         required: [_id, title]
         properties:
           _id: {type: string}
@@ -2813,7 +2814,7 @@ actions:
   - target: '$.paths["/api/boards/{board}/swimlanes"].post'
     description: >-
       Add title and optional sort from Wekan v11.06
-      server/models/swimlanes.js lines 171-195.
+      server/models/swimlanes.js lines 171-202.
     update:
       consumes: [application/json]
       parameters:
@@ -2824,12 +2825,16 @@ actions:
           schema:
             $ref: '#/definitions/SwimlaneCreateRequest'
       responses:
-        '200': {description: 'Swimlane created, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+        '200':
+          description: Swimlane created, or a serialized application error; both use HTTP 200.
+          schema: {$ref: '#/definitions/IdResponse'}
+          x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+          x-wekan-errors-use-http-200: true
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].put'
     description: >-
       Add the title body from Wekan v11.06 server/models/swimlanes.js lines
-      204-226.
+      204-233.
     update:
       consumes: [application/json]
       parameters:
@@ -2841,7 +2846,11 @@ actions:
           schema:
             $ref: '#/definitions/SwimlaneUpdateRequest'
       responses:
-        '200': {description: 'Swimlane updated, or a serialized application error.', schema: {$ref: '#/definitions/IdResponse'}}
+        '200':
+          description: Swimlane updated, or a serialized application error; both use HTTP 200.
+          schema: {$ref: '#/definitions/IdResponse'}
+          x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+          x-wekan-errors-use-http-200: true
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/copy"].post'
     description: >-
@@ -3237,7 +3246,7 @@ actions:
     description: Record the alternate embedded authentication-error body.
     update:
       x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-      x-wekan-error-status-in-body: true
+      x-wekan-errors-use-http-200: true
 
   - target: '$.paths["/api/user/cards"].get'
     description: >-
@@ -3298,7 +3307,7 @@ actions:
     description: Record HTTP-200 embedded authorization failures.
     update:
       x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-      x-wekan-error-status-in-body: true
+      x-wekan-errors-use-http-200: true
 
   - target: '$.paths["/api/users"].post'
     description: >-
@@ -3314,7 +3323,7 @@ actions:
     description: Record HTTP-200 embedded authentication and authorization errors.
     update:
       x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-      x-wekan-error-status-in-body: true
+      x-wekan-errors-use-http-200: true
 
   - target: '$.paths["/api/users/{user}"].get'
     description: >-
@@ -4628,23 +4637,42 @@ actions:
   - target: '$.paths["/api/boards/{board}/swimlanes"].get.responses["200"]'
     description: >-
       Add the swimlane summary array from Wekan v11.06
-      server/models/swimlanes.js lines 126-145.
+      server/models/swimlanes.js lines 126-147, including HTTP-200 errors.
     update:
+      description: Active swimlane summaries, or a serialized application error; both use HTTP 200.
       schema: {type: array, items: {$ref: '#/definitions/SwimlaneSummary'}}
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+      x-wekan-error-status-in-body: true
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].get.responses["200"]'
     description: >-
       Add the swimlane document from Wekan v11.06
-      server/models/swimlanes.js lines 149-167.
+      server/models/swimlanes.js lines 149-169, including HTTP-200 errors.
     update:
+      description: >-
+        Active swimlane document, an empty body when no active swimlane matches,
+        or a serialized application error; all variants use HTTP 200.
       schema: {$ref: '#/definitions/Swimlanes'}
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+      x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].get'
+    description: >-
+      Record the missing-swimlane behavior from Wekan v11.06
+      server/models/swimlanes.js lines 149-169 and server/apiMiddleware.js lines
+      103-116: undefined data produces an empty HTTP 200 response.
+    update:
+      x-wekan-v11.06-defect: missing-swimlane-returns-empty-http-200
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}"].delete.responses["200"]'
     description: >-
-      Add the deleted swimlane ID from Wekan v11.06
-      server/models/swimlanes.js lines 235-250.
+      Add the deleted swimlane ID and HTTP-200 errors from Wekan v11.06
+      server/models/swimlanes.js lines 235-253.
     update:
+      description: Deleted swimlane ID, or a serialized application error; both use HTTP 200.
       schema: {$ref: '#/definitions/IdResponse'}
+      x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+      x-wekan-error-status-in-body: true
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/cards"].get.responses["200"]'
     description: >-
@@ -5122,3 +5150,16 @@ actions:
     update:
       type: array
       items: {$ref: '#/definitions/UserCardSummary'}
+
+  - target: '$.definitions.Swimlanes'
+    description: >-
+      Add the Mongo document ID and close the raw swimlane document returned by Wekan v11.06
+      server/models/swimlanes.js lines 149-169 using
+      models/swimlanes.js lines 16-144. The generated schema already records
+      the other document properties and requirements; the route does not
+      project out `_id`.
+    update:
+      additionalProperties: false
+      required: [_id]
+      properties:
+        _id: {type: string}

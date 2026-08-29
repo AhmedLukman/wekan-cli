@@ -15,12 +15,13 @@ is one JSON object followed by a newline.
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, `board delete`, and `list delete` require interactive
-confirmation or `--yes`. Normal target and removability preflight runs first;
-its errors retain their documented codes. Otherwise, non-terminal and JSON
-invocations without `--yes` return `invalid_input` with exit status 2 before
-destructive work. `--yes` is accepted only by those commands. For
-active-profile removal, `--force` remains a separate requirement.
+`user disable-login`, `user delete`, `board delete`, `list delete`, and
+`swimlane delete` require interactive confirmation or `--yes`. Normal target
+and removability preflight runs first; its errors retain their documented
+codes. Otherwise, non-terminal and JSON invocations without `--yes` return
+`invalid_input` with exit status 2 before destructive work. `--yes` is accepted
+only by those commands. For active-profile removal, `--force` remains a
+separate requirement.
 
 Logout holds the selected credential target's mutation guards while awaiting
 interactive confirmation, binding approval to that target state and preventing
@@ -39,8 +40,8 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, `user_delete`, `board_delete`, or `list_delete`. Human output is
-`Cancelled; no changes made.`
+`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, or
+`swimlane_delete`. Human output is `Cancelled; no changes made.`
 
 ## Authentication success
 
@@ -228,6 +229,25 @@ The delete result means Wekan accepted and validated the idempotent request; it
 does not prove that the list previously existed or was newly deleted. Declining
 list deletion returns the standard cancellation shape with
 `operation: "list_delete"`.
+
+## Swimlane success
+
+`swimlane list` returns `{"board_id":"...","swimlanes":[...]}`. Each
+summary contains only `swimlane_id` and `title`.
+
+`swimlane get` returns the complete typed Wekan v11.06 swimlane document.
+`_id` is `swimlane_id`, and `type` is `swimlane_type`. Optional archive and
+update timestamps, sort, color, and height are present as their value or JSON
+`null`. Unknown fields, invalid timestamps or colors, heights outside `-1` or
+50 through 2000, and required empty identifiers cause `protocol_error`.
+
+Creation returns `{"board_id":"...","swimlane_id":"..."}`. Update returns
+the same identifiers plus `"updated_fields":["title"]`. Delete returns
+`{"board_id":"...","swimlane_id":"...","deleted":true,"delete_mode":"hard"}`.
+The delete result means Wekan accepted and validated the idempotent request; it
+does not prove that the swimlane previously existed or was newly deleted.
+Declining swimlane deletion returns the standard cancellation shape with
+`operation: "swimlane_delete"`.
 
 ## Profile success
 

@@ -8,8 +8,9 @@ use crate::command_result::{
     BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CommandSuccess,
     ListCollectionSuccess, ListCreateSuccess, ListDeleteSuccess, ListDetail, ListUpdateSuccess,
     LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
-    UserBoardsSuccess, UserCardsSuccess, UserCreateSuccess, UserDeleteSuccess, UserDetail,
-    UserListSuccess, UserLoginChangeSuccess, UserOwnershipSuccess,
+    SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteSuccess, SwimlaneDetail,
+    SwimlaneUpdateSuccess, UserBoardsSuccess, UserCardsSuccess, UserCreateSuccess,
+    UserDeleteSuccess, UserDetail, UserListSuccess, UserLoginChangeSuccess, UserOwnershipSuccess,
 };
 use crate::error::AppError;
 
@@ -132,6 +133,24 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::ListUpdated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ListDeleted(data)) => render_list_deleted(data),
         (OutputFormat::Json, CommandSuccess::ListDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneCollection(data)) => {
+            render_swimlane_collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SwimlaneCollection(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneShown(data)) => render_swimlane_detail(data),
+        (OutputFormat::Json, CommandSuccess::SwimlaneShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneCreated(data)) => {
+            render_swimlane_created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SwimlaneCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneUpdated(data)) => {
+            render_swimlane_updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SwimlaneUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneDeleted(data)) => {
+            render_swimlane_deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SwimlaneDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ProfileAdded(data)) => {
             render_profile_item("Added profile", data)
         }
@@ -485,6 +504,84 @@ fn render_list_deleted(data: &ListDeleteSuccess) -> String {
     )
 }
 
+fn render_swimlane_collection(data: &SwimlaneCollectionSuccess) -> String {
+    if data.swimlanes.is_empty() {
+        return format!(
+            "No swimlanes found on board {}.",
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    let mut lines = vec!["ID  TITLE".to_owned()];
+    lines.extend(data.swimlanes.iter().map(|swimlane| {
+        format!(
+            "{}  {}",
+            escape_terminal_controls(&swimlane.swimlane_id),
+            escape_terminal_controls(&swimlane.title),
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_swimlane_detail(data: &SwimlaneDetail) -> String {
+    let value = serde_json::to_value(data).expect("swimlane documents are always serializable");
+    let serde_json::Value::Object(mut fields) = value else {
+        unreachable!("swimlane documents serialize as objects")
+    };
+    fields.remove("swimlane_id");
+    fields.remove("title");
+
+    let mut lines = vec![
+        format!(
+            "Swimlane ID: {}",
+            escape_terminal_controls(&data.swimlane_id)
+        ),
+        format!("Title: {}", escape_terminal_controls(&data.title)),
+    ];
+    for (name, value) in fields {
+        if !value.is_null() {
+            render_named_value(&mut lines, 0, &name, &value);
+        }
+    }
+    lines.join("\n")
+}
+
+fn render_swimlane_created(data: &SwimlaneCreateSuccess) -> String {
+    format!(
+        "Created swimlane {} on board {}.",
+        escape_terminal_controls(&data.swimlane_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_swimlane_updated(data: &SwimlaneUpdateSuccess) -> String {
+    let fields = data
+        .updated_fields
+        .iter()
+        .map(|field| {
+            serde_json::to_value(field)
+                .expect("updated swimlane fields are always serializable")
+                .as_str()
+                .expect("updated swimlane fields serialize as strings")
+                .to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "Updated swimlane {} on board {}: {}.",
+        escape_terminal_controls(&data.swimlane_id),
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&fields)
+    )
+}
+
+fn render_swimlane_deleted(data: &SwimlaneDeleteSuccess) -> String {
+    format!(
+        "Permanently deleted swimlane {} on board {}.",
+        escape_terminal_controls(&data.swimlane_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
 fn render_board_detail(data: &BoardDetail) -> String {
     let value = serde_json::to_value(data).expect("board documents are always serializable");
     let serde_json::Value::Object(mut fields) = value else {
@@ -822,9 +919,11 @@ mod tests {
             DestructiveOperation, ListCollectionSuccess, ListCreateSuccess, ListDeleteMode,
             ListDeleteSuccess, ListDetail, ListSummary, ListUpdateSuccess, ListUpdatedField,
             ListWipLimitDetail, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
-            ProfileRemoveSuccess, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
-            UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
-            UserListSuccess, UserOwnershipSuccess, UserSummary,
+            ProfileRemoveSuccess, SwimlaneCollectionSuccess, SwimlaneCreateSuccess,
+            SwimlaneDeleteMode, SwimlaneDeleteSuccess, SwimlaneDetail, SwimlaneSummary,
+            SwimlaneUpdateSuccess, SwimlaneUpdatedField, UserBoardSummary, UserBoardsSuccess,
+            UserCard, UserCardsSuccess, UserCreateSuccess, UserCreateWarning, UserDeleteSuccess,
+            UserDetail, UserEmail, UserListSuccess, UserOwnershipSuccess, UserSummary,
         },
         error::AppError,
     };
@@ -1449,5 +1548,74 @@ mod tests {
         assert!(render_success(OutputFormat::Human, &created).contains("Created list"));
         assert!(render_success(OutputFormat::Human, &updated).contains("title, wip_limit"));
         assert!(render_success(OutputFormat::Human, &deleted).contains("Soft-deleted"));
+    }
+
+    #[test]
+    fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
+        let collection = CommandSuccess::SwimlaneCollection(SwimlaneCollectionSuccess {
+            board_id: "board-1".to_owned(),
+            swimlanes: vec![SwimlaneSummary {
+                swimlane_id: "swimlane-1".to_owned(),
+                title: "Delivery\nnext".to_owned(),
+            }],
+        });
+        let collection_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &collection)).unwrap();
+        assert_eq!(collection_json["data"]["board_id"], "board-1");
+        assert_eq!(
+            collection_json["data"]["swimlanes"][0]["swimlane_id"],
+            "swimlane-1"
+        );
+        assert!(render_success(OutputFormat::Human, &collection).contains(r"Delivery\nnext"));
+
+        let shown = CommandSuccess::SwimlaneShown(SwimlaneDetail {
+            swimlane_id: "swimlane-1".to_owned(),
+            title: "Delivery\u{1b}]52;c;x\u{7}".to_owned(),
+            archived: false,
+            archived_at: None,
+            board_id: "board-1".to_owned(),
+            created_at: "2026-08-28T00:00:00Z".to_owned(),
+            sort: Some(2.into()),
+            color: Some("silver".to_owned()),
+            updated_at: Some("2026-08-28T00:30:00Z".to_owned()),
+            modified_at: "2026-08-28T01:00:00Z".to_owned(),
+            swimlane_type: "swimlane".to_owned(),
+            height: Some((-1).into()),
+        });
+        let shown_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
+        assert_eq!(shown_json["data"]["swimlane_type"], "swimlane");
+        assert_eq!(shown_json["data"]["height"], -1);
+        let shown_human = render_success(OutputFormat::Human, &shown);
+        assert!(!shown_human.contains('\u{1b}'));
+        assert!(!shown_human.contains('\u{7}'));
+
+        let created = CommandSuccess::SwimlaneCreated(SwimlaneCreateSuccess {
+            board_id: "board-1".to_owned(),
+            swimlane_id: "swimlane-1".to_owned(),
+        });
+        let updated = CommandSuccess::SwimlaneUpdated(SwimlaneUpdateSuccess {
+            board_id: "board-1".to_owned(),
+            swimlane_id: "swimlane-1".to_owned(),
+            updated_fields: vec![SwimlaneUpdatedField::Title],
+        });
+        let deleted = CommandSuccess::SwimlaneDeleted(SwimlaneDeleteSuccess {
+            board_id: "board-1".to_owned(),
+            swimlane_id: "swimlane-1".to_owned(),
+            deleted: true,
+            delete_mode: SwimlaneDeleteMode::Hard,
+        });
+        let updated_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &updated)).unwrap();
+        assert_eq!(
+            updated_json["data"]["updated_fields"],
+            serde_json::json!(["title"])
+        );
+        let deleted_json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
+        assert_eq!(deleted_json["data"]["delete_mode"], "hard");
+        assert!(render_success(OutputFormat::Human, &created).contains("Created swimlane"));
+        assert!(render_success(OutputFormat::Human, &updated).contains("title"));
+        assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
     }
 }

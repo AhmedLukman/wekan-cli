@@ -5,6 +5,7 @@ pub(crate) mod client_error;
 pub(crate) mod credential_ops;
 pub mod lists;
 pub mod profile;
+pub mod swimlanes;
 pub mod users;
 
 use clap::Subcommand;
@@ -34,6 +35,9 @@ pub enum RootCommand {
 
     /// Inspect and manage lists on Wekan boards.
     List(lists::ListArgs),
+
+    /// Inspect and manage swimlanes on Wekan boards.
+    Swimlane(swimlanes::SwimlaneArgs),
 }
 
 pub(crate) enum PreparedCommand<'command, 'store> {
@@ -53,6 +57,10 @@ pub(crate) enum PreparedCommand<'command, 'store> {
     },
     List {
         args: lists::ListArgs,
+        client_factory: &'command WekanClientFactory,
+    },
+    Swimlane {
+        args: swimlanes::SwimlaneArgs,
         client_factory: &'command WekanClientFactory,
     },
 }
@@ -92,5 +100,11 @@ pub(crate) async fn dispatch(
             args,
             client_factory,
         } => lists::dispatch(args.command, client_factory, credential_store, confirmation).await,
+        PreparedCommand::Swimlane {
+            args,
+            client_factory,
+        } => {
+            swimlanes::dispatch(args.command, client_factory, credential_store, confirmation).await
+        }
     }
 }

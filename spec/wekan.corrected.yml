@@ -2575,8 +2575,10 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Active swimlane summaries, or a serialized application error; both use HTTP 200.
                     schema: {type: array, items: {$ref: '#/definitions/SwimlaneSummary'}}
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+                    x-wekan-error-status-in-body: true
         post:
             operationId: post_board_swimlanes
             tags:
@@ -2588,8 +2590,10 @@ paths:
             responses:
                 '200':
                     description: |-
-                        Swimlane created, or a serialized application error.
+                        Swimlane created, or a serialized application error; both use HTTP 200.
                     schema: {$ref: '#/definitions/IdResponse'}
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+                    x-wekan-errors-use-http-200: true
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -2621,8 +2625,11 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Active swimlane document, an empty body when no active swimlane matches, or a serialized application error; all variants use HTTP 200.
                     schema: {$ref: '#/definitions/Swimlanes'}
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+                    x-wekan-error-status-in-body: true
+            x-wekan-v11.06-defect: missing-swimlane-returns-empty-http-200
         put:
             operationId: put_board_swimlane
             tags:
@@ -2634,8 +2641,10 @@ paths:
             responses:
                 '200':
                     description: |-
-                        Swimlane updated, or a serialized application error.
+                        Swimlane updated, or a serialized application error; both use HTTP 200.
                     schema: {$ref: '#/definitions/IdResponse'}
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+                    x-wekan-errors-use-http-200: true
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -2667,8 +2676,10 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Deleted swimlane ID, or a serialized application error; both use HTTP 200.
                     schema: {$ref: '#/definitions/IdResponse'}
+                    x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
+                    x-wekan-error-status-in-body: true
     /api/boards/{board}/swimlanes/{swimlane}/cards:
         get:
             operationId: get_board_swimlane_cards
@@ -2959,7 +2970,7 @@ paths:
                     schema:
                         $ref: '#/definitions/CurrentUserResponse'
                     x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-                    x-wekan-error-status-in-body: true
+                    x-wekan-errors-use-http-200: true
             summary: Return the currently authenticated user.
             description: >-
                 Available to any authenticated user. Returns identity, selected profile and account state, organizations, teams, and board-membership roles. Authentication errors are serialized inside HTTP 200.
@@ -3013,7 +3024,7 @@ paths:
                     description: |-
                         200 response
                     x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-                    x-wekan-error-status-in-body: true
+                    x-wekan-errors-use-http-200: true
                     schema: {type: array, items: {$ref: '#/definitions/UserSummary'}}
             summary: List users (site admin only).
             description: Site-administrator access is required.
@@ -3030,7 +3041,7 @@ paths:
                     description: |-
                         User is created, but v11.06 returns `_id: {}` because the handler serializes the unawaited Accounts.createUser Promise. Upstream defect.
                     x-wekan-alternate-error-schema: {$ref: '#/definitions/UserErrorResponse'}
-                    x-wekan-error-status-in-body: true
+                    x-wekan-errors-use-http-200: true
                     schema: {$ref: '#/definitions/CreateUserV1106Response'}
                     x-wekan-v11.06-defect: unawaited-accounts-create-user
             summary: Create a user (site admin only).
@@ -5654,6 +5665,7 @@ definitions:
                     50-2000 = fixed height in pixels
                 type: number
                 x-nullable: true
+            _id: {type: string}
         required:
             - title
             - archived
@@ -5661,6 +5673,8 @@ definitions:
             - createdAt
             - modifiedAt
             - type
+            - _id
+        additionalProperties: false
     Team:
         type: object
         description: A Team in Wekan. Organization in Trello.
@@ -7267,7 +7281,7 @@ definitions:
     SwimlaneCreateRequest:
         type: object
         description: >-
-            Swimlane title and optional sort from server/models/swimlanes.js lines 171-195.
+            Swimlane title and optional sort from server/models/swimlanes.js lines 171-202.
         required: [title]
         properties:
             title: {type: string}
@@ -7275,7 +7289,7 @@ definitions:
     SwimlaneUpdateRequest:
         type: object
         description: >-
-            Swimlane title update from server/models/swimlanes.js lines 204-226.
+            Swimlane title update from server/models/swimlanes.js lines 204-233.
         required: [title]
         properties:
             title: {type: string}
@@ -7434,7 +7448,8 @@ definitions:
     SwimlaneSummary:
         type: object
         description: >-
-            Swimlane list projection from server/models/swimlanes.js lines 126-140.
+            Swimlane list projection from server/models/swimlanes.js lines 126-147.
+        additionalProperties: false
         required: [_id, title]
         properties:
             _id: {type: string}

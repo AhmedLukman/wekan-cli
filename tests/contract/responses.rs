@@ -7,7 +7,8 @@ use std::{
 use secrecy::ExposeSecret;
 use serde_json::json;
 use wekan_cli::client::{
-    BoardType, BoardWatchLevel, ClientError, CreateListRequest, UpdateListRequest,
+    BoardType, BoardWatchLevel, ClientError, CreateListRequest, CreateSwimlaneRequest,
+    UpdateListRequest, UpdateSwimlaneRequest,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -414,6 +415,323 @@ async fn list_responses_preserve_embedded_errors_and_reject_malformed_or_oversiz
     ));
     assert!(matches!(
         client.list("board-1", "oversized", &user_token()).await,
+        Err(ClientError::ResponseTooLarge { .. })
+    ));
+}
+
+#[tokio::test]
+async fn swimlane_responses_decode_complete_and_optional_v11_06_shapes() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "swimlane-1",
+            "title": "Delivery"
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/swimlane-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "swimlane-1",
+            "title": "Delivery",
+            "archived": true,
+            "archivedAt": "2026-08-26T00:00:00Z",
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "sort": 1.5,
+            "color": "#12aBcF",
+            "updatedAt": "2026-08-28T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "template-swimlane",
+            "height": 320
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/minimal"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "minimal",
+            "title": "Minimal",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "color": "",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "custom-swimlane-type"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    let summaries = client
+        .board_swimlanes("board-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(summaries[0].swimlane_id, "swimlane-1");
+
+    let swimlane = client
+        .swimlane("board-1", "swimlane-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(swimlane.swimlane_type, "template-swimlane");
+    assert_eq!(swimlane.height, Some(320.into()));
+    assert_eq!(
+        swimlane.sort,
+        Some(serde_json::Number::from_f64(1.5).unwrap())
+    );
+
+    let minimal = client
+        .swimlane("board-1", "minimal", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(minimal.archived_at, None);
+    assert_eq!(minimal.sort, None);
+    assert_eq!(minimal.color.as_deref(), Some(""));
+    assert_eq!(minimal.updated_at, None);
+    assert_eq!(minimal.height, None);
+    assert_eq!(minimal.swimlane_type, "custom-swimlane-type");
+}
+
+#[tokio::test]
+async fn swimlane_responses_reject_unmapped_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "swimlane-1",
+            "title": "Delivery",
+            "future": true
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/swimlane-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "swimlane-1",
+            "title": "Delivery",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "swimlane",
+            "future": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.board_swimlanes("board-1", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .swimlane("board-1", "swimlane-1", &user_token())
+            .await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn swimlane_documents_reject_invalid_known_values() {
+    for (suffix, field) in [
+        ("date", json!({"modifiedAt": "not-a-date"})),
+        ("color", json!({"color": "belize"})),
+        ("height-low", json!({"height": 49})),
+        ("height-gap", json!({"height": 0})),
+        ("height-high", json!({"height": 2001})),
+        ("id", json!({"_id": ""})),
+        ("title", json!({"title": ""})),
+        ("board", json!({"boardId": ""})),
+        ("type", json!({"type": ""})),
+    ] {
+        let server = MockServer::start().await;
+        let mut response = json!({
+            "_id": suffix,
+            "title": "Delivery",
+            "archived": false,
+            "boardId": "board-1",
+            "createdAt": "2026-08-25T00:00:00Z",
+            "modifiedAt": "2026-08-28T01:00:00Z",
+            "type": "swimlane"
+        });
+        response
+            .as_object_mut()
+            .unwrap()
+            .extend(field.as_object().unwrap().clone());
+        Mock::given(method("GET"))
+            .and(path(format!("/api/boards/board-1/swimlanes/{suffix}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(matches!(
+            client(&server)
+                .swimlane("board-1", suffix, &user_token())
+                .await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+
+    for valid_height in [-1, 50, 2000] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/boards/board-1/swimlanes/height-{valid_height}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id": format!("height-{valid_height}"),
+                "title": "Delivery",
+                "archived": false,
+                "boardId": "board-1",
+                "createdAt": "2026-08-25T00:00:00Z",
+                "modifiedAt": "2026-08-28T01:00:00Z",
+                "type": "swimlane",
+                "height": valid_height
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        client(&server)
+            .swimlane("board-1", &format!("height-{valid_height}"), &user_token())
+            .await
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn swimlane_missing_and_mutation_response_shapes_are_strict() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/missing"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/swimlanes"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "swimlane-1",
+            "future": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/swimlanes/swimlane-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": 1})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1/swimlanes/swimlane-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": ""})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.swimlane("board-1", "missing", &user_token()).await,
+        Err(ClientError::EmbeddedServer {
+            http_status: reqwest::StatusCode::OK,
+            wekan_status_code: 404,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .create_swimlane(
+                "board-1",
+                &CreateSwimlaneRequest {
+                    title: "Delivery".to_owned(),
+                    sort: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .update_swimlane(
+                "board-1",
+                "swimlane-1",
+                &UpdateSwimlaneRequest {
+                    title: "Operations".to_owned(),
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .delete_swimlane("board-1", "swimlane-1", &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+}
+
+#[tokio::test]
+async fn swimlane_responses_preserve_errors_and_reject_malformed_or_oversized_bodies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/embedded/swimlanes"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "error": "forbidden",
+            "reason": "board access denied",
+            "statusCode": 403
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/malformed"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/swimlanes/oversized"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client.board_swimlanes("embedded", &user_token()).await,
+        Err(ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code: 403,
+            ..
+        }) if http_status == reqwest::StatusCode::OK
+    ));
+    assert!(matches!(
+        client.swimlane("board-1", "malformed", &user_token()).await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client.swimlane("board-1", "oversized", &user_token()).await,
         Err(ClientError::ResponseTooLarge { .. })
     ));
 }

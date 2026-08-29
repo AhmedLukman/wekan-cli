@@ -2,6 +2,7 @@ pub mod auth;
 pub mod boards;
 pub mod error;
 pub mod lists;
+pub mod swimlanes;
 mod transport;
 pub mod users;
 
@@ -21,6 +22,10 @@ pub use error::ClientError;
 pub use lists::{
     CreateListRequest, CreateListResult, DeleteListResult, ListDocument, ListSummary, ListWipLimit,
     UpdateListRequest, UpdateListResult,
+};
+pub use swimlanes::{
+    CreateSwimlaneRequest, CreateSwimlaneResult, DeleteSwimlaneResult, SwimlaneDocument,
+    SwimlaneSummary, UpdateSwimlaneRequest, UpdateSwimlaneResult,
 };
 pub use users::{
     CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard, CurrentUserEmail,

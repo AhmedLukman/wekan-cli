@@ -2,7 +2,7 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
-**Coverage:** 22 of 140 operations implemented (15.7%); 118 remaining.
+**Coverage:** 27 of 140 operations implemented (19.3%); 113 remaining.
 
 ## Status rules
 
@@ -101,11 +101,11 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 | 84 | Rules | `GET` | `/api/boards/{board}/rules/{rule}` | `get_board_rule` | Get a single automation rule. | — | ✗ |
 | 85 | Rules | `PUT` | `/api/boards/{board}/rules/{rule}` | `edit_board_rule` | Edit an automation rule. | — | ✗ |
 | 86 | Rules | `DELETE` | `/api/boards/{board}/rules/{rule}` | `delete_board_rule` | Remove an automation rule (and its trigger and action). | — | ✗ |
-| 87 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes` | `get_board_swimlanes` | List the swimlanes on a board. | — | ✗ |
-| 88 | Swimlanes | `POST` | `/api/boards/{board}/swimlanes` | `post_board_swimlanes` | Create a swimlane on a board. | — | ✗ |
-| 89 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes/{swimlane}` | `get_board_swimlane` | Get one swimlane on a board. | — | ✗ |
-| 90 | Swimlanes | `PUT` | `/api/boards/{board}/swimlanes/{swimlane}` | `put_board_swimlane` | Update a swimlane on a board. | — | ✗ |
-| 91 | Swimlanes | `DELETE` | `/api/boards/{board}/swimlanes/{swimlane}` | `delete_board_swimlane` | Delete a swimlane from a board. | — | ✗ |
+| 87 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes` | `get_board_swimlanes` | List the swimlanes on a board. | `wekan swimlane list <BOARD_ID>` | ✓ |
+| 88 | Swimlanes | `POST` | `/api/boards/{board}/swimlanes` | `post_board_swimlanes` | Create a swimlane on a board. | `wekan swimlane create <BOARD_ID> --title <TITLE> [--sort <NUMBER>]` | ✓ |
+| 89 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes/{swimlane}` | `get_board_swimlane` | Get one swimlane on a board. | `wekan swimlane get <BOARD_ID> <SWIMLANE_ID>` | ✓ |
+| 90 | Swimlanes | `PUT` | `/api/boards/{board}/swimlanes/{swimlane}` | `put_board_swimlane` | Update a swimlane on a board. | `wekan swimlane update <BOARD_ID> <SWIMLANE_ID> --title <TITLE>` | ✓ |
+| 91 | Swimlanes | `DELETE` | `/api/boards/{board}/swimlanes/{swimlane}` | `delete_board_swimlane` | Delete a swimlane from a board. | `wekan swimlane delete <BOARD_ID> <SWIMLANE_ID> [--yes]` | ✓ |
 | 92 | Cards | `GET` | `/api/boards/{board}/swimlanes/{swimlane}/cards` | `get_board_swimlane_cards` | List cards in a board swimlane. | — | ✗ |
 | 93 | Swimlanes | `POST` | `/api/boards/{board}/swimlanes/{swimlane}/copy` | `post_board_swimlane_copy` | Copy a board swimlane. | — | ✗ |
 | 94 | Swimlanes | `POST` | `/api/boards/{board}/swimlanes/{swimlane}/move` | `post_board_swimlane_move` | Move a board swimlane. | — | ✗ |

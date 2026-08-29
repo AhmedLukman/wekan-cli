@@ -1,7 +1,8 @@
 use serde_json::json;
 use wekan_cli::client::{
-    BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateListRequest, ListWipLimit,
-    UpdateListRequest, UserAction, UserActionResult,
+    BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateListRequest,
+    CreateSwimlaneRequest, ListWipLimit, UpdateListRequest, UpdateSwimlaneRequest, UserAction,
+    UserActionResult,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -261,6 +262,150 @@ async fn list_mutations_are_not_retried_and_redirects_are_not_followed() {
     assert!(matches!(
         client(&redirect_server)
             .delete_list("board-1", "list-1", &user_token())
+            .await,
+        Err(ClientError::UnexpectedRedirect { .. })
+    ));
+}
+
+#[tokio::test]
+async fn swimlane_lifecycle_uses_verified_paths_and_bodies() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board%2F1/swimlanes"))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board%2F1/swimlanes/swimlane%2F1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "swimlane/1",
+            "title": "Delivery",
+            "archived": false,
+            "boardId": "board/1",
+            "createdAt": "2026-08-28T00:00:00Z",
+            "modifiedAt": "2026-08-28T00:00:00Z",
+            "type": "swimlane"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board%2F1/swimlanes"))
+        .and(body_json(json!({"title": "Delivery", "sort": 2.5})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "swimlane-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board%2F1/swimlanes"))
+        .and(body_json(json!({"title": "Append"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "swimlane-2"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board%2F1/swimlanes/swimlane%2F1"))
+        .and(body_json(json!({"title": "Operations"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "swimlane/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board%2F1/swimlanes/swimlane%2F1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "swimlane/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    client
+        .board_swimlanes("board/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .swimlane("board/1", "swimlane/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .create_swimlane(
+            "board/1",
+            &CreateSwimlaneRequest {
+                title: "Delivery".to_owned(),
+                sort: Some(serde_json::Number::from_f64(2.5).unwrap()),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .create_swimlane(
+            "board/1",
+            &CreateSwimlaneRequest {
+                title: "Append".to_owned(),
+                sort: None,
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .update_swimlane(
+            "board/1",
+            "swimlane/1",
+            &UpdateSwimlaneRequest {
+                title: "Operations".to_owned(),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .delete_swimlane("board/1", "swimlane/1", &user_token())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn swimlane_mutations_are_not_retried_and_redirects_are_not_followed() {
+    let failure_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/swimlanes"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&failure_server)
+        .await;
+    assert!(matches!(
+        client(&failure_server)
+            .create_swimlane(
+                "board-1",
+                &CreateSwimlaneRequest {
+                    title: "Delivery".to_owned(),
+                    sort: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Server { .. })
+    ));
+
+    let redirect_server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1/swimlanes/swimlane-1"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-swimlane"))
+        .expect(1)
+        .mount(&redirect_server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/other-swimlane"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&redirect_server)
+        .await;
+    assert!(matches!(
+        client(&redirect_server)
+            .delete_swimlane("board-1", "swimlane-1", &user_token())
             .await,
         Err(ClientError::UnexpectedRedirect { .. })
     ));
