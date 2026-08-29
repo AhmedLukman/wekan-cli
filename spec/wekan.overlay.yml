@@ -1934,7 +1934,11 @@ actions:
           1636-1656, and stickers/locations 1658-1692. Empty date strings clear
           the corresponding date.
         properties:
-          title: {type: string}
+          title:
+            type: string
+            description: >-
+              Wekan truncates this value to the first 1000 JavaScript UTF-16
+              code units.
           sort:
             type: number
             description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
@@ -1950,7 +1954,9 @@ actions:
           startAt: {type: string}
           dueAt: {type: string}
           endAt: {type: string}
-          spentTime: {type: number}
+          spentTime:
+            type: number
+            description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
           isOverTime:
             type: boolean
             description: >-

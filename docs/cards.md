@@ -33,17 +33,18 @@ Update accepts:
   `--clear-assignees` flags;
 - RFC3339 date values, or one of `--clear-received-at`, `--clear-start-at`,
   `--clear-due-at`, and `--clear-end-at`;
-- finite `--sort` and nonzero finite `--spent-time`;
+- finite `--sort` and `--spent-time`;
 - `--is-over-time <true|false>`; and
 - `--due-complete <true|false>`.
 
 At least one update field is required. Set and clear forms conflict. IDs and
-text cannot be empty after trimming. Update titles are limited to 1000 UTF-16
-code units. Colors use Wekan v11.06's card palette or exactly `#rrggbb`.
+text cannot be empty after trimming. Colors use Wekan v11.06's card palette or
+exactly `#rrggbb`.
 
-`--sort` and `--is-over-time` intentionally mirror broken Wekan v11.06
-behavior. Wekan silently ignores `sort: 0` and `isOverTime: false`; a request
-containing only those values can therefore return not found. It acknowledges
+Update values intentionally mirror broken Wekan v11.06 behavior. Wekan
+truncates titles after the first 1000 JavaScript UTF-16 code units. It silently
+ignores `sort: 0`, `spentTime: 0`, and `isOverTime: false`; a request containing
+only those values can therefore return not found. It acknowledges
 `isOverTime: true`, but targets the wrong document-field spelling, so the
 card's real `is_overtime` value does not change in the pinned live stack.
 

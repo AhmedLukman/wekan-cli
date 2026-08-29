@@ -42,8 +42,8 @@ pub struct UpdateArgs {
     #[arg(value_parser = non_empty)]
     pub card_id: String,
 
-    /// New title, limited to Wekan's 1000 UTF-16 code-unit maximum.
-    #[arg(long, value_parser = update_title)]
+    /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
+    #[arg(long, value_parser = trimmed_non_empty)]
     pub title: Option<String>,
 
     /// Numeric card order. Wekan v11.06 silently ignores zero.
@@ -110,8 +110,8 @@ pub struct UpdateArgs {
     #[arg(long, conflicts_with = "end_at")]
     pub clear_end_at: bool,
 
-    /// Nonzero finite spent-time value.
-    #[arg(long, value_parser = nonzero_finite_number)]
+    /// Finite spent-time value. Wekan v11.06 silently ignores zero.
+    #[arg(long, value_parser = finite_number)]
     pub spent_time: Option<f64>,
 
     /// Overtime state. Wekan v11.06 ignores false and mishandles true.
@@ -267,31 +267,11 @@ fn submitted_fields(args: &UpdateArgs) -> Vec<CardSubmittedField> {
     fields
 }
 
-fn update_title(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err("value must not be empty or whitespace".to_owned());
-    }
-    if value.encode_utf16().count() > 1000 {
-        return Err("value must contain at most 1000 UTF-16 code units".to_owned());
-    }
-    Ok(value.to_owned())
-}
-
 fn card_color(value: &str) -> Result<String, String> {
     if is_valid_card_color(value) {
         Ok(value.to_owned())
     } else {
         Err("use a Wekan card color name or a custom #rrggbb value".to_owned())
-    }
-}
-
-fn nonzero_finite_number(value: &str) -> Result<f64, String> {
-    let value = finite_number(value)?;
-    if value == 0.0 {
-        Err("value must be nonzero because Wekan v11.06 ignores zero".to_owned())
-    } else {
-        Ok(value)
     }
 }
 

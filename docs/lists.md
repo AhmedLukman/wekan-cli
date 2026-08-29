@@ -15,13 +15,13 @@ wekan list delete <BOARD_ID> <LIST_ID> [--yes]
 ```
 
 Titles and identifiers must remain non-empty after trimming where applicable.
-Update titles are limited to Wekan's maximum of 1000 UTF-16 code units so the
-server cannot silently truncate them. Update colors use Wekan v11.06's list
-palette; custom colors have exactly six hexadecimal digits after `#`. Wekan can
-return `color: ""` for a persisted unset color; `list get` preserves that
-response form, while the update flag accepts only named palette colors or
-`#rrggbb`. The three WIP options are one field and must always be supplied
-together.
+Wekan v11.06 truncates update titles after the first 1000 JavaScript UTF-16 code
+units; the CLI submits longer titles unchanged so that pinned behavior remains
+visible. Update colors use Wekan v11.06's list palette; custom colors have
+exactly six hexadecimal digits after `#`. Wekan can return `color: ""` for a
+persisted unset color; `list get` preserves that response form, while the
+update flag accepts only named palette colors or `#rrggbb`. The three WIP
+options are one field and must always be supplied together.
 
 Use `--output json` for stable machine-readable envelopes. A collection result
 has the shape:

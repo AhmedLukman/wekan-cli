@@ -222,18 +222,7 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
     }
 
     let long_title = "x".repeat(1001);
-    assert!(
-        Cli::try_parse_from([
-            "wekan",
-            "list",
-            "update",
-            "board-1",
-            "list-1",
-            "--title",
-            &long_title,
-        ])
-        .is_err()
-    );
+    list_command(&["update", "board-1", "list-1", "--title", &long_title]);
 
     let five_hundred_emojis = "😀".repeat(500);
     list_command(&[
@@ -245,18 +234,13 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
     ]);
 
     let five_hundred_one_emojis = "😀".repeat(501);
-    assert!(
-        Cli::try_parse_from([
-            "wekan",
-            "list",
-            "update",
-            "board-1",
-            "list-1",
-            "--title",
-            &five_hundred_one_emojis,
-        ])
-        .is_err()
-    );
+    list_command(&[
+        "update",
+        "board-1",
+        "list-1",
+        "--title",
+        &five_hundred_one_emojis,
+    ]);
 
     let ListCommand::Create(trimmed) = list_command(&[
         "create",

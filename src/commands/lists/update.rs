@@ -14,7 +14,7 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::non_empty;
+use super::{non_empty, trimmed_non_empty};
 
 #[derive(Debug, Args)]
 #[command(group(
@@ -32,8 +32,8 @@ pub struct UpdateArgs {
     #[arg(value_parser = non_empty)]
     pub list_id: String,
 
-    /// New title, limited to Wekan's 1000 UTF-16 code-unit maximum.
-    #[arg(long, value_parser = update_title)]
+    /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
+    #[arg(long, value_parser = trimmed_non_empty)]
     pub title: Option<String>,
 
     /// Named Wekan list color or a custom #rrggbb color.
@@ -128,17 +128,6 @@ fn updated_fields(args: &UpdateArgs) -> Vec<ListUpdatedField> {
         fields.push(ListUpdatedField::WipLimit);
     }
     fields
-}
-
-fn update_title(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err("value must not be empty or whitespace".to_owned());
-    }
-    if value.encode_utf16().count() > 1000 {
-        return Err("value must contain at most 1000 UTF-16 code units".to_owned());
-    }
-    Ok(value.to_owned())
 }
 
 fn list_color(value: &str) -> Result<String, String> {

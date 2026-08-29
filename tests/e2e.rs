@@ -1737,6 +1737,35 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
     assert!(wip.enabled);
     assert!(!wip.soft);
 
+    let submitted_long_title = "x".repeat(1001);
+    let CommandSuccess::ListUpdated(truncated_title_update) = execute_live_list(
+        &app,
+        &server,
+        &[
+            "update",
+            &board.board_id,
+            &created.list_id,
+            "--title",
+            &submitted_long_title,
+        ],
+    )
+    .await
+    .expect("the CLI must submit a list title that Wekan truncates") else {
+        panic!("expected update-list output")
+    };
+    assert_eq!(
+        truncated_title_update.updated_fields,
+        [wekan_cli::command_result::ListUpdatedField::Title]
+    );
+    let CommandSuccess::ListShown(truncated_title_list) =
+        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
+            .await
+            .expect("the list with Wekan's truncated title must remain readable")
+    else {
+        panic!("expected list detail output")
+    };
+    assert_eq!(truncated_title_list.title, "x".repeat(1000));
+
     let permissive_wip_update = live_api_json(
         &reqwest::Client::new(),
         &canonical_server,
@@ -2366,6 +2395,76 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     );
     assert_eq!(after_update.is_overtime, Some(false));
     assert_eq!(after_update.due_complete, Some(true));
+
+    let submitted_long_title = "x".repeat(1001);
+    let CommandSuccess::CardUpdated(truncated_title_update) = execute_live_card(
+        &app,
+        &server,
+        &[
+            "update",
+            &board.board_id,
+            &list.list_id,
+            &created.card_id,
+            "--title",
+            &submitted_long_title,
+        ],
+    )
+    .await
+    .expect("the CLI must submit a card title that Wekan truncates") else {
+        panic!("expected card update output")
+    };
+    assert_eq!(
+        truncated_title_update.submitted_fields,
+        [wekan_cli::command_result::CardSubmittedField::Title]
+    );
+    let CommandSuccess::CardShown(truncated_title_card) = execute_live_card(
+        &app,
+        &server,
+        &["get", &board.board_id, &list.list_id, &created.card_id],
+    )
+    .await
+    .expect("the card with Wekan's truncated title must remain readable") else {
+        panic!("expected card detail output")
+    };
+    assert_eq!(
+        truncated_title_card.title.as_deref(),
+        Some("x".repeat(1000).as_str())
+    );
+
+    let ignored_zero_spent_time = execute_live_card(
+        &app,
+        &server,
+        &[
+            "update",
+            &board.board_id,
+            &list.list_id,
+            &created.card_id,
+            "--spent-time",
+            "0",
+        ],
+    )
+    .await
+    .expect_err("Wekan v11.06 must expose its ignored spentTime zero behavior");
+    assert_eq!(ignored_zero_spent_time.code(), ErrorCode::NotFound);
+    assert_eq!(
+        ignored_zero_spent_time.details().outcome_unknown,
+        Some(true)
+    );
+    let CommandSuccess::CardShown(after_ignored_zero) = execute_live_card(
+        &app,
+        &server,
+        &["get", &board.board_id, &list.list_id, &created.card_id],
+    )
+    .await
+    .expect("the card must remain readable after Wekan ignores spentTime zero") else {
+        panic!("expected card detail output")
+    };
+    assert_eq!(
+        after_ignored_zero
+            .spent_time
+            .and_then(|value| value.as_f64()),
+        Some(2.5)
+    );
 
     let CommandSuccess::CardUpdated(cleared) = execute_live_card(
         &app,

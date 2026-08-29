@@ -7178,7 +7178,10 @@ definitions:
         description: >-
             Partial update fields from server/models/cards.js lines 1313-1700: ordinary fields 1327-1513, moves 1515-1635, archive/completion 1636-1656, and stickers/locations 1658-1692. Empty date strings clear the corresponding date.
         properties:
-            title: {type: string}
+            title:
+                type: string
+                description: >-
+                    Wekan truncates this value to the first 1000 JavaScript UTF-16 code units.
             sort:
                 type: number
                 description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
@@ -7194,7 +7197,9 @@ definitions:
             startAt: {type: string}
             dueAt: {type: string}
             endAt: {type: string}
-            spentTime: {type: number}
+            spentTime:
+                type: number
+                description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
             isOverTime:
                 type: boolean
                 description: >-

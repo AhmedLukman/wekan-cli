@@ -176,6 +176,8 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "card-1",
             "--sort",
             "0",
+            "--spent-time",
+            "0",
             "--is-over-time",
             "false",
         ],
@@ -250,16 +252,6 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "list-1",
             "card-1",
             "--spent-time",
-            "0",
-        ],
-        vec![
-            "wekan",
-            "card",
-            "update",
-            "board-1",
-            "list-1",
-            "card-1",
-            "--spent-time",
             "NaN",
         ],
         vec![
@@ -289,7 +281,7 @@ fn parser_exposes_crud_and_enforces_update_contract() {
 }
 
 #[test]
-fn parser_validates_identifiers_text_dates_and_utf16_title_limit() {
+fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation() {
     for invalid in [
         vec!["wekan", "card", "list", " ", "list-1"],
         vec![
@@ -330,17 +322,10 @@ fn parser_validates_identifiers_text_dates_and_utf16_title_limit() {
         assert!(Cli::try_parse_from(invalid).is_err());
     }
 
-    let accepted = "😀".repeat(500);
+    let accepted = "😀".repeat(501);
     card_command(&[
         "update", "board-1", "list-1", "card-1", "--title", &accepted,
     ]);
-    let rejected = "😀".repeat(501);
-    assert!(
-        Cli::try_parse_from([
-            "wekan", "card", "update", "board-1", "list-1", "card-1", "--title", &rejected,
-        ])
-        .is_err()
-    );
 }
 
 #[tokio::test]
