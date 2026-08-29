@@ -5,15 +5,17 @@ use crate::{
     command_result::{
         AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, BoardCountSuccess,
         BoardCreateSuccess, BoardDeleteSuccess, BoardListScope, BoardListSuccess,
-        BoardRenameSuccess, BoardSummary, CancellationSuccess, CommandSuccess,
-        DestructiveOperation, ListCollectionSuccess, ListCreateSuccess, ListDeleteMode,
-        ListDeleteSuccess, ListDetail, ListSummary, ListUpdateSuccess, ListUpdatedField,
-        ListWipLimitDetail, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
-        ProfileRemoveSuccess, SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteMode,
-        SwimlaneDeleteSuccess, SwimlaneDetail, SwimlaneSummary, SwimlaneUpdateSuccess,
-        SwimlaneUpdatedField, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
-        UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
-        UserListSuccess, UserOwnershipSuccess, UserSummary,
+        BoardRenameSuccess, BoardSummary, CancellationSuccess, CardCollectionSuccess,
+        CardCreateSuccess, CardDeleteMode, CardDeleteSuccess, CardSubmittedField, CardSummary,
+        CardUpdateSuccess, CommandSuccess, DestructiveOperation, ListCollectionSuccess,
+        ListCreateSuccess, ListDeleteMode, ListDeleteSuccess, ListDetail, ListSummary,
+        ListUpdateSuccess, ListUpdatedField, ListWipLimitDetail, LogoutScope, LogoutSuccess,
+        ProfileItem, ProfileListSuccess, ProfileRemoveSuccess, SwimlaneCollectionSuccess,
+        SwimlaneCreateSuccess, SwimlaneDeleteMode, SwimlaneDeleteSuccess, SwimlaneDetail,
+        SwimlaneSummary, SwimlaneUpdateSuccess, SwimlaneUpdatedField, UserBoardSummary,
+        UserBoardsSuccess, UserCard, UserCardsSuccess, UserCreateSuccess, UserCreateWarning,
+        UserDeleteSuccess, UserDetail, UserEmail, UserListSuccess, UserOwnershipSuccess,
+        UserSummary,
     },
     error::AppError,
 };
@@ -638,6 +640,144 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &created).contains("Created list"));
     assert!(render_success(OutputFormat::Human, &updated).contains("title, wip_limit"));
     assert!(render_success(OutputFormat::Human, &deleted).contains("Soft-deleted"));
+}
+
+#[test]
+fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
+    let collection = CommandSuccess::CardCollection(CardCollectionSuccess {
+        board_id: "board-1".to_owned(),
+        list_id: "list-1".to_owned(),
+        cards: vec![CardSummary {
+            card_id: "card-1".to_owned(),
+            title: Some("Todo\nnext".to_owned()),
+            description: Some("Details".to_owned()),
+            swimlane_id: Some("swimlane-1".to_owned()),
+            received_at: None,
+            start_at: None,
+            due_at: Some("2030-01-02T03:04:05Z".to_owned()),
+            end_at: None,
+            assignees: vec!["user-1".to_owned()],
+            sort: Some(2.into()),
+        }],
+    });
+    let collection_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &collection)).unwrap();
+    assert_eq!(collection_json["data"]["list_id"], "list-1");
+    assert_eq!(
+        collection_json["data"]["cards"][0]["received_at"],
+        serde_json::Value::Null
+    );
+    let collection_human = render_success(OutputFormat::Human, &collection);
+    assert!(collection_human.contains(r"Todo\nnext"));
+    assert!(collection_human.contains("Details"));
+    assert!(collection_human.contains("user-1"));
+
+    let card = crate::command_result::CardDetail {
+        card_id: "card-1".to_owned(),
+        title: Some("Todo\u{001b}]52;c;x\u{0007}".to_owned()),
+        archived: false,
+        archived_at: None,
+        deleted_at: None,
+        deleted_by: None,
+        delete_batch_id: None,
+        parent_id: None,
+        list_id: None,
+        swimlane_id: "swimlane-1".to_owned(),
+        board_id: None,
+        cover_id: None,
+        color: None,
+        created_at: "2030-01-02T03:04:05Z".to_owned(),
+        modified_at: "2030-01-02T03:04:05Z".to_owned(),
+        custom_fields: vec![],
+        date_last_activity: "2030-01-02T03:04:05Z".to_owned(),
+        description: None,
+        requested_by: None,
+        assigned_by: None,
+        label_ids: vec![],
+        members: vec![],
+        assignees: vec![],
+        requesters: vec![],
+        assigners: vec![],
+        received_at: None,
+        start_at: None,
+        due_at: None,
+        end_at: None,
+        due_complete: None,
+        stickers: vec![],
+        location_name: None,
+        location_address: None,
+        location_latitude: None,
+        location_longitude: None,
+        locations: vec![],
+        spent_time: None,
+        is_overtime: None,
+        user_id: "user-1".to_owned(),
+        sort: None,
+        subtask_sort: None,
+        card_type: "cardType-card".to_owned(),
+        linked_id: None,
+        card_dependencies: vec![],
+        vote: None,
+        poker: None,
+        target_id_gantt: vec![],
+        link_type_gantt: vec![],
+        link_id_gantt: vec![],
+        card_number: None,
+        show_activities: false,
+        show_list_on_minicard: None,
+        show_checklist_at_minicard: None,
+        hide_finished_checklist_if_items_are_hidden: None,
+    };
+    let shown = CommandSuccess::CardShown(Box::new(card));
+    let shown_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
+    assert_eq!(shown_json["data"]["card_type"], "cardType-card");
+    assert_eq!(shown_json["data"]["members"], serde_json::json!([]));
+    assert_eq!(shown_json["data"]["parent_id"], serde_json::Value::Null);
+    let shown_human = render_success(OutputFormat::Human, &shown);
+    assert!(!shown_human.contains('\u{1b}'));
+    assert!(!shown_human.contains('\u{7}'));
+    assert!(shown_human.contains("parent_id: null"));
+    assert!(shown_human.contains("members: [0]"));
+
+    let created = CommandSuccess::CardCreated(CardCreateSuccess {
+        board_id: "board-1".to_owned(),
+        list_id: "list-1".to_owned(),
+        card_id: "card-1".to_owned(),
+    });
+    let updated = CommandSuccess::CardUpdated(CardUpdateSuccess {
+        board_id: "board-1".to_owned(),
+        list_id: "list-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        submitted_fields: vec![
+            CardSubmittedField::Title,
+            CardSubmittedField::Sort,
+            CardSubmittedField::DueAt,
+            CardSubmittedField::IsOverTime,
+        ],
+    });
+    let deleted = CommandSuccess::CardDeleted(CardDeleteSuccess {
+        board_id: "board-1".to_owned(),
+        list_id: "list-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        deleted: true,
+        delete_mode: CardDeleteMode::Hard,
+    });
+    assert!(render_success(OutputFormat::Human, &created).contains("Created card"));
+    let updated_human = render_success(OutputFormat::Human, &updated);
+    assert!(updated_human.contains("Updated card"));
+    assert!(updated_human.contains("submitted fields: title, sort, due_at, is_over_time"));
+    let updated_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &updated)).unwrap();
+    assert_eq!(
+        updated_json["data"]["submitted_fields"],
+        serde_json::json!(["title", "sort", "due_at", "is_over_time"])
+    );
+    assert!(updated_json["data"].get("updated_fields").is_none());
+    assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
+    let deleted_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
+    assert_eq!(deleted_json["data"]["delete_mode"], "hard");
 }
 
 #[test]

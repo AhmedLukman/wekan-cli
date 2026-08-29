@@ -15,8 +15,8 @@ is one JSON object followed by a newline.
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, `board delete`, `list delete`, and
-`swimlane delete` require interactive confirmation or `--yes`. Normal target
+`user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`,
+and `swimlane delete` require interactive confirmation or `--yes`. Normal target
 and removability preflight runs first; its errors retain their documented
 codes. Otherwise, non-terminal and JSON invocations without `--yes` return
 `invalid_input` with exit status 2 before destructive work. `--yes` is accepted
@@ -40,8 +40,8 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, or
-`swimlane_delete`. Human output is `Cancelled; no changes made.`
+`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
+or `swimlane_delete`. Human output is `Cancelled; no changes made.`
 
 ## Authentication success
 
@@ -229,6 +229,35 @@ The delete result means Wekan accepted and validated the idempotent request; it
 does not prove that the list previously existed or was newly deleted. Declining
 list deletion returns the standard cancellation shape with
 `operation: "list_delete"`.
+
+## Card success
+
+`card list` returns `{"board_id":"...","list_id":"...","cards":[...]}`.
+Each projected card contains `card_id`, nullable `title`, `description`,
+`swimlane_id`, `received_at`, `start_at`, `due_at`, and `end_at`, plus the
+`assignees` array and nullable numeric `sort`.
+
+`card get` returns the complete typed Wekan v11.06 card document. `_id` becomes
+`card_id`, `type` becomes `card_type`, and every field uses snake case.
+Omitted collections are empty arrays and omitted optional scalars are JSON
+`null`. Custom-field values are the verified string, number, boolean, string
+array, or null union. Unknown top-level or nested fields, invalid timestamps,
+colors, card types, sticker highlights, identifiers, and nested value types
+cause `protocol_error`.
+
+Creation returns `{"board_id":"...","list_id":"...","card_id":"..."}`.
+Update returns those identifiers plus canonical-order `submitted_fields`, whose
+possible values are `title`, `sort`, `parent_id`, `description`, `color`, `label_ids`,
+`requested_by`, `assigned_by`, `received_at`, `start_at`, `due_at`, `end_at`,
+`spent_time`, `is_over_time`, `members`, `assignees`, and `due_complete`.
+These values report the wire fields sent; they do not claim Wekan persisted
+them. A dispatched card update can persist earlier fields before a later field
+fails, so such failures report `outcome_unknown: true` without claiming which
+fields changed. Delete returns
+`{"board_id":"...","list_id":"...","card_id":"...","deleted":true,"delete_mode":"hard"}`.
+The delete result only means Wekan accepted its hard-idempotent request; it does
+not prove prior existence or removal. Declining card deletion uses the standard
+cancellation shape with `operation: "card_delete"`.
 
 ## Swimlane success
 

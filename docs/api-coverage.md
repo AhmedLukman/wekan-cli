@@ -2,7 +2,7 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
-**Coverage:** 27 of 140 operations implemented (19.3%); 113 remaining.
+**Coverage:** 32 of 140 operations implemented (22.9%); 108 remaining.
 
 ## Status rules
 
@@ -75,11 +75,11 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 | 58 | Lists | `GET` | `/api/boards/{board}/lists/{list}` | `get_board_list` | Get one list on a board. | `wekan list get <BOARD_ID> <LIST_ID>` | ✓ |
 | 59 | Lists | `PUT` | `/api/boards/{board}/lists/{list}` | `put_board_list` | Update a list on a board. | `wekan list update <BOARD_ID> <LIST_ID> <FIELDS...>` | ✓ |
 | 60 | Lists | `DELETE` | `/api/boards/{board}/lists/{list}` | `delete_board_list` | Delete a list from a board. | `wekan list delete <BOARD_ID> <LIST_ID> [--yes]` | ✓ |
-| 61 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards` | `get_board_list_cards` | List the cards in a board list. | — | ✗ |
-| 62 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards` | `post_board_list_cards` | Create a card in a board list. | — | ✗ |
-| 63 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}` | `get_board_list_card` | Get one card from a board list. | — | ✗ |
-| 64 | Cards | `PUT` | `/api/boards/{board}/lists/{list}/cards/{card}` | `put_board_list_card` | Update or move a card. | — | ✗ |
-| 65 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}` | `delete_board_list_card` | Delete a card from a board list. | — | ✗ |
+| 61 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards` | `get_board_list_cards` | List the cards in a board list. | `wekan card list <BOARD_ID> <LIST_ID>` | ✓ |
+| 62 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards` | `post_board_list_cards` | Create a card in a board list. | `wekan card create <BOARD_ID> <LIST_ID> --title <TITLE> --swimlane-id <ID> [FIELDS...]` | ✓ |
+| 63 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}` | `get_board_list_card` | Get one card from a board list. | `wekan card get <BOARD_ID> <LIST_ID> <CARD_ID>` | ✓ |
+| 64 | Cards | `PUT` | `/api/boards/{board}/lists/{list}/cards/{card}` | `put_board_list_card` | Update or move a card. | `wekan card update <BOARD_ID> <LIST_ID> <CARD_ID> <FIELDS...>` | ✓ |
+| 65 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}` | `delete_board_list_card` | Delete a card from a board list. | `wekan card delete <BOARD_ID> <LIST_ID> <CARD_ID> [--yes]` | ✓ |
 | 66 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/archive` | `post_board_list_card_archive` | Archive a card. | — | ✗ |
 | 67 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `post_board_list_card_assignee` | Add an assignee to a card. | — | ✗ |
 | 68 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `delete_board_list_card_assignee` | Remove an assignee from a card. | — | ✗ |

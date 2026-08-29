@@ -1,8 +1,8 @@
 use serde_json::json;
 use wekan_cli::client::{
-    BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateListRequest,
-    CreateSwimlaneRequest, ListWipLimit, UpdateListRequest, UpdateSwimlaneRequest, UserAction,
-    UserActionResult,
+    BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateCardRequest,
+    CreateListRequest, CreateSwimlaneRequest, ListWipLimit, UpdateCardRequest, UpdateListRequest,
+    UpdateSwimlaneRequest, UserAction, UserActionResult,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -262,6 +262,226 @@ async fn list_mutations_are_not_retried_and_redirects_are_not_followed() {
     assert!(matches!(
         client(&redirect_server)
             .delete_list("board-1", "list-1", &user_token())
+            .await,
+        Err(ClientError::UnexpectedRedirect { .. })
+    ));
+}
+
+#[tokio::test]
+async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
+    let server = MockServer::start().await;
+    let collection_path = "/api/boards/board%2F1/lists/list%2F1/cards";
+    let card_path = "/api/boards/board%2F1/lists/list%2F1/cards/card%2F1";
+    Mock::given(method("GET"))
+        .and(path(collection_path))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(card_path))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "card/1",
+            "archived": false,
+            "swimlaneId": "swimlane/1",
+            "createdAt": "2030-01-02T03:04:05Z",
+            "modifiedAt": "2030-01-02T03:04:05Z",
+            "dateLastActivity": "2030-01-02T03:04:05Z",
+            "userId": "user-1",
+            "type": "cardType-card",
+            "showActivities": false
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(collection_path))
+        .and(body_json(json!({
+            "title": "Todo",
+            "swimlaneId": "swimlane/1",
+            "description": "Details",
+            "members": ["member-1", "member-2"],
+            "assignees": ["assignee-1"],
+            "receivedAt": "2030-01-01T00:00:00Z",
+            "startAt": "2030-01-02T00:00:00Z",
+            "dueAt": "2030-01-03T00:00:00Z",
+            "endAt": "2030-01-04T00:00:00Z"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "card-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(collection_path))
+        .and(body_json(json!({
+            "title": "Minimal",
+            "swimlaneId": "swimlane/1"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "card-2"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(card_path))
+        .and(body_json(json!({
+            "title": "Doing",
+            "sort": 0,
+            "parentId": "parent-1",
+            "description": "Updated",
+            "color": "silver",
+            "labelIds": [],
+            "requestedBy": "Requester",
+            "assignedBy": "Dispatcher",
+            "receivedAt": "",
+            "startAt": "2030-02-02T00:00:00Z",
+            "dueAt": "",
+            "endAt": "2030-02-04T00:00:00Z",
+            "spentTime": 2.5,
+            "isOverTime": false,
+            "members": [],
+            "assignees": ["assignee-2"],
+            "dueComplete": false
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "card/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path(card_path))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "card/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    client
+        .board_list_cards("board/1", "list/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .card("board/1", "list/1", "card/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .create_card(
+            "board/1",
+            "list/1",
+            &CreateCardRequest {
+                title: "Todo".to_owned(),
+                swimlane_id: "swimlane/1".to_owned(),
+                description: Some("Details".to_owned()),
+                members: Some(vec!["member-1".to_owned(), "member-2".to_owned()]),
+                assignees: Some(vec!["assignee-1".to_owned()]),
+                received_at: Some("2030-01-01T00:00:00Z".to_owned()),
+                start_at: Some("2030-01-02T00:00:00Z".to_owned()),
+                due_at: Some("2030-01-03T00:00:00Z".to_owned()),
+                end_at: Some("2030-01-04T00:00:00Z".to_owned()),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .create_card(
+            "board/1",
+            "list/1",
+            &CreateCardRequest {
+                title: "Minimal".to_owned(),
+                swimlane_id: "swimlane/1".to_owned(),
+                description: None,
+                members: None,
+                assignees: None,
+                received_at: None,
+                start_at: None,
+                due_at: None,
+                end_at: None,
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .update_card(
+            "board/1",
+            "list/1",
+            "card/1",
+            &UpdateCardRequest {
+                title: Some("Doing".to_owned()),
+                sort: Some(serde_json::Number::from(0)),
+                parent_id: Some("parent-1".to_owned()),
+                description: Some("Updated".to_owned()),
+                color: Some("silver".to_owned()),
+                label_ids: Some(vec![]),
+                requested_by: Some("Requester".to_owned()),
+                assigned_by: Some("Dispatcher".to_owned()),
+                received_at: Some(String::new()),
+                start_at: Some("2030-02-02T00:00:00Z".to_owned()),
+                due_at: Some(String::new()),
+                end_at: Some("2030-02-04T00:00:00Z".to_owned()),
+                spent_time: Some(serde_json::Number::from_f64(2.5).unwrap()),
+                is_over_time: Some(false),
+                members: Some(vec![]),
+                assignees: Some(vec!["assignee-2".to_owned()]),
+                due_complete: Some(false),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .delete_card("board/1", "list/1", "card/1", &user_token())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn card_mutations_are_not_retried_and_redirects_are_not_followed() {
+    let failure_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&failure_server)
+        .await;
+    assert!(matches!(
+        client(&failure_server)
+            .create_card(
+                "board-1",
+                "list-1",
+                &CreateCardRequest {
+                    title: "Todo".to_owned(),
+                    swimlane_id: "swimlane-1".to_owned(),
+                    description: None,
+                    members: None,
+                    assignees: None,
+                    received_at: None,
+                    start_at: None,
+                    due_at: None,
+                    end_at: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Server { .. })
+    ));
+
+    let redirect_server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-card"))
+        .expect(1)
+        .mount(&redirect_server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/other-card"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&redirect_server)
+        .await;
+    assert!(matches!(
+        client(&redirect_server)
+            .delete_card("board-1", "list-1", "card-1", &user_token())
             .await,
         Err(ClientError::UnexpectedRedirect { .. })
     ));

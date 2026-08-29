@@ -1907,12 +1907,17 @@ actions:
       CardCreateRequest:
         type: object
         description: >-
-          Card-create fields from server/models/cards.js lines 1063-1174;
-          linked-card behavior is at lines 1075-1102 and dates at 1146-1157.
+          Card-create fields from the board/list-scoped POST handler in Wekan
+          v11.06 server/models/cards.js. The handler reads parentId from a
+          nonexistent route parameter, so a parentId request property would be
+          silently ignored and is intentionally excluded. Title is required for
+          ordinary cards. When linkedId is present, Wekan returns from its
+          linked-card branch before reading title, so title is optional for that
+          alternate request body.
+        required: [swimlaneId]
         properties:
           title: {type: string}
           description: {type: string}
-          parentId: {type: string}
           swimlaneId: {type: string}
           linkedId: {type: string}
           members: {type: array, items: {type: string}}
@@ -1930,7 +1935,9 @@ actions:
           the corresponding date.
         properties:
           title: {type: string}
-          sort: {type: number}
+          sort:
+            type: number
+            description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
           parentId: {type: string}
           description: {type: string}
           color: {type: string}
@@ -1944,7 +1951,13 @@ actions:
           dueAt: {type: string}
           endAt: {type: string}
           spentTime: {type: number}
-          isOverTime: {type: boolean}
+          isOverTime:
+            type: boolean
+            description: >-
+              Wekan v11.06 tests this value for truthiness and targets
+              isOverTime, while the card schema field is isOvertime. False is
+              ignored; true is acknowledged without changing the modeled
+              isOvertime field in the pinned live stack.
           customFields: {type: array, items: {type: object, additionalProperties: true}}
           members: {type: array, items: {type: string}}
           assignees: {type: array, items: {type: string}}
@@ -2237,6 +2250,7 @@ actions:
           cardsModifiedAt: {type: string, format: date-time, x-nullable: true}
       CardSummary:
         type: object
+        additionalProperties: false
         description: >-
           List-card projection from server/models/cards.js lines 998-1024.
         required: [_id]
@@ -2245,7 +2259,6 @@ actions:
           title: {type: string}
           description: {type: string}
           swimlaneId: {type: string}
-          listId: {type: string}
           receivedAt: {type: string, format: date-time}
           startAt: {type: string, format: date-time}
           dueAt: {type: string, format: date-time}
@@ -4511,12 +4524,31 @@ actions:
     update:
       schema: {type: array, items: {$ref: '#/definitions/CardSummary'}}
 
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards"].post'
+    description: >-
+      Record the ignored parentId behavior in the Wekan v11.06 single-card
+      creation handler: it reads req.params.parentId even though this route has
+      no parentId segment, and never reads req.body.parentId.
+    update:
+      x-wekan-v11.06-defect: create-card-body-parent-id-is-silently-ignored
+
   - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].get.responses["200"]'
     description: >-
       Add the card document from Wekan v11.06 server/models/cards.js lines
       1044-1060.
     update:
+      description: >-
+        Active card document, or an empty body when no active card matches the
+        complete board/list/card scope; both variants use HTTP 200.
       schema: {$ref: '#/definitions/Cards'}
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].get'
+    description: >-
+      Record the missing-card behavior from the Wekan v11.06 scoped GET and
+      server/apiMiddleware.js: undefined data produces an empty HTTP 200
+      response rather than a 404 response.
+    update:
+      x-wekan-v11.06-defect: missing-card-returns-empty-http-200
 
   - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].delete.responses["200"]'
     description: >-
@@ -4673,6 +4705,22 @@ actions:
       schema: {$ref: '#/definitions/IdResponse'}
       x-wekan-alternate-error-schema: {$ref: '#/definitions/ErrorResponse'}
       x-wekan-error-status-in-body: true
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}"].delete'
+    description: >-
+      Record Wekan v11.06's hard-idempotent response and its wrong-list partial
+      cascade defect. The handler finds the card by board/card before cascading
+      children, but the final card removal also requires the supplied list ID.
+    update:
+      summary: Permanently delete a card and its child resources.
+      description: >-
+        Hard-deletes the card and cascades child resources. The endpoint always
+        returns the requested card ID, including when the card does not exist,
+        so success does not prove prior existence or removal. Supplying the
+        correct board and card IDs with a wrong list ID can delete child
+        resources while leaving the card itself intact.
+      x-wekan-delete-mode: hard-idempotent
+      x-wekan-v11.06-defect: wrong-list-id-can-partially-cascade-without-deleting-card
 
   - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/cards"].get.responses["200"]'
     description: >-
@@ -4846,10 +4894,13 @@ actions:
       shape from Wekan v11.06 models/cards.js lines 189-219.
     update:
       description: Nested card custom-field value from models/cards.js lines 189-219.
+      additionalProperties: false
       properties:
         _id: {type: string}
         value:
-          description: String, number, boolean, date string, or string array.
+          x-nullable: true
+          x-wekan-value-types: [string, number, boolean, string-array, 'null']
+          description: String (including serialized dates), number, boolean, string array, or null.
 
   - target: '$.definitions.CardsStickers'
     description: >-
@@ -4857,6 +4908,7 @@ actions:
       v11.06 models/cards.js lines 343-390.
     update:
       description: Card sticker from models/cards.js lines 343-390.
+      additionalProperties: false
       properties:
         icon: {type: string}
         name: {type: string}
@@ -4869,6 +4921,7 @@ actions:
       Wekan v11.06 models/cards.js lines 421-470.
     update:
       description: Card location from models/cards.js lines 421-470.
+      additionalProperties: false
       required: [_id]
       properties:
         _id: {type: string}
@@ -4883,12 +4936,56 @@ actions:
       from Wekan v11.06 models/cards.js lines 535-571.
     update:
       description: Card dependency from models/cards.js lines 535-571.
+      additionalProperties: false
       required: [cardId]
       properties:
         cardId: {type: string}
-        type: {type: string}
+        type:
+          type: string
+          enum: [related-to, blocks, is-blocked-by, fixes, is-fixed-by]
         color: {type: string}
         icon: {type: string}
+
+  - target: '$.definitions.Cards'
+    description: >-
+      Add the Mongo document ID, close the complete Wekan v11.06 card schema,
+      and annotate its date, color, and card-type constraints from
+      models/cards.js.
+    update:
+      additionalProperties: false
+      required: [_id, archived, swimlaneId, createdAt, modifiedAt, dateLastActivity, userId, type, showActivities]
+      properties:
+        _id: {type: string}
+        archivedAt: {type: string, format: date-time, x-nullable: true}
+        deletedAt: {type: string, format: date-time, x-nullable: true}
+        createdAt: {type: string, format: date-time}
+        modifiedAt: {type: string, format: date-time}
+        dateLastActivity: {type: string, format: date-time}
+        receivedAt: {type: string, format: date-time, x-nullable: true}
+        startAt: {type: string, format: date-time, x-nullable: true}
+        dueAt: {type: string, format: date-time, x-nullable: true}
+        endAt: {type: string, format: date-time, x-nullable: true}
+        color:
+          type: string
+          x-nullable: true
+          description: Named Wekan card color, custom #rrggbb color, or the empty unset value.
+        type:
+          type: string
+          enum: [cardType-card, cardType-linkedCard, cardType-linkedBoard, template-card]
+
+  - target: '$.definitions.CardsVote'
+    description: Close the nested vote object from Wekan v11.06 models/cards.js.
+    update:
+      additionalProperties: false
+      properties:
+        end: {type: string, format: date-time, x-nullable: true}
+
+  - target: '$.definitions.CardsPoker'
+    description: Close the nested poker object from Wekan v11.06 models/cards.js.
+    update:
+      additionalProperties: false
+      properties:
+        end: {type: string, format: date-time, x-nullable: true}
 
   - target: '$.definitions.CustomFieldsSettingsDropdownitems'
     description: >-

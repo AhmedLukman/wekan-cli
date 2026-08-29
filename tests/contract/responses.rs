@@ -7,8 +7,8 @@ use std::{
 use secrecy::ExposeSecret;
 use serde_json::json;
 use wekan_cli::client::{
-    BoardType, BoardWatchLevel, ClientError, CreateListRequest, CreateSwimlaneRequest,
-    UpdateListRequest, UpdateSwimlaneRequest,
+    BoardType, BoardWatchLevel, ClientError, CreateCardRequest, CreateListRequest,
+    CreateSwimlaneRequest, UpdateCardRequest, UpdateListRequest, UpdateSwimlaneRequest,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -20,6 +20,71 @@ use super::{
     login_request, logout_request, logout_token, register_request, status_token, user_card_query,
     user_token,
 };
+
+fn complete_card_response() -> serde_json::Value {
+    json!({
+        "_id": "card-1",
+        "title": "Todo",
+        "archived": false,
+        "archivedAt": "2030-01-01T00:00:00Z",
+        "deletedAt": "2030-01-01T01:00:00Z",
+        "deletedBy": "user-2",
+        "deleteBatchId": "batch-1",
+        "parentId": "parent-1",
+        "listId": "list-1",
+        "swimlaneId": "swimlane-1",
+        "boardId": "board-1",
+        "coverId": "cover-1",
+        "color": "#12aBcF",
+        "createdAt": "2030-01-02T03:04:05Z",
+        "modifiedAt": "2030-01-02T03:05:05Z",
+        "customFields": [
+            {"_id": "field-1", "value": "text"},
+            {"_id": "field-2", "value": 2.5},
+            {"_id": "field-3", "value": true},
+            {"_id": "field-4", "value": ["one", "two"]},
+            {"_id": "field-5", "value": null}
+        ],
+        "dateLastActivity": "2030-01-02T03:06:05Z",
+        "description": "Details",
+        "requestedBy": "Requester",
+        "assignedBy": "Dispatcher",
+        "labelIds": ["label-1"],
+        "members": ["user-1"],
+        "assignees": ["user-2"],
+        "requesters": ["user-3"],
+        "assigners": ["user-4"],
+        "receivedAt": "2030-01-03T00:00:00Z",
+        "startAt": "2030-01-04T00:00:00Z",
+        "dueAt": "2030-01-05T00:00:00Z",
+        "endAt": "2030-01-06T00:00:00Z",
+        "dueComplete": true,
+        "stickers": [{"icon": "star", "name": "Star", "highlight": "round", "position": 1}],
+        "locationName": "Office",
+        "locationAddress": "Main Street",
+        "locationLatitude": 1.5,
+        "locationLongitude": 2.5,
+        "locations": [{"_id": "location-1", "name": "Office", "address": "Main Street", "latitude": 1.5, "longitude": 2.5}],
+        "spentTime": 3.5,
+        "isOvertime": false,
+        "userId": "user-1",
+        "sort": 2.5,
+        "subtaskSort": -1,
+        "type": "cardType-card",
+        "linkedId": "linked-1",
+        "cardDependencies": [{"cardId": "card-2", "type": "blocks", "color": "red", "icon": "link"}],
+        "vote": {"question": "Ship?", "positive": ["user-1"], "negative": [], "end": "2030-01-07T00:00:00Z", "public": true, "allowNonBoardMembers": false},
+        "poker": {"question": true, "one": ["user-1"], "two": [], "three": [], "five": [], "eight": [], "thirteen": [], "twenty": [], "forty": [], "oneHundred": [], "unsure": [], "end": "2030-01-08T00:00:00Z", "allowNonBoardMembers": false, "estimation": 5},
+        "targetId_gantt": ["card-2"],
+        "linkType_gantt": [1],
+        "linkId_gantt": ["link-1"],
+        "cardNumber": 42,
+        "showActivities": true,
+        "showListOnMinicard": true,
+        "showChecklistAtMinicard": false,
+        "hideFinishedChecklistIfItemsAreHidden": true
+    })
+}
 
 #[tokio::test]
 async fn user_resource_responses_decode_the_mapped_shapes() {
@@ -416,6 +481,346 @@ async fn list_responses_preserve_embedded_errors_and_reject_malformed_or_oversiz
     assert!(matches!(
         client.list("board-1", "oversized", &user_token()).await,
         Err(ClientError::ResponseTooLarge { .. })
+    ));
+}
+
+#[tokio::test]
+async fn card_responses_decode_complete_documents_and_normalize_omissions() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "card-1",
+            "title": "Todo",
+            "description": "Details",
+            "swimlaneId": "swimlane-1",
+            "receivedAt": "2030-01-03T00:00:00Z",
+            "assignees": null,
+            "sort": 2.5
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(complete_card_response()))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/minimal"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "minimal",
+            "archived": false,
+            "parentId": "",
+            "coverId": "",
+            "linkedId": "",
+            "swimlaneId": "swimlane-1",
+            "createdAt": "2030-01-02T03:04:05Z",
+            "modifiedAt": "2030-01-02T03:04:05Z",
+            "dateLastActivity": "2030-01-02T03:04:05Z",
+            "userId": "user-1",
+            "type": "cardType-card",
+            "showActivities": false
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    let summaries = client
+        .board_list_cards("board-1", "list-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(summaries[0].card_id, "card-1");
+    assert!(summaries[0].assignees.is_empty());
+    assert_eq!(summaries[0].due_at, None);
+
+    let card = client
+        .card("board-1", "list-1", "card-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(card.card_type, "cardType-card");
+    assert_eq!(card.custom_fields.len(), 5);
+    assert_eq!(card.stickers.len(), 1);
+    assert_eq!(card.locations[0].location_id, "location-1");
+    assert_eq!(card.card_dependencies[0].card_id, "card-2");
+    assert_eq!(
+        card.poker.as_ref().unwrap().one_hundred,
+        Vec::<String>::new()
+    );
+
+    let minimal = client
+        .card("board-1", "list-1", "minimal", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(minimal.parent_id, None);
+    assert_eq!(minimal.cover_id, None);
+    assert_eq!(minimal.linked_id, None);
+    assert!(minimal.label_ids.is_empty());
+    assert!(minimal.members.is_empty());
+    assert!(minimal.custom_fields.is_empty());
+    assert_eq!(minimal.title, None);
+}
+
+#[tokio::test]
+async fn card_responses_reject_unmapped_top_level_and_nested_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "card-1",
+            "future": true
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let nested_cases = [
+        ("custom", vec!["customFields", "0"]),
+        ("sticker", vec!["stickers", "0"]),
+        ("location", vec!["locations", "0"]),
+        ("dependency", vec!["cardDependencies", "0"]),
+        ("vote", vec!["vote"]),
+        ("poker", vec!["poker"]),
+    ];
+    for (suffix, path_parts) in nested_cases {
+        let mut response = complete_card_response();
+        let mut value = &mut response;
+        for part in path_parts {
+            value = if let Ok(index) = part.parse::<usize>() {
+                &mut value.as_array_mut().unwrap()[index]
+            } else {
+                value.get_mut(part).unwrap()
+            };
+        }
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("future".to_owned(), json!(true));
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/boards/board-1/lists/list-1/cards/{suffix}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let mut top_level = complete_card_response();
+    top_level["future"] = json!(true);
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/top-level"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(top_level))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client
+            .board_list_cards("board-1", "list-1", &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    for suffix in [
+        "custom",
+        "sticker",
+        "location",
+        "dependency",
+        "vote",
+        "poker",
+        "top-level",
+    ] {
+        assert!(matches!(
+            client
+                .card("board-1", "list-1", suffix, &user_token())
+                .await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn card_responses_reject_missing_required_vote_fields() {
+    let server = MockServer::start().await;
+    for (suffix, field) in [
+        ("vote-question", "question"),
+        ("vote-public", "public"),
+        ("vote-allow-non-board-members", "allowNonBoardMembers"),
+    ] {
+        let mut response = complete_card_response();
+        response["vote"].as_object_mut().unwrap().remove(field);
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/boards/board-1/lists/list-1/cards/{suffix}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+
+    let client = client(&server);
+    for suffix in [
+        "vote-question",
+        "vote-public",
+        "vote-allow-non-board-members",
+    ] {
+        assert!(matches!(
+            client
+                .card("board-1", "list-1", suffix, &user_token())
+                .await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn card_documents_reject_invalid_known_values() {
+    for (suffix, field) in [
+        ("id", json!({"_id": ""})),
+        ("swimlane", json!({"swimlaneId": ""})),
+        ("user", json!({"userId": ""})),
+        ("date", json!({"modifiedAt": "not-a-date"})),
+        ("color", json!({"color": "belize"})),
+        ("type", json!({"type": "future-card"})),
+        ("highlight", json!({"stickers": [{"highlight": "square"}]})),
+        (
+            "custom-value",
+            json!({"customFields": [{"_id": "field-1", "value": {"raw": true}}]}),
+        ),
+        (
+            "dependency-type",
+            json!({"cardDependencies": [{"cardId": "card-2", "type": "future"}]}),
+        ),
+        ("member", json!({"members": [""]})),
+    ] {
+        let server = MockServer::start().await;
+        let mut response = complete_card_response();
+        response
+            .as_object_mut()
+            .unwrap()
+            .extend(field.as_object().unwrap().clone());
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/boards/board-1/lists/list-1/cards/{suffix}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(matches!(
+            client(&server)
+                .card("board-1", "list-1", suffix, &user_token())
+                .await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+}
+
+#[tokio::test]
+async fn card_missing_and_mutation_id_response_shapes_are_strict() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/missing"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "card-1",
+            "future": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": 1})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": ""})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(matches!(
+        client
+            .card("board-1", "list-1", "missing", &user_token())
+            .await,
+        Err(ClientError::EmbeddedServer {
+            http_status: reqwest::StatusCode::OK,
+            wekan_status_code: 404,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .create_card(
+                "board-1",
+                "list-1",
+                &CreateCardRequest {
+                    title: "Todo".to_owned(),
+                    swimlane_id: "swimlane-1".to_owned(),
+                    description: None,
+                    members: None,
+                    assignees: None,
+                    received_at: None,
+                    start_at: None,
+                    due_at: None,
+                    end_at: None,
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    let empty_update = UpdateCardRequest {
+        title: None,
+        sort: None,
+        parent_id: None,
+        description: None,
+        color: None,
+        label_ids: None,
+        requested_by: None,
+        assigned_by: None,
+        received_at: None,
+        start_at: None,
+        due_at: None,
+        end_at: None,
+        spent_time: None,
+        is_over_time: None,
+        members: None,
+        assignees: None,
+        due_complete: Some(false),
+    };
+    assert!(matches!(
+        client
+            .update_card("board-1", "list-1", "card-1", &empty_update, &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
+    assert!(matches!(
+        client
+            .delete_card("board-1", "list-1", "card-1", &user_token())
+            .await,
+        Err(ClientError::Protocol { .. })
     ));
 }
 

@@ -5,7 +5,8 @@ use serde::Serialize;
 
 use crate::command_result::{
     AuthStatusSuccess, AuthSuccess, BoardCountSuccess, BoardCreateSuccess, BoardDeleteSuccess,
-    BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CommandSuccess,
+    BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CardCollectionSuccess,
+    CardCreateSuccess, CardDeleteSuccess, CardDetail, CardUpdateSuccess, CommandSuccess,
     ListCollectionSuccess, ListCreateSuccess, ListDeleteSuccess, ListDetail, ListUpdateSuccess,
     LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
     SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteSuccess, SwimlaneDetail,
@@ -133,6 +134,16 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::ListUpdated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ListDeleted(data)) => render_list_deleted(data),
         (OutputFormat::Json, CommandSuccess::ListDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardCollection(data)) => render_card_collection(data),
+        (OutputFormat::Json, CommandSuccess::CardCollection(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardShown(data)) => render_card_detail(data),
+        (OutputFormat::Json, CommandSuccess::CardShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardCreated(data)) => render_card_created(data),
+        (OutputFormat::Json, CommandSuccess::CardCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardUpdated(data)) => render_card_updated(data),
+        (OutputFormat::Json, CommandSuccess::CardUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardDeleted(data)) => render_card_deleted(data),
+        (OutputFormat::Json, CommandSuccess::CardDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SwimlaneCollection(data)) => {
             render_swimlane_collection(data)
         }
@@ -504,6 +515,95 @@ fn render_list_deleted(data: &ListDeleteSuccess) -> String {
     )
 }
 
+fn render_card_collection(data: &CardCollectionSuccess) -> String {
+    if data.cards.is_empty() {
+        return format!(
+            "No cards found in list {} on board {}.",
+            escape_terminal_controls(&data.list_id),
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    let mut lines = vec![
+        "ID  TITLE  DESCRIPTION  SWIMLANE  RECEIVED  START  DUE  END  ASSIGNEES  SORT".to_owned(),
+    ];
+    lines.extend(data.cards.iter().map(|card| {
+        format!(
+            "{}  {}  {}  {}  {}  {}  {}  {}  {}  {}",
+            escape_terminal_controls(&card.card_id),
+            escape_terminal_controls(card.title.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.description.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.swimlane_id.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.received_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.start_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.due_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.end_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(&card.assignees.join(",")),
+            card.sort
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default(),
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_card_detail(data: &CardDetail) -> String {
+    let value = serde_json::to_value(data).expect("card documents are always serializable");
+    let serde_json::Value::Object(mut fields) = value else {
+        unreachable!("card documents serialize as objects")
+    };
+    fields.remove("card_id");
+
+    let mut lines = vec![format!(
+        "Card ID: {}",
+        escape_terminal_controls(&data.card_id)
+    )];
+    for (name, value) in fields {
+        render_named_value_complete(&mut lines, 0, &name, &value);
+    }
+    lines.join("\n")
+}
+
+fn render_card_created(data: &CardCreateSuccess) -> String {
+    format!(
+        "Created card {} in list {} on board {}.",
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_card_updated(data: &CardUpdateSuccess) -> String {
+    let fields = data
+        .submitted_fields
+        .iter()
+        .map(|field| {
+            serde_json::to_value(field)
+                .expect("submitted card fields are always serializable")
+                .as_str()
+                .expect("submitted card fields serialize as strings")
+                .to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "Updated card {} in list {} on board {}; submitted fields: {}.",
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&fields)
+    )
+}
+
+fn render_card_deleted(data: &CardDeleteSuccess) -> String {
+    format!(
+        "Permanently deleted card {} from list {} on board {}.",
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
 fn render_swimlane_collection(data: &SwimlaneCollectionSuccess) -> String {
     if data.swimlanes.is_empty() {
         return format!(
@@ -671,6 +771,34 @@ fn render_named_value(
                 if !value.is_null() {
                     render_named_value(lines, indent + 2, name, value);
                 }
+            }
+        }
+        serde_json::Value::String(value) => lines.push(format!(
+            "{padding}{name}: {}",
+            escape_terminal_controls(value)
+        )),
+        other => lines.push(format!("{padding}{name}: {other}")),
+    }
+}
+
+fn render_named_value_complete(
+    lines: &mut Vec<String>,
+    indent: usize,
+    name: &str,
+    value: &serde_json::Value,
+) {
+    let padding = " ".repeat(indent);
+    match value {
+        serde_json::Value::Array(values) => {
+            lines.push(format!("{padding}{name}: [{}]", values.len()));
+            for (index, value) in values.iter().enumerate() {
+                render_named_value_complete(lines, indent + 2, &format!("[{index}]"), value);
+            }
+        }
+        serde_json::Value::Object(values) => {
+            lines.push(format!("{padding}{name}:"));
+            for (name, value) in values {
+                render_named_value_complete(lines, indent + 2, name, value);
             }
         }
         serde_json::Value::String(value) => lines.push(format!(

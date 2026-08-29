@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod boards;
+pub mod cards;
 pub mod error;
 pub mod lists;
 pub mod swimlanes;
@@ -17,6 +18,11 @@ pub use boards::{
     BoardColor, BoardCounts, BoardDocument, BoardPermission, BoardSummary, BoardType,
     BoardWatchLevel, BoardWatcher, CreateBoardRequest, CreateBoardResult, DeleteBoardResult,
     PresentParentTask, RenameBoardResult,
+};
+pub use cards::{
+    CardCustomField, CardCustomFieldValue, CardDependency, CardDocument, CardLocation, CardPoker,
+    CardSticker, CardStickerHighlight, CardSummary, CardVote, CreateCardRequest, CreateCardResult,
+    DeleteCardResult, UpdateCardRequest, UpdateCardResult,
 };
 pub use error::ClientError;
 pub use lists::{

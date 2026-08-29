@@ -1777,6 +1777,7 @@ paths:
                   required: true
                   schema:
                     $ref: '#/definitions/CardCreateRequest'
+            x-wekan-v11.06-defect: create-card-body-parent-id-is-silently-ignored
     /api/boards/{board}/lists/{list}/cards/{card}:
         get:
             operationId: get_board_list_card
@@ -1805,8 +1806,9 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Active card document, or an empty body when no active card matches the complete board/list/card scope; both variants use HTTP 200.
                     schema: {$ref: '#/definitions/Cards'}
+            x-wekan-v11.06-defect: missing-card-returns-empty-http-200
         put:
             operationId: put_board_list_card
             tags:
@@ -1863,6 +1865,11 @@ paths:
                     description: |-
                         200 response
                     schema: {$ref: '#/definitions/IdResponse'}
+            summary: Permanently delete a card and its child resources.
+            description: >-
+                Hard-deletes the card and cascades child resources. The endpoint always returns the requested card ID, including when the card does not exist, so success does not prove prior existence or removal. Supplying the correct board and card IDs with a wrong list ID can delete child resources while leaving the card itself intact.
+            x-wekan-delete-mode: hard-idempotent
+            x-wekan-v11.06-defect: wrong-list-id-can-partially-cascade-without-deleting-card
     /api/boards/{board}/lists/{list}/cards/{card}/archive:
         post:
             operationId: post_board_list_card_archive
@@ -4434,9 +4441,11 @@ definitions:
                     latest archiving date
                 type: string
                 x-nullable: true
+                format: date-time
             deletedAt:
                 type: string
                 x-nullable: true
+                format: date-time
             deletedBy:
                 type: string
                 x-nullable: true
@@ -4470,12 +4479,15 @@ definitions:
             color:
                 type: string
                 x-nullable: true
+                description: Named Wekan card color, custom #rrggbb color, or the empty unset value.
             createdAt:
                 description: |
                     creation date
                 type: string
+                format: date-time
             modifiedAt:
                 type: string
+                format: date-time
             customFields:
                 description: |
                     list of custom fields
@@ -4487,6 +4499,7 @@ definitions:
                 description: |
                     Date of last activity
                 type: string
+                format: date-time
             description:
                 description: |
                     description of the card
@@ -4544,21 +4557,25 @@ definitions:
                     Date the card was received
                 type: string
                 x-nullable: true
+                format: date-time
             startAt:
                 description: |
                     Date the card was started to be worked on
                 type: string
                 x-nullable: true
+                format: date-time
             dueAt:
                 description: |
                     Date the card is due
                 type: string
                 x-nullable: true
+                format: date-time
             endAt:
                 description: |
                     Date the card ended
                 type: string
                 x-nullable: true
+                format: date-time
             dueComplete:
                 description: |
                     Has the due date been marked complete? Imported from Trello
@@ -4630,6 +4647,7 @@ definitions:
                 description: |
                     type of the card
                 type: string
+                enum: [cardType-card, cardType-linkedCard, cardType-linkedBoard, template-card]
             linkedId:
                 description: |
                     ID of the linked card
@@ -4703,6 +4721,7 @@ definitions:
                     hide completed checklist sections when checklist items are hidden?
                 type: boolean
                 x-nullable: true
+            _id: {type: string}
         required:
             - archived
             - swimlaneId
@@ -4712,6 +4731,16 @@ definitions:
             - userId
             - type
             - showActivities
+            - _id
+            - archived
+            - swimlaneId
+            - createdAt
+            - modifiedAt
+            - dateLastActivity
+            - userId
+            - type
+            - showActivities
+        additionalProperties: false
     CardsPoker:
         type: object
         properties:
@@ -4789,12 +4818,15 @@ definitions:
                     x-nullable: true
             end:
                 type: string
+                format: date-time
+                x-nullable: true
             allowNonBoardMembers:
                 type: boolean
             estimation:
                 description: |
                     poker estimation value
                 type: number
+        additionalProperties: false
     CardsVote:
         type: object
         properties:
@@ -4816,6 +4848,8 @@ definitions:
                     x-nullable: true
             end:
                 type: string
+                format: date-time
+                x-nullable: true
             public:
                 type: boolean
             allowNonBoardMembers:
@@ -4824,13 +4858,17 @@ definitions:
             - question
             - public
             - allowNonBoardMembers
+        additionalProperties: false
     CardsCustomfields:
         type: object
         description: Nested card custom-field value from models/cards.js lines 189-219.
+        additionalProperties: false
         properties:
             _id: {type: string}
             value:
-                description: String, number, boolean, date string, or string array.
+                x-nullable: true
+                x-wekan-value-types: [string, number, boolean, string-array, 'null']
+                description: String (including serialized dates), number, boolean, string array, or null.
     CardsLabelids:
         type: array
         description: >-
@@ -4859,6 +4897,7 @@ definitions:
     CardsStickers:
         type: object
         description: Card sticker from models/cards.js lines 343-390.
+        additionalProperties: false
         properties:
             icon: {type: string}
             name: {type: string}
@@ -4867,6 +4906,7 @@ definitions:
     CardsLocations:
         type: object
         description: Card location from models/cards.js lines 421-470.
+        additionalProperties: false
         required: [_id]
         properties:
             _id: {type: string}
@@ -4877,10 +4917,13 @@ definitions:
     CardsCarddependencies:
         type: object
         description: Card dependency from models/cards.js lines 535-571.
+        additionalProperties: false
         required: [cardId]
         properties:
             cardId: {type: string}
-            type: {type: string}
+            type:
+                type: string
+                enum: [related-to, blocks, is-blocked-by, fixes, is-fixed-by]
             color: {type: string}
             icon: {type: string}
     CardsVotePositive:
@@ -7117,11 +7160,11 @@ definitions:
     CardCreateRequest:
         type: object
         description: >-
-            Card-create fields from server/models/cards.js lines 1063-1174; linked-card behavior is at lines 1075-1102 and dates at 1146-1157.
+            Card-create fields from the board/list-scoped POST handler in Wekan v11.06 server/models/cards.js. The handler reads parentId from a nonexistent route parameter, so a parentId request property would be silently ignored and is intentionally excluded. Title is required for ordinary cards. When linkedId is present, Wekan returns from its linked-card branch before reading title, so title is optional for that alternate request body.
+        required: [swimlaneId]
         properties:
             title: {type: string}
             description: {type: string}
-            parentId: {type: string}
             swimlaneId: {type: string}
             linkedId: {type: string}
             members: {type: array, items: {type: string}}
@@ -7136,7 +7179,9 @@ definitions:
             Partial update fields from server/models/cards.js lines 1313-1700: ordinary fields 1327-1513, moves 1515-1635, archive/completion 1636-1656, and stickers/locations 1658-1692. Empty date strings clear the corresponding date.
         properties:
             title: {type: string}
-            sort: {type: number}
+            sort:
+                type: number
+                description: Wekan v11.06 tests this value for truthiness, so zero is silently ignored.
             parentId: {type: string}
             description: {type: string}
             color: {type: string}
@@ -7150,7 +7195,10 @@ definitions:
             dueAt: {type: string}
             endAt: {type: string}
             spentTime: {type: number}
-            isOverTime: {type: boolean}
+            isOverTime:
+                type: boolean
+                description: >-
+                    Wekan v11.06 tests this value for truthiness and targets isOverTime, while the card schema field is isOvertime. False is ignored; true is acknowledged without changing the modeled isOvertime field in the pinned live stack.
             customFields: {type: array, items: {type: object, additionalProperties: true}}
             members: {type: array, items: {type: string}}
             assignees: {type: array, items: {type: string}}
@@ -7412,6 +7460,7 @@ definitions:
             cardsModifiedAt: {type: string, format: date-time, x-nullable: true}
     CardSummary:
         type: object
+        additionalProperties: false
         description: >-
             List-card projection from server/models/cards.js lines 998-1024.
         required: [_id]
@@ -7420,7 +7469,6 @@ definitions:
             title: {type: string}
             description: {type: string}
             swimlaneId: {type: string}
-            listId: {type: string}
             receivedAt: {type: string, format: date-time}
             startAt: {type: string, format: date-time}
             dueAt: {type: string, format: date-time}
