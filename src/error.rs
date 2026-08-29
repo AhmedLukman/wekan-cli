@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::{
     client::{ServerUrlError, WekanClientFactoryError},
-    command_result::LogoutScope,
+    command_result::{LogoutScope, RawApiResponseData},
     config::profiles::ProfileStoreError,
     exit_code::StableExitCode,
 };
@@ -21,6 +21,7 @@ pub enum ErrorCode {
     TransportError,
     UnexpectedRedirect,
     ProtocolError,
+    ApiResponseTooLarge,
     LoginRejected,
     LoginRateLimited,
     CredentialNotFound,
@@ -51,6 +52,7 @@ impl ErrorCode {
             Self::TransportError => "transport_error",
             Self::UnexpectedRedirect => "unexpected_redirect",
             Self::ProtocolError => "protocol_error",
+            Self::ApiResponseTooLarge => "api_response_too_large",
             Self::LoginRejected => "login_rejected",
             Self::LoginRateLimited => "login_rate_limited",
             Self::CredentialNotFound => "credential_not_found",
@@ -75,6 +77,16 @@ pub struct ErrorDetails {
     pub profile: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_success: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_limit_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_safe: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mutation_attempted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mutation_confirmed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wekan_status_code: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,6 +127,8 @@ pub struct ErrorDetails {
     pub local_credential_removed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_deleted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response: Option<RawApiResponseData>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

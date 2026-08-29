@@ -1,6 +1,15 @@
 use std::ffi::OsString;
 
-use super::{OutputFormat, render_error, render_success};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use reqwest::{
+    StatusCode,
+    header::{HeaderMap, HeaderValue},
+};
+
+use super::{
+    OutputFormat, output_write_error, render_api_response_human, render_error, render_success,
+    structured_api_response,
+};
 use crate::{
     command_result::{
         AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, BoardCountSuccess,
@@ -18,7 +27,18 @@ use crate::{
         UserSummary,
     },
     error::AppError,
+    exit_code::StableExitCode,
 };
+
+#[test]
+fn output_write_failures_use_the_transport_exit_status() {
+    let error = output_write_error(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "closed output",
+    ));
+
+    assert_eq!(error.exit_code(), StableExitCode::Transport);
+}
 
 fn success() -> CommandSuccess {
     CommandSuccess::Registration(AuthSuccess {
@@ -40,6 +60,92 @@ fn renders_the_stable_json_success_envelope() {
     assert_eq!(value["data"]["user_id"], "user-1");
     assert_eq!(value["data"]["credential_stored"], true);
     assert!(value["data"].get("token").is_none());
+}
+
+#[test]
+fn raw_output_detection_accepts_both_global_flag_forms() {
+    assert_eq!(
+        OutputFormat::detect_from_args(&[
+            OsString::from("wekan"),
+            OsString::from("--output"),
+            OsString::from("raw"),
+        ]),
+        OutputFormat::Raw
+    );
+    assert_eq!(
+        OutputFormat::detect_from_args(&[OsString::from("wekan"), OsString::from("--output=raw"),]),
+        OutputFormat::Raw
+    );
+}
+
+#[test]
+fn raw_api_structured_values_preserve_json_text_binary_and_header_bytes() {
+    let mut headers = HeaderMap::new();
+    headers.append("x-repeat", HeaderValue::from_static("one"));
+    headers.append("x-repeat", HeaderValue::from_static("two"));
+    headers.append("x-binary", HeaderValue::from_bytes(&[0x80, 0x81]).unwrap());
+
+    let json = structured_api_response(
+        StatusCode::OK,
+        &headers,
+        br#"{"unknown":{"nested":true}}"#.to_vec(),
+        false,
+    );
+    assert_eq!(json.headers.len(), 3);
+    assert!(!json.mutation_attempted);
+    assert!(!json.mutation_confirmed);
+    assert_eq!(json.headers[2].value, BASE64.encode([0x80, 0x81]));
+    assert!(matches!(
+        json.body,
+        crate::command_result::RawResponseBody::Json { .. }
+    ));
+
+    let text = structured_api_response(StatusCode::OK, &HeaderMap::new(), b"hello".to_vec(), false);
+    assert!(matches!(
+        text.body,
+        crate::command_result::RawResponseBody::Text { ref value } if value == "hello"
+    ));
+
+    let binary = structured_api_response(StatusCode::OK, &HeaderMap::new(), vec![0, 255], false);
+    assert!(matches!(
+        binary.body,
+        crate::command_result::RawResponseBody::Base64 { ref value }
+            if value == &BASE64.encode([0, 255])
+    ));
+    assert!(render_api_response_human(&binary).contains("2 binary bytes"));
+}
+
+#[test]
+fn raw_api_structured_json_preserves_arbitrary_precision_numbers() {
+    let response = structured_api_response(
+        StatusCode::OK,
+        &HeaderMap::new(),
+        br#"{"integer":18446744073709551616,"decimal":0.123456789012345678901234567890}"#.to_vec(),
+        false,
+    );
+    let crate::command_result::RawResponseBody::Json { value } = response.body else {
+        panic!("valid JSON should remain structured")
+    };
+
+    assert_eq!(value["integer"].to_string(), "18446744073709551616");
+    assert_eq!(
+        value["decimal"].to_string(),
+        "0.123456789012345678901234567890"
+    );
+}
+
+#[test]
+fn raw_api_structured_response_marks_unsafe_mutations_unconfirmed() {
+    let response = structured_api_response(
+        StatusCode::ACCEPTED,
+        &HeaderMap::new(),
+        br#"{"accepted":true}"#.to_vec(),
+        true,
+    );
+
+    assert!(response.mutation_attempted);
+    assert!(!response.mutation_confirmed);
+    assert!(render_api_response_human(&response).contains("Mutation confirmed: no"));
 }
 
 #[test]

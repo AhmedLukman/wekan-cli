@@ -11,7 +11,12 @@ pub mod input;
 pub mod output;
 pub mod redaction;
 
-use std::{env, ffi::OsString, process::ExitCode};
+use std::{
+    env,
+    ffi::OsString,
+    io::{self, Write},
+    process::ExitCode,
+};
 
 use clap::{CommandFactory, Parser, error::ErrorKind};
 
@@ -20,7 +25,7 @@ use crate::{
     cli::Cli,
     config::ServerSelection,
     error::AppError,
-    output::{OutputFormat, render_error, render_success},
+    output::{OutputFormat, render_error, write_success},
 };
 
 /// Parse the process arguments, execute one command, render its result, and
@@ -49,15 +54,27 @@ pub async fn run() -> ExitCode {
     };
 
     let output_format = cli.output;
+    if output_format == OutputFormat::Raw && !cli.command.supports_raw_output() {
+        let error = AppError::invalid_input("--output raw is valid only with wekan api request");
+        eprintln!("{}", render_error(output_format, &error));
+        return error.exit_code().into();
+    }
     let app = App::production_with_confirmation_interactivity(
         ServerSelection::new(cli.server, cli.profile_name, cli.allow_insecure_http),
-        output_format == OutputFormat::Human,
+        output_format != OutputFormat::Json,
     );
 
     match app.execute(cli.command).await {
         Ok(success) => {
-            println!("{}", render_success(output_format, &success));
-            ExitCode::SUCCESS
+            let mut stdout = io::stdout().lock();
+            let mut stderr = io::stderr().lock();
+            match write_success(output_format, success, &mut stdout, &mut stderr).await {
+                Ok(exit_code) => exit_code,
+                Err(error) => {
+                    let _ = writeln!(stderr, "{}", render_error(output_format, &error));
+                    error.exit_code().into()
+                }
+            }
         }
         Err(error) => {
             eprintln!("{}", render_error(output_format, &error));

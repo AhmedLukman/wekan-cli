@@ -9,6 +9,9 @@ is one JSON object followed by a newline.
 - Error envelopes are written to stderr and stdout is empty.
 - `--help` and `--version` remain human-readable text on stdout.
 - Human-mode errors are written to stderr.
+- `--output raw` is valid only for `api request`. A 2xx response body is written
+  byte-for-byte to stdout; a non-2xx body is written byte-for-byte to stderr.
+  Raw output adds no newline or envelope.
 - Interactive confirmation prompts are written to stderr. JSON output never
   prompts; destructive automation must pass command-local `--yes`.
 
@@ -22,6 +25,11 @@ codes. Otherwise, non-terminal and JSON invocations without `--yes` return
 `invalid_input` with exit status 2 before destructive work. `--yes` is accepted
 only by those commands. For active-profile removal, `--force` remains a
 separate requirement.
+
+`api request` dynamically applies the same policy to every method except GET,
+HEAD, and OPTIONS. Its cancellation operation is `api_request`; `--yes` is
+rejected for its safe methods. Raw output may prompt when stdin and stderr are
+terminals, while JSON output and non-terminal calls require `--yes`.
 
 Logout holds the selected credential target's mutation guards while awaiting
 interactive confirmation, binding approval to that target state and preventing
@@ -41,7 +49,50 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
 `user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
-or `swimlane_delete`. Human output is `Cancelled; no changes made.`
+`swimlane_delete`, or `api_request`. Human output is `Cancelled; no changes made.`
+
+## Raw API success
+
+`api request` preserves arbitrary response data without typed Wekan decoding.
+HTTP 2xx is successful even when the body contains a serialized Wekan error.
+Human and JSON modes buffer at most 1 MiB; raw mode streams without that limit.
+
+```json
+{
+  "ok": true,
+  "data": {
+    "http_status": 200,
+    "mutation_attempted": false,
+    "mutation_confirmed": false,
+    "headers": [
+      {"name": "content-type", "encoding": "text", "value": "application/json"}
+    ],
+    "body": {
+      "encoding": "json",
+      "value": {"unmodeled": {"fields": true}}
+    }
+  }
+}
+```
+
+Header values use `text` or `base64`. Bodies use `json`, `text`, or `base64`.
+Repeated response headers are separate entries. Non-2xx structured errors put
+the same object in `error.details.response`; raw errors write only the exact
+body to stderr and use the mapped nonzero exit status.
+
+A structured response that cannot be read completely includes the known
+`http_status` and `http_success`. An over-limit response additionally returns
+`api_response_too_large` and includes `response_limit_bytes`. For an unsafe
+request, `mutation_attempted` is `true` and `mutation_confirmed` is `false`:
+the CLI performs no authoritative readback, so HTTP success means only that
+Wekan accepted the request. If response streaming fails or a response is too
+large, `outcome_unknown` is also `true` because the complete response was not
+observed; do not retry the mutation automatically.
+
+`--auth-token-query` is restricted to `GET`, but it can target any valid
+same-origin raw API route. CLI-generated errors and debug output never include
+its completed token-bearing URL. Upstream response headers and bodies remain
+exact untrusted server data and can echo the URL or token.
 
 ## Authentication success
 
@@ -343,6 +394,14 @@ data. Removal reports both what was removed and the resulting selection:
 `details` is always an object. Depending on the error it can contain:
 
 - `http_status`: HTTP status returned by the server;
+- `http_success`: whether a raw API response status was in the 2xx range when
+  its complete structured representation could not be buffered;
+- `response_limit_bytes`: the applicable structured response-size limit;
+- `retry_safe`: whether retrying after a local output failure is safe; it is
+  `false` for an unsafe raw request whose HTTP success was already received;
+- `mutation_attempted`: whether an unsafe raw request received an HTTP response;
+- `mutation_confirmed`: whether the CLI performed an authoritative readback and
+  confirmed the mutation; raw API requests currently report `false`;
 - `wekan_status_code`: application status serialized inside a Wekan response;
 - `server_error`, `server_reason`, and `server_message`: structured Wekan error
   fields;
@@ -373,6 +432,8 @@ data. Removal reports both what was removed and the resulting selection:
   outcome;
 - `profile`: the selected profile associated with the error, when target
   context is relevant.
+- `response`: the complete status, headers, and tagged body returned by a raw
+  API request when structured output could buffer it.
 
 Registration HTTP 400 errors always set `outcome_unknown: true` because Wekan
 `v11.06` can return that status before or after account creation. Authentication
@@ -453,6 +514,7 @@ the process exit status. Stable error codes are:
 - `transport_error`
 - `unexpected_redirect`
 - `protocol_error`
+- `api_response_too_large`
 - `login_rejected`
 - `login_rate_limited`
 - `credential_not_found`
@@ -468,7 +530,9 @@ the process exit status. Stable error codes are:
 - `credential_store_failed`
 - `internal_error`
 
-Passwords, two-factor codes, and tokens are redacted from all fields.
+Passwords, two-factor codes, and managed tokens are redacted from all
+CLI-generated fields. Exact raw API response headers and bodies are upstream
+data and are not redacted.
 
 The profile conflict codes and `credential_already_exists` use exit status 3.
 Malformed, unsupported, unreadable, or unwritable profile storage uses
@@ -483,7 +547,7 @@ and exit status 6.
 | `1` | Unexpected internal failure |
 | `2` | CLI usage, missing/ambiguous identity, empty secret, or registration password mismatch |
 | `3` | Missing or invalid server/profile configuration, profile conflicts, or insecure transport refusal |
-| `4` | Transport, redirect, or protocol failure, including an unreadable, malformed, or oversized HTTP 200 response |
+| `4` | Transport, redirect, protocol, or local response-output failure, including `api_response_too_large` |
 | `5` | Unauthenticated state, authentication rejection, or another Wekan application/server rejection |
 | `6` | Credential store unavailable or failed, including a created account or session whose token could not be stored |
 

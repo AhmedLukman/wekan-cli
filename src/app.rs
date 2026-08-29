@@ -110,6 +110,7 @@ where
 
     pub async fn execute(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
         match command {
+            RootCommand::Api(args) => self.execute_api(args).await,
             RootCommand::Auth(args) => self.execute_auth(args).await,
             RootCommand::User(args) => self.execute_user(args).await,
             RootCommand::Board(args) => self.execute_board(args).await,
@@ -132,6 +133,29 @@ where
                 .await
             }
         }
+    }
+
+    async fn execute_api(
+        &self,
+        args: crate::commands::api::ApiArgs,
+    ) -> Result<CommandSuccess, AppError> {
+        let target = self.target_resolver.resolve(
+            &self.profile_store,
+            crate::config::MissingProfileResolution::Reject,
+        )?;
+        let profile = target.profile().to_owned();
+        commands::dispatch(
+            PreparedCommand::Api {
+                args,
+                client_factory: target.client_factory(),
+            },
+            &self.credential_store,
+            &self.secret_input,
+            &self.profile_store,
+            &self.confirmation,
+        )
+        .await
+        .map_err(|error| error.with_profile_context(profile))
     }
 
     async fn execute_auth(

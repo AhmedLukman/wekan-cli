@@ -1,4 +1,6 @@
-use std::ffi::OsString;
+mod raw;
+
+use std::{ffi::OsString, io::Write, process::ExitCode};
 
 use clap::ValueEnum;
 use serde::Serialize;
@@ -13,7 +15,14 @@ use crate::command_result::{
     SwimlaneUpdateSuccess, UserBoardsSuccess, UserCardsSuccess, UserCreateSuccess,
     UserDeleteSuccess, UserDetail, UserListSuccess, UserLoginChangeSuccess, UserOwnershipSuccess,
 };
-use crate::error::AppError;
+use crate::{
+    error::{AppError, ErrorCode},
+    exit_code::StableExitCode,
+};
+
+pub(crate) use raw::render_human_response as render_api_response_human;
+#[cfg(test)]
+pub(crate) use raw::structured_api_response;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 #[value(rename_all = "lower")]
@@ -21,17 +30,25 @@ pub enum OutputFormat {
     #[default]
     Human,
     Json,
+    Raw,
 }
 
 impl OutputFormat {
     pub fn detect_from_args(args: &[OsString]) -> Self {
         let mut iter = args.iter().filter_map(|arg| arg.to_str());
         while let Some(arg) = iter.next() {
-            if arg == "--output" && iter.next().is_some_and(|value| value == "json") {
-                return Self::Json;
+            if arg == "--output" {
+                return match iter.next() {
+                    Some("json") => Self::Json,
+                    Some("raw") => Self::Raw,
+                    _ => Self::Human,
+                };
             }
             if arg == "--output=json" {
                 return Self::Json;
+            }
+            if arg == "--output=raw" {
+                return Self::Raw;
             }
         }
         Self::Human
@@ -59,6 +76,11 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (_, CommandSuccess::ApiResponse(_)) => {
+            panic!("streaming API responses must be consumed by output::write_success")
+        }
+        (OutputFormat::Raw, CommandSuccess::Cancelled(_)) => String::new(),
+        (OutputFormat::Raw, _) => panic!("raw output is valid only for api request"),
         (OutputFormat::Human, CommandSuccess::Cancelled(_)) => {
             "Cancelled; no changes made.".to_owned()
         }
@@ -194,7 +216,30 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
     }
 }
 
-fn render_json_success<T: Serialize>(data: &T) -> String {
+pub async fn write_success(
+    format: OutputFormat,
+    success: CommandSuccess,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> Result<ExitCode, AppError> {
+    if let CommandSuccess::ApiResponse(response) = success {
+        return raw::write_response(format, response, stdout, stderr).await;
+    }
+    let rendered = render_success(format, &success);
+    if !rendered.is_empty() {
+        writeln!(stdout, "{rendered}").map_err(output_write_error)?;
+    }
+    Ok(ExitCode::SUCCESS)
+}
+pub(crate) fn output_write_error(error: std::io::Error) -> AppError {
+    AppError::new(
+        ErrorCode::InternalError,
+        format!("could not write command output: {error}"),
+        StableExitCode::Transport,
+    )
+}
+
+pub(crate) fn render_json_success<T: Serialize>(data: &T) -> String {
     serde_json::to_string(&SuccessEnvelope { ok: true, data })
         .expect("command success is always serializable")
 }
@@ -1017,11 +1062,18 @@ fn escape_terminal_controls(value: &str) -> String {
 
 pub fn render_error(format: OutputFormat, error: &AppError) -> String {
     match format {
-        OutputFormat::Human => format!(
-            "Error [{}]: {}",
-            error.code().as_str(),
-            error.message().trim()
-        ),
+        OutputFormat::Human => {
+            let mut rendered = format!(
+                "Error [{}]: {}",
+                error.code().as_str(),
+                error.message().trim()
+            );
+            if let Some(response) = &error.details().response {
+                rendered.push('\n');
+                rendered.push_str(&render_api_response_human(response));
+            }
+            rendered
+        }
         OutputFormat::Json => serde_json::to_string(&ErrorEnvelope {
             ok: false,
             error: ErrorBody {
@@ -1031,6 +1083,11 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
             },
         })
         .expect("application errors are always serializable"),
+        OutputFormat::Raw => format!(
+            "Error [{}]: {}",
+            error.code().as_str(),
+            error.message().trim()
+        ),
     }
 }
 

@@ -1,3 +1,4 @@
+pub mod api;
 pub mod auth;
 pub(crate) mod authenticated;
 pub mod boards;
@@ -22,6 +23,9 @@ use crate::{
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Send a low-level request to the selected Wekan server.
+    Api(api::ApiArgs),
+
     /// Authenticate with a Wekan server.
     Auth(auth::AuthArgs),
 
@@ -44,7 +48,17 @@ pub enum RootCommand {
     Swimlane(swimlanes::SwimlaneArgs),
 }
 
+impl RootCommand {
+    pub const fn supports_raw_output(&self) -> bool {
+        matches!(self, Self::Api(_))
+    }
+}
+
 pub(crate) enum PreparedCommand<'command, 'store> {
+    Api {
+        args: api::ApiArgs,
+        client_factory: &'command WekanClientFactory,
+    },
     Auth {
         command: auth::PreparedAuthCommand<'command, 'store>,
     },
@@ -81,6 +95,10 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        PreparedCommand::Api {
+            args,
+            client_factory,
+        } => api::dispatch(args.command, client_factory, credential_store, confirmation).await,
         PreparedCommand::Auth { command } => {
             auth::dispatch(command, credential_store, secret_input, confirmation).await
         }

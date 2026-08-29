@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Number;
+use serde_json::{Number, Value};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    ApiResponse(ApiResponseSuccess),
     Cancelled(CancellationSuccess),
     Registration(AuthSuccess),
     Login(AuthSuccess),
@@ -49,6 +50,7 @@ pub enum CommandSuccess {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    ApiRequest,
     AuthLogout,
     ProfileRemove,
     UserTakeOwnership,
@@ -63,6 +65,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::ApiRequest => "api request",
             Self::AuthLogout => "auth logout",
             Self::ProfileRemove => "profile remove",
             Self::UserTakeOwnership => "user take-ownership",
@@ -74,6 +77,45 @@ impl DestructiveOperation {
             Self::SwimlaneDelete => "swimlane delete",
         }
     }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ApiResponseSuccess {
+    pub profile: String,
+    pub unsafe_method: bool,
+    pub authenticated: bool,
+    pub response: crate::client::RawApiResponse,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RawValueEncoding {
+    Text,
+    Base64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RawResponseHeader {
+    pub name: String,
+    pub encoding: RawValueEncoding,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "encoding", rename_all = "snake_case")]
+pub enum RawResponseBody {
+    Json { value: Value },
+    Text { value: String },
+    Base64 { value: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RawApiResponseData {
+    pub http_status: u16,
+    pub mutation_attempted: bool,
+    pub mutation_confirmed: bool,
+    pub headers: Vec<RawResponseHeader>,
+    pub body: RawResponseBody,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]

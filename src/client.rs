@@ -3,6 +3,7 @@ pub mod boards;
 pub mod cards;
 pub mod error;
 pub mod lists;
+mod raw;
 pub mod swimlanes;
 mod transport;
 pub mod users;
@@ -29,6 +30,8 @@ pub use lists::{
     CreateListRequest, CreateListResult, DeleteListResult, ListDocument, ListSummary, ListWipLimit,
     UpdateListRequest, UpdateListResult,
 };
+pub use raw::RawApiResponse;
+pub(crate) use raw::{RawApiAuthentication, RawApiRequest, RawApiRequestError};
 pub use swimlanes::{
     CreateSwimlaneRequest, CreateSwimlaneResult, DeleteSwimlaneResult, SwimlaneDocument,
     SwimlaneSummary, UpdateSwimlaneRequest, UpdateSwimlaneResult,

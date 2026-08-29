@@ -10,6 +10,7 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 - ✗ means no dedicated equivalent CLI command exists yet.
 - Multiple CLI commands may intentionally map to one API operation when Wekan selects behavior through the request body.
 - Local-only commands such as `wekan profile ...` are excluded because they do not implement Wekan API operations.
+- The generic `wekan api request` escape hatch does not count as dedicated operation coverage; a row becomes implemented only when a first-class typed command owns that operation.
 
 ## Operations
 
