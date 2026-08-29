@@ -117,3 +117,8 @@ For every new or changed API-facing command:
 6. If intent remains uncertain, report the uncertainty.
 
 Observed server behavior determines compatibility, but document behaviour believed to be an upstream defect.
+
+Verified upstream defects are part of the pinned compatibility contract. Do not add CLI-side
+preflights, retries, emulation, or other workarounds that alter or mask their observed behavior
+unless the user explicitly requests a workaround. Document and regression-test those behaviors;
+fix only CLI, contract, documentation, and test defects owned by this repository.
