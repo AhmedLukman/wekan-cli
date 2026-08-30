@@ -7,8 +7,9 @@ use std::{
 use secrecy::ExposeSecret;
 use serde_json::json;
 use wekan_cli::client::{
-    BoardType, BoardWatchLevel, ClientError, CreateCardRequest, CreateListRequest,
-    CreateSwimlaneRequest, UpdateCardRequest, UpdateListRequest, UpdateSwimlaneRequest,
+    BoardType, BoardWatchLevel, ClientError, CreateCardRequest, CreateCommentRequest,
+    CreateListRequest, CreateSwimlaneRequest, UpdateCardRequest, UpdateListRequest,
+    UpdateSwimlaneRequest,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -84,6 +85,351 @@ fn complete_card_response() -> serde_json::Value {
         "showChecklistAtMinicard": false,
         "hideFinishedChecklistIfItemsAreHidden": true
     })
+}
+
+#[tokio::test]
+async fn comment_responses_decode_complete_and_compact_v11_06_shapes() {
+    let server = MockServer::start().await;
+    let base = "/api/boards/board-1/cards/card-1/comments";
+    Mock::given(method("GET"))
+        .and(path(base))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "comment-1",
+            "comment": "Hello",
+            "authorId": "user-1"
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    for (comment_id, parent) in [
+        ("absent-parent", None),
+        ("empty-parent", Some(json!(""))),
+        ("null-parent", Some(serde_json::Value::Null)),
+        ("reply", Some(json!("comment-0"))),
+    ] {
+        let mut response = json!({
+            "_id": comment_id,
+            "boardId": "board-1",
+            "cardId": "card-1",
+            "text": "Hello",
+            "createdAt": "2030-01-02T03:04:05.000Z",
+            "modifiedAt": "2030-01-02T03:05:05.000Z",
+            "userId": "user-1"
+        });
+        if let Some(parent) = parent {
+            response["parentId"] = parent;
+        }
+        Mock::given(method("GET"))
+            .and(path(format!("{base}/{comment_id}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+
+    let client = client(&server);
+    let comments = client
+        .card_comments("board-1", "card-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(comments[0].comment_id, "comment-1");
+    assert_eq!(comments[0].text, "Hello");
+    assert_eq!(comments[0].author_id, "user-1");
+    for comment_id in ["absent-parent", "empty-parent", "null-parent"] {
+        let comment = client
+            .comment("board-1", "card-1", comment_id, &user_token())
+            .await
+            .unwrap();
+        assert_eq!(comment.parent_id, None);
+    }
+    let reply = client
+        .comment("board-1", "card-1", "reply", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(reply.parent_id.as_deref(), Some("comment-0"));
+}
+
+#[tokio::test]
+async fn comment_responses_reject_unmapped_missing_and_invalid_fields() {
+    let server = MockServer::start().await;
+    let base = "/api/boards/board-1/cards/card-1/comments";
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/unknown")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "unknown",
+            "boardId": "board-1",
+            "cardId": "card-1",
+            "text": "Hello",
+            "createdAt": "2030-01-02T03:04:05Z",
+            "modifiedAt": "2030-01-02T03:05:05Z",
+            "userId": "user-1",
+            "futureField": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/missing-author")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "missing-author",
+            "boardId": "board-1",
+            "cardId": "card-1",
+            "text": "Hello",
+            "createdAt": "2030-01-02T03:04:05Z",
+            "modifiedAt": "2030-01-02T03:05:05Z"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/invalid-date")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "invalid-date",
+            "boardId": "board-1",
+            "cardId": "card-1",
+            "text": "Hello",
+            "createdAt": "yesterday",
+            "modifiedAt": "2030-01-02T03:05:05Z",
+            "userId": "user-1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/cards/unknown-list/comments"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "_id": "comment-1",
+            "comment": "Hello",
+            "authorId": "user-1",
+            "futureField": true
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/cards/embedded/comments"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "error": "forbidden",
+            "reason": "board access denied",
+            "statusCode": 403
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/malformed")))
+        .respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/oversized")))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 1024 * 1024 + 1]))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+
+    for comment_id in ["unknown", "missing-author", "invalid-date"] {
+        assert!(matches!(
+            client
+                .comment("board-1", "card-1", comment_id, &user_token())
+                .await,
+            Err(ClientError::Protocol {
+                success_status_received: true,
+                ..
+            })
+        ));
+    }
+    assert!(matches!(
+        client
+            .card_comments("board-1", "unknown-list", &user_token())
+            .await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .card_comments("board-1", "embedded", &user_token())
+            .await,
+        Err(ClientError::EmbeddedServer {
+            http_status,
+            wekan_status_code: 403,
+            ..
+        }) if http_status == reqwest::StatusCode::OK
+    ));
+    assert!(matches!(
+        client
+            .comment("board-1", "card-1", "malformed", &user_token())
+            .await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .comment("board-1", "card-1", "oversized", &user_token())
+            .await,
+        Err(ClientError::ResponseTooLarge { .. })
+    ));
+}
+
+#[tokio::test]
+async fn comment_missing_and_mutation_id_response_shapes_are_strict() {
+    let server = MockServer::start().await;
+    let base = "/api/boards/board-1/cards/card-1/comments";
+    Mock::given(method("GET"))
+        .and(path(format!("{base}/missing")))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(base))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "",
+            "unexpected": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path(format!("{base}/comment-1")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+
+    assert!(matches!(
+        client
+            .comment("board-1", "card-1", "missing", &user_token())
+            .await,
+        Err(ClientError::EmbeddedServer {
+            wekan_status_code: 404,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .create_comment(
+                "board-1",
+                "card-1",
+                &CreateCommentRequest {
+                    text: "Hello".to_owned()
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        client
+            .delete_comment("board-1", "card-1", "comment-1", &user_token())
+            .await,
+        Err(ClientError::Protocol {
+            success_status_received: true,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn comment_routes_preserve_explicit_http_error_statuses() {
+    let server = MockServer::start().await;
+    let base = "/api/boards/board-1/cards/card-1/comments";
+    for status in [401, 403, 404, 500] {
+        let card_id = format!("list-error-{status}");
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/boards/board-1/cards/{card_id}/comments"
+            )))
+            .respond_with(ResponseTemplate::new(status))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    for status in [401, 403, 404, 500] {
+        let card_id = format!("create-error-{status}");
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/api/boards/board-1/cards/{card_id}/comments"
+            )))
+            .respond_with(ResponseTemplate::new(status))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    for status in [401, 403, 404, 500] {
+        let comment_id = format!("get-error-{status}");
+        Mock::given(method("GET"))
+            .and(path(format!("{base}/{comment_id}")))
+            .respond_with(ResponseTemplate::new(status))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    for status in [401, 403, 404, 500] {
+        let comment_id = format!("delete-error-{status}");
+        Mock::given(method("DELETE"))
+            .and(path(format!("{base}/{comment_id}")))
+            .respond_with(ResponseTemplate::new(status))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let client = client(&server);
+    let token = user_token();
+    let request = CreateCommentRequest {
+        text: "Hello".to_owned(),
+    };
+
+    for status in [401, 403, 404, 500] {
+        let card_id = format!("list-error-{status}");
+        let error = client
+            .card_comments("board-1", &card_id, &token)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, ClientError::Server { status: http_status, .. } if http_status.as_u16() == status)
+        );
+    }
+    for status in [401, 403, 404, 500] {
+        let card_id = format!("create-error-{status}");
+        let error = client
+            .create_comment("board-1", &card_id, &request, &token)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, ClientError::Server { status: http_status, .. } if http_status.as_u16() == status)
+        );
+    }
+    for status in [401, 403, 404, 500] {
+        let comment_id = format!("get-error-{status}");
+        let error = client
+            .comment("board-1", "card-1", &comment_id, &token)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, ClientError::Server { status: http_status, .. } if http_status.as_u16() == status)
+        );
+    }
+    for status in [401, 403, 404, 500] {
+        let comment_id = format!("delete-error-{status}");
+        let error = client
+            .delete_comment("board-1", "card-1", &comment_id, &token)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, ClientError::Server { status: http_status, .. } if http_status.as_u16() == status)
+        );
+    }
 }
 
 #[tokio::test]

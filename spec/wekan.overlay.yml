@@ -4343,14 +4343,50 @@ actions:
       Add the comment-summary array returned by Wekan v11.06
       server/models/cardComments.js lines 95-110.
     update:
+      description: >-
+        Compact comment summaries. A nonexistent card is not validated by this
+        route and therefore produces an empty array.
       schema: {type: array, items: {$ref: '#/definitions/CommentSummary'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].get.responses'
+    description: >-
+      Record the explicit authentication and board-existence failures emitted by
+      Wekan v11.06 server/models/cardComments.js lines 88-110 through
+      Authentication.checkBoardAccess and httpStatusForError.
+    update:
+      '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '500': {description: Unexpected comment-list query failure., schema: {$ref: '#/definitions/ErrorResponse'}}
 
   - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].get.responses["200"]'
     description: >-
       Add the single comment document from Wekan v11.06
       server/models/cardComments.js lines 119-140.
     update:
+      description: >-
+        The comment document, or an empty HTTP 200 body when no comment matches
+        the requested board, card, and comment IDs.
       schema: {$ref: '#/definitions/CardComments'}
+      x-wekan-empty-body-when: comment-not-found
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].get'
+    description: >-
+      Record the pinned v11.06 missing-comment behavior: ReactiveCache returns
+      undefined and server/apiMiddleware.js lines 103-116 sends an empty HTTP
+      200 response instead of HTTP 404.
+    update:
+      x-wekan-v11.06-defect: missing-comment-returns-empty-http-200
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].get.responses'
+    description: >-
+      Record the explicit authentication and board-existence failures emitted by
+      Wekan v11.06 server/models/cardComments.js lines 111-132.
+    update:
+      '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '404': {description: Board not found when the board does not exist., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '500': {description: Unexpected comment lookup failure., schema: {$ref: '#/definitions/ErrorResponse'}}
 
   - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].delete.responses["200"]'
     description: >-
@@ -4358,6 +4394,55 @@ actions:
       server/models/cardComments.js lines 190-240.
     update:
       schema: {$ref: '#/definitions/IdResponse'}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments"].post.responses'
+    description: >-
+      Record the authentication, board-access, validation, and unexpected-error
+      branches emitted by Wekan v11.06 server/models/cardComments.js lines
+      135-175.
+    update:
+      '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '500': {description: Comment insertion failed before the success response was sent., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/comments/{comment}"].delete.responses'
+    description: >-
+      Record the authentication, board-access, missing-comment, foreign-delete,
+      and unexpected-error branches emitted by Wekan v11.06
+      server/models/cardComments.js lines 177-231.
+    update:
+      '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '403': {description: Board comment access or comment-mutation permission denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '404': {description: Board or comment not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+      '500': {description: Comment deletion failed unexpectedly., schema: {$ref: '#/definitions/ErrorResponse'}}
+
+  - target: '$.definitions.CardComments.required'
+    description: >-
+      Replace the generated required fields before adding the Mongo document ID
+      returned by Wekan v11.06 server/models/cardComments.js lines 119-126.
+    remove: true
+
+  - target: '$.definitions.CardComments'
+    description: >-
+      Record the complete comment document returned by Wekan v11.06. The model
+      schema and timestamps are defined in models/cardComments.js lines 66-137,
+      and the REST lookup returns the matching Mongo document including _id in
+      server/models/cardComments.js lines 119-126.
+    update:
+      required: [_id, boardId, cardId, text, createdAt, modifiedAt, userId]
+      properties:
+        _id: {type: string}
+        createdAt: {type: string, format: date-time}
+        modifiedAt: {type: string, format: date-time}
+
+  - target: '$.definitions.CommentCreateRequest.properties.comment'
+    description: >-
+      Reject whitespace-only bodies to match validateCommentBody in Wekan
+      v11.06 server/lib/apiResponseHelpers.js lines 96-103.
+    update:
+      pattern: '\S'
+      description: Must contain at least one non-whitespace character.
 
   - target: '$.paths["/api/boards/{board}/custom-fields"].get.responses["200"]'
     description: >-

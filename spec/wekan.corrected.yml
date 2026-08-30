@@ -671,8 +671,12 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        Compact comment summaries. A nonexistent card is not validated by this route and therefore produces an empty array.
                     schema: {type: array, items: {$ref: '#/definitions/CommentSummary'}}
+                '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '500': {description: Unexpected comment-list query failure., schema: {$ref: '#/definitions/ErrorResponse'}}
         post:
             operationId: post_board_card_comments
             tags:
@@ -687,6 +691,10 @@ paths:
                         Comment created.
                     schema: {$ref: '#/definitions/IdResponse'}
                 '400': {description: Missing or empty comment., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '404': {description: Board not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '500': {description: Comment insertion failed before the success response was sent., schema: {$ref: '#/definitions/ErrorResponse'}}
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -724,8 +732,14 @@ paths:
             responses:
                 '200':
                     description: |-
-                        200 response
+                        The comment document, or an empty HTTP 200 body when no comment matches the requested board, card, and comment IDs.
                     schema: {$ref: '#/definitions/CardComments'}
+                    x-wekan-empty-body-when: comment-not-found
+                '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '403': {description: Board comment access denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '404': {description: Board not found when the board does not exist., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '500': {description: Unexpected comment lookup failure., schema: {$ref: '#/definitions/ErrorResponse'}}
+            x-wekan-v11.06-defect: missing-comment-returns-empty-http-200
         delete:
             operationId: delete_board_card_comment
             tags:
@@ -755,6 +769,10 @@ paths:
                     description: |-
                         200 response
                     schema: {$ref: '#/definitions/IdResponse'}
+                '401': {description: Authentication required., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '403': {description: Board comment access or comment-mutation permission denied., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '404': {description: Board or comment not found., schema: {$ref: '#/definitions/ErrorResponse'}}
+                '500': {description: Comment deletion failed unexpectedly., schema: {$ref: '#/definitions/ErrorResponse'}}
     /api/boards/{board}/cards/{card}/dependencies:
         get:
             operationId: get_card_dependencies
@@ -4411,19 +4429,16 @@ definitions:
                 description: |
                     when was the comment created
                 type: string
+                format: date-time
             modifiedAt:
                 type: string
+                format: date-time
             userId:
                 description: |
                     the author ID of the comment
                 type: string
-        required:
-            - boardId
-            - cardId
-            - text
-            - createdAt
-            - modifiedAt
-            - userId
+            _id: {type: string}
+        required: [_id, boardId, cardId, text, createdAt, modifiedAt, userId]
     Cards:
         type: object
         properties:
@@ -7255,7 +7270,7 @@ definitions:
             Required comment body validated and inserted by server/models/cardComments.js lines 144-174.
         required: [comment]
         properties:
-            comment: {type: string, minLength: 1}
+            comment: {type: string, minLength: 1, pattern: '\S', description: Must contain at least one non-whitespace character.}
     CustomFieldRequest:
         type: object
         description: >-

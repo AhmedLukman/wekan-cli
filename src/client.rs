@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod boards;
 pub mod cards;
+pub mod comments;
 pub mod error;
 pub mod lists;
 mod raw;
@@ -24,6 +25,9 @@ pub use cards::{
     CardCustomField, CardCustomFieldValue, CardDependency, CardDocument, CardLocation, CardPoker,
     CardSticker, CardStickerHighlight, CardSummary, CardVote, CreateCardRequest, CreateCardResult,
     DeleteCardResult, UpdateCardRequest, UpdateCardResult,
+};
+pub use comments::{
+    CommentDocument, CommentSummary, CreateCommentRequest, CreateCommentResult, DeleteCommentResult,
 };
 pub use error::ClientError;
 pub use lists::{

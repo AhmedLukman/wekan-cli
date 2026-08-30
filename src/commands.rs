@@ -4,6 +4,7 @@ pub(crate) mod authenticated;
 pub mod boards;
 pub mod cards;
 pub(crate) mod client_error;
+pub mod comments;
 pub(crate) mod credential_ops;
 pub mod lists;
 pub mod profile;
@@ -44,6 +45,9 @@ pub enum RootCommand {
     /// Inspect and manage cards in Wekan board lists.
     Card(Box<cards::CardArgs>),
 
+    /// Inspect and manage comments on Wekan cards.
+    Comment(comments::CommentArgs),
+
     /// Inspect and manage swimlanes on Wekan boards.
     Swimlane(swimlanes::SwimlaneArgs),
 }
@@ -79,6 +83,10 @@ pub(crate) enum PreparedCommand<'command, 'store> {
     },
     Card {
         args: Box<cards::CardArgs>,
+        client_factory: &'command WekanClientFactory,
+    },
+    Comment {
+        args: comments::CommentArgs,
         client_factory: &'command WekanClientFactory,
     },
     Swimlane {
@@ -130,6 +138,10 @@ pub(crate) async fn dispatch(
             args,
             client_factory,
         } => cards::dispatch(args.command, client_factory, credential_store, confirmation).await,
+        PreparedCommand::Comment {
+            args,
+            client_factory,
+        } => comments::dispatch(args.command, client_factory, credential_store, confirmation).await,
         PreparedCommand::Swimlane {
             args,
             client_factory,

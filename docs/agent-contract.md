@@ -19,12 +19,12 @@ is one JSON object followed by a newline.
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
 `user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`,
-and `swimlane delete` require interactive confirmation or `--yes`. Normal target
-and removability preflight runs first; its errors retain their documented
-codes. Otherwise, non-terminal and JSON invocations without `--yes` return
-`invalid_input` with exit status 2 before destructive work. `--yes` is accepted
-only by those commands. For active-profile removal, `--force` remains a
-separate requirement.
+`comment delete`, and `swimlane delete` require interactive confirmation or
+`--yes`. Normal target and removability preflight runs first; its errors retain
+their documented codes. Otherwise, non-terminal and JSON invocations without
+`--yes` return `invalid_input` with exit status 2 before destructive work.
+`--yes` is accepted only by those commands. For active-profile removal,
+`--force` remains a separate requirement.
 
 `api request` dynamically applies the same policy to every method except GET,
 HEAD, and OPTIONS. Its cancellation operation is `api_request`; `--yes` is
@@ -49,7 +49,8 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
 `user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
-`swimlane_delete`, or `api_request`. Human output is `Cancelled; no changes made.`
+`comment_delete`, `swimlane_delete`, or `api_request`. Human output is
+`Cancelled; no changes made.`
 
 ## Raw API success
 
@@ -309,6 +310,26 @@ fields changed. Delete returns
 The delete result only means Wekan accepted its hard-idempotent request; it does
 not prove prior existence or removal. Declining card deletion uses the standard
 cancellation shape with `operation: "card_delete"`.
+
+## Comment success
+
+`comment list` returns `{"board_id":"...","card_id":"...","comments":[...]}`.
+Each compact comment contains `comment_id`, `text`, and `author_id`.
+
+`comment get` returns `comment_id`, `board_id`, `card_id`, `text`, nullable
+`parent_id`, `created_at`, `modified_at`, and `author_id`. Empty, null, or
+omitted top-level parent IDs become JSON `null`. Unknown response fields,
+missing or empty required values, and invalid timestamps cause
+`protocol_error`. Wekan v11.06 returns an empty HTTP 200 body for a missing
+comment; the CLI normalizes that response to `not_found`.
+
+Creation returns `{"board_id":"...","card_id":"...","comment_id":"..."}`.
+Delete returns the same identifiers plus `"deleted":true` and
+`"delete_mode":"hard"`. A missing board or comment produces `not_found` and is
+known not to have deleted anything. A malformed successful response or a
+returned card ID that differs from the request reports `outcome_unknown: true`.
+Declining comment deletion uses the standard cancellation shape with
+`operation: "comment_delete"`.
 
 ## Swimlane success
 

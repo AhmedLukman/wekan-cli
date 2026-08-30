@@ -314,6 +314,49 @@ fn only_card_delete_accepts_yes() {
 }
 
 #[test]
+fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
+    cargo_bin_cmd!("wekan")
+        .args(["comment", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("get"))
+        .stdout(predicate::str::contains("create"))
+        .stdout(predicate::str::contains("delete"))
+        .stdout(predicate::str::contains("update").not())
+        .stderr(predicate::str::is_empty());
+
+    cargo_bin_cmd!("wekan")
+        .args(["comment", "create", "board-1", "card-1", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--text <TEXT>"));
+}
+
+#[test]
+fn only_comment_delete_accepts_yes() {
+    cargo_bin_cmd!("wekan")
+        .args([
+            "comment",
+            "delete",
+            "board-1",
+            "card-1",
+            "comment-1",
+            "--help",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--yes"));
+
+    cargo_bin_cmd!("wekan")
+        .args(["comment", "get", "board-1", "card-1", "comment-1", "--yes"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("unexpected argument '--yes'"));
+}
+
+#[test]
 fn swimlane_help_exposes_only_core_crud_and_create_sort() {
     cargo_bin_cmd!("wekan")
         .args(["swimlane", "--help"])

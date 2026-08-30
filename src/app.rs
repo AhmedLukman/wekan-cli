@@ -116,6 +116,7 @@ where
             RootCommand::Board(args) => self.execute_board(args).await,
             RootCommand::List(args) => self.execute_list(args).await,
             RootCommand::Card(args) => self.execute_card(args).await,
+            RootCommand::Comment(args) => self.execute_comment(args).await,
             RootCommand::Swimlane(args) => self.execute_swimlane(args).await,
             RootCommand::Profile(args) => {
                 if self.target_resolver.has_explicit_target() {
@@ -315,6 +316,29 @@ where
         let profile = target.profile().to_owned();
         commands::dispatch(
             PreparedCommand::Swimlane {
+                args,
+                client_factory: target.client_factory(),
+            },
+            &self.credential_store,
+            &self.secret_input,
+            &self.profile_store,
+            &self.confirmation,
+        )
+        .await
+        .map_err(|error| error.with_profile_context(profile))
+    }
+
+    async fn execute_comment(
+        &self,
+        args: crate::commands::comments::CommentArgs,
+    ) -> Result<CommandSuccess, AppError> {
+        let missing_profile_resolution = args.command.missing_profile_resolution();
+        let target = self
+            .target_resolver
+            .resolve(&self.profile_store, missing_profile_resolution)?;
+        let profile = target.profile().to_owned();
+        commands::dispatch(
+            PreparedCommand::Comment {
                 args,
                 client_factory: target.client_factory(),
             },

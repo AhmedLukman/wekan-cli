@@ -9,6 +9,7 @@ use crate::command_result::{
     AuthStatusSuccess, AuthSuccess, BoardCountSuccess, BoardCreateSuccess, BoardDeleteSuccess,
     BoardDetail, BoardListScope, BoardListSuccess, BoardRenameSuccess, CardCollectionSuccess,
     CardCreateSuccess, CardDeleteSuccess, CardDetail, CardUpdateSuccess, CommandSuccess,
+    CommentCollectionSuccess, CommentCreateSuccess, CommentDeleteSuccess, CommentDetail,
     ListCollectionSuccess, ListCreateSuccess, ListDeleteSuccess, ListDetail, ListUpdateSuccess,
     LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess, ProfileRemoveSuccess,
     SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteSuccess, SwimlaneDetail,
@@ -166,6 +167,16 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::CardUpdated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardDeleted(data)) => render_card_deleted(data),
         (OutputFormat::Json, CommandSuccess::CardDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CommentCollection(data)) => {
+            render_comment_collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CommentCollection(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CommentShown(data)) => render_comment_detail(data),
+        (OutputFormat::Json, CommandSuccess::CommentShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CommentCreated(data)) => render_comment_created(data),
+        (OutputFormat::Json, CommandSuccess::CommentCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CommentDeleted(data)) => render_comment_deleted(data),
+        (OutputFormat::Json, CommandSuccess::CommentDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SwimlaneCollection(data)) => {
             render_swimlane_collection(data)
         }
@@ -645,6 +656,64 @@ fn render_card_deleted(data: &CardDeleteSuccess) -> String {
         "Permanently deleted card {} from list {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_comment_collection(data: &CommentCollectionSuccess) -> String {
+    if data.comments.is_empty() {
+        return format!(
+            "No comments found on card {} on board {}.",
+            escape_terminal_controls(&data.card_id),
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    let mut lines = vec!["ID  TEXT  AUTHOR".to_owned()];
+    lines.extend(data.comments.iter().map(|comment| {
+        format!(
+            "{}  {}  {}",
+            escape_terminal_controls(&comment.comment_id),
+            escape_terminal_controls(&comment.text),
+            escape_terminal_controls(&comment.author_id)
+        )
+    }));
+    lines.join("\n")
+}
+
+fn render_comment_detail(data: &CommentDetail) -> String {
+    let value = serde_json::to_value(data).expect("comment documents are always serializable");
+    let serde_json::Value::Object(mut fields) = value else {
+        unreachable!("comment documents serialize as objects")
+    };
+    fields.remove("comment_id");
+    fields.remove("text");
+
+    let mut lines = vec![
+        format!("Comment ID: {}", escape_terminal_controls(&data.comment_id)),
+        format!("Text: {}", escape_terminal_controls(&data.text)),
+    ];
+    for (name, value) in fields {
+        if !value.is_null() {
+            render_named_value(&mut lines, 0, &name, &value);
+        }
+    }
+    lines.join("\n")
+}
+
+fn render_comment_created(data: &CommentCreateSuccess) -> String {
+    format!(
+        "Created comment {} on card {} on board {}.",
+        escape_terminal_controls(&data.comment_id),
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+fn render_comment_deleted(data: &CommentDeleteSuccess) -> String {
+    format!(
+        "Permanently deleted comment {} from card {} on board {}.",
+        escape_terminal_controls(&data.comment_id),
+        escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.board_id)
     )
 }

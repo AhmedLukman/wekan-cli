@@ -2,7 +2,7 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
-**Coverage:** 32 of 140 operations implemented (22.9%); 108 remaining.
+**Coverage:** 36 of 140 operations implemented (25.7%); 104 remaining.
 
 ## Status rules
 
@@ -36,10 +36,10 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 | 18 | ChecklistItems | `GET` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `get_board_card_checklist_item` | Get one checklist item. | — | ✗ |
 | 19 | ChecklistItems | `PUT` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `put_board_card_checklist_item` | Update a checklist item. | — | ✗ |
 | 20 | ChecklistItems | `DELETE` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `delete_board_card_checklist_item` | Delete a checklist item. | — | ✗ |
-| 21 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments` | `get_board_card_comments` | List comments on a card. | — | ✗ |
-| 22 | CardComments | `POST` | `/api/boards/{board}/cards/{card}/comments` | `post_board_card_comments` | Create a comment on a card. | — | ✗ |
-| 23 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `get_board_card_comment` | Get one card comment. | — | ✗ |
-| 24 | CardComments | `DELETE` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `delete_board_card_comment` | Delete a card comment. | — | ✗ |
+| 21 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments` | `get_board_card_comments` | List comments on a card. | `wekan comment list <BOARD_ID> <CARD_ID>` | ✓ |
+| 22 | CardComments | `POST` | `/api/boards/{board}/cards/{card}/comments` | `post_board_card_comments` | Create a comment on a card. | `wekan comment create <BOARD_ID> <CARD_ID> --text <TEXT>` | ✓ |
+| 23 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `get_board_card_comment` | Get one card comment. | `wekan comment get <BOARD_ID> <CARD_ID> <COMMENT_ID>` | ✓ |
+| 24 | CardComments | `DELETE` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `delete_board_card_comment` | Delete a card comment. | `wekan comment delete <BOARD_ID> <CARD_ID> <COMMENT_ID> [--yes]` | ✓ |
 | 25 | Dependencies | `GET` | `/api/boards/{board}/cards/{card}/dependencies` | `get_card_dependencies` | Get one card's dependencies. | — | ✗ |
 | 26 | Dependencies | `POST` | `/api/boards/{board}/cards/{card}/dependencies` | `new_card_dependency` | Add (or update) a typed dependency line from a card to another card. | — | ✗ |
 | 27 | Dependencies | `PUT` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `edit_card_dependency` | Edit a dependency line's type, color or icon. | — | ✗ |

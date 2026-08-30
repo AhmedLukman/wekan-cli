@@ -16,15 +16,16 @@ use crate::{
         BoardCreateSuccess, BoardDeleteSuccess, BoardListScope, BoardListSuccess,
         BoardRenameSuccess, BoardSummary, CancellationSuccess, CardCollectionSuccess,
         CardCreateSuccess, CardDeleteMode, CardDeleteSuccess, CardSubmittedField, CardSummary,
-        CardUpdateSuccess, CommandSuccess, DestructiveOperation, ListCollectionSuccess,
-        ListCreateSuccess, ListDeleteMode, ListDeleteSuccess, ListDetail, ListSummary,
-        ListUpdateSuccess, ListUpdatedField, ListWipLimitDetail, LogoutScope, LogoutSuccess,
-        ProfileItem, ProfileListSuccess, ProfileRemoveSuccess, SwimlaneCollectionSuccess,
-        SwimlaneCreateSuccess, SwimlaneDeleteMode, SwimlaneDeleteSuccess, SwimlaneDetail,
-        SwimlaneSummary, SwimlaneUpdateSuccess, SwimlaneUpdatedField, UserBoardSummary,
-        UserBoardsSuccess, UserCard, UserCardsSuccess, UserCreateSuccess, UserCreateWarning,
-        UserDeleteSuccess, UserDetail, UserEmail, UserListSuccess, UserOwnershipSuccess,
-        UserSummary,
+        CardUpdateSuccess, CommandSuccess, CommentCollectionSuccess, CommentCreateSuccess,
+        CommentDeleteMode, CommentDeleteSuccess, CommentDetail, CommentSummary,
+        DestructiveOperation, ListCollectionSuccess, ListCreateSuccess, ListDeleteMode,
+        ListDeleteSuccess, ListDetail, ListSummary, ListUpdateSuccess, ListUpdatedField,
+        ListWipLimitDetail, LogoutScope, LogoutSuccess, ProfileItem, ProfileListSuccess,
+        ProfileRemoveSuccess, SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteMode,
+        SwimlaneDeleteSuccess, SwimlaneDetail, SwimlaneSummary, SwimlaneUpdateSuccess,
+        SwimlaneUpdatedField, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
+        UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
+        UserListSuccess, UserOwnershipSuccess, UserSummary,
     },
     error::AppError,
     exit_code::StableExitCode,
@@ -881,6 +882,77 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
     );
     assert!(updated_json["data"].get("updated_fields").is_none());
     assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
+    let deleted_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
+    assert_eq!(deleted_json["data"]["delete_mode"], "hard");
+}
+
+#[test]
+fn comment_outputs_are_stable_comprehensive_and_terminal_safe() {
+    let collection = CommandSuccess::CommentCollection(CommentCollectionSuccess {
+        board_id: "board-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        comments: vec![CommentSummary {
+            comment_id: "comment-1".to_owned(),
+            text: "Hello\nnext".to_owned(),
+            author_id: "user-1".to_owned(),
+        }],
+    });
+    let collection_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &collection)).unwrap();
+    assert_eq!(collection_json["data"]["card_id"], "card-1");
+    assert_eq!(
+        collection_json["data"]["comments"][0]["comment_id"],
+        "comment-1"
+    );
+    let collection_human = render_success(OutputFormat::Human, &collection);
+    assert!(collection_human.contains(r"Hello\nnext"));
+    assert!(collection_human.contains("user-1"));
+
+    let empty = CommandSuccess::CommentCollection(CommentCollectionSuccess {
+        board_id: "board-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        comments: vec![],
+    });
+    assert_eq!(
+        render_success(OutputFormat::Human, &empty),
+        "No comments found on card card-1 on board board-1."
+    );
+
+    let shown = CommandSuccess::CommentShown(CommentDetail {
+        comment_id: "comment-1".to_owned(),
+        board_id: "board-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        text: "Hello\u{1b}]52;c;x\u{7}".to_owned(),
+        parent_id: None,
+        created_at: "2030-01-02T03:04:05Z".to_owned(),
+        modified_at: "2030-01-02T03:05:05Z".to_owned(),
+        author_id: "user-1".to_owned(),
+    });
+    let shown_json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
+    assert_eq!(shown_json["data"]["parent_id"], serde_json::Value::Null);
+    assert_eq!(shown_json["data"]["author_id"], "user-1");
+    let shown_human = render_success(OutputFormat::Human, &shown);
+    assert!(!shown_human.contains('\u{1b}'));
+    assert!(!shown_human.contains('\u{7}'));
+    assert!(!shown_human.contains("parent_id"));
+    assert!(shown_human.contains("created_at: 2030-01-02T03:04:05Z"));
+
+    let created = CommandSuccess::CommentCreated(CommentCreateSuccess {
+        board_id: "board-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        comment_id: "comment-1".to_owned(),
+    });
+    let deleted = CommandSuccess::CommentDeleted(CommentDeleteSuccess {
+        board_id: "board-1".to_owned(),
+        card_id: "card-1".to_owned(),
+        comment_id: "comment-1".to_owned(),
+        deleted: true,
+        delete_mode: CommentDeleteMode::Hard,
+    });
+    assert!(render_success(OutputFormat::Human, &created).contains("Created comment"));
+    assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted comment"));
     let deleted_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
     assert_eq!(deleted_json["data"]["delete_mode"], "hard");

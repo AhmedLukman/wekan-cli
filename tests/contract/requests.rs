@@ -1,8 +1,8 @@
 use serde_json::json;
 use wekan_cli::client::{
     BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateCardRequest,
-    CreateListRequest, CreateSwimlaneRequest, ListWipLimit, UpdateCardRequest, UpdateListRequest,
-    UpdateSwimlaneRequest, UserAction, UserActionResult,
+    CreateCommentRequest, CreateListRequest, CreateSwimlaneRequest, ListWipLimit,
+    UpdateCardRequest, UpdateListRequest, UpdateSwimlaneRequest, UserAction, UserActionResult,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -262,6 +262,116 @@ async fn list_mutations_are_not_retried_and_redirects_are_not_followed() {
     assert!(matches!(
         client(&redirect_server)
             .delete_list("board-1", "list-1", &user_token())
+            .await,
+        Err(ClientError::UnexpectedRedirect { .. })
+    ));
+}
+
+#[tokio::test]
+async fn comment_lifecycle_uses_encoded_scoped_paths_and_exact_json_body() {
+    let server = MockServer::start().await;
+    let collection_path = "/api/boards/board%2F1/cards/card%2F1/comments";
+    let comment_path = "/api/boards/board%2F1/cards/card%2F1/comments/comment%2F1";
+    Mock::given(method("GET"))
+        .and(path(collection_path))
+        .and(header("authorization", "Bearer user-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(comment_path))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id": "comment/1",
+            "boardId": "board/1",
+            "cardId": "card/1",
+            "text": "Hello",
+            "createdAt": "2030-01-02T03:04:05Z",
+            "modifiedAt": "2030-01-02T03:05:05Z",
+            "userId": "user-1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(collection_path))
+        .and(body_json(json!({"comment": "Hello"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "comment-2"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path(comment_path))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "card/1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    client
+        .card_comments("board/1", "card/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .comment("board/1", "card/1", "comment/1", &user_token())
+        .await
+        .unwrap();
+    client
+        .create_comment(
+            "board/1",
+            "card/1",
+            &CreateCommentRequest {
+                text: "Hello".to_owned(),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .delete_comment("board/1", "card/1", "comment/1", &user_token())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn comment_mutations_are_not_retried_and_redirects_are_not_followed() {
+    let failure_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/cards/card-1/comments"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(1)
+        .mount(&failure_server)
+        .await;
+    assert!(matches!(
+        client(&failure_server)
+            .create_comment(
+                "board-1",
+                "card-1",
+                &CreateCommentRequest {
+                    text: "Hello".to_owned(),
+                },
+                &user_token()
+            )
+            .await,
+        Err(ClientError::Server { .. })
+    ));
+
+    let redirect_server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/board-1/cards/card-1/comments/comment-1"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", "/other-comment"))
+        .expect(1)
+        .mount(&redirect_server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/other-comment"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&redirect_server)
+        .await;
+    assert!(matches!(
+        client(&redirect_server)
+            .delete_comment("board-1", "card-1", "comment-1", &user_token())
             .await,
         Err(ClientError::UnexpectedRedirect { .. })
     ));
