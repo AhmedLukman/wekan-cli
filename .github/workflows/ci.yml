@@ -39,7 +39,23 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - name: Install Linux credential-store service
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gnome-keyring
+      - name: Run tests with Linux Secret Service
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dbus-run-session -- bash -c '
+            set -euo pipefail
+            printf "%s" "wekan-ci-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            cargo test --all-targets --all-features --locked
+          '
       - name: Run tests
+        if: runner.os != 'Linux'
         run: cargo test --all-targets --all-features --locked
 
   dependency-policy:

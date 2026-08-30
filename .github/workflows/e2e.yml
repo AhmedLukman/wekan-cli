@@ -83,12 +83,23 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - name: Install Linux credential-store service
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gnome-keyring
       - name: Start isolated Wekan v11.06
         run: docker compose up -d --wait
       - name: Select live-test server
         run: echo "${{ matrix.variable }}=http://localhost:3000" >> "$GITHUB_ENV"
       - name: Run live contract test
-        run: cargo test --locked --test e2e '${{ matrix.test }}' -- --ignored --exact --nocapture
+        shell: bash
+        run: |
+          set -euo pipefail
+          dbus-run-session -- bash -c '
+            set -euo pipefail
+            printf "%s" "wekan-ci-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            cargo test --locked --test e2e "${{ matrix.test }}" -- --ignored --exact --nocapture
+          '
       - name: Capture service logs
         if: failure()
         run: docker compose logs --no-color mongodb mongodb-init wekan
