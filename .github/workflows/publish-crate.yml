@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
 
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://crates.io/api/v1/crates/wekan-cli/$version")"
+          status="$(curl --silent --show-error --header 'User-Agent: wekan-cli-publish-workflow (https://github.com/AhmedLukman/wekan-cli)' --output /dev/null --write-out '%{http_code}' "https://crates.io/api/v1/crates/wekan-cli/$version")"
           case "$status" in
             200)
               echo "wekan-cli $version already exists; skipping publication."
