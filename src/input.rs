@@ -6,7 +6,7 @@ pub use self::confirmation::{
     SystemConfirmationProvider, confirm_or_skip, escape_terminal_text,
 };
 
-pub(crate) use self::payload::PayloadSource;
+pub(crate) use self::payload::{PayloadBody, PayloadSource};
 
 #[cfg(test)]
 pub(crate) use self::confirmation::tests::FakeConfirmationProvider;

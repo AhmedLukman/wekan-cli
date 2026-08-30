@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use reqwest::Body;
 use thiserror::Error;
-use tokio_util::io::ReaderStream;
+use tokio::io::AsyncRead;
 
 pub(crate) enum PayloadSource {
     Text(String),
@@ -10,8 +9,13 @@ pub(crate) enum PayloadSource {
     Stdin,
 }
 
+pub(crate) enum PayloadBody {
+    Text(String),
+    Reader(Box<dyn AsyncRead + Send + Unpin>),
+}
+
 pub(crate) struct AcquiredPayload {
-    pub(crate) body: Body,
+    pub(crate) body: PayloadBody,
     pub(crate) content_length: Option<u64>,
 }
 
@@ -35,7 +39,7 @@ impl PayloadSource {
     pub(crate) async fn acquire(self) -> Result<AcquiredPayload, PayloadError> {
         match self {
             Self::Text(body) => Ok(AcquiredPayload {
-                body: Body::from(body),
+                body: PayloadBody::Text(body),
                 content_length: None,
             }),
             Self::File(path) => {
@@ -55,12 +59,12 @@ impl PayloadSource {
                     })?
                     .len();
                 Ok(AcquiredPayload {
-                    body: Body::from(file),
+                    body: PayloadBody::Reader(Box::new(file)),
                     content_length: Some(content_length),
                 })
             }
             Self::Stdin => Ok(AcquiredPayload {
-                body: Body::wrap_stream(ReaderStream::new(tokio::io::stdin())),
+                body: PayloadBody::Reader(Box::new(tokio::io::stdin())),
                 content_length: None,
             }),
         }

@@ -10,6 +10,8 @@ use reqwest::{
 };
 use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
+use tokio::io::AsyncRead;
+use tokio_util::io::ReaderStream;
 
 use super::{ClientError, ServerUrl, WekanClient, WekanClientFactory};
 
@@ -20,12 +22,26 @@ pub(crate) enum RawApiAuthentication<'token> {
     None,
 }
 
+pub(crate) enum RawApiRequestBody {
+    Text(String),
+    Reader(Box<dyn AsyncRead + Send + Unpin>),
+}
+
+impl RawApiRequestBody {
+    fn into_reqwest_body(self) -> Body {
+        match self {
+            Self::Text(body) => Body::from(body),
+            Self::Reader(reader) => Body::wrap_stream(ReaderStream::new(reader)),
+        }
+    }
+}
+
 pub(crate) struct RawApiRequest<'request> {
     pub(crate) method: Method,
     pub(crate) path: &'request str,
     pub(crate) query: &'request [(String, String)],
     pub(crate) headers: HeaderMap,
-    pub(crate) body: Option<Body>,
+    pub(crate) body: Option<RawApiRequestBody>,
     pub(crate) content_length: Option<u64>,
     pub(crate) authentication: RawApiAuthentication<'request>,
     pub(crate) timeout: Option<Duration>,
@@ -140,7 +156,7 @@ impl WekanClient {
             request = request.bearer_auth(token.expose_secret());
         }
         if let Some(body) = body {
-            request = request.body(body);
+            request = request.body(body.into_reqwest_body());
         }
         if let Some(timeout) = timeout {
             request = request.timeout(timeout);

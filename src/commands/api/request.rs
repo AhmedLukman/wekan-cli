@@ -9,7 +9,8 @@ use time::OffsetDateTime;
 
 use crate::{
     client::{
-        RawApiAuthentication, RawApiRequest, RawApiRequestError, WekanClient, WekanClientFactory,
+        RawApiAuthentication, RawApiRequest, RawApiRequestBody, RawApiRequestError, WekanClient,
+        WekanClientFactory,
     },
     command_result::{
         ApiResponseSuccess, CancellationSuccess, CommandSuccess, DestructiveOperation,
@@ -24,7 +25,7 @@ use crate::{
     exit_code::StableExitCode,
     input::{
         ConfirmationArgs, ConfirmationDecision, ConfirmationProvider, ConfirmationRequest,
-        PayloadSource, confirm_or_skip, escape_terminal_text,
+        PayloadBody, PayloadSource, confirm_or_skip, escape_terminal_text,
     },
     redaction::Redactor,
 };
@@ -290,7 +291,13 @@ async fn send_request(
         None => None,
     };
     let (body, content_length) = payload
-        .map(|payload| (Some(payload.body), payload.content_length))
+        .map(|payload| {
+            let body = match payload.body {
+                PayloadBody::Text(body) => RawApiRequestBody::Text(body),
+                PayloadBody::Reader(reader) => RawApiRequestBody::Reader(reader),
+            };
+            (Some(body), payload.content_length)
+        })
         .unwrap_or((None, None));
     let redactor = match &authentication {
         RawApiAuthentication::Bearer(token) | RawApiAuthentication::QueryToken(token) => {

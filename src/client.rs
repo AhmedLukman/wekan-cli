@@ -35,7 +35,7 @@ pub use lists::{
     UpdateListRequest, UpdateListResult,
 };
 pub use raw::RawApiResponse;
-pub(crate) use raw::{RawApiAuthentication, RawApiRequest, RawApiRequestError};
+pub(crate) use raw::{RawApiAuthentication, RawApiRequest, RawApiRequestBody, RawApiRequestError};
 pub use swimlanes::{
     CreateSwimlaneRequest, CreateSwimlaneResult, DeleteSwimlaneResult, SwimlaneDocument,
     SwimlaneSummary, UpdateSwimlaneRequest, UpdateSwimlaneResult,
