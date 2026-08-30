@@ -2,16 +2,11 @@
 
 ## Supported versions
 
-Wekan CLI is pre-release software and has no published versions yet. Security
-fixes are made only on the current `main` branch; fixes are not backported to
-earlier commits or snapshots.
+Security fixes are made for the current `0.1.x` release line.
 
 | Version | Supported |
 | --- | --- |
-| Current `main` branch | Yes |
-| Earlier commits and snapshots | No |
-
-This table will be updated when the project begins publishing releases.
+| 0.1.x | Yes |
 
 ## Reporting a vulnerability
 

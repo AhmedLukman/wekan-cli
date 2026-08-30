@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Format and Clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Run tests
+        run: cargo test --all-targets --all-features --locked
+
+  dependency-policy:
+    name: Dependency policy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.20.2 --locked
+      - name: Check advisories, licenses, bans, and sources
+        run: cargo deny check
+
+  package:
+    name: Release package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Verify release version
+        run: test "$(./target/release/wekan --version)" = "wekan 0.1.0"
+      - name: Verify crates.io package
+        run: cargo publish --dry-run --locked
+      - name: Verify package allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo package --list --locked > target/package-files.txt
+          unexpected="$({
+            grep -Ev '^(\.cargo_vcs_info\.json|Cargo\.toml(\.orig)?|Cargo\.lock|README\.md|CHANGELOG\.md|LICENSE|src/)' target/package-files.txt || true
+          })"
+          if [[ -n "$unexpected" ]]; then
+            echo "Unexpected files in the crates.io package:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+
+  api-contract:
+    name: API contract artifacts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install Speakeasy OpenAPI CLI 1.24.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="https://github.com/speakeasy-api/openapi/releases/download/v1.24.1"
+          curl --fail --location --silent --show-error "$base_url/openapi_Linux_x86_64.tar.gz" --output "$RUNNER_TEMP/openapi.tar.gz"
+          curl --fail --location --silent --show-error "$base_url/checksums.txt" --output "$RUNNER_TEMP/openapi-checksums.txt"
+          grep '  openapi_Linux_x86_64.tar.gz$' "$RUNNER_TEMP/openapi-checksums.txt" | sed "s#  openapi_Linux_x86_64.tar.gz#  $RUNNER_TEMP/openapi.tar.gz#" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/openapi"
+          tar -xzf "$RUNNER_TEMP/openapi.tar.gz" -C "$RUNNER_TEMP/openapi"
+          echo "$RUNNER_TEMP/openapi" >> "$GITHUB_PATH"
+      - name: Validate and regenerate corrected specification
+        shell: bash
+        run: |
+          set -euo pipefail
+          openapi overlay validate spec/wekan.overlay.yml
+          openapi overlay apply --schema spec/wekan.yml --overlay spec/wekan.overlay.yml --out "$RUNNER_TEMP/wekan.corrected.yml"
+          openapi swagger validate "$RUNNER_TEMP/wekan.corrected.yml"
+          cmp spec/wekan.corrected.yml "$RUNNER_TEMP/wekan.corrected.yml"
+      - name: Regenerate corrected HTML reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes @redocly/cli@2.46.0 build-docs "$RUNNER_TEMP/wekan.corrected.yml" --output "$RUNNER_TEMP/wekan.corrected.html" --title "WeKan REST API v11.06 (Corrected)"
+          cmp spec/wekan.corrected.html "$RUNNER_TEMP/wekan.corrected.html"

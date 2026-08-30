@@ -1,0 +1,97 @@
+name: Wekan E2E
+
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - compose.yaml
+      - src/**
+      - tests/**
+      - spec/**
+      - .github/workflows/e2e.yml
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - compose.yaml
+      - src/**
+      - tests/**
+      - spec/**
+      - .github/workflows/e2e.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wekan-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-contract:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - name: Raw API
+            key: api
+            variable: WEKAN_API_E2E_URL
+            test: api::raw_api_escape_hatch_matches_wekan_v11_06
+          - name: Authentication
+            key: auth
+            variable: WEKAN_E2E_URL
+            test: auth::authentication_flow_matches_wekan_v11_06
+          - name: Named profile authentication
+            key: named-profile
+            variable: WEKAN_E2E_URL
+            test: auth::named_profile_authentication_flow_matches_wekan_v11_06
+          - name: Users
+            key: users
+            variable: WEKAN_USER_E2E_URL
+            test: users::complete_user_flow_matches_wekan_v11_06
+          - name: Boards
+            key: boards
+            variable: WEKAN_BOARD_E2E_URL
+            test: boards::complete_board_lifecycle_matches_wekan_v11_06
+          - name: Lists
+            key: lists
+            variable: WEKAN_LIST_E2E_URL
+            test: lists::complete_list_lifecycle_matches_wekan_v11_06
+          - name: Swimlanes
+            key: swimlanes
+            variable: WEKAN_SWIMLANE_E2E_URL
+            test: swimlanes::complete_swimlane_lifecycle_matches_wekan_v11_06
+          - name: Cards
+            key: cards
+            variable: WEKAN_CARD_E2E_URL
+            test: cards::complete_card_lifecycle_matches_wekan_v11_06
+          - name: Comments
+            key: comments
+            variable: WEKAN_COMMENT_E2E_URL
+            test: comments::complete_comment_lifecycle_matches_wekan_v11_06
+    env:
+      COMPOSE_PROJECT_NAME: wekan-e2e-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+      WEKAN_PORT: "3000"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Start isolated Wekan v11.06
+        run: docker compose up -d --wait
+      - name: Select live-test server
+        run: echo "${{ matrix.variable }}=http://localhost:3000" >> "$GITHUB_ENV"
+      - name: Run live contract test
+        run: cargo test --locked --test e2e '${{ matrix.test }}' -- --ignored --exact --nocapture
+      - name: Capture service logs
+        if: failure()
+        run: docker compose logs --no-color mongodb mongodb-init wekan
+      - name: Remove isolated stack and volumes
+        if: always()
+        run: docker compose down --volumes
