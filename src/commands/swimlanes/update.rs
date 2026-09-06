@@ -16,13 +16,17 @@ use crate::{
 use super::{non_empty, trimmed_non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan swimlane update swimlane-id --board board-id --title \"Plan next release\""
+)]
+#[command(next_help_heading = "Fields")]
 pub struct UpdateArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan swimlane ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub swimlane_id: String,
 
     /// New swimlane title.

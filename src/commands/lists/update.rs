@@ -17,6 +17,10 @@ use crate::{
 use super::{non_empty, trimmed_non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan list update list-id --board board-id --title \"Plan next release\""
+)]
+#[command(next_help_heading = "Fields")]
 #[command(group(
     ArgGroup::new("updates")
         .required(true)
@@ -25,11 +29,11 @@ use super::{non_empty, trimmed_non_empty};
 ))]
 pub struct UpdateArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
     /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.

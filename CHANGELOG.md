@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Safe response field paths and failure categories in protocol errors.
+- Command examples and grouped help for scoped resources and card updates.
 
 ### Changed
 

@@ -24,13 +24,14 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(after_help = "Example:\n  wekan list delete list-id --board board-id --yes")]
 pub struct DeleteArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID to soft-delete with its live cards.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
     #[command(flatten)]

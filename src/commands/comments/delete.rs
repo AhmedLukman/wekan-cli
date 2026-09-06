@@ -24,17 +24,20 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan comment delete comment-id --board board-id --card card-id --yes"
+)]
 pub struct DeleteArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan card ID.
-    #[arg(long = "card", value_parser = non_empty)]
+    #[arg(long = "card", value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
     /// Wekan comment ID to permanently delete.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub comment_id: String,
 
     #[command(flatten)]

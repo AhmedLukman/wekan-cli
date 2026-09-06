@@ -2,7 +2,7 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 #[test]
-fn scoped_card_syntax_requires_named_parents() {
+fn scoped_card_syntax_requires_named_parents_and_help_is_readable() {
     let directory = super::support::TestDirectory::new("named-card-parents");
     for args in [
         vec!["card", "get", "board-1", "list-1", "card-1"],
@@ -14,6 +14,29 @@ fn scoped_card_syntax_requires_named_parents() {
             .assert()
             .code(2)
             .stdout(predicate::str::is_empty());
+    }
+    let output = cargo_bin_cmd!("wekan")
+        .args(["card", "update", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let help = String::from_utf8(output).unwrap();
+    let usage = help
+        .lines()
+        .find(|line| line.starts_with("Usage:"))
+        .unwrap();
+    assert!(usage.len() < 120, "{usage}");
+    for heading in [
+        "Target:",
+        "Fields:",
+        "Dates:",
+        "People and labels:",
+        "Global options:",
+        "Example:",
+    ] {
+        assert!(help.contains(heading), "missing {heading}: {help}");
     }
     assert_eq!(std::fs::read_dir(&directory.0).unwrap().count(), 0);
 }

@@ -12,9 +12,10 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(after_help = "Example:\n  wekan swimlane list --board board-id")]
 pub struct ListArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 }
 

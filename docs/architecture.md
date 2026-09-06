@@ -69,7 +69,8 @@ wekan swimlane get swimlane-id --board board-id
 ```
 
 These flags select the corresponding API route directly. They do not look up
-names, infer parent IDs, or add requests.
+names, infer parent IDs, or add requests. Help groups targeting, editable
+fields, dates, people/labels, and global options.
 
 ## Verification
 
