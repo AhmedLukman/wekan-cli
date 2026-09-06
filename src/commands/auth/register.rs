@@ -2,8 +2,8 @@ use clap::Args;
 
 use crate::commands::{
     client_error::{
-        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
-        response_error_details, server_error_details,
+        embedded_protocol_error_details, embedded_server_error_details,
+        protocol_diagnostic_details, response_error_details, server_error_details,
     },
     credential_ops::{credential_target, lock_credential_mutation, preflight_credentials},
 };
@@ -124,10 +124,11 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             retry_after_seconds,
         ),
         ClientError::Protocol {
+            diagnostic,
             message,
             success_status_received,
         } => {
-            let mut details = protocol_error_details(success_status_received);
+            let mut details = protocol_diagnostic_details(success_status_received, diagnostic, redactor);
             details.account_created = Some(success_status_received);
             AppError::new(
                 ErrorCode::ProtocolError,

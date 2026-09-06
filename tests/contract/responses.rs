@@ -664,20 +664,36 @@ async fn list_responses_reject_unmapped_top_level_and_nested_fields() {
         .await;
 
     let client = client(&server);
-    assert!(matches!(
-        client.board_lists("board-1", &user_token()).await,
-        Err(ClientError::Protocol {
+    for (error, expected_path) in [
+        (
+            client
+                .board_lists("board-1", &user_token())
+                .await
+                .unwrap_err(),
+            "/0/future",
+        ),
+        (
+            client
+                .list("board-1", "list-1", &user_token())
+                .await
+                .unwrap_err(),
+            "/wipLimit/future",
+        ),
+    ] {
+        let ClientError::Protocol {
+            diagnostic: Some(diagnostic),
             success_status_received: true,
             ..
-        })
-    ));
-    assert!(matches!(
-        client.list("board-1", "list-1", &user_token()).await,
-        Err(ClientError::Protocol {
-            success_status_received: true,
-            ..
-        })
-    ));
+        } = error
+        else {
+            panic!("expected strict field diagnostics");
+        };
+        assert_eq!(diagnostic.path, expected_path);
+        assert_eq!(
+            diagnostic.kind,
+            wekan_cli::client::ResponseDecodeKind::UnknownField
+        );
+    }
 }
 
 #[tokio::test]
@@ -2846,13 +2862,20 @@ async fn malformed_success_does_not_echo_a_response_token() {
         .unwrap_err();
 
     assert!(!error.to_string().contains("123456"));
-    assert!(matches!(
-        error,
-        ClientError::Protocol {
-            success_status_received: true,
-            ..
-        }
-    ));
+    assert!(!format!("{error:?}").contains("123456"));
+    let ClientError::Protocol {
+        diagnostic: Some(diagnostic),
+        success_status_received: true,
+        ..
+    } = error
+    else {
+        panic!("expected a value-free token decoding diagnostic");
+    };
+    assert_eq!(diagnostic.path, "/token");
+    assert_eq!(
+        diagnostic.kind,
+        wekan_cli::client::ResponseDecodeKind::InvalidType
+    );
 }
 
 #[tokio::test]

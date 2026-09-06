@@ -466,6 +466,16 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     .await
     .unwrap_err();
     assert_eq!(future.code(), ErrorCode::ProtocolError);
+    let json = crate::output::render_error(crate::output::OutputFormat::Json, &future);
+    let envelope: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        envelope["error"]["details"]["response_path"],
+        "/futureField"
+    );
+    assert_eq!(
+        envelope["error"]["details"]["response_error"],
+        "unknown_field"
+    );
 }
 
 #[tokio::test]

@@ -37,7 +37,7 @@ their clients lazily.
 | `commands/<resource>.rs` | Resource vocabulary and leaf dispatch |
 | `commands/<resource>/<operation>.rs` | Operation arguments, orchestration, and response-to-result mapping |
 | `client/<resource>.rs` | Wekan v11.06 routes, request/response DTOs, and semantic validation |
-| `client/transport.rs` | Bounded HTTP execution, embedded Wekan errors, strict decoding |
+| `client/transport.rs`, `client/decoding.rs` | Bounded HTTP execution, embedded Wekan errors, strict decoding, and safe diagnostics |
 | `command_result/<resource>.rs` | Stable CLI result types, separate from wire DTOs |
 | `output/<resource>.rs` | Human rendering for that resource |
 | `output/formatting.rs` | Shared terminal escaping, tables, and nested-value formatting |

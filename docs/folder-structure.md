@@ -170,6 +170,7 @@ wekan-cli/
 │   ├── client.rs                      # WekanClient façade and resource re-exports
 │   ├── client/
 │   │   ├── error.rs                   # HTTP, decoding and Wekan response errors
+│   │   ├── decoding.rs                # Strict decoding and bounded, value-free response diagnostics
 │   │   ├── ids.rs                     # BoardId, CardId, UserId and other typed IDs
 │   │   ├── datetime.rs                # Wekan date/time parsing and serialization
 │   │   │

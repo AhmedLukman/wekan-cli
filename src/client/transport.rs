@@ -2,7 +2,10 @@ use reqwest::{StatusCode, header::RETRY_AFTER};
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use super::{ClientError, WekanClient};
+use super::{
+    ClientError, WekanClient,
+    decoding::{decode_value, parse_json},
+};
 
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 
@@ -48,11 +51,7 @@ impl ResponseBody {
         }
 
         let error = match serde_json::from_slice::<Value>(&self.body) {
-            Ok(value) => decode_error_response(
-                value,
-                "the Wekan error response had an invalid shape",
-                false,
-            )?,
+            Ok(value) => decode_error_response(value, "Wekan error", false)?,
             Err(_) => WekanErrorResponse::default(),
         };
         Err(ClientError::Server {
@@ -116,11 +115,12 @@ pub(super) fn embedded_error(
 
     let error = decode_error_response(
         value.clone(),
-        "the embedded Wekan error response had an invalid shape",
+        "embedded Wekan error",
         http_status.is_success(),
     )?;
     if let Some(status_code) = error.status_code {
         let wekan_status_code = u16::try_from(status_code).map_err(|_| ClientError::Protocol {
+            diagnostic: None,
             message: "the embedded Wekan statusCode was outside the valid range".to_owned(),
             success_status_received: true,
         })?;
@@ -153,10 +153,7 @@ fn decode_error_response(
     message: &str,
     success_status_received: bool,
 ) -> Result<WekanErrorResponse, ClientError> {
-    serde_json::from_value(value).map_err(|_| ClientError::Protocol {
-        message: message.to_owned(),
-        success_status_received,
-    })
+    decode_value(value, message, success_status_received)
 }
 
 pub(super) fn decode_success<T: DeserializeOwned>(
@@ -166,21 +163,16 @@ pub(super) fn decode_success<T: DeserializeOwned>(
 ) -> Result<T, ClientError> {
     if require_body && body.is_empty() {
         return Err(ClientError::Protocol {
+            diagnostic: None,
             message: format!("the {operation} response body was empty"),
             success_status_received: true,
         });
     }
-    let value: Value = serde_json::from_slice(body).map_err(|_| ClientError::Protocol {
-        message: format!("the {operation} response was not valid JSON"),
-        success_status_received: true,
-    })?;
+    let value = parse_json(body, operation)?;
     if let Some(error) = embedded_error(&value, StatusCode::OK)? {
         return Err(error);
     }
-    serde_json::from_value(value).map_err(|_| ClientError::Protocol {
-        message: format!("the {operation} response had an invalid shape"),
-        success_status_received: true,
-    })
+    decode_value(value, operation, true)
 }
 
 async fn read_limited_body(

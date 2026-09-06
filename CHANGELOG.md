@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Safe response field paths and failure categories in protocol errors.
+
 ### Changed
 
 - Results and human renderers are organized by resource; application dispatch

@@ -74,6 +74,10 @@ impl ErrorCode {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_error: Option<crate::client::ResponseDecodeKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub profile: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,

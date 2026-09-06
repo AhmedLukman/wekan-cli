@@ -3,8 +3,8 @@ use reqwest::StatusCode;
 
 use crate::commands::{
     client_error::{
-        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
-        response_error_details, server_error_details,
+        embedded_protocol_error_details, embedded_server_error_details,
+        protocol_diagnostic_details, response_error_details, server_error_details,
     },
     credential_ops::{
         credential_target, lock_credential_mutation, map_credential_load_error,
@@ -329,10 +329,11 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
             scope,
         ),
         ClientError::Protocol {
+            diagnostic,
             message,
             success_status_received,
         } => {
-            let mut details = protocol_error_details(success_status_received);
+            let mut details = protocol_diagnostic_details(success_status_received, diagnostic, redactor);
             details.logout_scope = Some(scope);
             details.remote_logout_completed = Some(if success_status_received {
                 None

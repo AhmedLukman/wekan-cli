@@ -1,3 +1,4 @@
+use super::decoding::decode_json;
 use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -117,6 +118,7 @@ impl WekanClient {
             self.server()
                 .join("users/logout")
                 .map_err(|error| ClientError::Protocol {
+                    diagnostic: None,
                     message: format!("could not build the logout endpoint: {error}"),
                     success_status_received: false,
                 })?;
@@ -131,12 +133,7 @@ impl WekanClient {
             )
             .await?;
 
-        let response = serde_json::from_slice::<LogoutResponse>(&response_body).map_err(|_| {
-            ClientError::Protocol {
-                message: "invalid JSON or missing logout message".to_owned(),
-                success_status_received: true,
-            }
-        })?;
+        let response: LogoutResponse = decode_json(&response_body, "logout")?;
         let _ = response.message;
         Ok(())
     }
@@ -151,6 +148,7 @@ impl WekanClient {
             .server()
             .join(path)
             .map_err(|error| ClientError::Protocol {
+                diagnostic: None,
                 message: format!("could not build the {operation} endpoint: {error}"),
                 success_status_received: false,
             })?;
@@ -164,22 +162,18 @@ impl WekanClient {
             )
             .await?;
 
-        let response =
-            serde_json::from_slice::<AuthTokenResponse>(&response_body).map_err(|_| {
-                ClientError::Protocol {
-                    message: "invalid JSON or missing fields".to_owned(),
-                    success_status_received: true,
-                }
-            })?;
+        let response: AuthTokenResponse = decode_json(&response_body, operation)?;
 
         if response.id.is_empty() {
             return Err(ClientError::Protocol {
+                diagnostic: None,
                 message: "the user id was empty".to_owned(),
                 success_status_received: true,
             });
         }
         if response.token.is_empty() {
             return Err(ClientError::Protocol {
+                diagnostic: None,
                 message: "the login token was empty".to_owned(),
                 success_status_received: true,
             });
@@ -187,6 +181,7 @@ impl WekanClient {
         let token_expires =
             OffsetDateTime::parse(&response.token_expires, &Rfc3339).map_err(|error| {
                 ClientError::Protocol {
+                    diagnostic: None,
                     message: format!("tokenExpires was not RFC 3339: {error}"),
                     success_status_received: true,
                 }

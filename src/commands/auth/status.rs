@@ -4,8 +4,8 @@ use reqwest::StatusCode;
 use crate::commands::{
     authenticated::AuthenticatedContext,
     client_error::{
-        embedded_protocol_error_details, embedded_server_error_details, protocol_error_details,
-        response_error_details, server_error_details,
+        embedded_protocol_error_details, embedded_server_error_details,
+        protocol_diagnostic_details, response_error_details, server_error_details,
     },
 };
 use crate::{
@@ -108,6 +108,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
             retry_after_seconds,
         ),
         ClientError::Protocol {
+            diagnostic,
             message,
             success_status_received,
         } => AppError::new(
@@ -115,7 +116,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor) -> AppError {
             redactor.redact(&format!("invalid response from Wekan: {message}")),
             StableExitCode::Transport,
         )
-        .with_details(protocol_error_details(success_status_received)),
+        .with_details(protocol_diagnostic_details(success_status_received, diagnostic, redactor)),
         ClientError::EmbeddedProtocol {
             http_status,
             server_error,
