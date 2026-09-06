@@ -14,11 +14,11 @@ use super::{non_empty, rfc3339, trimmed_non_empty};
 #[derive(Debug, Args)]
 pub struct CreateArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty)]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "list", value_parser = non_empty)]
     pub list_id: String,
 
     /// Card title.

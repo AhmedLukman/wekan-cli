@@ -157,21 +157,33 @@ fn card_command(arguments: &[&str]) -> CardCommand {
 #[test]
 fn parser_exposes_crud_and_enforces_update_contract() {
     for arguments in [
-        vec!["list", "board-1", "list-1"],
-        vec!["get", "board-1", "list-1", "card-1"],
+        vec!["list", "--board", "board-1", "--list", "list-1"],
+        vec!["get", "--board", "board-1", "--list", "list-1", "card-1"],
         vec![
             "create",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "--title",
             "Todo",
             "--swimlane-id",
             "swimlane-1",
         ],
-        vec!["update", "board-1", "list-1", "card-1", "--clear-due-at"],
         vec![
             "update",
+            "--board",
             "board-1",
+            "--list",
+            "list-1",
+            "card-1",
+            "--clear-due-at",
+        ],
+        vec![
+            "update",
+            "--board",
+            "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--sort",
@@ -183,7 +195,9 @@ fn parser_exposes_crud_and_enforces_update_contract() {
         ],
         vec![
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--label",
@@ -193,18 +207,24 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "--due-complete",
             "false",
         ],
-        vec!["delete", "board-1", "list-1", "card-1", "--yes"],
+        vec![
+            "delete", "--board", "board-1", "--list", "list-1", "card-1", "--yes",
+        ],
     ] {
         card_command(&arguments);
     }
 
     for invalid in [
-        vec!["wekan", "card", "update", "board-1", "list-1", "card-1"],
+        vec![
+            "wekan", "card", "update", "--board", "board-1", "--list", "list-1", "card-1",
+        ],
         vec![
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--due-at",
@@ -215,7 +235,9 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--label",
@@ -226,7 +248,9 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--member",
@@ -237,7 +261,9 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--assignee",
@@ -248,30 +274,36 @@ fn parser_exposes_crud_and_enforces_update_contract() {
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--spent-time",
             "NaN",
         ],
         vec![
-            "wekan", "card", "update", "board-1", "list-1", "card-1", "--sort", "NaN",
+            "wekan", "card", "update", "--board", "board-1", "--list", "list-1", "card-1",
+            "--sort", "NaN",
         ],
         vec![
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--is-over-time",
             "maybe",
         ],
         vec![
-            "wekan", "card", "update", "board-1", "list-1", "card-1", "--color", "belize",
+            "wekan", "card", "update", "--board", "board-1", "--list", "list-1", "card-1",
+            "--color", "belize",
         ],
         vec![
-            "wekan", "card", "get", "board-1", "list-1", "card-1", "--yes",
+            "wekan", "card", "get", "--board", "board-1", "--list", "list-1", "card-1", "--yes",
         ],
         vec!["wekan", "card", "move", "board-1", "list-1", "card-1"],
         vec!["wekan", "card", "archive", "board-1", "list-1", "card-1"],
@@ -283,12 +315,14 @@ fn parser_exposes_crud_and_enforces_update_contract() {
 #[test]
 fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation() {
     for invalid in [
-        vec!["wekan", "card", "list", " ", "list-1"],
+        vec!["wekan", "card", "list", "--board", " ", "--list", "list-1"],
         vec![
             "wekan",
             "card",
             "create",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "--title",
             " ",
@@ -299,7 +333,9 @@ fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation(
             "wekan",
             "card",
             "create",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "--title",
             "Todo",
@@ -312,7 +348,9 @@ fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation(
             "wekan",
             "card",
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--description",
@@ -324,7 +362,7 @@ fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation(
 
     let accepted = "😀".repeat(501);
     card_command(&[
-        "update", "board-1", "list-1", "card-1", "--title", &accepted,
+        "update", "--board", "board-1", "--list", "list-1", "card-1", "--title", &accepted,
     ]);
 }
 
@@ -390,7 +428,7 @@ async fn commands_return_typed_results_and_canonical_submitted_fields() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let CommandSuccess::CardCollection(collection) = dispatch(
-        card_command(&["list", "board/1", "list/1"]),
+        card_command(&["list", "--board", "board/1", "--list", "list/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -404,7 +442,7 @@ async fn commands_return_typed_results_and_canonical_submitted_fields() {
     assert_eq!(collection.cards[0].card_id, "card-1");
 
     let CommandSuccess::CardShown(card) = dispatch(
-        card_command(&["get", "board/1", "list/1", "card/1"]),
+        card_command(&["get", "--board", "board/1", "--list", "list/1", "card/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -419,7 +457,9 @@ async fn commands_return_typed_results_and_canonical_submitted_fields() {
     let CommandSuccess::CardCreated(created) = dispatch(
         card_command(&[
             "create",
+            "--board",
             "board/1",
+            "--list",
             "list/1",
             "--title",
             " Todo ",
@@ -443,7 +483,9 @@ async fn commands_return_typed_results_and_canonical_submitted_fields() {
     let CommandSuccess::CardUpdated(updated) = dispatch(
         card_command(&[
             "update",
+            "--board",
             "board/1",
+            "--list",
             "list/1",
             "card/1",
             "--due-complete",
@@ -508,7 +550,7 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let missing = dispatch(
-        card_command(&["get", "board-1", "list-1", "missing"]),
+        card_command(&["get", "--board", "board-1", "--list", "list-1", "missing"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -522,7 +564,9 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     let update_missing = dispatch(
         card_command(&[
             "update",
+            "--board",
             "board-1",
+            "--list",
             "list-1",
             "card-1",
             "--title",
@@ -540,7 +584,9 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     assert_eq!(update_missing.details().outcome_unknown, Some(true));
 
     let mismatch = dispatch(
-        card_command(&["update", "board-1", "list-1", "card-2", "--title", "Doing"]),
+        card_command(&[
+            "update", "--board", "board-1", "--list", "list-1", "card-2", "--title", "Doing",
+        ]),
         &factory(&server),
         &store,
         &confirmation,
@@ -557,7 +603,14 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
     let store = FakeCredentialStore::authenticated(&server);
     let declining = FakeConfirmationProvider::declining();
     let cancelled = dispatch(
-        card_command(&["delete", "board-1", "list-1", "card\u{1b}]52;c;x\u{7}"]),
+        card_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "card\u{1b}]52;c;x\u{7}",
+        ]),
         &factory(&server),
         &store,
         &declining,
@@ -575,7 +628,14 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
 
     let failing = FakeConfirmationProvider::failing(AppError::invalid_input("prompt failed"));
     let prompt_error = dispatch(
-        card_command(&["delete", "board-1", "list-1", "card-prompt"]),
+        card_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "card-prompt",
+        ]),
         &factory(&server),
         &store,
         &failing,
@@ -591,7 +651,9 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
         .mount(&server)
         .await;
     let CommandSuccess::CardDeleted(deleted) = dispatch(
-        card_command(&["delete", "board-1", "list-1", "card-1", "--yes"]),
+        card_command(&[
+            "delete", "--board", "board-1", "--list", "list-1", "card-1", "--yes",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -610,7 +672,9 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
         .mount(&server)
         .await;
     let mismatch = dispatch(
-        card_command(&["delete", "board-1", "list-1", "card-2", "--yes"]),
+        card_command(&[
+            "delete", "--board", "board-1", "--list", "list-1", "card-2", "--yes",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -629,7 +693,7 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
     store.replace_on_next_lock(replacement);
     let confirmation = FakeConfirmationProvider::accepting();
     let changed = dispatch(
-        card_command(&["delete", "board-1", "list-1", "card-3"]),
+        card_command(&["delete", "--board", "board-1", "--list", "list-1", "card-3"]),
         &factory(&server),
         &store,
         &confirmation,

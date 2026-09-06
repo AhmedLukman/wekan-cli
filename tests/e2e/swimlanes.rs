@@ -147,6 +147,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             &initial_title,
@@ -162,7 +163,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     assert!(!created.swimlane_id.is_empty());
 
     let CommandSuccess::SwimlaneCollection(collection) =
-        execute_live_swimlane(&app, &server, &["list", &board.board_id])
+        execute_live_swimlane(&app, &server, &["list", "--board", &board.board_id])
             .await
             .expect("the created swimlane must be visible in the board collection")
     else {
@@ -175,7 +176,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneShown(initial) = execute_live_swimlane(
         &app,
         &server,
-        &["get", &board.board_id, &created.swimlane_id],
+        &["get", "--board", &board.board_id, &created.swimlane_id],
     )
     .await
     .expect("the created swimlane must be readable") else {
@@ -193,7 +194,13 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneCreated(appended) = execute_live_swimlane(
         &app,
         &server,
-        &["create", &board.board_id, "--title", &appended_title],
+        &[
+            "create",
+            "--board",
+            &board.board_id,
+            "--title",
+            &appended_title,
+        ],
     )
     .await
     .expect("swimlane creation without an explicit sort must succeed") else {
@@ -202,7 +209,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneShown(appended_detail) = execute_live_swimlane(
         &app,
         &server,
-        &["get", &board.board_id, &appended.swimlane_id],
+        &["get", "--board", &board.board_id, &appended.swimlane_id],
     )
     .await
     .expect("the appended swimlane must be readable") else {
@@ -216,7 +223,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     );
 
     let CommandSuccess::SwimlaneCollection(member_collection) =
-        execute_live_swimlane(&member_app, &server, &["list", &board.board_id])
+        execute_live_swimlane(&member_app, &server, &["list", "--board", &board.board_id])
             .await
             .expect("the ordinary member must be able to list swimlanes")
     else {
@@ -231,7 +238,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneShown(member_swimlane) = execute_live_swimlane(
         &member_app,
         &server,
-        &["get", &board.board_id, &created.swimlane_id],
+        &["get", "--board", &board.board_id, &created.swimlane_id],
     )
     .await
     .expect("the ordinary member must be able to get a swimlane") else {
@@ -244,6 +251,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             "Read-only create must fail",
@@ -257,6 +265,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
             &created.swimlane_id,
             "--title",
@@ -269,7 +278,13 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let denied_delete = execute_live_swimlane(
         &member_app,
         &server,
-        &["delete", &board.board_id, &created.swimlane_id, "--yes"],
+        &[
+            "delete",
+            "--board",
+            &board.board_id,
+            &created.swimlane_id,
+            "--yes",
+        ],
     )
     .await
     .expect_err("a read-only member must not delete a swimlane");
@@ -281,6 +296,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
             &created.swimlane_id,
             "--title",
@@ -299,7 +315,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneShown(after_update) = execute_live_swimlane(
         &app,
         &server,
-        &["get", &board.board_id, &created.swimlane_id],
+        &["get", "--board", &board.board_id, &created.swimlane_id],
     )
     .await
     .expect("the updated swimlane must remain readable") else {
@@ -313,6 +329,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             &list_title,
@@ -341,7 +358,13 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneDeleted(deleted) = execute_live_swimlane(
         &app,
         &server,
-        &["delete", &board.board_id, &created.swimlane_id, "--yes"],
+        &[
+            "delete",
+            "--board",
+            &board.board_id,
+            &created.swimlane_id,
+            "--yes",
+        ],
     )
     .await
     .expect("hard swimlane deletion must succeed") else {
@@ -364,7 +387,13 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneDeleted(repeated) = execute_live_swimlane(
         &app,
         &server,
-        &["delete", &board.board_id, &created.swimlane_id, "--yes"],
+        &[
+            "delete",
+            "--board",
+            &board.board_id,
+            &created.swimlane_id,
+            "--yes",
+        ],
     )
     .await
     .expect("repeated swimlane deletion must remain idempotent") else {
@@ -390,6 +419,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             &first_preserved_title,
@@ -407,6 +437,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             &second_preserved_title,
@@ -455,7 +486,13 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::SwimlaneDeleted(preserved_branch_delete) = execute_live_swimlane(
         &app,
         &server,
-        &["delete", &board.board_id, &appended.swimlane_id, "--yes"],
+        &[
+            "delete",
+            "--board",
+            &board.board_id,
+            &appended.swimlane_id,
+            "--yes",
+        ],
     )
     .await
     .expect("deleting a swimlane with two matching lists must succeed") else {
@@ -492,7 +529,12 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::ListShown(first_preserved) = execute_live_list(
         &app,
         &server,
-        &["get", &board.board_id, &first_preserved_list.list_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            &first_preserved_list.list_id,
+        ],
     )
     .await
     .expect("the first list must survive the two-list swimlane deletion branch") else {
@@ -501,7 +543,12 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::ListShown(second_preserved) = execute_live_list(
         &app,
         &server,
-        &["get", &board.board_id, &second_preserved_list.list_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            &second_preserved_list.list_id,
+        ],
     )
     .await
     .expect("the second list must survive the two-list swimlane deletion branch") else {

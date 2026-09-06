@@ -25,7 +25,7 @@ use super::{non_empty, trimmed_non_empty};
 ))]
 pub struct UpdateArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty)]
     pub board_id: String,
 
     /// Wekan list ID.

@@ -26,7 +26,7 @@ use super::non_empty;
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty)]
     pub board_id: String,
 
     /// Wekan list ID to soft-delete with its live cards.

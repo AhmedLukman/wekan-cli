@@ -7,11 +7,11 @@ cards and other subresources.
 ## Commands
 
 ```console
-wekan list list <BOARD_ID>
-wekan list get <BOARD_ID> <LIST_ID>
-wekan list create <BOARD_ID> --title <TITLE> [--swimlane-id <ID>]
-wekan list update <BOARD_ID> <LIST_ID> [--title <TITLE>] [--color <COLOR>] [--starred <true|false>] [--wip-limit <NUMBER> --wip-enabled <true|false> --wip-soft <true|false>]
-wekan list delete <BOARD_ID> <LIST_ID> [--yes]
+wekan list list --board <BOARD_ID>
+wekan list get <LIST_ID> --board <BOARD_ID>
+wekan list create --board <BOARD_ID> --title <TITLE> [--swimlane-id <ID>]
+wekan list update <LIST_ID> --board <BOARD_ID> [--title <TITLE>] [--color <COLOR>] [--starred <true|false>] [--wip-limit <NUMBER> --wip-enabled <true|false> --wip-soft <true|false>]
+wekan list delete <LIST_ID> --board <BOARD_ID> [--yes]
 ```
 
 Titles and identifiers must remain non-empty after trimming where applicable.

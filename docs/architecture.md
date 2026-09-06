@@ -56,6 +56,21 @@ does not implicitly change the public output contract. External side effects
 use focused traits for credential storage, secret input, profile storage, and
 confirmation. HTTP tests exercise the real client against a mock server.
 
+## Command design
+
+Commands use singular resources and verbs, such as `board get` and `card
+update`. The resource's own ID is positional. Parent scope is explicit:
+
+```console
+wekan list get list-id --board board-id
+wekan card get card-id --board board-id --list list-id
+wekan comment get comment-id --board board-id --card card-id
+wekan swimlane get swimlane-id --board board-id
+```
+
+These flags select the corresponding API route directly. They do not look up
+names, infer parent IDs, or add requests.
+
 ## Verification
 
 Unit tests cover policy, mapping, rendering, and failure paths. Black-box CLI

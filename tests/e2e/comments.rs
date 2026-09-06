@@ -69,6 +69,7 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             "Todo",
@@ -85,7 +86,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             "--title",
             "Comment target",
@@ -103,7 +106,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--card",
             &card.card_id,
             "--text",
             "  Initial comment  ",
@@ -113,11 +118,13 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     .expect("comment creation must succeed") else {
         panic!("expected comment creation output")
     };
-    let CommandSuccess::CommentCollection(collection) =
-        execute_live_comment(&app, &server, &["list", &board.board_id, &card.card_id])
-            .await
-            .expect("the created comment must be listed")
-    else {
+    let CommandSuccess::CommentCollection(collection) = execute_live_comment(
+        &app,
+        &server,
+        &["list", "--board", &board.board_id, "--card", &card.card_id],
+    )
+    .await
+    .expect("the created comment must be listed") else {
         panic!("expected comment collection output")
     };
     let summary = collection
@@ -131,7 +138,14 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CommentShown(detail) = execute_live_comment(
         &app,
         &server,
-        &["get", &board.board_id, &card.card_id, &created.comment_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--card",
+            &card.card_id,
+            &created.comment_id,
+        ],
     )
     .await
     .expect("the created comment must be readable") else {
@@ -158,7 +172,14 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CommentShown(raw_detail) = execute_live_comment(
         &app,
         &server,
-        &["get", &board.board_id, &card.card_id, &raw_comment_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--card",
+            &card.card_id,
+            &raw_comment_id,
+        ],
     )
     .await
     .expect("the raw-created comment must be readable through the typed boundary") else {
@@ -169,7 +190,14 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     let missing = execute_live_comment(
         &app,
         &server,
-        &["get", &board.board_id, &card.card_id, "missing-comment"],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--card",
+            &card.card_id,
+            "missing-comment",
+        ],
     )
     .await
     .expect_err("a missing comment must use the stable not-found error");
@@ -181,7 +209,13 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CommentCollection(empty) = execute_live_comment(
         &app,
         &server,
-        &["list", &board.board_id, &nonexistent_card_id],
+        &[
+            "list",
+            "--board",
+            &board.board_id,
+            "--card",
+            &nonexistent_card_id,
+        ],
     )
     .await
     .expect("Wekan lists a nonexistent card as an empty comment collection") else {
@@ -193,7 +227,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--card",
             &nonexistent_card_id,
             "--text",
             "Orphan comment defect probe",
@@ -208,7 +244,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "get",
+            "--board",
             &board.board_id,
+            "--card",
             &nonexistent_card_id,
             &orphan.comment_id,
         ],
@@ -223,7 +261,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "delete",
+            "--board",
             &board.board_id,
+            "--card",
             &nonexistent_card_id,
             &orphan.comment_id,
             "--yes",
@@ -279,13 +319,24 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     .await;
 
     for (role, role_app) in [("normal", &normal_app), ("read-only", &read_only_app)] {
-        execute_live_comment(role_app, &server, &["list", &board.board_id, &card.card_id])
-            .await
-            .unwrap_or_else(|error| panic!("{role} comment listing must succeed: {error:?}"));
         execute_live_comment(
             role_app,
             &server,
-            &["get", &board.board_id, &card.card_id, &created.comment_id],
+            &["list", "--board", &board.board_id, "--card", &card.card_id],
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{role} comment listing must succeed: {error:?}"));
+        execute_live_comment(
+            role_app,
+            &server,
+            &[
+                "get",
+                "--board",
+                &board.board_id,
+                "--card",
+                &card.card_id,
+                &created.comment_id,
+            ],
         )
         .await
         .unwrap_or_else(|error| panic!("{role} comment lookup must succeed: {error:?}"));
@@ -294,7 +345,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "create",
+                "--board",
                 &board.board_id,
+                "--card",
                 &card.card_id,
                 "--text",
                 &format!("{role} comment"),
@@ -309,7 +362,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "delete",
+                "--board",
                 &board.board_id,
+                "--card",
                 &card.card_id,
                 &role_comment.comment_id,
                 "--yes",
@@ -325,11 +380,20 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         ("no-comments", &no_comments_app),
     ] {
         for arguments in [
-            vec!["list", &board.board_id, &card.card_id],
-            vec!["get", &board.board_id, &card.card_id, &created.comment_id],
+            vec!["list", "--board", &board.board_id, "--card", &card.card_id],
+            vec![
+                "get",
+                "--board",
+                &board.board_id,
+                "--card",
+                &card.card_id,
+                &created.comment_id,
+            ],
             vec![
                 "create",
+                "--board",
                 &board.board_id,
+                "--card",
                 &card.card_id,
                 "--text",
                 "Denied comment",
@@ -347,7 +411,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--card",
             &card.card_id,
             "--text",
             "Normal member foreign-delete probe",
@@ -362,7 +428,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "delete",
+            "--board",
             &board.board_id,
+            "--card",
             &card.card_id,
             &created.comment_id,
             "--yes",
@@ -376,7 +444,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "delete",
+            "--board",
             &board.board_id,
+            "--card",
             &card.card_id,
             &foreign.comment_id,
             "--yes",
@@ -394,7 +464,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "delete",
+                "--board",
                 &board.board_id,
+                "--card",
                 &card.card_id,
                 &comment_id,
                 "--yes",
@@ -407,11 +479,13 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         assert!(deleted.deleted);
         assert_eq!(deleted.delete_mode, CommentDeleteMode::Hard);
     }
-    let CommandSuccess::CommentCollection(empty_after_delete) =
-        execute_live_comment(&app, &server, &["list", &board.board_id, &card.card_id])
-            .await
-            .expect("the final comment collection must remain readable")
-    else {
+    let CommandSuccess::CommentCollection(empty_after_delete) = execute_live_comment(
+        &app,
+        &server,
+        &["list", "--board", &board.board_id, "--card", &card.card_id],
+    )
+    .await
+    .expect("the final comment collection must remain readable") else {
         panic!("expected final comment collection")
     };
     assert!(empty_after_delete.comments.is_empty());

@@ -2,6 +2,23 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 #[test]
+fn scoped_card_syntax_requires_named_parents() {
+    let directory = super::support::TestDirectory::new("named-card-parents");
+    for args in [
+        vec!["card", "get", "board-1", "list-1", "card-1"],
+        vec!["card", "get", "card-1", "--board", "board-1"],
+        vec!["card", "get", "card-1", "--list", "list-1"],
+    ] {
+        super::support::no_target_cli(&directory)
+            .args(args)
+            .assert()
+            .code(2)
+            .stdout(predicate::str::is_empty());
+    }
+    assert_eq!(std::fs::read_dir(&directory.0).unwrap().count(), 0);
+}
+
+#[test]
 fn card_help_exposes_only_core_crud_and_supported_fields() {
     cargo_bin_cmd!("wekan")
         .args(["card", "--help"])
@@ -18,7 +35,9 @@ fn card_help_exposes_only_core_crud_and_supported_fields() {
         .stderr(predicate::str::is_empty());
 
     cargo_bin_cmd!("wekan")
-        .args(["card", "create", "board-1", "list-1", "--help"])
+        .args([
+            "card", "create", "--board", "board-1", "--list", "list-1", "--help",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("--title <TITLE>"))
@@ -28,7 +47,9 @@ fn card_help_exposes_only_core_crud_and_supported_fields() {
         .stdout(predicate::str::contains("--due-at <DUE_AT>"));
 
     cargo_bin_cmd!("wekan")
-        .args(["card", "update", "board-1", "list-1", "card-1", "--help"])
+        .args([
+            "card", "update", "--board", "board-1", "--list", "list-1", "card-1", "--help",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("--clear-labels"))
@@ -44,13 +65,17 @@ fn card_help_exposes_only_core_crud_and_supported_fields() {
 #[test]
 fn only_card_delete_accepts_yes() {
     cargo_bin_cmd!("wekan")
-        .args(["card", "delete", "board-1", "list-1", "card-1", "--help"])
+        .args([
+            "card", "delete", "--board", "board-1", "--list", "list-1", "card-1", "--help",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
 
     cargo_bin_cmd!("wekan")
-        .args(["card", "get", "board-1", "list-1", "card-1", "--yes"])
+        .args([
+            "card", "get", "--board", "board-1", "--list", "list-1", "card-1", "--yes",
+        ])
         .assert()
         .failure()
         .code(2)

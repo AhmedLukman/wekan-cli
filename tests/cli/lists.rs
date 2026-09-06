@@ -17,7 +17,7 @@ fn list_help_exposes_only_core_crud_and_full_update_fields() {
         .stderr(predicate::str::is_empty());
 
     cargo_bin_cmd!("wekan")
-        .args(["list", "update", "board-1", "list-1", "--help"])
+        .args(["list", "update", "--board", "board-1", "list-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--title <TITLE>"))
@@ -31,13 +31,13 @@ fn list_help_exposes_only_core_crud_and_full_update_fields() {
 #[test]
 fn only_list_delete_accepts_yes() {
     cargo_bin_cmd!("wekan")
-        .args(["list", "delete", "board-1", "list-1", "--help"])
+        .args(["list", "delete", "--board", "board-1", "list-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
 
     cargo_bin_cmd!("wekan")
-        .args(["list", "get", "board-1", "list-1", "--yes"])
+        .args(["list", "get", "--board", "board-1", "list-1", "--yes"])
         .assert()
         .failure()
         .code(2)

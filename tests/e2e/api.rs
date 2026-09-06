@@ -53,6 +53,7 @@ async fn raw_api_escape_hatch_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             "Todo",
@@ -69,7 +70,9 @@ async fn raw_api_escape_hatch_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             "--title",
             "Raw API card",

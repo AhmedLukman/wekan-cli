@@ -68,6 +68,7 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             &initial_title,
@@ -83,7 +84,7 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
     assert!(!created.list_id.is_empty());
 
     let CommandSuccess::ListCollection(collection) =
-        execute_live_list(&app, &server, &["list", &board.board_id])
+        execute_live_list(&app, &server, &["list", "--board", &board.board_id])
             .await
             .expect("the created list must be visible in the board collection")
     else {
@@ -96,11 +97,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
             .any(|list| { list.list_id == created.list_id && list.title == initial_title })
     );
 
-    let CommandSuccess::ListShown(initial) =
-        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
-            .await
-            .expect("the created list must be readable")
-    else {
+    let CommandSuccess::ListShown(initial) = execute_live_list(
+        &app,
+        &server,
+        &["get", "--board", &board.board_id, &created.list_id],
+    )
+    .await
+    .expect("the created list must be readable") else {
         panic!("expected list detail output")
     };
     assert_eq!(initial.list_id, created.list_id);
@@ -168,6 +171,7 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
             &created.list_id,
             "--title",
@@ -198,11 +202,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         ]
     );
 
-    let CommandSuccess::ListShown(after_update) =
-        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
-            .await
-            .expect("the updated list must remain readable")
-    else {
+    let CommandSuccess::ListShown(after_update) = execute_live_list(
+        &app,
+        &server,
+        &["get", "--board", &board.board_id, &created.list_id],
+    )
+    .await
+    .expect("the updated list must remain readable") else {
         panic!("expected list detail output")
     };
     assert_eq!(after_update.title, updated_title);
@@ -221,6 +227,7 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
             &created.list_id,
             "--title",
@@ -235,11 +242,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         truncated_title_update.updated_fields,
         [wekan_cli::command_result::ListUpdatedField::Title]
     );
-    let CommandSuccess::ListShown(truncated_title_list) =
-        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
-            .await
-            .expect("the list with Wekan's truncated title must remain readable")
-    else {
+    let CommandSuccess::ListShown(truncated_title_list) = execute_live_list(
+        &app,
+        &server,
+        &["get", "--board", &board.board_id, &created.list_id],
+    )
+    .await
+    .expect("the list with Wekan's truncated title must remain readable") else {
         panic!("expected list detail output")
     };
     assert_eq!(truncated_title_list.title, "x".repeat(1000));
@@ -265,11 +274,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
         created.list_id
     );
 
-    let CommandSuccess::ListShown(sanitized_wip) =
-        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
-            .await
-            .expect("Wekan must strip unsupported WIP fields before returning the list")
-    else {
+    let CommandSuccess::ListShown(sanitized_wip) = execute_live_list(
+        &app,
+        &server,
+        &["get", "--board", &board.board_id, &created.list_id],
+    )
+    .await
+    .expect("Wekan must strip unsupported WIP fields before returning the list") else {
         panic!("expected list detail output")
     };
     assert_eq!(
@@ -284,7 +295,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::ListDeleted(deleted) = execute_live_list(
         &app,
         &server,
-        &["delete", &board.board_id, &created.list_id, "--yes"],
+        &[
+            "delete",
+            "--board",
+            &board.board_id,
+            &created.list_id,
+            "--yes",
+        ],
     )
     .await
     .expect("soft deletion must succeed") else {
@@ -295,11 +312,13 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
     assert!(deleted.deleted);
     assert_eq!(deleted.delete_mode, ListDeleteMode::Soft);
 
-    let CommandSuccess::ListShown(soft_deleted) =
-        execute_live_list(&app, &server, &["get", &board.board_id, &created.list_id])
-            .await
-            .expect("Wekan must retain the soft-deleted list document")
-    else {
+    let CommandSuccess::ListShown(soft_deleted) = execute_live_list(
+        &app,
+        &server,
+        &["get", "--board", &board.board_id, &created.list_id],
+    )
+    .await
+    .expect("Wekan must retain the soft-deleted list document") else {
         panic!("expected list detail output")
     };
     assert!(soft_deleted.deleted_at.is_some());

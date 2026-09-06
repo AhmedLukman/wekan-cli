@@ -159,25 +159,51 @@ async fn dispatch(
 #[test]
 fn parser_exposes_only_crud_and_validates_inputs() {
     for arguments in [
-        vec!["list", "board-1"],
-        vec!["get", "board-1", "swimlane-1"],
-        vec!["create", "board-1", "--title", "Delivery"],
-        vec!["create", "board-1", "--title", "Delivery", "--sort", "2.5"],
-        vec!["update", "board-1", "swimlane-1", "--title", "Operations"],
-        vec!["delete", "board-1", "swimlane-1", "--yes"],
+        vec!["list", "--board", "board-1"],
+        vec!["get", "--board", "board-1", "swimlane-1"],
+        vec!["create", "--board", "board-1", "--title", "Delivery"],
+        vec![
+            "create", "--board", "board-1", "--title", "Delivery", "--sort", "2.5",
+        ],
+        vec![
+            "update",
+            "--board",
+            "board-1",
+            "swimlane-1",
+            "--title",
+            "Operations",
+        ],
+        vec!["delete", "--board", "board-1", "swimlane-1", "--yes"],
     ] {
         swimlane_command(&arguments);
     }
 
     for invalid in [
-        vec!["wekan", "swimlane", "update", "board-1", "swimlane-1"],
         vec![
-            "wekan", "swimlane", "create", "board-1", "--title", "Delivery", "--sort", "NaN",
+            "wekan",
+            "swimlane",
+            "update",
+            "--board",
+            "board-1",
+            "swimlane-1",
         ],
         vec![
-            "wekan", "swimlane", "create", "board-1", "--title", "Delivery", "--sort", "inf",
+            "wekan", "swimlane", "create", "--board", "board-1", "--title", "Delivery", "--sort",
+            "NaN",
         ],
-        vec!["wekan", "swimlane", "get", "board-1", "swimlane-1", "--yes"],
+        vec![
+            "wekan", "swimlane", "create", "--board", "board-1", "--title", "Delivery", "--sort",
+            "inf",
+        ],
+        vec![
+            "wekan",
+            "swimlane",
+            "get",
+            "--board",
+            "board-1",
+            "swimlane-1",
+            "--yes",
+        ],
         vec!["wekan", "swimlane", "copy", "board-1", "swimlane-1"],
         vec!["wekan", "swimlane", "move", "board-1", "swimlane-1"],
     ] {
@@ -186,6 +212,7 @@ fn parser_exposes_only_crud_and_validates_inputs() {
 
     let SwimlaneCommand::Create(trimmed) = swimlane_command(&[
         "create",
+        "--board",
         " board-1 ",
         "--title",
         " Delivery ",
@@ -199,13 +226,16 @@ fn parser_exposes_only_crud_and_validates_inputs() {
     assert_eq!(trimmed.sort, Some(-3.25));
 
     for whitespace_only in [
-        vec!["wekan", "swimlane", "list", "   "],
-        vec!["wekan", "swimlane", "get", "board-1", "   "],
-        vec!["wekan", "swimlane", "create", "board-1", "--title", "   "],
+        vec!["wekan", "swimlane", "list", "--board", "   "],
+        vec!["wekan", "swimlane", "get", "--board", "board-1", "   "],
+        vec![
+            "wekan", "swimlane", "create", "--board", "board-1", "--title", "   ",
+        ],
         vec![
             "wekan",
             "swimlane",
             "update",
+            "--board",
             "board-1",
             "swimlane-1",
             "--title",
@@ -266,7 +296,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let CommandSuccess::SwimlaneCollection(collection) = dispatch(
-        swimlane_command(&["list", "board/1"]),
+        swimlane_command(&["list", "--board", "board/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -279,7 +309,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     assert_eq!(collection.swimlanes[0].swimlane_id, "swimlane-1");
 
     let CommandSuccess::SwimlaneShown(swimlane) = dispatch(
-        swimlane_command(&["get", "board/1", "swimlane/1"]),
+        swimlane_command(&["get", "--board", "board/1", "swimlane/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -294,6 +324,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     let CommandSuccess::SwimlaneCreated(created) = dispatch(
         swimlane_command(&[
             "create",
+            "--board",
             "board/1",
             "--title",
             " Delivery ",
@@ -311,7 +342,14 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     assert_eq!(created.swimlane_id, "swimlane-2");
 
     let CommandSuccess::SwimlaneUpdated(updated) = dispatch(
-        swimlane_command(&["update", "board/1", "swimlane/1", "--title", "Operations"]),
+        swimlane_command(&[
+            "update",
+            "--board",
+            "board/1",
+            "swimlane/1",
+            "--title",
+            "Operations",
+        ]),
         &factory(&server),
         &store,
         &confirmation,
@@ -350,7 +388,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let missing = dispatch(
-        swimlane_command(&["get", "board-1", "missing"]),
+        swimlane_command(&["get", "--board", "board-1", "missing"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -362,7 +400,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     assert_eq!(missing.details().wekan_status_code, Some(404));
 
     let future = dispatch(
-        swimlane_command(&["get", "board-1", "future"]),
+        swimlane_command(&["get", "--board", "board-1", "future"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -378,7 +416,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     let store = FakeCredentialStore::authenticated(&server);
     let declining = FakeConfirmationProvider::declining();
     let cancelled = dispatch(
-        swimlane_command(&["delete", "board-1", "swimlane\u{1b}]52;c;x\u{7}"]),
+        swimlane_command(&["delete", "--board", "board-1", "swimlane\u{1b}]52;c;x\u{7}"]),
         &factory(&server),
         &store,
         &declining,
@@ -401,7 +439,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
         .mount(&server)
         .await;
     let CommandSuccess::SwimlaneDeleted(deleted) = dispatch(
-        swimlane_command(&["delete", "board-1", "swimlane-1", "--yes"]),
+        swimlane_command(&["delete", "--board", "board-1", "swimlane-1", "--yes"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -420,7 +458,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
         .mount(&server)
         .await;
     let mismatch = dispatch(
-        swimlane_command(&["delete", "board-1", "swimlane-2", "--yes"]),
+        swimlane_command(&["delete", "--board", "board-1", "swimlane-2", "--yes"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -446,7 +484,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     store.replace_on_next_lock(replacement.clone());
     let confirmation = FakeConfirmationProvider::accepting();
     let error = dispatch(
-        swimlane_command(&["delete", "board-1", "swimlane-3"]),
+        swimlane_command(&["delete", "--board", "board-1", "swimlane-3"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -500,7 +538,7 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let not_found = dispatch(
-        swimlane_command(&["update", "board-1", "missing", "--title", "New"]),
+        swimlane_command(&["update", "--board", "board-1", "missing", "--title", "New"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -511,7 +549,7 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     assert_eq!(not_found.details().outcome_unknown, None);
 
     let malformed = dispatch(
-        swimlane_command(&["create", "board-1", "--title", "Delivery"]),
+        swimlane_command(&["create", "--board", "board-1", "--title", "Delivery"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -522,7 +560,14 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     assert_eq!(malformed.details().outcome_unknown, Some(true));
 
     let mismatch = dispatch(
-        swimlane_command(&["update", "board-1", "swimlane-1", "--title", "Operations"]),
+        swimlane_command(&[
+            "update",
+            "--board",
+            "board-1",
+            "swimlane-1",
+            "--title",
+            "Operations",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),

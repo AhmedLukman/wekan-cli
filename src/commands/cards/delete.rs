@@ -26,11 +26,11 @@ use super::non_empty;
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty)]
     pub board_id: String,
 
     /// Wekan list ID. Supplying the wrong list can trigger a Wekan v11.06 cascade defect.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "list", value_parser = non_empty)]
     pub list_id: String,
 
     /// Wekan card ID to permanently delete.

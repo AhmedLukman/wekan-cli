@@ -56,6 +56,13 @@ Use JSON output for scripts and agents:
 wekan --output json board list
 ```
 
+Scoped commands name their parent IDs explicitly:
+
+```console
+wekan card get CARD_ID --board BOARD_ID --list LIST_ID
+wekan comment list --board BOARD_ID --card CARD_ID
+```
+
 Passwords and optional two-factor codes are read without echo. Automation can
 use `--password-stdin` and `--code-stdin`; secrets are deliberately unsupported
 as command-line values or environment variables. Login tokens are stored in

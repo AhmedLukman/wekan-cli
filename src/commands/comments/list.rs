@@ -14,11 +14,11 @@ use super::non_empty;
 #[derive(Debug, Args)]
 pub struct ListArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty)]
     pub board_id: String,
 
     /// Wekan card ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "card", value_parser = non_empty)]
     pub card_id: String,
 }
 

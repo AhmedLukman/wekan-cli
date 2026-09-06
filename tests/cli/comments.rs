@@ -15,7 +15,9 @@ fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
         .stderr(predicate::str::is_empty());
 
     cargo_bin_cmd!("wekan")
-        .args(["comment", "create", "board-1", "card-1", "--help"])
+        .args([
+            "comment", "create", "--board", "board-1", "--card", "card-1", "--help",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("--text <TEXT>"));
@@ -27,7 +29,9 @@ fn only_comment_delete_accepts_yes() {
         .args([
             "comment",
             "delete",
+            "--board",
             "board-1",
+            "--card",
             "card-1",
             "comment-1",
             "--help",
@@ -37,7 +41,16 @@ fn only_comment_delete_accepts_yes() {
         .stdout(predicate::str::contains("--yes"));
 
     cargo_bin_cmd!("wekan")
-        .args(["comment", "get", "board-1", "card-1", "comment-1", "--yes"])
+        .args([
+            "comment",
+            "get",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-1",
+            "--yes",
+        ])
         .assert()
         .failure()
         .code(2)

@@ -439,7 +439,7 @@ pub(crate) async fn wait_for_live_swimlane_absent(
     swimlane_id: &str,
 ) {
     for _ in 0..40 {
-        match execute_live_swimlane(app, server, &["get", board_id, swimlane_id]).await {
+        match execute_live_swimlane(app, server, &["get", "--board", board_id, swimlane_id]).await {
             Err(error) if error.code() == ErrorCode::NotFound => {
                 assert_eq!(error.details().http_status, Some(200));
                 assert_eq!(error.details().wekan_status_code, Some(404));
@@ -461,7 +461,7 @@ pub(crate) async fn wait_for_live_swimlane_absent_from_collection(
     swimlane_id: &str,
 ) {
     for _ in 0..40 {
-        let result = execute_live_swimlane(app, server, &["list", board_id])
+        let result = execute_live_swimlane(app, server, &["list", "--board", board_id])
             .await
             .expect("the post-delete swimlane collection must remain readable");
         let CommandSuccess::SwimlaneCollection(collection) = result else {
@@ -486,7 +486,7 @@ pub(crate) async fn wait_for_live_list_absent(
     list_id: &str,
 ) {
     for _ in 0..40 {
-        match execute_live_list(app, server, &["get", board_id, list_id]).await {
+        match execute_live_list(app, server, &["get", "--board", board_id, list_id]).await {
             Err(error) if error.code() == ErrorCode::NotFound => return,
             Ok(CommandSuccess::ListShown(_)) => {}
             Ok(other) => panic!("unexpected list absence probe result: {other:?}"),
