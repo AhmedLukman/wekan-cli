@@ -4,7 +4,7 @@ Wekan CLI is an agent-first, human-friendly command-line client for Wekan. It
 provides deterministic commands, stable JSON output, explicit errors, native
 credential storage, and confirmation gates for destructive operations.
 
-Version 0.1.0 targets **Wekan v11.06 exactly**. Other Wekan versions are not
+Version 0.2.0 targets **Wekan v11.06 exactly**. Other Wekan versions are not
 currently supported or tested.
 
 ## Install

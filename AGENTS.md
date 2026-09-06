@@ -4,7 +4,7 @@ This is an agent-first, human-friendly, cross-platform Rust CLI for Wekan. Prefe
 
 ## Release compatibility
 
-This CLI has released v0.1.0 and remains on that version. For all 0.x releases
+For all 0.x releases
 (before v1.0.0), breaking changes are explicitly allowed without supporting
 legacy behavior or maintaining backward compatibility. Do not retain old
 command syntax, configuration formats, deprecated options, compatibility shims,
