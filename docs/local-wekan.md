@@ -80,6 +80,16 @@ This isolation supports one stack per parallel integration-test worker or CI
 shard. Tests using the same stack still share its database and should create
 unique test data.
 
+The authentication lifecycle test seeds notification fixtures in its newly
+registered account through the Compose `mongodb` service. Run it from the
+repository root and set `COMPOSE_PROJECT_NAME` to match the isolated stack:
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-test-1"
+$env:WEKAN_E2E_URL = "http://localhost:3101"
+cargo test --test e2e auth::authentication_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
 The ignored core-board lifecycle test requires a fresh isolated stack. Point it
 at that stack and run only the dedicated test:
 

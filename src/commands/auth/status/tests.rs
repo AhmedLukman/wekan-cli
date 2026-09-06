@@ -268,7 +268,13 @@ async fn valid_credentials_return_only_the_allowlisted_profile() {
             "_id": "user-1",
             "username": "alice",
             "emails": [{"address": "alice@example.com", "verified": true}],
-            "profile": {"fullname": "Alice Example", "language": "en"},
+            "profile": {
+                "fullname": "Alice Example", "language": "en",
+                "notifications": [
+                    {"activity": "unread-activity"},
+                    {"activity": "read-activity", "read": "2026-09-06T10:00:00.000Z"}
+                ]
+            },
             "isAdmin": false,
             "boards": [{"boardId": "private-board"}]
         })))

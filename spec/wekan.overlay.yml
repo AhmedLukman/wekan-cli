@@ -5333,6 +5333,23 @@ actions:
 
   # Final user-slice corrections must follow the generic response-coverage
   # actions above.
+  - target: '$.definitions.UsersProfileNotifications'
+    description: >-
+      Wekan v11.06 models/users.js lines 624-637 requires activity but makes read
+      an optional Date; addNotification at lines 2317-2320 supplies null and
+      client/components/notifications/notification.js lines 5-11 toggles Date/null.
+      The authentication live test seeds persisted missing, null, and BSON Date
+      values and verifies GET /api/user preserves missing/null and serializes
+      the date as an ISO timestamp. The base already requires only activity.
+    update:
+      additionalProperties: false
+      properties:
+        read:
+          type: string
+          format: date-time
+          x-nullable: true
+          description: Read timestamp; absent or null for unread notifications.
+
   - target: '$.paths["/api/user/cards"].get.responses["200"].schema'
     description: Preserve the verified compact v11.06 current-user card projection.
     update:

@@ -151,7 +151,7 @@ pub struct UserProfile {
 #[serde(deny_unknown_fields)]
 struct UserProfileNotification {
     activity: String,
-    read: String,
+    read: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]

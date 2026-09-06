@@ -2,6 +2,9 @@
 
 This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
 
+User response decoding accepts notifications with absent, null, or populated read
+timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).
+
 **Coverage:** 36 of 140 operations implemented (25.7%); 104 remaining.
 
 ## Status rules

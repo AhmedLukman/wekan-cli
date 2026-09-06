@@ -6395,11 +6395,14 @@ definitions:
                     The id of the activity this notification references
                 type: string
             read:
-                description: |
-                    the date on which this notification was read
+                description: |-
+                    Read timestamp; absent or null for unread notifications.
                 type: string
+                format: date-time
+                x-nullable: true
         required:
             - activity
+        additionalProperties: false
     UsersProfileStarredboards:
         type: array
         description: >-

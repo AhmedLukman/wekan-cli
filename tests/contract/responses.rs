@@ -2360,6 +2360,53 @@ async fn current_user_success_fields_are_mapped_and_decoded() {
 }
 
 #[tokio::test]
+async fn current_user_accepts_unread_and_read_notifications() {
+    for notification in [
+        json!({"activity": "activity-1"}),
+        json!({"activity": "activity-1", "read": null}),
+        json!({"activity": "activity-1", "read": "2026-09-06T10:00:00.000Z"}),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/user"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id": "user-1",
+                "profile": {"notifications": [notification]}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let user = client(&server).current_user(&status_token()).await.unwrap();
+        assert_eq!(user.user_id(), "user-1");
+    }
+}
+
+#[tokio::test]
+async fn current_user_notifications_reject_invalid_and_unmapped_fields() {
+    for profile in [
+        json!({"notifications": [{"read": null}]}),
+        json!({"notifications": [{"activity": 42}]}),
+        json!({"notifications": [{"activity": "activity-1", "read": true}]}),
+        json!({"notifications": [{"activity": "activity-1", "extra": "unknown"}]}),
+        json!({"notifications": [{"activity": "activity-1"}], "extra": "unknown"}),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/user"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id": "user-1", "profile": profile
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(matches!(
+            client(&server).current_user(&status_token()).await,
+            Err(ClientError::Protocol { .. })
+        ));
+    }
+}
+
+#[tokio::test]
 async fn current_user_accepts_absent_optional_profile_fields() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

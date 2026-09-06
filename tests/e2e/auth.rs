@@ -1,6 +1,6 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "requires a user-started Wekan v11.06 stack and WEKAN_E2E_URL"]
+#[ignore = "requires an isolated Compose Wekan v11.06 stack and WEKAN_E2E_URL"]
 async fn authentication_flow_matches_wekan_v11_06() {
     let server = env::var("WEKAN_E2E_URL")
         .expect("set WEKAN_E2E_URL to the user-started Wekan v11.06 server URL");
@@ -195,6 +195,53 @@ async fn authentication_flow_matches_wekan_v11_06() {
         .expect("email login must save the stored credential");
     assert_eq!(email_user_id, user_id);
     assert_token_authenticates(&email_server, &email_user_id, &email_token).await;
+
+    // Seed only this test's newly registered account. These persisted shapes
+    // follow v11.06 models/users.js:624-637 and the notification UI's Date/null
+    // updates. Use the real REST serializer and production auth-status decoder.
+    let selector = serde_json::json!({"_id": user_id, "username": username});
+    let script = format!(
+        r#"const result = db.getSiblingDB('wekan').users.updateOne({selector},
+        {{$set: {{'profile.notifications': [
+            {{activity: 'unread-notification'}},
+            {{activity: 'null-notification', read: null}},
+            {{activity: 'read-notification', read: ISODate('2026-09-06T10:00:00.000Z')}}
+        ]}}}}); if (result.matchedCount !== 1) throw new Error('test user not found');"#
+    );
+    let seed = Command::new("docker")
+        .args([
+            "compose", "exec", "-T", "mongodb", "mongosh", "--quiet", "--eval", &script,
+        ])
+        .output()
+        .expect("Docker Compose must be available for notification fixtures");
+    assert!(
+        seed.status.success(),
+        "notification fixture setup failed: {}",
+        String::from_utf8_lossy(&seed.stderr)
+    );
+    let user = live_api_json(
+        &reqwest::Client::new(),
+        &email_server,
+        &email_token,
+        reqwest::Method::GET,
+        "api/user",
+        None,
+    )
+    .await;
+    let notifications = user["profile"]["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), 3);
+    assert!(notifications[0].get("read").is_none());
+    assert_eq!(notifications[1].get("read"), Some(&serde_json::Value::Null));
+    assert_eq!(notifications[2]["read"], "2026-09-06T10:00:00.000Z");
+    let status_cli = Cli::try_parse_from(["wekan", "--server", &server, "auth", "status"]).unwrap();
+    let CommandSuccess::AuthStatus(status) = app
+        .execute(status_cli.command)
+        .await
+        .expect("unread and read notifications must pass live status validation")
+    else {
+        panic!("expected authentication status output")
+    };
+    assert_eq!(status.user.user_id, user_id);
 
     let local_only_cli = Cli::try_parse_from([
         "wekan",
