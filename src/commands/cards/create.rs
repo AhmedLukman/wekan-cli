@@ -12,13 +12,17 @@ use crate::{
 use super::{non_empty, rfc3339, trimmed_non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan card create --board board-id --list list-id --title \"Plan next release\" --swimlane-id swimlane-id"
+)]
+#[command(next_help_heading = "Fields")]
 pub struct CreateArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
     /// Card title.

@@ -14,6 +14,19 @@ enum MutationOutcomePolicy {
     PartialEffectsPossible,
 }
 
+pub(crate) fn protocol_diagnostic_details(
+    success_status_received: bool,
+    diagnostic: Option<crate::client::ResponseDiagnostic>,
+    redactor: &Redactor<'_>,
+) -> ErrorDetails {
+    let mut details = protocol_error_details(success_status_received);
+    if let Some(diagnostic) = diagnostic {
+        details.response_path = Some(redactor.redact(&diagnostic.path));
+        details.response_error = Some(diagnostic.kind);
+    }
+    details
+}
+
 pub(crate) fn map_client_error(
     error: ClientError,
     redactor: &Redactor<'_>,
@@ -122,13 +135,18 @@ fn map_client_error_with_optional_not_found(
             not_found_message,
         ),
         ClientError::Protocol {
+            diagnostic,
             message,
             success_status_received,
         } => (
             ErrorCode::ProtocolError,
             message,
             StableExitCode::Transport,
-            protocol_error_details(success_status_received),
+            crate::commands::client_error::protocol_diagnostic_details(
+                success_status_received,
+                diagnostic,
+                redactor,
+            ),
         ),
         ClientError::EmbeddedProtocol {
             http_status,

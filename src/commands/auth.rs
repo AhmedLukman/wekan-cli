@@ -7,7 +7,7 @@ use clap::{Args, Subcommand};
 use time::format_description::well_known::Rfc3339;
 
 use crate::{
-    client::{AuthSession, WekanClientFactory},
+    client::AuthSession,
     command_result::{AuthSuccess, CommandSuccess},
     config::{MissingProfileResolution, ResolvedTarget},
     credentials::{
@@ -55,46 +55,32 @@ impl AuthCommand {
     }
 }
 
-pub(crate) enum PreparedAuthCommand<'command, 'store> {
-    Login {
-        args: login::LoginArgs,
-        target: &'command mut ResolvedTarget<'store>,
-    },
-    Logout {
-        args: logout::LogoutArgs,
-        client_factory: &'command WekanClientFactory,
-    },
-    Register {
-        args: register::RegisterArgs,
-        target: &'command mut ResolvedTarget<'store>,
-    },
-    Status {
-        args: status::StatusArgs,
-        client_factory: &'command WekanClientFactory,
-    },
-}
-
 pub(crate) async fn dispatch(
-    command: PreparedAuthCommand<'_, '_>,
+    command: AuthCommand,
+    target: &mut ResolvedTarget<'_>,
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
-        PreparedAuthCommand::Login { args, target } => {
+        AuthCommand::Login(args) => {
             login::execute(args, target, credential_store, secret_input).await
         }
-        PreparedAuthCommand::Logout {
-            args,
-            client_factory,
-        } => logout::execute(args, client_factory, credential_store, confirmation).await,
-        PreparedAuthCommand::Register { args, target } => {
+        AuthCommand::Register(args) => {
             register::execute(args, target, credential_store, secret_input).await
         }
-        PreparedAuthCommand::Status {
-            args,
-            client_factory,
-        } => status::execute(args, client_factory, credential_store).await,
+        AuthCommand::Logout(args) => {
+            logout::execute(
+                args,
+                target.client_factory(),
+                credential_store,
+                confirmation,
+            )
+            .await
+        }
+        AuthCommand::Status(args) => {
+            status::execute(args, target.client_factory(), credential_store).await
+        }
     }
 }
 

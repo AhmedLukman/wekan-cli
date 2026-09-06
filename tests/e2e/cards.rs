@@ -69,6 +69,7 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
             "--title",
             "Todo",
@@ -111,7 +112,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             "--title",
             "Parent",
@@ -162,13 +165,13 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     .await;
 
     for (role, role_app) in [("normal", &normal_app), ("read-only", &read_only_app)] {
-        let CommandSuccess::CardCollection(cards) =
-            execute_live_card(role_app, &server, &["list", &board.board_id, &list.list_id])
-                .await
-                .unwrap_or_else(|error| {
-                    panic!("{role} member must be able to list cards: {error:?}")
-                })
-        else {
+        let CommandSuccess::CardCollection(cards) = execute_live_card(
+            role_app,
+            &server,
+            &["list", "--board", &board.board_id, "--list", &list.list_id],
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{role} member must be able to list cards: {error:?}")) else {
             panic!("expected {role} card collection output")
         };
         assert!(
@@ -181,7 +184,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         let CommandSuccess::CardShown(card) = execute_live_card(
             role_app,
             &server,
-            &["get", &board.board_id, &list.list_id, &parent.card_id],
+            &[
+                "get",
+                "--board",
+                &board.board_id,
+                "--list",
+                &list.list_id,
+                &parent.card_id,
+            ],
         )
         .await
         .unwrap_or_else(|error| panic!("{role} member must be able to get a card: {error:?}")) else {
@@ -191,10 +201,13 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     }
 
     for (role, role_app) in [("comment-only", &comment_app), ("worker", &worker_app)] {
-        let list_error =
-            execute_live_card(role_app, &server, &["list", &board.board_id, &list.list_id])
-                .await
-                .expect_err("Wekan must deny card listing for this board role");
+        let list_error = execute_live_card(
+            role_app,
+            &server,
+            &["list", "--board", &board.board_id, "--list", &list.list_id],
+        )
+        .await
+        .expect_err("Wekan must deny card listing for this board role");
         assert_eq!(
             list_error.code(),
             ErrorCode::PermissionDenied,
@@ -204,7 +217,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         let get_error = execute_live_card(
             role_app,
             &server,
-            &["get", &board.board_id, &list.list_id, &parent.card_id],
+            &[
+                "get",
+                "--board",
+                &board.board_id,
+                "--list",
+                &list.list_id,
+                &parent.card_id,
+            ],
         )
         .await
         .expect_err("Wekan must deny card retrieval for this board role");
@@ -216,7 +236,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             "--title",
             "Normal member permission probe",
@@ -233,7 +255,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &normal_card.card_id,
             "--title",
@@ -247,7 +271,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "delete",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &normal_card.card_id,
             "--yes",
@@ -263,7 +289,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "create",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 "--title",
                 &format!("{role} create-permission defect probe"),
@@ -280,7 +308,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "update",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 &role_card.card_id,
                 "--title",
@@ -298,7 +328,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
             &server,
             &[
                 "delete",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 &role_card.card_id,
                 "--yes",
@@ -317,7 +349,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         let arguments = match operation {
             "create" => vec![
                 "create",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 "--title",
                 "Read-only create must fail",
@@ -326,7 +360,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
             ],
             "update" => vec![
                 "update",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 &parent.card_id,
                 "--title",
@@ -334,7 +370,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
             ],
             "delete" => vec![
                 "delete",
+                "--board",
                 &board.board_id,
+                "--list",
                 &list.list_id,
                 &parent.card_id,
                 "--yes",
@@ -356,7 +394,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "create",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             "--title",
             &initial_title,
@@ -386,11 +426,13 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     assert_eq!(created.list_id, list.list_id);
     assert!(!created.card_id.is_empty());
 
-    let CommandSuccess::CardCollection(collection) =
-        execute_live_card(&app, &server, &["list", &board.board_id, &list.list_id])
-            .await
-            .expect("the created card must be visible in its list")
-    else {
+    let CommandSuccess::CardCollection(collection) = execute_live_card(
+        &app,
+        &server,
+        &["list", "--board", &board.board_id, "--list", &list.list_id],
+    )
+    .await
+    .expect("the created card must be visible in its list") else {
         panic!("expected card collection output")
     };
     assert!(collection.cards.iter().any(|card| {
@@ -400,7 +442,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CardShown(initial) = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect("the created card must be readable through the strict decoder") else {
@@ -428,7 +477,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &created.card_id,
             "--title",
@@ -496,7 +547,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CardShown(after_update) = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect("the updated card must remain readable") else {
@@ -545,7 +603,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &created.card_id,
             "--title",
@@ -563,7 +623,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CardShown(truncated_title_card) = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect("the card with Wekan's truncated title must remain readable") else {
@@ -579,7 +646,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &created.card_id,
             "--spent-time",
@@ -596,7 +665,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CardShown(after_ignored_zero) = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect("the card must remain readable after Wekan ignores spentTime zero") else {
@@ -614,7 +690,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "update",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &created.card_id,
             "--clear-labels",
@@ -648,7 +726,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let CommandSuccess::CardShown(after_clear) = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect("the cleared card must remain readable") else {
@@ -817,7 +902,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &server,
         &[
             "delete",
+            "--board",
             &board.board_id,
+            "--list",
             &list.list_id,
             &created.card_id,
             "--yes",
@@ -832,7 +919,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     let missing = execute_live_card(
         &app,
         &server,
-        &["get", &board.board_id, &list.list_id, &created.card_id],
+        &[
+            "get",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            &created.card_id,
+        ],
     )
     .await
     .expect_err("the hard-deleted card must be reported as missing");

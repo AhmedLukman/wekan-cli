@@ -905,7 +905,10 @@ async fn current_token_logout_uses_the_authenticated_json_request() {
         .and(header("accept", "application/json"))
         .and(header("content-type", "application/json"))
         .and(header("authorization", "Bearer logout-token"))
-        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .and(header(
+            "user-agent",
+            concat!("wekan-cli/", env!("CARGO_PKG_VERSION")),
+        ))
         .and(body_json(json!({ "all": false })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "message": "You've been logged out!"
@@ -986,7 +989,10 @@ async fn authentication_status_uses_the_current_user_endpoint_and_bearer_header(
         .and(path("/api/user"))
         .and(header("accept", "application/json"))
         .and(header("authorization", "Bearer status-token"))
-        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .and(header(
+            "user-agent",
+            concat!("wekan-cli/", env!("CARGO_PKG_VERSION")),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "_id": "user-1"
         })))
@@ -1047,7 +1053,10 @@ async fn login_with_username_uses_the_correct_wire_request_and_omits_code() {
         .and(path("/users/login"))
         .and(header("accept", "application/json"))
         .and(header("content-type", "application/json"))
-        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .and(header(
+            "user-agent",
+            concat!("wekan-cli/", env!("CARGO_PKG_VERSION")),
+        ))
         .and(body_json(json!({
             "username": "alice",
             "password": "correct horse battery staple"
@@ -1138,7 +1147,10 @@ async fn registration_uses_the_correct_wire_request() {
         .and(path("/users/register"))
         .and(header("accept", "application/json"))
         .and(header("content-type", "application/json"))
-        .and(header("user-agent", "wekan-cli/0.1.0"))
+        .and(header(
+            "user-agent",
+            concat!("wekan-cli/", env!("CARGO_PKG_VERSION")),
+        ))
         .and(body_json(json!({
             "username": "alice",
             "password": "correct horse battery staple"

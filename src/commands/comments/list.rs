@@ -12,13 +12,14 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(after_help = "Example:\n  wekan comment list --board board-id --card card-id")]
 pub struct ListArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan card ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "card", value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 }
 

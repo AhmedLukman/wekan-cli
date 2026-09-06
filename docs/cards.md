@@ -4,11 +4,11 @@ The singular `wekan card` family covers only the five board/list-scoped core
 CRUD operations:
 
 ```console
-wekan card list <BOARD_ID> <LIST_ID>
-wekan card get <BOARD_ID> <LIST_ID> <CARD_ID>
-wekan card create <BOARD_ID> <LIST_ID> --title <TITLE> --swimlane-id <ID> [FIELDS...]
-wekan card update <BOARD_ID> <LIST_ID> <CARD_ID> <FIELDS...>
-wekan card delete <BOARD_ID> <LIST_ID> <CARD_ID> [--yes]
+wekan card list --board <BOARD_ID> --list <LIST_ID>
+wekan card get <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
+wekan card create --board <BOARD_ID> --list <LIST_ID> --title <TITLE> --swimlane-id <ID> [FIELDS...]
+wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS...>
+wekan card delete <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--yes]
 ```
 
 Linked-card creation, movement and dedicated ordering commands, archive and

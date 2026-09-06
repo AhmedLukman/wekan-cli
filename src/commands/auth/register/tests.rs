@@ -314,6 +314,7 @@ fn invalid_registration_success_preserves_the_http_status() {
     let redactor = Redactor::with_secret(&password);
     let error = map_client_error(
         ClientError::Protocol {
+            diagnostic: None,
             message: "invalid JSON or missing fields".to_owned(),
             success_status_received: true,
         },

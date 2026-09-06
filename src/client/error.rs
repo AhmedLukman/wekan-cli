@@ -25,6 +25,7 @@ pub enum ClientError {
     #[error("the server returned an invalid response: {message}")]
     Protocol {
         message: String,
+        diagnostic: Option<super::ResponseDiagnostic>,
         success_status_received: bool,
     },
     #[error(

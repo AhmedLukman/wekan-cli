@@ -24,17 +24,20 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan card delete card-id --board board-id --list list-id --yes"
+)]
 pub struct DeleteArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID. Supplying the wrong list can trigger a Wekan v11.06 cascade defect.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
     /// Wekan card ID to permanently delete.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
     #[command(flatten)]

@@ -157,20 +157,22 @@ async fn dispatch(
 #[test]
 fn parser_exposes_only_crud_and_validates_update_groups() {
     for arguments in [
-        vec!["list", "board-1"],
-        vec!["get", "board-1", "list-1"],
-        vec!["create", "board-1", "--title", "Todo"],
+        vec!["list", "--board", "board-1"],
+        vec!["get", "--board", "board-1", "list-1"],
+        vec!["create", "--board", "board-1", "--title", "Todo"],
         vec![
             "create",
+            "--board",
             "board-1",
             "--title",
             "Todo",
             "--swimlane-id",
             "swimlane-1",
         ],
-        vec!["update", "board-1", "list-1", "--title", "Doing"],
+        vec!["update", "--board", "board-1", "list-1", "--title", "Doing"],
         vec![
             "update",
+            "--board",
             "board-1",
             "list-1",
             "--color",
@@ -184,29 +186,31 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
             "--wip-soft",
             "false",
         ],
-        vec!["delete", "board-1", "list-1", "--yes"],
+        vec!["delete", "--board", "board-1", "list-1", "--yes"],
     ] {
         list_command(&arguments);
     }
 
     for invalid in [
-        vec!["wekan", "list", "update", "board-1", "list-1"],
+        vec!["wekan", "list", "update", "--board", "board-1", "list-1"],
         vec![
             "wekan",
             "list",
             "update",
+            "--board",
             "board-1",
             "list-1",
             "--wip-limit",
             "2",
         ],
         vec![
-            "wekan", "list", "update", "board-1", "list-1", "--color", "belize",
+            "wekan", "list", "update", "--board", "board-1", "list-1", "--color", "belize",
         ],
         vec![
             "wekan",
             "list",
             "update",
+            "--board",
             "board-1",
             "list-1",
             "--wip-limit",
@@ -216,17 +220,27 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
             "--wip-soft",
             "false",
         ],
-        vec!["wekan", "list", "get", "board-1", "list-1", "--yes"],
+        vec![
+            "wekan", "list", "get", "--board", "board-1", "list-1", "--yes",
+        ],
     ] {
         assert!(Cli::try_parse_from(invalid).is_err());
     }
 
     let long_title = "x".repeat(1001);
-    list_command(&["update", "board-1", "list-1", "--title", &long_title]);
+    list_command(&[
+        "update",
+        "--board",
+        "board-1",
+        "list-1",
+        "--title",
+        &long_title,
+    ]);
 
     let five_hundred_emojis = "😀".repeat(500);
     list_command(&[
         "update",
+        "--board",
         "board-1",
         "list-1",
         "--title",
@@ -236,6 +250,7 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
     let five_hundred_one_emojis = "😀".repeat(501);
     list_command(&[
         "update",
+        "--board",
         "board-1",
         "list-1",
         "--title",
@@ -244,6 +259,7 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
 
     let ListCommand::Create(trimmed) = list_command(&[
         "create",
+        "--board",
         " board-1 ",
         "--title",
         " Todo ",
@@ -257,13 +273,16 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
     assert_eq!(trimmed.swimlane_id.as_deref(), Some("swimlane-1"));
 
     for whitespace_only in [
-        vec!["wekan", "list", "list", "   "],
-        vec!["wekan", "list", "get", "board-1", "   "],
-        vec!["wekan", "list", "create", "board-1", "--title", "   "],
+        vec!["wekan", "list", "list", "--board", "   "],
+        vec!["wekan", "list", "get", "--board", "board-1", "   "],
+        vec![
+            "wekan", "list", "create", "--board", "board-1", "--title", "   ",
+        ],
         vec![
             "wekan",
             "list",
             "create",
+            "--board",
             "board-1",
             "--title",
             "Todo",
@@ -335,7 +354,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let CommandSuccess::ListCollection(collection) = dispatch(
-        list_command(&["list", "board/1"]),
+        list_command(&["list", "--board", "board/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -348,7 +367,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     assert_eq!(collection.lists[0].list_id, "list-1");
 
     let CommandSuccess::ListShown(list) = dispatch(
-        list_command(&["get", "board/1", "list/1"]),
+        list_command(&["get", "--board", "board/1", "list/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -366,6 +385,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     let CommandSuccess::ListCreated(created) = dispatch(
         list_command(&[
             "create",
+            "--board",
             "board/1",
             "--title",
             " Todo ",
@@ -385,6 +405,7 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
     let CommandSuccess::ListUpdated(updated) = dispatch(
         list_command(&[
             "update",
+            "--board",
             "board/1",
             "list/1",
             "--title",
@@ -446,7 +467,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let missing = dispatch(
-        list_command(&["get", "board-1", "missing"]),
+        list_command(&["get", "--board", "board-1", "missing"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -458,7 +479,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     assert_eq!(missing.details().wekan_status_code, Some(404));
 
     let future = dispatch(
-        list_command(&["get", "board-1", "future"]),
+        list_command(&["get", "--board", "board-1", "future"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -466,6 +487,16 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     .await
     .unwrap_err();
     assert_eq!(future.code(), ErrorCode::ProtocolError);
+    let json = crate::output::render_error(crate::output::OutputFormat::Json, &future);
+    let envelope: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        envelope["error"]["details"]["response_path"],
+        "/futureField"
+    );
+    assert_eq!(
+        envelope["error"]["details"]["response_error"],
+        "unknown_field"
+    );
 }
 
 #[tokio::test]
@@ -474,7 +505,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     let store = FakeCredentialStore::authenticated(&server);
     let declining = FakeConfirmationProvider::declining();
     let cancelled = dispatch(
-        list_command(&["delete", "board-1", "list\u{1b}]52;c;x\u{7}"]),
+        list_command(&["delete", "--board", "board-1", "list\u{1b}]52;c;x\u{7}"]),
         &factory(&server),
         &store,
         &declining,
@@ -497,7 +528,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
         .mount(&server)
         .await;
     let CommandSuccess::ListDeleted(deleted) = dispatch(
-        list_command(&["delete", "board-1", "list-1", "--yes"]),
+        list_command(&["delete", "--board", "board-1", "list-1", "--yes"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -518,7 +549,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     store.replace_on_next_lock(replacement);
     let confirmation = FakeConfirmationProvider::accepting();
     let error = dispatch(
-        list_command(&["delete", "board-1", "list-2"]),
+        list_command(&["delete", "--board", "board-1", "list-2"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -550,7 +581,7 @@ async fn update_maps_404_and_mutation_protocol_failures_are_ambiguous() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let not_found = dispatch(
-        list_command(&["update", "board-1", "missing", "--title", "New"]),
+        list_command(&["update", "--board", "board-1", "missing", "--title", "New"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -561,7 +592,7 @@ async fn update_maps_404_and_mutation_protocol_failures_are_ambiguous() {
     assert_eq!(not_found.details().outcome_unknown, None);
 
     let malformed = dispatch(
-        list_command(&["create", "board-1", "--title", "Todo"]),
+        list_command(&["create", "--board", "board-1", "--title", "Todo"]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),

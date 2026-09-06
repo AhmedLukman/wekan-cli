@@ -4,10 +4,10 @@ The singular `wekan comment` command family covers every card-comment
 operation exposed by the Wekan v11.06 REST API:
 
 ```console
-wekan comment list <BOARD_ID> <CARD_ID>
-wekan comment get <BOARD_ID> <CARD_ID> <COMMENT_ID>
-wekan comment create <BOARD_ID> <CARD_ID> --text <TEXT>
-wekan comment delete <BOARD_ID> <CARD_ID> <COMMENT_ID> [--yes]
+wekan comment list --board <BOARD_ID> --card <CARD_ID>
+wekan comment get <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID>
+wekan comment create --board <BOARD_ID> --card <CARD_ID> --text <TEXT>
+wekan comment delete <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID> [--yes]
 ```
 
 Wekan does not expose a REST endpoint for editing a comment, so this family has

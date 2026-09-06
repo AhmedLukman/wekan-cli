@@ -487,6 +487,7 @@ impl WekanClient {
         let response: IdResponse = decode_success(&body, "delete-user", true)?;
         if response.id.is_empty() {
             return Err(ClientError::Protocol {
+                diagnostic: None,
                 message: "the delete-user response contained an empty id".to_owned(),
                 success_status_received: true,
             });
@@ -498,6 +499,7 @@ impl WekanClient {
         self.server()
             .join(path)
             .map_err(|error| ClientError::Protocol {
+                diagnostic: None,
                 message: format!("could not build the {operation} endpoint: {error}"),
                 success_status_received: false,
             })
@@ -512,6 +514,7 @@ impl WekanClient {
         endpoint
             .path_segments_mut()
             .map_err(|()| ClientError::Protocol {
+                diagnostic: None,
                 message: "could not add the user selector to the endpoint".to_owned(),
                 success_status_received: false,
             })?
@@ -529,6 +532,7 @@ impl WekanClient {
 fn validate_user_record(user: UserRecord, operation: &str) -> Result<UserRecord, ClientError> {
     if user.user_id.is_empty() {
         Err(ClientError::Protocol {
+            diagnostic: None,
             message: format!("the {operation} response contained an empty user id"),
             success_status_received: true,
         })

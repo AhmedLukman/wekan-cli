@@ -14,13 +14,14 @@ use crate::{
 use super::non_empty;
 
 #[derive(Debug, Args)]
+#[command(after_help = "Example:\n  wekan list get list-id --board board-id")]
 pub struct GetArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 }
 

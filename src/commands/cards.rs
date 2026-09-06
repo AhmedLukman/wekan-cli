@@ -11,8 +11,8 @@ use clap::{Args, Subcommand};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::{
-    client::WekanClientFactory, command_result::CommandSuccess, config::MissingProfileResolution,
-    credentials::CredentialStore, error::AppError, input::ConfirmationProvider,
+    client::WekanClientFactory, command_result::CommandSuccess, credentials::CredentialStore,
+    error::AppError, input::ConfirmationProvider,
 };
 
 #[derive(Debug, Args)]
@@ -37,12 +37,6 @@ pub enum CardCommand {
 
     /// Permanently delete a card and its child resources.
     Delete(delete::DeleteArgs),
-}
-
-impl CardCommand {
-    pub(crate) const fn missing_profile_resolution(&self) -> MissingProfileResolution {
-        MissingProfileResolution::Reject
-    }
 }
 
 pub(crate) async fn dispatch(

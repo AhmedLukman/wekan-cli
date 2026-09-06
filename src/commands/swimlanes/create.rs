@@ -13,9 +13,13 @@ use crate::{
 use super::{finite_number, non_empty, trimmed_non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Example:\n  wekan swimlane create --board board-id --title \"Plan next release\""
+)]
+#[command(next_help_heading = "Fields")]
 pub struct CreateArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Swimlane title.

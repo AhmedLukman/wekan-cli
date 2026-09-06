@@ -534,6 +534,7 @@ impl WekanClient {
         self.server()
             .join(path)
             .map_err(|error| ClientError::Protocol {
+                diagnostic: None,
                 message: format!("could not build the {operation} endpoint: {error}"),
                 success_status_received: false,
             })
@@ -548,6 +549,7 @@ impl WekanClient {
         let mut segments = endpoint
             .path_segments_mut()
             .map_err(|()| ClientError::Protocol {
+                diagnostic: None,
                 message: "could not add the board id to the endpoint".to_owned(),
                 success_status_received: false,
             })?;
@@ -594,6 +596,7 @@ fn validate_date_time(value: &str, field: &str) -> Result<(), ClientError> {
     OffsetDateTime::parse(value, &Rfc3339)
         .map(|_| ())
         .map_err(|_| ClientError::Protocol {
+            diagnostic: None,
             message: format!("the board response contained an invalid {field} date-time"),
             success_status_received: true,
         })
@@ -602,6 +605,7 @@ fn validate_date_time(value: &str, field: &str) -> Result<(), ClientError> {
 fn require_non_empty(value: &str, operation: &str, field: &str) -> Result<(), ClientError> {
     if value.is_empty() {
         Err(ClientError::Protocol {
+            diagnostic: None,
             message: format!("the {operation} response contained an empty {field}"),
             success_status_received: true,
         })

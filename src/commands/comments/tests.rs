@@ -157,11 +157,28 @@ async fn dispatch(
 #[test]
 fn parser_exposes_the_supported_lifecycle_and_validates_inputs() {
     for arguments in [
-        vec!["list", "board-1", "card-1"],
-        vec!["get", "board-1", "card-1", "comment-1"],
-        vec!["create", "board-1", "card-1", "--text", "Hello"],
-        vec!["delete", "board-1", "card-1", "comment-1"],
-        vec!["delete", "board-1", "card-1", "comment-1", "--yes"],
+        vec!["list", "--board", "board-1", "--card", "card-1"],
+        vec!["get", "--board", "board-1", "--card", "card-1", "comment-1"],
+        vec![
+            "create", "--board", "board-1", "--card", "card-1", "--text", "Hello",
+        ],
+        vec![
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-1",
+        ],
+        vec![
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-1",
+            "--yes",
+        ],
     ] {
         comment_command(&arguments);
     }
@@ -171,21 +188,31 @@ fn parser_exposes_the_supported_lifecycle_and_validates_inputs() {
             "wekan",
             "comment",
             "update",
+            "--board",
             "board-1",
+            "--card",
             "card-1",
             "comment-1",
         ],
-        vec!["wekan", "comment", "create", "board-1", "card-1"],
         vec![
-            "wekan", "comment", "create", "board-1", "card-1", "--text", "   ",
+            "wekan", "comment", "create", "--board", "board-1", "--card", "card-1",
         ],
-        vec!["wekan", "comment", "list", "   ", "card-1"],
-        vec!["wekan", "comment", "get", "board-1", "card-1", "   "],
+        vec![
+            "wekan", "comment", "create", "--board", "board-1", "--card", "card-1", "--text", "   ",
+        ],
+        vec![
+            "wekan", "comment", "list", "--board", "   ", "--card", "card-1",
+        ],
+        vec![
+            "wekan", "comment", "get", "--board", "board-1", "--card", "card-1", "   ",
+        ],
         vec![
             "wekan",
             "comment",
             "get",
+            "--board",
             "board-1",
+            "--card",
             "card-1",
             "comment-1",
             "--yes",
@@ -194,9 +221,15 @@ fn parser_exposes_the_supported_lifecycle_and_validates_inputs() {
         assert!(Cli::try_parse_from(invalid).is_err());
     }
 
-    let CommentCommand::Create(args) =
-        comment_command(&["create", " board-1 ", " card-1 ", "--text", " Hello world "])
-    else {
+    let CommentCommand::Create(args) = comment_command(&[
+        "create",
+        "--board",
+        " board-1 ",
+        "--card",
+        " card-1 ",
+        "--text",
+        " Hello world ",
+    ]) else {
         panic!("expected comment-create arguments")
     };
     assert_eq!(args.board_id, "board-1");
@@ -246,7 +279,7 @@ async fn list_get_and_create_return_stable_typed_results() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let CommandSuccess::CommentCollection(collection) = dispatch(
-        comment_command(&["list", "board/1", "card/1"]),
+        comment_command(&["list", "--board", "board/1", "--card", "card/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -261,7 +294,7 @@ async fn list_get_and_create_return_stable_typed_results() {
     assert_eq!(collection.comments[0].author_id, "user-1");
 
     let CommandSuccess::CommentShown(comment) = dispatch(
-        comment_command(&["get", "board/1", "card/1", "comment/1"]),
+        comment_command(&["get", "--board", "board/1", "--card", "card/1", "comment/1"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -274,7 +307,9 @@ async fn list_get_and_create_return_stable_typed_results() {
     assert_eq!(comment.parent_id, None);
 
     let CommandSuccess::CommentCreated(created) = dispatch(
-        comment_command(&["create", "board/1", "card/1", "--text", " Hello "]),
+        comment_command(&[
+            "create", "--board", "board/1", "--card", "card/1", "--text", " Hello ",
+        ]),
         &factory(&server),
         &store,
         &confirmation,
@@ -329,7 +364,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_protocol_drift() {
     let confirmation = FakeConfirmationProvider::accepting();
 
     let missing = dispatch(
-        comment_command(&["get", "board-1", "card-1", "missing"]),
+        comment_command(&["get", "--board", "board-1", "--card", "card-1", "missing"]),
         &factory(&server),
         &store,
         &confirmation,
@@ -342,7 +377,7 @@ async fn get_maps_empty_success_to_not_found_and_rejects_protocol_drift() {
 
     for comment_id in ["future", "wrong-scope"] {
         let error = dispatch(
-            comment_command(&["get", "board-1", "card-1", comment_id]),
+            comment_command(&["get", "--board", "board-1", "--card", "card-1", comment_id]),
             &factory(&server),
             &store,
             &confirmation,
@@ -359,7 +394,14 @@ async fn delete_confirms_guards_credentials_and_verifies_the_card_id() {
     let store = FakeCredentialStore::authenticated(&server);
     let declining = FakeConfirmationProvider::declining();
     let cancelled = dispatch(
-        comment_command(&["delete", "board-1", "card-1", "comment\u{1b}]52;c;x\u{7}"]),
+        comment_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment\u{1b}]52;c;x\u{7}",
+        ]),
         &factory(&server),
         &store,
         &declining,
@@ -381,7 +423,15 @@ async fn delete_confirms_guards_credentials_and_verifies_the_card_id() {
         .mount(&server)
         .await;
     let CommandSuccess::CommentDeleted(deleted) = dispatch(
-        comment_command(&["delete", "board-1", "card-1", "comment-1", "--yes"]),
+        comment_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-1",
+            "--yes",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -404,7 +454,14 @@ async fn delete_confirms_guards_credentials_and_verifies_the_card_id() {
     store.replace_on_next_lock(replacement);
     let confirmation = FakeConfirmationProvider::accepting();
     let error = dispatch(
-        comment_command(&["delete", "board-1", "card-1", "comment-2"]),
+        comment_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-2",
+        ]),
         &factory(&server),
         &store,
         &confirmation,
@@ -437,7 +494,15 @@ async fn delete_maps_a_missing_board_or_comment_to_not_found() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let error = dispatch(
-        comment_command(&["delete", "board-1", "card-1", "missing-comment", "--yes"]),
+        comment_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "missing-comment",
+            "--yes",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::declining(),
@@ -468,7 +533,9 @@ async fn mutation_protocol_failures_report_unknown_outcomes() {
     let store = FakeCredentialStore::authenticated(&server);
 
     let malformed = dispatch(
-        comment_command(&["create", "board-1", "card-1", "--text", "Hello"]),
+        comment_command(&[
+            "create", "--board", "board-1", "--card", "card-1", "--text", "Hello",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),
@@ -479,7 +546,15 @@ async fn mutation_protocol_failures_report_unknown_outcomes() {
     assert_eq!(malformed.details().outcome_unknown, Some(true));
 
     let mismatch = dispatch(
-        comment_command(&["delete", "board-1", "card-1", "comment-1", "--yes"]),
+        comment_command(&[
+            "delete",
+            "--board",
+            "board-1",
+            "--card",
+            "card-1",
+            "comment-1",
+            "--yes",
+        ]),
         &factory(&server),
         &store,
         &FakeConfirmationProvider::accepting(),

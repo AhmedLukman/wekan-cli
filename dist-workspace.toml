@@ -4,6 +4,8 @@ members = ["cargo:."]
 [dist]
 cargo-dist-version = "0.32.0"
 ci = "github"
+# This phase makes tag validation a direct dependency of release publication.
+global-artifacts-jobs = ["./verify-release-tag"]
 installers = ["shell", "powershell"]
 targets = [
     "aarch64-apple-darwin",

@@ -15,6 +15,31 @@ is one JSON object followed by a newline.
 - Interactive confirmation prompts are written to stderr. JSON output never
   prompts; destructive automation must pass command-local `--yes`.
 
+## Response decoding diagnostics
+
+Strict response-decoding failures retain the `protocol_error` code and exit
+status 4. Their error details also include:
+
+- `response_path`: a JSON Pointer-style location such as `/wipLimit/enabled`
+  or `/0/title`. An empty string identifies the response root.
+- `response_error`: `unknown_field`, `missing_field`, `invalid_type`,
+  `invalid_value`, or `invalid_json`.
+
+These diagnostics apply to typed successes, authentication responses, and
+decoded Wekan error envelopes. For example:
+
+```json
+{"ok":false,"error":{"code":"protocol_error","message":"the list response contains unknown field at /wipLimit/future","details":{"response_path":"/wipLimit/future","response_error":"unknown_field","http_status":200}}}
+```
+
+Other context and mutation-outcome fields remain applicable. Diagnostics never
+include rejected field values or the underlying deserializer's error text.
+Field-name segments escape control characters and JSON Pointer metacharacters;
+names longer than 80 characters and paths deeper than 16 segments are marked
+`[truncated]`. Known secrets are redacted by the command's error mapper.
+Semantic validation failures after decoding may omit these two fields.
+Raw API output continues to preserve the upstream response without typed decoding.
+
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,

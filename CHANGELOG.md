@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
+### Added
+
+- Safe response field paths and failure categories in protocol errors.
+- Command examples and grouped help for scoped resources and card updates.
+
+### Changed
+
+- Scoped list, swimlane, card, and comment commands use named parent selectors
+  (`--board`, `--list`, and `--card`). The resource's own ID remains positional.
+
 ## [0.1.0] - 2026-08-30
 
 ### Added

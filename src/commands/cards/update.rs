@@ -17,6 +17,13 @@ use crate::{
 use super::{non_empty, rfc3339, trimmed_non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Set at least one field. Set and clear forms of the same field conflict.\n\nExample:\n  wekan card update card-id --board board-id --list list-id --title \"Plan next release\""
+)]
+#[command(
+    next_help_heading = "Fields",
+    override_usage = "wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS> [OPTIONS]"
+)]
 #[command(group(
     ArgGroup::new("updates")
         .required(true)
@@ -31,111 +38,111 @@ use super::{non_empty, rfc3339, trimmed_non_empty};
 ))]
 pub struct UpdateArgs {
     /// Wekan board ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
     /// Wekan card ID.
-    #[arg(value_parser = non_empty)]
+    #[arg(value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
     /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
-    #[arg(long, value_parser = trimmed_non_empty)]
+    #[arg(long, value_parser = trimmed_non_empty, help_heading = "Fields")]
     pub title: Option<String>,
 
     /// Numeric card order. Wekan v11.06 silently ignores zero.
-    #[arg(long, value_parser = finite_number)]
+    #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub sort: Option<f64>,
 
     /// Parent card ID.
-    #[arg(long, value_parser = non_empty)]
+    #[arg(long, value_parser = non_empty, help_heading = "Fields")]
     pub parent_id: Option<String>,
 
     /// New card description.
-    #[arg(long, value_parser = trimmed_non_empty)]
+    #[arg(long, value_parser = trimmed_non_empty, help_heading = "Fields")]
     pub description: Option<String>,
 
     /// Named Wekan card color or a custom #rrggbb color.
-    #[arg(long, value_parser = card_color)]
+    #[arg(long, value_parser = card_color, help_heading = "Fields")]
     pub color: Option<String>,
 
     /// Label ID; repeat to replace the complete label array.
-    #[arg(long = "label", value_parser = non_empty, conflicts_with = "clear_labels")]
+    #[arg(long = "label", value_parser = non_empty, conflicts_with = "clear_labels", help_heading = "People and labels")]
     pub label_ids: Vec<String>,
 
     /// Replace labels with an empty array.
-    #[arg(long, conflicts_with = "label_ids")]
+    #[arg(long, conflicts_with = "label_ids", help_heading = "People and labels")]
     pub clear_labels: bool,
 
     /// Requested-by display name.
-    #[arg(long, value_parser = trimmed_non_empty)]
+    #[arg(long, value_parser = trimmed_non_empty, help_heading = "People and labels")]
     pub requested_by: Option<String>,
 
     /// Assigned-by display name.
-    #[arg(long, value_parser = trimmed_non_empty)]
+    #[arg(long, value_parser = trimmed_non_empty, help_heading = "People and labels")]
     pub assigned_by: Option<String>,
 
     /// Received date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_received_at")]
+    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_received_at", help_heading = "Dates")]
     pub received_at: Option<String>,
 
     /// Clear the received date.
-    #[arg(long, conflicts_with = "received_at")]
+    #[arg(long, conflicts_with = "received_at", help_heading = "Dates")]
     pub clear_received_at: bool,
 
     /// Start date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_start_at")]
+    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_start_at", help_heading = "Dates")]
     pub start_at: Option<String>,
 
     /// Clear the start date.
-    #[arg(long, conflicts_with = "start_at")]
+    #[arg(long, conflicts_with = "start_at", help_heading = "Dates")]
     pub clear_start_at: bool,
 
     /// Due date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_due_at")]
+    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_due_at", help_heading = "Dates")]
     pub due_at: Option<String>,
 
     /// Clear the due date.
-    #[arg(long, conflicts_with = "due_at")]
+    #[arg(long, conflicts_with = "due_at", help_heading = "Dates")]
     pub clear_due_at: bool,
 
     /// End date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_end_at")]
+    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_end_at", help_heading = "Dates")]
     pub end_at: Option<String>,
 
     /// Clear the end date.
-    #[arg(long, conflicts_with = "end_at")]
+    #[arg(long, conflicts_with = "end_at", help_heading = "Dates")]
     pub clear_end_at: bool,
 
     /// Finite spent-time value. Wekan v11.06 silently ignores zero.
-    #[arg(long, value_parser = finite_number)]
+    #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub spent_time: Option<f64>,
 
     /// Overtime state. Wekan v11.06 ignores false and mishandles true.
-    #[arg(long)]
+    #[arg(long, help_heading = "Fields")]
     pub is_over_time: Option<bool>,
 
     /// Member ID; repeat to replace the complete member array.
-    #[arg(long = "member", value_parser = non_empty, conflicts_with = "clear_members")]
+    #[arg(long = "member", value_parser = non_empty, conflicts_with = "clear_members", help_heading = "People and labels")]
     pub members: Vec<String>,
 
     /// Replace members with an empty array.
-    #[arg(long, conflicts_with = "members")]
+    #[arg(long, conflicts_with = "members", help_heading = "People and labels")]
     pub clear_members: bool,
 
     /// Assignee ID; repeat to replace the complete assignee array.
-    #[arg(long = "assignee", value_parser = non_empty, conflicts_with = "clear_assignees")]
+    #[arg(long = "assignee", value_parser = non_empty, conflicts_with = "clear_assignees", help_heading = "People and labels")]
     pub assignees: Vec<String>,
 
     /// Replace assignees with an empty array.
-    #[arg(long, conflicts_with = "assignees")]
+    #[arg(long, conflicts_with = "assignees", help_heading = "People and labels")]
     pub clear_assignees: bool,
 
     /// Whether the due date is complete.
-    #[arg(long)]
+    #[arg(long, help_heading = "Dates")]
     pub due_complete: Option<bool>,
 }
 

@@ -644,6 +644,7 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
 
     let protocol = super::map_client_error(
         ClientError::Protocol {
+            diagnostic: None,
             message: "invalid JSON".to_owned(),
             success_status_received: true,
         },

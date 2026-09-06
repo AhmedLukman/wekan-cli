@@ -7,11 +7,11 @@ on cards, or expose other swimlane subresources.
 ## Commands
 
 ```console
-wekan swimlane list <BOARD_ID>
-wekan swimlane get <BOARD_ID> <SWIMLANE_ID>
-wekan swimlane create <BOARD_ID> --title <TITLE> [--sort <NUMBER>]
-wekan swimlane update <BOARD_ID> <SWIMLANE_ID> --title <TITLE>
-wekan swimlane delete <BOARD_ID> <SWIMLANE_ID> [--yes]
+wekan swimlane list --board <BOARD_ID>
+wekan swimlane get <SWIMLANE_ID> --board <BOARD_ID>
+wekan swimlane create --board <BOARD_ID> --title <TITLE> [--sort <NUMBER>]
+wekan swimlane update <SWIMLANE_ID> --board <BOARD_ID> --title <TITLE>
+wekan swimlane delete <SWIMLANE_ID> --board <BOARD_ID> [--yes]
 ```
 
 Titles and identifiers are trimmed and must not be empty. `--sort` accepts any

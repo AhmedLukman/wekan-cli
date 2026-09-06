@@ -196,7 +196,7 @@ pub(crate) fn render_human_response(data: &RawApiResponseData) -> String {
         RawValueEncoding::Text => format!(
             "{}: {}",
             header.name,
-            super::escape_terminal_controls(&header.value)
+            super::formatting::escape_terminal_controls(&header.value)
         ),
         RawValueEncoding::Base64 => format!("{}: [base64] {}", header.name, header.value),
     }));
@@ -205,7 +205,7 @@ pub(crate) fn render_human_response(data: &RawApiResponseData) -> String {
         RawResponseBody::Json { value } => {
             serde_json::to_string_pretty(value).expect("JSON response bodies always serialize")
         }
-        RawResponseBody::Text { value } => super::escape_terminal_controls(value),
+        RawResponseBody::Text { value } => super::formatting::escape_terminal_controls(value),
         RawResponseBody::Base64 { value } => format!(
             "<{} binary bytes; use --output raw for exact bytes>",
             BASE64.decode(value).map_or(0, |bytes| bytes.len())

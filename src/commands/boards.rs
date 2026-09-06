@@ -11,8 +11,8 @@ mod tests;
 use clap::{Args, Subcommand};
 
 use crate::{
-    client::WekanClientFactory, command_result::CommandSuccess, config::MissingProfileResolution,
-    credentials::CredentialStore, error::AppError, input::ConfirmationProvider,
+    client::WekanClientFactory, command_result::CommandSuccess, credentials::CredentialStore,
+    error::AppError, input::ConfirmationProvider,
 };
 
 #[derive(Debug, Args)]
@@ -40,12 +40,6 @@ pub enum BoardCommand {
 
     /// Permanently delete a board and all of its contents.
     Delete(delete::DeleteArgs),
-}
-
-impl BoardCommand {
-    pub(crate) const fn missing_profile_resolution(&self) -> MissingProfileResolution {
-        MissingProfileResolution::Reject
-    }
 }
 
 pub(crate) async fn dispatch(

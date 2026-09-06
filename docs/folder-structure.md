@@ -23,12 +23,17 @@ wekan-cli/
 │   ├── lib.rs                         # Testable application entry point and module declarations
 │   ├── app.rs                         # Composition root; owns target resolver and shared dependencies
 │   ├── cli.rs                         # Root Cli parser and global flags only
-│   ├── command_result.rs              # Stable semantic command outcomes shared by commands, errors and output
+│   ├── command_result.rs              # Result façade, exhaustive success enum and shared outcome vocabulary
+│   ├── command_result/               # Stable result types grouped by resource
+│   │   ├── auth.rs
+│   │   ├── boards.rs
+│   │   ├── cards.rs
+│   │   └── ...
 │   ├── error.rs                       # Application-level error representation
 │   ├── exit_code.rs                   # Stable documented process exit codes
 │   ├── redaction.rs                   # Central secret-redaction policy
 │   │
-│   ├── commands.rs                    # Root command enum, module declarations and dispatch
+│   ├── commands.rs                    # Root command enum and module declarations; App owns root dispatch
 │   ├── commands/
 │   │   ├── authenticated.rs           # Handler-owned authenticated command state
 │   │   ├── client_error.rs            # Shared client-to-command error-detail mapping
@@ -165,6 +170,7 @@ wekan-cli/
 │   ├── client.rs                      # WekanClient façade and resource re-exports
 │   ├── client/
 │   │   ├── error.rs                   # HTTP, decoding and Wekan response errors
+│   │   ├── decoding.rs                # Strict decoding and bounded, value-free response diagnostics
 │   │   ├── ids.rs                     # BoardId, CardId, UserId and other typed IDs
 │   │   ├── datetime.rs                # Wekan date/time parsing and serialization
 │   │   │
@@ -257,6 +263,10 @@ wekan-cli/
 │   │
 │   ├── output.rs                      # Output selection and rendering façade
 │   └── output/
+│       ├── auth.rs                    # Authentication human rendering
+│       ├── boards.rs                  # Board human rendering
+│       ├── cards.rs                   # Card human rendering
+│       ├── formatting.rs              # Shared terminal escaping, tables and nested values
 │       ├── envelope.rs                # Stable machine-readable success/error envelope
 │       ├── filter.rs                  # Structured field selection and filtering
 │       ├── json.rs                    # JSON renderer

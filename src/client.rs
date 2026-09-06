@@ -2,6 +2,8 @@ pub mod auth;
 pub mod boards;
 pub mod cards;
 pub mod comments;
+mod decoding;
+pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub mod error;
 pub mod lists;
 mod raw;

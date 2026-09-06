@@ -249,12 +249,14 @@ impl WekanClient {
             self.server()
                 .join("api/boards")
                 .map_err(|error| ClientError::Protocol {
+                    diagnostic: None,
                     message: format!("could not build the list endpoint: {error}"),
                     success_status_received: false,
                 })?;
         let mut segments = endpoint
             .path_segments_mut()
             .map_err(|()| ClientError::Protocol {
+                diagnostic: None,
                 message: "could not add identifiers to the list endpoint".to_owned(),
                 success_status_received: false,
             })?;
@@ -367,6 +369,7 @@ fn validate_date_time(value: &str, field: &str, operation: &str) -> Result<(), C
 
 fn protocol_error(message: String) -> ClientError {
     ClientError::Protocol {
+        diagnostic: None,
         message,
         success_status_received: true,
     }

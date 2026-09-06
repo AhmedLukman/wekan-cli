@@ -18,14 +18,14 @@ fn swimlane_help_exposes_only_core_crud_and_create_sort() {
         .stderr(predicate::str::is_empty());
 
     cargo_bin_cmd!("wekan")
-        .args(["swimlane", "create", "board-1", "--help"])
+        .args(["swimlane", "create", "--board", "board-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--title <TITLE>"))
         .stdout(predicate::str::contains("--sort <SORT>"));
 
     cargo_bin_cmd!("wekan")
-        .args(["swimlane", "update", "board-1", "swimlane-1"])
+        .args(["swimlane", "update", "--board", "board-1", "swimlane-1"])
         .assert()
         .failure()
         .code(2)
@@ -35,13 +35,27 @@ fn swimlane_help_exposes_only_core_crud_and_create_sort() {
 #[test]
 fn only_swimlane_delete_accepts_yes() {
     cargo_bin_cmd!("wekan")
-        .args(["swimlane", "delete", "board-1", "swimlane-1", "--help"])
+        .args([
+            "swimlane",
+            "delete",
+            "--board",
+            "board-1",
+            "swimlane-1",
+            "--help",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
 
     cargo_bin_cmd!("wekan")
-        .args(["swimlane", "get", "board-1", "swimlane-1", "--yes"])
+        .args([
+            "swimlane",
+            "get",
+            "--board",
+            "board-1",
+            "swimlane-1",
+            "--yes",
+        ])
         .assert()
         .failure()
         .code(2)
