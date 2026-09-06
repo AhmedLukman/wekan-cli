@@ -82,7 +82,11 @@ jobs:
       - name: Build release binary
         run: cargo build --release --locked
       - name: Verify release version
-        run: test "$(./target/release/wekan --version)" = "wekan 0.2.0"
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --format-version 1 --locked | jq --raw-output '.packages[] | select(.name == "wekan-cli") | .version')"
+          test "$(./target/release/wekan --version)" = "wekan $version"
       - name: Verify crates.io package
         run: cargo publish --dry-run --locked
       - name: Verify package allowlist
