@@ -18,9 +18,9 @@ flowchart LR
 
     subgraph cli[Wekan CLI process]
         entry[Argument parsing and output selection]
-        app[Application composition]
+        app[Application composition and root dispatch]
         resolver[Server and profile target resolution]
-        dispatch[Command dispatch]
+        dispatch[Authentication family dispatch]
         handlers[Registration, login, status, and logout handlers]
         secrets[Secret input provider]
         client[Wekan HTTP client]
@@ -38,7 +38,7 @@ flowchart LR
     app --> resolver
     resolver -->|shared existing or exclusive initialization lease| profiles
     resolver -->|resolved target: factory and lease| app
-    app -->|prepared command and focused target| dispatch
+    app -->|command and resolved target| dispatch
     dispatch --> handlers
     handlers --> secrets
     input -->|password and optional code| secrets
@@ -53,10 +53,11 @@ flowchart LR
 The application layer owns concrete production dependencies, including the
 long-lived `TargetResolver`. For an authentication command, `App` asks that
 resolver for a command-scoped `ResolvedTarget`, retains it through dispatch,
-and passes the focused factory plus explicit capabilities required by the
-selected handler. Each authenticated leaf handler creates and retains its HTTP
-client, then loads and validates the profile-scoped credential into an
-`AuthenticatedContext` for that command. The `ResolvedTarget` owns its
+and passes the mutable target plus explicit capabilities to authentication
+family dispatch. The family passes the target to login and registration and
+the focused factory to status and logout. Each remote leaf handler creates and
+retains its HTTP client. Handlers that use `AuthenticatedContext` load and
+validate the profile-scoped credential into that command-owned state. The `ResolvedTarget` owns its
 `WekanClientFactory`, required profile identity, and retained profile guard. The
 `ProfileStore`, `CredentialStore`, and `SecretInputProvider` traits keep command
 behavior testable without real local configuration, a terminal, or an
@@ -70,7 +71,7 @@ operation-specific orchestration and error mapping.
 | --- | --- | --- |
 | Process entry | Detect requested output before parsing, parse the CLI, select stdout or stderr, and return a stable exit status | [`src/lib.rs`](../src/lib.rs), [`src/main.rs`](../src/main.rs) |
 | CLI model | Define global selectors plus the profile, registration, login, status, and logout command shapes | [`src/cli.rs`](../src/cli.rs), [`src/commands.rs`](../src/commands.rs), [`src/commands/profile.rs`](../src/commands/profile.rs), [`src/commands/auth.rs`](../src/commands/auth.rs) |
-| Application composition | Construct and own long-lived dependencies, decide which commands need a target, retain each resolved target through dispatch, and pass exact capabilities into root routing | [`src/app.rs`](../src/app.rs) |
+| Application composition | Construct shared dependencies, run local commands directly, prepare one target for remote commands, retain its lease through family dispatch, and attach profile error context | [`src/app.rs`](../src/app.rs) |
 | Configuration boundary | Persist strict named profiles; own target-selection policy; canonicalize server identity independently of network permission; and produce a command-scoped target containing its client factory and retained shared or exclusive profile guard | [`src/config.rs`](../src/config.rs), [`src/config/profiles.rs`](../src/config/profiles.rs) |
 | Authentication orchestration | Let each remote leaf create its client, load or store credentials, enforce operation order, redact secrets, and map operation-specific errors | [`src/commands/authenticated.rs`](../src/commands/authenticated.rs), [`src/commands/auth/`](../src/commands/auth/), [`src/commands/users/`](../src/commands/users/) |
 | Command result model | Define secret-free semantic success outcomes and shared outcome vocabulary independently of rendering | [`src/command_result.rs`](../src/command_result.rs), [`src/command_result/auth.rs`](../src/command_result/auth.rs) |
@@ -115,8 +116,8 @@ The configuration boundary's `TargetResolver` returns a `ResolvedTarget` that
 owns the `WekanClientFactory`, required profile identity, and retained lease.
 The resolver canonicalizes and validates server identity independently of
 network permission, without initializing an HTTP client. `App` retains the
-target for the complete command and passes it explicitly into root dispatch.
-Root dispatch only routes. Auth-family dispatch gives login and registration
+target for the complete command and owns root routing to the command families.
+Auth-family dispatch gives login and registration
 the mutable target needed to commit a pending profile through configuration-owned
 behavior, logout receives only its focused factory, and status receives an
 explicit focused factory and credential-store capability. Command code does not
@@ -135,7 +136,7 @@ sequenceDiagram
     participant CLI as CLI entry
     participant App as Application
     participant Resolver as Target resolver
-    participant Dispatch as Command dispatch
+    participant Dispatch as Authentication family dispatch
     participant Handler as Register handler
     participant Factory as Client factory
     participant Profiles as Profile store

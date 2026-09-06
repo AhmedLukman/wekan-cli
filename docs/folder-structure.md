@@ -33,7 +33,7 @@ wekan-cli/
 │   ├── exit_code.rs                   # Stable documented process exit codes
 │   ├── redaction.rs                   # Central secret-redaction policy
 │   │
-│   ├── commands.rs                    # Root command enum, module declarations and dispatch
+│   ├── commands.rs                    # Root command enum and module declarations; App owns root dispatch
 │   ├── commands/
 │   │   ├── authenticated.rs           # Handler-owned authenticated command state
 │   │   ├── client_error.rs            # Shared client-to-command error-detail mapping

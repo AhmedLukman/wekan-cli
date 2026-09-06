@@ -19,7 +19,6 @@ use crate::{
     command_result::{
         CommandSuccess, UserBoardMembership, UserDetail, UserEmail, UserOrganization, UserTeam,
     },
-    config::MissingProfileResolution,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
     input::ConfirmationProvider,
@@ -67,10 +66,6 @@ pub enum UserCommand {
 }
 
 impl UserCommand {
-    pub(crate) const fn missing_profile_resolution(&self) -> MissingProfileResolution {
-        MissingProfileResolution::Reject
-    }
-
     pub(crate) fn validate(&self) -> Result<(), AppError> {
         if let Self::Cards(args) = self {
             cards::validate_range(args.from.as_deref(), args.to.as_deref())?;

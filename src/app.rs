@@ -1,9 +1,6 @@
 use crate::{
     command_result::CommandSuccess,
-    commands::{
-        self, PreparedCommand, RootCommand,
-        auth::{AuthCommand, PreparedAuthCommand},
-    },
+    commands::{self, RootCommand},
     config::{ServerSelection, TargetResolver, profiles::FileProfileStore},
     credentials::{
         CredentialStore, KeyringCredentialStore, SecretInputProvider, SystemSecretInputProvider,
@@ -109,246 +106,115 @@ where
     }
 
     pub async fn execute(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
-        match command {
-            RootCommand::Api(args) => self.execute_api(args).await,
-            RootCommand::Auth(args) => self.execute_auth(args).await,
-            RootCommand::User(args) => self.execute_user(args).await,
-            RootCommand::Board(args) => self.execute_board(args).await,
-            RootCommand::List(args) => self.execute_list(args).await,
-            RootCommand::Card(args) => self.execute_card(args).await,
-            RootCommand::Comment(args) => self.execute_comment(args).await,
-            RootCommand::Swimlane(args) => self.execute_swimlane(args).await,
-            RootCommand::Profile(args) => {
-                if self.target_resolver.has_explicit_target() {
-                    return Err(AppError::invalid_input(
-                        "--server and --profile cannot be used with profile-management commands",
-                    ));
-                }
-                commands::dispatch(
-                    PreparedCommand::Profile { args },
-                    &self.credential_store,
-                    &self.secret_input,
-                    &self.profile_store,
-                    &self.confirmation,
-                )
-                .await
+        if let RootCommand::Profile(args) = command {
+            if self.target_resolver.has_explicit_target() {
+                return Err(AppError::invalid_input(
+                    "--server and --profile cannot be used with profile-management commands",
+                ));
             }
+            return commands::profile::dispatch(
+                args.command,
+                &self.profile_store,
+                &self.credential_store,
+                &self.confirmation,
+            );
         }
-    }
-
-    async fn execute_api(
-        &self,
-        args: crate::commands::api::ApiArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let target = self.target_resolver.resolve(
-            &self.profile_store,
-            crate::config::MissingProfileResolution::Reject,
-        )?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::Api {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_auth(
-        &self,
-        args: crate::commands::auth::AuthArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let allow_initialization = missing_profile_resolution.allows_initialization();
-        let mut target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        let prepared = match args.command {
-            AuthCommand::Login(args) => Ok(PreparedAuthCommand::Login {
-                args,
-                target: &mut target,
-            }),
-            AuthCommand::Logout(args) => Ok(PreparedAuthCommand::Logout {
-                args,
-                client_factory: target.client_factory(),
-            }),
-            AuthCommand::Register(args) => Ok(PreparedAuthCommand::Register {
-                args,
-                target: &mut target,
-            }),
-            AuthCommand::Status(args) => Ok(PreparedAuthCommand::Status {
-                args,
-                client_factory: target.client_factory(),
-            }),
+        if let RootCommand::User(args) = &command {
+            args.command.validate()?;
+        }
+        let policy = match &command {
+            RootCommand::Auth(args) => args.command.missing_profile_resolution(),
+            _ => crate::config::MissingProfileResolution::Reject,
         };
-        let result = match prepared {
-            Ok(command) => {
-                commands::dispatch(
-                    PreparedCommand::Auth { command },
+        let mut target = self.target_resolver.resolve(&self.profile_store, policy)?;
+        let profile = target.profile().to_owned();
+        let result = match command {
+            RootCommand::Api(args) => {
+                commands::api::dispatch(
+                    args.command,
+                    target.client_factory(),
                     &self.credential_store,
-                    &self.secret_input,
-                    &self.profile_store,
                     &self.confirmation,
                 )
                 .await
             }
-            Err(error) => Err(error),
+            RootCommand::User(args) => {
+                commands::users::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.secret_input,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Board(args) => {
+                commands::boards::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::List(args) => {
+                commands::lists::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Card(args) => {
+                commands::cards::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Comment(args) => {
+                commands::comments::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Swimlane(args) => {
+                commands::swimlanes::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Auth(args) => {
+                commands::auth::dispatch(
+                    args.command,
+                    &mut target,
+                    &self.credential_store,
+                    &self.secret_input,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::Profile(_) => {
+                unreachable!("local commands return before target resolution")
+            }
         };
-        let profile_created = target.profile_created();
-        let profile_active = target.profile_active();
         result.map_err(|error| {
             let error = error.with_profile_context(profile);
-            if allow_initialization {
-                error.with_profile_state(profile_created, profile_active)
+            if policy.allows_initialization() {
+                error.with_profile_state(target.profile_created(), target.profile_active())
             } else {
                 error
             }
         })
-    }
-
-    async fn execute_user(
-        &self,
-        args: crate::commands::users::UserArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        args.command.validate()?;
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::User {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_board(
-        &self,
-        args: crate::commands::boards::BoardArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::Board {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_list(
-        &self,
-        args: crate::commands::lists::ListArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::List {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_card(
-        &self,
-        args: Box<crate::commands::cards::CardArgs>,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::Card {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_swimlane(
-        &self,
-        args: crate::commands::swimlanes::SwimlaneArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::Swimlane {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
-    }
-
-    async fn execute_comment(
-        &self,
-        args: crate::commands::comments::CommentArgs,
-    ) -> Result<CommandSuccess, AppError> {
-        let missing_profile_resolution = args.command.missing_profile_resolution();
-        let target = self
-            .target_resolver
-            .resolve(&self.profile_store, missing_profile_resolution)?;
-        let profile = target.profile().to_owned();
-        commands::dispatch(
-            PreparedCommand::Comment {
-                args,
-                client_factory: target.client_factory(),
-            },
-            &self.credential_store,
-            &self.secret_input,
-            &self.profile_store,
-            &self.confirmation,
-        )
-        .await
-        .map_err(|error| error.with_profile_context(profile))
     }
 }
 
