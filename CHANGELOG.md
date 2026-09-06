@@ -16,10 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Scoped list, swimlane, card, and comment commands use named parent selectors
   (`--board`, `--list`, and `--card`). The resource's own ID remains positional.
-- Results and human renderers are organized by resource; application dispatch
-  shares target preparation and profile error context.
-- Architecture guidance accepts App-owned root dispatch with explicit family
-  capabilities, retained target leases, and lazy client creation.
 
 ## [0.1.0] - 2026-08-30
 

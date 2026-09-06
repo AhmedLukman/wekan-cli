@@ -15,6 +15,15 @@ requirements when preparing v1.0.0.
 Record pending changes under Unreleased without changing the package version
 until preparing a release.
 
+## Changelog
+
+Keep `CHANGELOG.md` limited to user-facing changes. Entries must describe an
+observable change to CLI behavior, commands, output, installation, compatibility,
+performance, or security. Do not add entries for internal refactoring, code
+organization, architecture guidance, agent instructions, or development tooling
+unless they have a concrete user-facing effect; describe that effect instead of
+the implementation.
+
 ## Repository folder structure
 
 Before modifying code in this repository, read and follow the
