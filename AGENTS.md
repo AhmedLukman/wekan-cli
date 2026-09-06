@@ -35,6 +35,13 @@ ownership or tooling need justifies them; do not create empty placeholders.
 The remaining files under `docs/` are user-facing documentation, not agent
 instructions. Do not treat them as requirements for agents to follow.
 
+## Code review findings
+
+Report concrete, actionable defects introduced by the change. Do not include
+speculative hardening findings that depend on invented server behavior. Before
+reporting a finding that depends on a particular response shape or edge case,
+verify that the pinned Wekan version can actually produce it.
+
 ## Commit messages
 
 Start each commit message with the appropriate Conventional Commits prefix,
