@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing linked source cards report `not_found`.
 - Card detail output accepts null members in custom-field string arrays.
 
+### Security
+
+- Updated TLS handling to reject handshake messages sent at the wrong encryption
+  level, fixing [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285)
+  by upgrading rustls to 0.23.45.
+
 ## [0.2.1] - 2026-09-06
 
 ### Fixed
