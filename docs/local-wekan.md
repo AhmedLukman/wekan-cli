@@ -133,3 +133,24 @@ If Wekan is unhealthy, first confirm that `mongodb-init` completed successfully
 and that `mongodb` reports healthy. If startup reports that the host port is in
 use, stop the process using that port or restart the stack with another
 `WEKAN_PORT` value.
+
+## Checklist and checklist-item lifecycle
+
+Run the dedicated ignored suite against a fresh isolated stack. It covers all eight
+operations, exact input forms, defaults and coercion, scoped failures, role
+permissions, partial creation, deletion behavior, and reads after a cross-board
+REST card move with stale board metadata. It also creates checklists
+and items through the UI's DDP collection methods and verifies creator IDs in
+typed REST reads and human/JSON output. The DDP fixture runs with Node.js inside
+the pinned Wekan container; the CLI continues to use REST. Use the same Compose
+project name for the fixtures and the matching server URL:
+
+```powershell
+$env:WEKAN_PORT = "3103"
+$env:COMPOSE_PROJECT_NAME = "wekan-checklist-tests"
+docker compose up -d --wait
+$env:WEKAN_CHECKLIST_E2E_URL = "http://localhost:3103"
+cargo test --locked --test e2e checklists::complete_checklist_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
+This suite is also registered in the Wekan E2E workflow's isolated-stack matrix.

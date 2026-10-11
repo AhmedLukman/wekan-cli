@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod boards;
 pub mod cards;
+pub mod checklist_items;
+pub mod checklists;
 pub mod comments;
 mod datetime;
 mod decoding;
@@ -29,6 +31,15 @@ pub use cards::{
     CardLocation, CardPoker, CardSticker, CardStickerHighlight, CardSummary, CardVote,
     CreateCardRequest, CreateCardResult, DeleteCardResult, RestoreCardResult, UpdateCardRequest,
     UpdateCardResult,
+};
+pub use checklist_items::{
+    ChecklistItemDocument, ChecklistItemFinishedInput, ChecklistItemSortInput,
+    CreateChecklistItemRequest, CreateChecklistItemResult, DeleteChecklistItemResult,
+    UpdateChecklistItemRequest, UpdateChecklistItemResult,
+};
+pub use checklists::{
+    ChecklistDocument, ChecklistItemSummary, ChecklistItemsInput, ChecklistSummary,
+    CreateChecklistRequest, CreateChecklistResult, DeleteChecklistResult,
 };
 pub use comments::{
     CommentDocument, CommentSummary, CreateCommentRequest, CreateCommentResult, DeleteCommentResult,

@@ -6,6 +6,8 @@ mod auth;
 mod boards;
 #[path = "e2e/cards.rs"]
 mod cards;
+#[path = "e2e/checklists.rs"]
+mod checklists;
 #[path = "e2e/comments.rs"]
 mod comments;
 #[path = "e2e/compatibility.rs"]

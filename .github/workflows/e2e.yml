@@ -79,6 +79,10 @@ jobs:
             key: comments
             variable: WEKAN_COMMENT_E2E_URL
             test: comments::complete_comment_lifecycle_matches_wekan_v11_06
+          - name: Checklists and checklist items
+            key: checklists
+            variable: WEKAN_CHECKLIST_E2E_URL
+            test: checklists::complete_checklist_lifecycle_matches_wekan_v11_06
     env:
       COMPOSE_PROJECT_NAME: wekan-e2e-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       WEKAN_PORT: "3000"

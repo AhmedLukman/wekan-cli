@@ -44,8 +44,9 @@ Raw API output continues to preserve the upstream response without typed decodin
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
 `user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`,
-`comment delete`, and `swimlane delete` require interactive confirmation or
-`--yes`. Normal target and removability preflight runs first; its errors retain
+`comment delete`, `checklist delete`, `checklist-item delete`, and `swimlane delete`
+require interactive confirmation or
+`--yes`. Where a command performs target or removability preflight, it runs first and errors retain
 their documented codes. Otherwise, non-terminal and JSON invocations without
 `--yes` return `invalid_input` with exit status 2 before destructive work.
 `--yes` is accepted only by those commands. For active-profile removal,
@@ -74,7 +75,8 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
 `user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
-`comment_delete`, `swimlane_delete`, or `api_request`. Human output is
+`comment_delete`, `checklist_delete`, `checklist_item_delete`, `swimlane_delete`,
+or `api_request`. Human output is
 `Cancelled; no changes made.`
 
 ## Raw API success
@@ -377,6 +379,24 @@ known not to have deleted anything. A malformed successful response or a
 returned card ID that differs from the request reports `outcome_unknown: true`.
 Declining comment deletion uses the standard cancellation shape with
 `operation: "comment_delete"`.
+
+## Checklist and checklist-item success
+
+`checklist get` and `checklist-item get` return complete typed documents with
+`checklist_id` or `item_id`, respectively. Both detail results include optional
+`user_id` creator metadata: Wekan UI/DDP-created records populate it, while
+REST-created records omit it. Missing creator metadata is null in JSON output.
+The CLI reads both kinds through REST. Nested checklist item summaries contain
+only `item_id`, `title`, and `is_finished`.
+Detail `board_id` preserves Wekan's denormalized metadata. After a REST card move
+to another board, it may still identify the source board while requests must use
+the destination board selector.
+
+Collections include requested board/card scope; mutation results include scope
+and returned IDs. Item updates report deterministic `submitted_fields`, ordered
+`title` then `is_finished`, or an empty array for an empty update. Deletions
+return `deleted: true` and `delete_mode: "hard"`. See
+[checklist commands](checklists.md#stable-output) for every mapped detail field.
 
 ## Swimlane success
 

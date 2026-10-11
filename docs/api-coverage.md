@@ -6,8 +6,13 @@ User response decoding accepts notifications with absent, null, or populated rea
 timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).
 Workspace nodes map `id`, `name`, `icon`, and recursive `children`; unmapped
 fields on a node or any child produce `protocol_error` in typed user responses.
+Checklist and item detail reads map optional creator `userId` to `user_id`,
+including records created by Wekan's UI through DDP. These commands use REST.
+Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
+including the stale source board returned after a REST card move; requests use
+the card's current board selector.
 
-**Coverage:** 38 of 143 operations implemented (26.6%); 105 remaining.
+**Coverage:** 46 of 143 operations implemented (32.2%); 97 remaining.
 
 ## Status rules
 
@@ -26,6 +31,15 @@ Comment operations #21–23 preserve Wekan's accepted text, including U+0085.
 Creation requires `--text` to be nonblank under JavaScript's whitespace rules;
 the text is sent unchanged and Wekan trims JavaScript whitespace before storing it.
 
+Checklist commands #13–20 require board/card selectors; item commands additionally
+require a checklist selector. Checklist creation permits an omitted title and either
+repeated `--item` titles or `--items` JSON (string, string array, or null); those
+forms conflict. Item creation permits finite numeric `--sort` or `--sort-json`
+(number, string, or null), which conflict. Item update allows no fields, title,
+and either boolean `--is-finished` or `--is-finished-json` (boolean or string);
+the completion forms conflict. Text and JSON wire types are preserved. Only
+checklist and item deletion accept `--yes`.
+
 ## Operations
 
 | # | Area | Method | API path | Operation ID | What it does | Equivalent CLI command | Status |
@@ -42,14 +56,14 @@ the text is sent unchanged and Wekan trims JavaScript whitespace before storing 
 | 10 | Team | `PUT` | `/api/admin/teams/{team}/features` | `update_admin_team_features` | Set feature toggles on one team (GlobalAdmin). | — | ✗ |
 | 11 | Team | `PUT` | `/api/admin/teams/features` | `update_all_admin_team_features` | Set one feature toggle on all teams (GlobalAdmin). | — | ✗ |
 | 12 | Boards | `GET` | `/api/boards/{board}/attachments/{attachment}/export` | `exportAttachmentJson` | Export an attachment as JSON. | — | ✗ |
-| 13 | Checklists | `GET` | `/api/boards/{board}/cards/{card}/checklists` | `get_board_card_checklists` | List the checklists on a card. | — | ✗ |
-| 14 | Checklists | `POST` | `/api/boards/{board}/cards/{card}/checklists` | `post_board_card_checklists` | Create a checklist on a card. | — | ✗ |
-| 15 | Checklists | `GET` | `/api/boards/{board}/cards/{card}/checklists/{checklist}` | `get_board_card_checklist` | Get one checklist on a card. | — | ✗ |
-| 16 | Checklists | `DELETE` | `/api/boards/{board}/cards/{card}/checklists/{checklist}` | `delete_board_card_checklist` | Delete a checklist from a card. | — | ✗ |
-| 17 | ChecklistItems | `POST` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items` | `post_board_card_checklist_items` | Add an item to a card checklist. | — | ✗ |
-| 18 | ChecklistItems | `GET` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `get_board_card_checklist_item` | Get one checklist item. | — | ✗ |
-| 19 | ChecklistItems | `PUT` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `put_board_card_checklist_item` | Update a checklist item. | — | ✗ |
-| 20 | ChecklistItems | `DELETE` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `delete_board_card_checklist_item` | Delete a checklist item. | — | ✗ |
+| 13 | Checklists | `GET` | `/api/boards/{board}/cards/{card}/checklists` | `get_board_card_checklists` | List the checklists on a card. | `wekan checklist list --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 14 | Checklists | `POST` | `/api/boards/{board}/cards/{card}/checklists` | `post_board_card_checklists` | Create a checklist on a card. | `wekan checklist create --board <BOARD_ID> --card <CARD_ID> [--title <TEXT>] [--item <TEXT>]... [--items <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 15 | Checklists | `GET` | `/api/boards/{board}/cards/{card}/checklists/{checklist}` | `get_board_card_checklist` | Get one checklist on a card. | `wekan checklist get <CHECKLIST_ID> --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 16 | Checklists | `DELETE` | `/api/boards/{board}/cards/{card}/checklists/{checklist}` | `delete_board_card_checklist` | Delete a checklist from a card. | `wekan checklist delete <CHECKLIST_ID> --board <BOARD_ID> --card <CARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 17 | ChecklistItems | `POST` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items` | `post_board_card_checklist_items` | Add an item to a card checklist. | `wekan checklist-item create --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> --title <TEXT> [--sort <NUMBER>] [--sort-json <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 18 | ChecklistItems | `GET` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `get_board_card_checklist_item` | Get one checklist item. | `wekan checklist-item get <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 19 | ChecklistItems | `PUT` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `put_board_card_checklist_item` | Update a checklist item. | `wekan checklist-item update <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--title <TEXT>] [--is-finished <BOOL>] [--is-finished-json <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 20 | ChecklistItems | `DELETE` | `/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}` | `delete_board_card_checklist_item` | Delete a checklist item. | `wekan checklist-item delete <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 21 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments` | `get_board_card_comments` | List comments on a card. | `wekan comment list --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 22 | CardComments | `POST` | `/api/boards/{board}/cards/{card}/comments` | `post_board_card_comments` | Create a comment on a card. | `wekan comment create --board <BOARD_ID> --card <CARD_ID> --text <TEXT> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 23 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `get_board_card_comment` | Get one card comment. | `wekan comment get <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |

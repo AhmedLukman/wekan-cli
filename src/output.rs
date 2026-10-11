@@ -1,6 +1,8 @@
 mod auth;
 mod boards;
 mod cards;
+mod checklist_items;
+mod checklists;
 mod comments;
 mod formatting;
 mod lists;
@@ -17,6 +19,14 @@ use boards::{
 use cards::{
     render_card_archived, render_card_collection, render_card_created, render_card_deleted,
     render_card_detail, render_card_restored, render_card_updated,
+};
+use checklist_items::{
+    render_checklist_item_created, render_checklist_item_deleted, render_checklist_item_detail,
+    render_checklist_item_updated,
+};
+use checklists::{
+    render_checklist_collection, render_checklist_created, render_checklist_deleted,
+    render_checklist_detail,
 };
 use comments::{
     render_comment_collection, render_comment_created, render_comment_deleted,
@@ -184,6 +194,46 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::CardRestored(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardDeleted(data)) => render_card_deleted(data),
         (OutputFormat::Json, CommandSuccess::CardDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistCollection(data)) => {
+            render_checklist_collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistCollection(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::ChecklistShown(data)) => {
+            render_checklist_detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistCreated(data)) => {
+            render_checklist_created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistDeleted(data)) => {
+            render_checklist_deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistItemShown(data)) => {
+            render_checklist_item_detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistItemShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistItemCreated(data)) => {
+            render_checklist_item_created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistItemCreated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::ChecklistItemUpdated(data)) => {
+            render_checklist_item_updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistItemUpdated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::ChecklistItemDeleted(data)) => {
+            render_checklist_item_deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistItemDeleted(data)) => {
+            render_json_success(data)
+        }
         (OutputFormat::Human, CommandSuccess::CommentCollection(data)) => {
             render_comment_collection(data)
         }

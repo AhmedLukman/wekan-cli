@@ -2,6 +2,8 @@ mod api;
 mod auth;
 mod boards;
 mod cards;
+mod checklist_items;
+mod checklists;
 mod comments;
 mod lists;
 mod profiles;
@@ -26,6 +28,14 @@ pub use cards::{
     CardDetailDependency, CardDetailLocation, CardDetailPoker, CardDetailSticker,
     CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess, CardSubmittedField,
     CardSummary, CardUpdateSuccess,
+};
+pub use checklist_items::{
+    ChecklistItemCreateSuccess, ChecklistItemDeleteMode, ChecklistItemDeleteSuccess,
+    ChecklistItemDetail, ChecklistItemSubmittedField, ChecklistItemUpdateSuccess,
+};
+pub use checklists::{
+    ChecklistCollectionSuccess, ChecklistCreateSuccess, ChecklistDeleteMode,
+    ChecklistDeleteSuccess, ChecklistDetail, ChecklistItemSummary, ChecklistSummary,
 };
 pub use comments::{
     CommentCollectionSuccess, CommentCreateSuccess, CommentDeleteMode, CommentDeleteSuccess,
@@ -86,6 +96,14 @@ pub enum CommandSuccess {
     CardArchived(CardArchiveSuccess),
     CardRestored(CardRestoreSuccess),
     CardDeleted(CardDeleteSuccess),
+    ChecklistCollection(ChecklistCollectionSuccess),
+    ChecklistShown(ChecklistDetail),
+    ChecklistCreated(ChecklistCreateSuccess),
+    ChecklistDeleted(ChecklistDeleteSuccess),
+    ChecklistItemShown(ChecklistItemDetail),
+    ChecklistItemCreated(ChecklistItemCreateSuccess),
+    ChecklistItemUpdated(ChecklistItemUpdateSuccess),
+    ChecklistItemDeleted(ChecklistItemDeleteSuccess),
     CommentCollection(CommentCollectionSuccess),
     CommentShown(CommentDetail),
     CommentCreated(CommentCreateSuccess),
@@ -115,6 +133,8 @@ pub enum DestructiveOperation {
     BoardDelete,
     ListDelete,
     CardDelete,
+    ChecklistDelete,
+    ChecklistItemDelete,
     CommentDelete,
     SwimlaneDelete,
 }
@@ -131,6 +151,8 @@ impl DestructiveOperation {
             Self::BoardDelete => "board delete",
             Self::ListDelete => "list delete",
             Self::CardDelete => "card delete",
+            Self::ChecklistDelete => "checklist delete",
+            Self::ChecklistItemDelete => "checklist-item delete",
             Self::CommentDelete => "comment delete",
             Self::SwimlaneDelete => "swimlane delete",
         }

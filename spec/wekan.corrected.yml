@@ -903,7 +903,7 @@ paths:
                   required: true
                   schema:
                     $ref: "#/definitions/ChecklistCreateRequest"
-            description: " checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability. checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability. checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability."
+            description: "Creates a checklist, then its initial items in request order. The route checks general board access and additionally requires comment capability; read-only members cannot create checklists. A later item-validation failure returns HTTP 500 after saving the checklist and earlier items. The route performs no rollback."
             produces:
                 - application/json
                 - text/html
@@ -911,6 +911,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: checklist-creation-can-fail-after-partial-insertion
         parameters:
             - in: query
               name: access_token
@@ -978,7 +979,7 @@ paths:
                     schema:
                         type: string
                     x-wekan-empty-body-allowed: true
-            description: " checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability. checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability. checkBoardAccess excludes comment-only/worker/no-comments roles; POST additionally checks comment capability."
+            description: "Returns the complete checklist and compact item summaries after checking board/card scope. A missing or wrongly scoped checklist on an existing card returns empty HTTP 500, not HTTP 404. General board access permits read-only members and excludes comment-only, worker, and no-comments members."
             produces:
                 - application/json
                 - text/html
@@ -986,6 +987,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: missing-checklist-returns-empty-http-500
         delete:
             operationId: delete_board_card_checklist
             tags:
@@ -1046,7 +1048,7 @@ paths:
                     schema:
                         type: string
                         minLength: 1
-            description: " Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06."
+            description: "Hard-deletes the scoped checklist and returns its ID. Child item documents are not removed and remain addressable through their original checklist ID while their card exists. Uses general board access, so read-only members can delete checklists."
             produces:
                 - application/json
                 - text/html
@@ -1054,6 +1056,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defects:
+                - checklist-deletion-leaves-orphan-items
+                - read-only-members-can-mutate-checklists
         parameters:
             - in: query
               name: access_token
@@ -1123,7 +1128,7 @@ paths:
                   required: true
                   schema:
                     $ref: "#/definitions/ChecklistItemCreateRequest"
-            description: " Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06."
+            description: "Creates an unchecked item with an explicit number-coerced sort or appends when sort is omitted/nonfinite. Uses general board access, permitting item creation by read-only members."
             produces:
                 - application/json
                 - text/html
@@ -1131,6 +1136,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: read-only-members-can-mutate-checklists
         parameters:
             - in: query
               name: access_token
@@ -1275,7 +1281,7 @@ paths:
                   required: true
                   schema:
                     $ref: "#/definitions/ChecklistItemUpdateRequest"
-            description: " Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06."
+            description: "Updates completion then title, or acknowledges an empty update. Uses general board access, permitting read-only members to update items. Direct updates bypass activity/completion hooks. A later title-validation failure can return HTTP 500 after completion was saved; no rollback occurs."
             produces:
                 - application/json
                 - text/html
@@ -1283,6 +1289,10 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defects:
+                - read-only-members-can-mutate-checklists
+                - item-update-can-fail-after-partial-write
+                - direct-item-mutations-bypass-activity-hooks
         delete:
             operationId: delete_board_card_checklist_item
             tags:
@@ -1346,7 +1356,7 @@ paths:
                     schema:
                         type: string
                         minLength: 1
-            description: " Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06. Mutation uses checkBoardAccess, not write access; a read-only normal board member can mutate this endpoint in v11.06."
+            description: "Hard-deletes the scoped item and returns its ID. Uses general board access, permitting read-only members to delete items. Direct removal bypasses item activity cleanup and removal-activity hooks."
             produces:
                 - application/json
                 - text/html
@@ -1354,6 +1364,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defects:
+                - read-only-members-can-mutate-checklists
+                - direct-item-mutations-bypass-activity-hooks
         parameters:
             - in: query
               name: access_token
@@ -12561,6 +12574,8 @@ definitions:
         properties:
             title:
                 type: string
+                description: >-
+                    Checklist title, cleaned by Wekan. Omitted or empty text uses the model's default title Checklist.
             items:
                 x-oneOf:
                     - type: string
@@ -12578,14 +12593,11 @@ definitions:
                     The ID of the card the checklist is in
                 type: string
             boardId:
-                description: |
-                    The ID of the board the checklist's card is on. Denormalized from the
-                    card so the board publication can publish checklists with a single
-                    reactive cursor filtered by boardId (a new checklist on a new card then
-                    publishes reactively). Kept in sync on insert, on checklist move to
-                    another card, and when the card moves to another board.
+                description: |-
+                    Optional denormalized board ID set from the parent card on insert and synchronized by hooked moves. A REST card move to another board bypasses synchronization and leaves the source board ID here. Checklist and item endpoints authorize and scope through the card's current board, so this returned metadata can differ from the requested board.
                 type: string
                 x-nullable: true
+                x-wekan-v11.06-defect: rest-card-board-move-leaves-stale-checklist-board-ids
             title:
                 description: |
                     the title of the checklist
@@ -12643,14 +12655,11 @@ definitions:
                     The ID of the card the checklist is in
                 type: string
             boardId:
-                description: |
-                    The ID of the board the checklist's card is on. Denormalized from the
-                    card so the board publication can publish checklists with a single
-                    reactive cursor filtered by boardId (a new checklist on a new card then
-                    publishes reactively). Kept in sync on insert, on checklist move to
-                    another card, and when the card moves to another board.
+                description: |-
+                    Optional denormalized board ID set from the parent card on insert and synchronized by hooked moves. A REST card move to another board bypasses synchronization and leaves the source board ID here. Checklist and item endpoints authorize and scope through the card's current board, so this returned metadata can differ from the requested board.
                 type: string
                 x-nullable: true
+                x-wekan-v11.06-defect: rest-card-board-move-leaves-stale-checklist-board-ids
             title:
                 description: |
                     the title of the checklist
@@ -12707,6 +12716,11 @@ definitions:
                             type: string
                         isFinished:
                             type: boolean
+            userId:
+                type: string
+                x-nullable: true
+                description: >-
+                    Optional creator user ID assigned by the insertion hook. Authenticated UI/DDP creation supplies the creator identity; REST creation omits it.
         required:
             - _id
             - cardId
@@ -12741,14 +12755,11 @@ definitions:
                     the card ID the item is attached to
                 type: string
             boardId:
-                description: |
-                    The ID of the board the item's card is on. Denormalized from the card
-                    so the board publication can publish checklist items with a single
-                    reactive cursor filtered by boardId. Kept in sync on insert, on the
-                    item / its checklist moving to another card, and when the card moves to
-                    another board.
+                description: |-
+                    Optional denormalized board ID set from the parent card on insert and synchronized by hooked moves. A REST card move to another board bypasses synchronization and leaves the source board ID here. Checklist and item endpoints authorize and scope through the card's current board, so this returned metadata can differ from the requested board.
                 type: string
                 x-nullable: true
+                x-wekan-v11.06-defect: rest-card-board-move-leaves-stale-checklist-board-ids
             createdAt:
                 type: string
                 x-nullable: true
@@ -12758,6 +12769,11 @@ definitions:
                 format: date-time
             _id:
                 type: string
+            userId:
+                type: string
+                x-nullable: true
+                description: >-
+                    Optional creator user ID assigned by the insertion hook. Authenticated UI/DDP creation supplies the creator identity; REST creation omits it.
         required:
             - _id
             - title

@@ -3,6 +3,8 @@ pub mod auth;
 pub(crate) mod authenticated;
 pub mod boards;
 pub mod cards;
+pub mod checklist_items;
+pub mod checklists;
 pub(crate) mod client_error;
 pub mod comments;
 pub(crate) mod credential_ops;
@@ -35,6 +37,12 @@ pub enum RootCommand {
 
     /// Inspect and manage cards in Wekan board lists.
     Card(Box<cards::CardArgs>),
+
+    /// Inspect and manage checklists on Wekan cards.
+    Checklist(checklists::ChecklistArgs),
+
+    /// Inspect and manage checklist items.
+    ChecklistItem(checklist_items::ChecklistItemArgs),
 
     /// Inspect and manage comments on Wekan cards.
     Comment(comments::CommentArgs),

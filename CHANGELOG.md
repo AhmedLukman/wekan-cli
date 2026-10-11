@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Full `checklist` and `checklist-item` command families for creating, reading,
+  updating items, and confirmed hard deletion, with typed human/JSON output
+  and all corrected Wekan v11.06 input forms.
+
+### Fixed
+
+- Read UI-created checklists and checklist items through REST without rejecting
+  their creator IDs, and expose optional `user_id` in detail output.
+- Read checklists and items after REST card moves between boards while preserving
+  the source `board_id` metadata returned by Wekan v11.06.
+
 ## [0.4.0] - 2026-10-11
 
 ### Added

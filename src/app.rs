@@ -172,6 +172,24 @@ where
                 )
                 .await
             }
+            RootCommand::Checklist(args) => {
+                commands::checklists::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::ChecklistItem(args) => {
+                commands::checklist_items::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
             RootCommand::Comment(args) => {
                 commands::comments::dispatch(
                     args.command,

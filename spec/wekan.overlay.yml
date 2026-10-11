@@ -24505,3 +24505,141 @@ actions:
       persisted null element through card get.
     update:
       x-nullable: true
+
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}"].get'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/checklists.js 216-244. The live regression in
+      tests/e2e/checklists.rs confirms an empty HTTP 500 for a missing checklist.
+    update:
+      description: >-
+        Returns the complete checklist and compact item summaries after checking
+        board/card scope. A missing or wrongly scoped checklist on an existing
+        card returns empty HTTP 500, not HTTP 404. General board access permits
+        read-only members and excludes comment-only, worker, and no-comments members.
+      x-wekan-v11.06-defect: missing-checklist-returns-empty-http-500
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists"].post'
+    description: >-
+      Wekan v11.06 server/models/checklists.js 247-298 inserts the checklist
+      before its item loop. tests/e2e/checklists.rs confirms read-only creation
+      denial and a later blank item failing with HTTP 500 after earlier inserts.
+    update:
+      description: >-
+        Creates a checklist, then its initial items in request order. The route
+        checks general board access and additionally requires comment capability;
+        read-only members cannot create checklists. A later item-validation
+        failure returns HTTP 500 after saving the checklist and earlier items.
+        The route performs no rollback.
+      x-wekan-v11.06-defect: checklist-creation-can-fail-after-partial-insertion
+  - target: '$.definitions.ChecklistCreateRequest.properties.title'
+    description: >-
+      Wekan v11.06 models/checklists.js 36-42 defines the Checklist default;
+      tests/e2e/checklists.rs verifies omitted and empty title creation.
+    update:
+      description: >-
+        Checklist title, cleaned by Wekan. Omitted or empty text uses the model's
+        default title Checklist.
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}"].delete'
+    description: >-
+      Wekan v11.06 server/models/checklists.js 301-340 removes only the scoped
+      checklist. Its before-remove hook at 123-152 removes activities, not items.
+      tests/e2e/checklists.rs verifies the orphan item remains readable/deletable
+      and read-only members can delete a checklist.
+    update:
+      description: >-
+        Hard-deletes the scoped checklist and returns its ID. Child item documents
+        are not removed and remain addressable through their original checklist
+        ID while their card exists. Uses general board access, so read-only
+        members can delete checklists.
+      x-wekan-v11.06-defects:
+        - checklist-deletion-leaves-orphan-items
+        - read-only-members-can-mutate-checklists
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items"].post'
+    description: >-
+      Wekan v11.06 server/models/checklistItems.js 123-174 uses checkBoardAccess
+      rather than a write-capability gate. tests/e2e/checklists.rs confirms item
+      creation succeeds for an active read-only member.
+    update:
+      description: >-
+        Creates an unchecked item with an explicit number-coerced sort or appends
+        when sort is omitted/nonfinite. Uses general board access, permitting
+        item creation by read-only members.
+      x-wekan-v11.06-defect: read-only-members-can-mutate-checklists
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].put'
+    description: >-
+      Wekan v11.06 server/models/checklistItems.js 177-227 writes isFinished
+      before title using direct.updateAsync. tests/e2e/checklists.rs verifies
+      read-only updates, unchanged item activities, and a blank-title HTTP 500
+      after the completion field was saved.
+    update:
+      description: >-
+        Updates completion then title, or acknowledges an empty update. Uses
+        general board access, permitting read-only members to update items.
+        Direct updates bypass activity/completion hooks. A later title-validation
+        failure can return HTTP 500 after completion was saved; no rollback occurs.
+      x-wekan-v11.06-defects:
+        - read-only-members-can-mutate-checklists
+        - item-update-can-fail-after-partial-write
+        - direct-item-mutations-bypass-activity-hooks
+  - target: '$.paths["/api/boards/{board}/cards/{card}/checklists/{checklist}/items/{item}"].delete'
+    description: >-
+      Wekan v11.06 server/models/checklistItems.js 230-263 uses general board
+      access and direct.removeAsync, bypassing the before-remove activity hook
+      at 68-92. tests/e2e/checklists.rs verifies read-only deletion and retained
+      item activities after the item is no longer readable.
+    update:
+      description: >-
+        Hard-deletes the scoped item and returns its ID. Uses general board
+        access, permitting read-only members to delete items. Direct removal
+        bypasses item activity cleanup and removal-activity hooks.
+      x-wekan-v11.06-defects:
+        - read-only-members-can-mutate-checklists
+        - direct-item-mutations-bypass-activity-hooks
+  - target: '$.definitions.ChecklistDetail.properties'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/checklists.js 260-265 assigns doc.userId from the insertion hook's
+      user identity. server/models/checklists.js 216-244 returns the complete
+      document. tests/e2e/checklists.rs creates records using the UI's DDP
+      collection insert and verifies creator IDs through typed REST reads;
+      REST-created comparison records omit the field.
+    update:
+      userId:
+        type: string
+        x-nullable: true
+        description: >-
+          Optional creator user ID assigned by the insertion hook. Authenticated
+          UI/DDP creation supplies the creator identity; REST creation omits it.
+
+  - target: '$.definitions["Checklists", "ChecklistDetail", "ChecklistItems"].properties.boardId'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js 736-741 synchronizes checklist and item boardId in
+      an after-update hook, but the REST board move at 1627-1633 uses
+      Cards.direct.updateAsync and bypasses that hook. Checklist/item GET scopes
+      through the parent card's current board, independently of this metadata.
+      tests/e2e/checklists.rs moves a populated card between boards through the
+      typed card command and verifies typed checklist/item reads and human/JSON
+      output preserve the source boardId under the destination scope (W11-039).
+    update:
+      description: >-
+        Optional denormalized board ID set from the parent card on insert and
+        synchronized by hooked moves. A REST card move to another board bypasses
+        synchronization and leaves the source board ID here. Checklist and item
+        endpoints authorize and scope through the card's current board, so this
+        returned metadata can differ from the requested board.
+      x-wekan-v11.06-defect: rest-card-board-move-leaves-stale-checklist-board-ids
+  - target: '$.definitions.ChecklistItems.properties'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/checklistItems.js 84-88 assigns doc.userId from the insertion hook's
+      user identity. server/models/checklistItems.js 94-120 returns the complete
+      document. tests/e2e/checklists.rs verifies creator IDs on DDP-created items
+      read through REST and omission on REST-created items.
+    update:
+      userId:
+        type: string
+        x-nullable: true
+        description: >-
+          Optional creator user ID assigned by the insertion hook. Authenticated
+          UI/DDP creation supplies the creator identity; REST creation omits it.

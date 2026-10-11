@@ -6,6 +6,8 @@ mod auth;
 mod boards;
 #[path = "cli/cards.rs"]
 mod cards;
+#[path = "cli/checklists.rs"]
+mod checklists;
 #[path = "cli/comments.rs"]
 mod comments;
 #[path = "cli/lists.rs"]
