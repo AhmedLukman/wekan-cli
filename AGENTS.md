@@ -97,6 +97,8 @@ equivalent CLI command and status in the coverage table, then recalculate the
 values at the top of the document. Likewise if `spec/wekan.corrected.yml` gains or loses
 operations, add or remove the matching table rows and update the total operation count.
 
+Verify coverage entries against the parser and dispatch, and list every supported argument and option explicitly, including optional and global options. Show requirements, conflicts, repetition, and endpoint changes; never substitute aggregate placeholders such as `<FIELDS...>` or `[OPTIONS]` for option lists.
+
 ## Unknown API response fields
 
 API response DTOs must reject additional fields returned by Wekan. Apply
