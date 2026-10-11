@@ -1,4 +1,6 @@
 use super::support::*;
+#[path = "cards/extensions.rs"]
+mod extensions;
 #[tokio::test]
 #[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_CARD_E2E_URL"]
 async fn complete_card_lifecycle_matches_wekan_v11_06() {
@@ -126,6 +128,9 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     .expect("the parent card must be created") else {
         panic!("expected card creation output")
     };
+
+    extensions::verify_complete_create_and_update(&app, &server, &board, &list, &parent.card_id)
+        .await;
 
     let (_normal_directory, normal_app, _) = register_live_board_role(
         &server,

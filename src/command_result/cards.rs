@@ -28,7 +28,7 @@ pub enum CardDetailCustomFieldValue {
     String(String),
     Number(Number),
     Boolean(bool),
-    Strings(Vec<String>),
+    Strings(Vec<Option<String>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -182,6 +182,17 @@ pub enum CardSubmittedField {
     Members,
     Assignees,
     DueComplete,
+    SwimlaneId,
+    ListId,
+    NewBoardId,
+    NewSwimlaneId,
+    NewListId,
+    Archive,
+    Vote,
+    Poker,
+    CustomFields,
+    Stickers,
+    Locations,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]

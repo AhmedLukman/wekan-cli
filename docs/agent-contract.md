@@ -318,7 +318,8 @@ Each projected card contains `card_id`, nullable `title`, `description`,
 `card_id`, `type` becomes `card_type`, and every field uses snake case.
 Omitted collections are empty arrays and omitted optional scalars are JSON
 `null`. Custom-field values are the verified string, number, boolean, string
-array, or null union. Unknown top-level or nested fields, invalid timestamps,
+array with optional null members, or null union. Unknown top-level or nested
+fields, invalid timestamps,
 colors, card types, sticker highlights, identifiers, and nested value types
 cause `protocol_error`.
 
@@ -326,7 +327,10 @@ Creation returns `{"board_id":"...","list_id":"...","card_id":"..."}`.
 Update returns those identifiers plus canonical-order `submitted_fields`, whose
 possible values are `title`, `sort`, `parent_id`, `description`, `color`, `label_ids`,
 `requested_by`, `assigned_by`, `received_at`, `start_at`, `due_at`, `end_at`,
-`spent_time`, `is_over_time`, `members`, `assignees`, and `due_complete`.
+`spent_time`, `is_over_time`, `members`, `assignees`, `due_complete`, `swimlane_id`,
+`list_id`, `new_board_id`, `new_swimlane_id`, `new_list_id`, `archive`, `vote`,
+`poker`, `custom_fields`, `stickers`, and `locations`. The returned board and list
+IDs identify the request's source scope, including after movement.
 These values report the wire fields sent; they do not claim Wekan persisted
 them. A dispatched card update can persist earlier fields before a later field
 fails, so such failures report `outcome_unknown: true` without claiming which

@@ -872,7 +872,7 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
     });
     assert!(render_success(OutputFormat::Human, &created).contains("Created card"));
     let updated_human = render_success(OutputFormat::Human, &updated);
-    assert!(updated_human.contains("Updated card"));
+    assert!(updated_human.contains("Submitted update for card"));
     assert!(updated_human.contains("submitted fields: title, sort, due_at, is_over_time"));
     let updated_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &updated)).unwrap();

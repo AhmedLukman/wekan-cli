@@ -3,7 +3,9 @@ use clap::Args;
 use crate::{
     client::{CreateCardRequest, WekanClientFactory},
     command_result::{CardCreateSuccess, CommandSuccess},
-    commands::{authenticated::AuthenticatedContext, client_error::map_client_error},
+    commands::{
+        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+    },
     credentials::CredentialStore,
     error::AppError,
     redaction::Redactor,
@@ -25,9 +27,13 @@ pub struct CreateArgs {
     #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
-    /// Card title.
-    #[arg(long, value_parser = trimmed_non_empty)]
-    pub title: String,
+    /// Card title; required unless linking an existing card.
+    #[arg(long, value_parser = trimmed_non_empty, required_unless_present = "linked_id")]
+    pub title: Option<String>,
+
+    /// Source card ID for linked-card creation. Wekan ignores other content fields.
+    #[arg(long, value_parser = non_empty)]
+    pub linked_id: Option<String>,
 
     /// Wekan swimlane ID.
     #[arg(long, value_parser = non_empty)]
@@ -69,6 +75,7 @@ pub(super) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let request = CreateCardRequest {
         title: args.title,
+        linked_id: args.linked_id,
         swimlane_id: args.swimlane_id,
         description: args.description,
         members: (!args.members.is_empty()).then_some(args.members),
@@ -89,7 +96,14 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "card creation", true))?;
+        .map_err(|error| {
+            map_mutation_client_error_with_not_found(
+                error,
+                &redactor,
+                "card creation",
+                "the linked source or requested card scope was not found",
+            )
+        })?;
     Ok(CommandSuccess::CardCreated(CardCreateSuccess {
         board_id: args.board_id,
         list_id: args.list_id,

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Linked-card creation with `card create --linked-id`.
+- Card updates for list/swimlane and cross-board movement, archive/restore,
+  vote and poker settings, custom-field values, stickers, and locations.
+
+### Fixed
+
+- Missing linked source cards report `not_found`.
+- Card detail output accepts null members in custom-field string arrays.
+
 ## [0.2.1] - 2026-09-06
 
 ### Fixed

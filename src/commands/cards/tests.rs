@@ -135,6 +135,194 @@ fn factory(server: &MockServer) -> WekanClientFactory {
     WekanClientFactory::for_profile(format!("{}/", server.uri()), "default".to_owned(), false)
 }
 
+#[tokio::test]
+async fn linked_creation_and_extended_updates_send_typed_bodies_once() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .and(body_json(
+            json!({"linkedId":"source-card", "swimlaneId":"swimlane-1"}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"linked-card"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .and(body_json(json!({
+            "swimlaneId":"lane-2", "listId":"list-2", "newBoardId":"board-2",
+            "newSwimlaneId":"lane-3", "newListId":"list-3", "archive":false,
+            "vote":{"question":"Ship?","public":false,"allowNonBoardMembers":true},
+            "poker":{"question":true,"oneHundred":["user-1"],"estimation":2.5},
+            "customFields":[{"_id":"field-1","value":["a","b"]}],
+            "stickers":[{"icon":"star","name":"Release","highlight":"round","position":2}],
+            "locations":[{"_id":"location-1","name":"Office","latitude":-1.28,"longitude":36.82}]
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"card-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .and(body_json(
+            json!({"linkedId":"missing-card", "swimlaneId":"swimlane-1"}),
+        ))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"linkedId card not found"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let confirmation = FakeConfirmationProvider::accepting();
+    let result = dispatch(
+        card_command(&[
+            "create",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "--swimlane-id",
+            "swimlane-1",
+            "--linked-id",
+            "source-card",
+        ]),
+        &factory(&server),
+        &store,
+        &confirmation,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(result, CommandSuccess::CardCreated(_)));
+    let missing_link = dispatch(
+        card_command(&[
+            "create",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "--swimlane-id",
+            "swimlane-1",
+            "--linked-id",
+            "missing-card",
+        ]),
+        &factory(&server),
+        &store,
+        &confirmation,
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(missing_link.code(), ErrorCode::NotFound);
+    let result = dispatch(
+        card_command(&[
+            "update",
+            "card-1",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "--swimlane-id",
+            "lane-2",
+            "--list-id",
+            "list-2",
+            "--new-board-id",
+            "board-2",
+            "--new-swimlane-id",
+            "lane-3",
+            "--new-list-id",
+            "list-3",
+            "--archive",
+            "false",
+            "--vote",
+            r#"{"question":"Ship?","public":false,"allowNonBoardMembers":true}"#,
+            "--poker",
+            r#"{"question":true,"oneHundred":["user-1"],"estimation":2.5}"#,
+            "--custom-fields",
+            r#"[{"_id":"field-1","value":["a","b"]}]"#,
+            "--stickers",
+            r#"[{"icon":"star","name":"Release","highlight":"round","position":2}]"#,
+            "--locations",
+            r#"[{"_id":"location-1","name":"Office","latitude":-1.28,"longitude":36.82}]"#,
+        ]),
+        &factory(&server),
+        &store,
+        &confirmation,
+    )
+    .await
+    .unwrap();
+    let CommandSuccess::CardUpdated(result) = result else {
+        panic!("expected update");
+    };
+    assert_eq!(
+        result.submitted_fields,
+        vec![
+            CardSubmittedField::SwimlaneId,
+            CardSubmittedField::ListId,
+            CardSubmittedField::NewBoardId,
+            CardSubmittedField::NewSwimlaneId,
+            CardSubmittedField::NewListId,
+            CardSubmittedField::Archive,
+            CardSubmittedField::Vote,
+            CardSubmittedField::Poker,
+            CardSubmittedField::CustomFields,
+            CardSubmittedField::Stickers,
+            CardSubmittedField::Locations,
+        ]
+    );
+}
+
+#[test]
+fn structured_inputs_reject_unknown_fields_invalid_shapes_and_types() {
+    for (flag, value) in [
+        ("--vote", r#"{"future":true}"#),
+        ("--vote", r#"{"public":"true"}"#),
+        ("--vote", r#"{"public":null}"#),
+        ("--vote", r#"{"end":"tomorrow"}"#),
+        ("--poker", r#"{"future":true}"#),
+        ("--poker", r#"{"question":"Estimate?"}"#),
+        ("--poker", r#"{"end":"tomorrow"}"#),
+        ("--custom-fields", r#"[{"_id":"f","future":true}]"#),
+        ("--custom-fields", r#"[{"value":{"unmapped":true}}]"#),
+        ("--stickers", r#"[{"future":true}]"#),
+        ("--stickers", r#"[{"highlight":"unknown"}]"#),
+        ("--stickers", r#"[{"position":null}]"#),
+        ("--stickers", "[[]]"),
+        ("--custom-fields", "[[]]"),
+        ("--locations", "[[]]"),
+        ("--locations", r#"[{"future":true}]"#),
+        ("--locations", r#"[{"latitude":"north"}]"#),
+        ("--locations", "{}"),
+        ("--vote", "[]"),
+        ("--poker", "[]"),
+    ] {
+        assert!(
+            Cli::try_parse_from([
+                "wekan", "card", "update", "card-1", "--board", "board-1", "--list", "list-1",
+                flag, value
+            ])
+            .is_err(),
+            "{flag} {value}"
+        );
+    }
+    for (flag, value) in [
+        ("--archive", "false"),
+        ("--swimlane-id", "lane-2"),
+        ("--list-id", "list-2"),
+        ("--new-board-id", "board-2"),
+        ("--new-swimlane-id", "lane-3"),
+        ("--new-list-id", "list-3"),
+        ("--vote", "{}"),
+        ("--poker", "{}"),
+        ("--custom-fields", "[]"),
+        ("--stickers", "[]"),
+        ("--locations", "[]"),
+    ] {
+        card_command(&[
+            "update", "card-1", "--board", "board-1", "--list", "list-1", flag, value,
+        ]);
+    }
+}
+
 async fn dispatch(
     command: CardCommand,
     client_factory: &WekanClientFactory,

@@ -75,7 +75,7 @@ pub(super) fn render_card_updated(data: &CardUpdateSuccess) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        "Updated card {} in list {} on board {}; submitted fields: {}.",
+        "Submitted update for card {} using source list {} on board {}; submitted fields: {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id),

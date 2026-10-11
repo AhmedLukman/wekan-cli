@@ -30,10 +30,10 @@ pub enum CardCommand {
     Get(get::GetArgs),
 
     /// Create a card in a board list.
-    Create(create::CreateArgs),
+    Create(Box<create::CreateArgs>),
 
     /// Update one or more editable card fields.
-    Update(update::UpdateArgs),
+    Update(Box<update::UpdateArgs>),
 
     /// Permanently delete a card and its child resources.
     Delete(delete::DeleteArgs),
@@ -48,8 +48,8 @@ pub(crate) async fn dispatch(
     match command {
         CardCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         CardCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
-        CardCommand::Create(args) => create::execute(args, client_factory, credential_store).await,
-        CardCommand::Update(args) => update::execute(args, client_factory, credential_store).await,
+        CardCommand::Create(args) => create::execute(*args, client_factory, credential_store).await,
+        CardCommand::Update(args) => update::execute(*args, client_factory, credential_store).await,
         CardCommand::Delete(args) => {
             delete::execute(args, client_factory, credential_store, confirmation).await
         }

@@ -15,6 +15,13 @@ use crate::{
 };
 
 use super::{non_empty, rfc3339, trimmed_non_empty};
+use crate::client::cards::{
+    CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,
+};
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(transparent)]
+pub struct JsonArray<T>(pub Vec<T>);
 
 #[derive(Debug, Args)]
 #[command(
@@ -33,7 +40,9 @@ use super::{non_empty, rfc3339, trimmed_non_empty};
             "requested_by", "assigned_by", "received_at", "clear_received_at", "start_at",
             "clear_start_at", "due_at", "clear_due_at", "end_at", "clear_end_at",
             "spent_time", "is_over_time", "members", "clear_members", "assignees",
-            "clear_assignees", "due_complete"
+            "clear_assignees", "due_complete", "swimlane_id", "destination_list_id",
+            "new_board_id", "new_swimlane_id", "new_list_id", "archive", "vote", "poker",
+            "custom_fields", "stickers", "locations"
         ])
 ))]
 pub struct UpdateArgs {
@@ -144,6 +153,50 @@ pub struct UpdateArgs {
     /// Whether the due date is complete.
     #[arg(long, help_heading = "Dates")]
     pub due_complete: Option<bool>,
+
+    /// Destination swimlane within the source board.
+    #[arg(long, value_parser = non_empty, help_heading = "Movement")]
+    pub swimlane_id: Option<String>,
+
+    /// Destination list within the source board (distinct from --list).
+    #[arg(long = "list-id", value_parser = non_empty, help_heading = "Movement")]
+    pub destination_list_id: Option<String>,
+
+    /// Destination board; send all three --new-*-id fields for a board move.
+    #[arg(long, value_parser = non_empty, help_heading = "Movement")]
+    pub new_board_id: Option<String>,
+
+    /// Destination swimlane for a board move.
+    #[arg(long, value_parser = non_empty, help_heading = "Movement")]
+    pub new_swimlane_id: Option<String>,
+
+    /// Destination list for a board move.
+    #[arg(long, value_parser = non_empty, help_heading = "Movement")]
+    pub new_list_id: Option<String>,
+
+    /// Archive (true) or restore (false) through the update endpoint.
+    #[arg(long, help_heading = "Fields")]
+    pub archive: Option<bool>,
+
+    /// Replace vote settings with a typed JSON object; Wekan resets votes.
+    #[arg(long, value_name = "JSON", value_parser = vote_json, help_heading = "Structured fields")]
+    pub vote: Option<CardVoteInput>,
+
+    /// Replace poker settings with a typed JSON object; Wekan resets votes.
+    #[arg(long, value_name = "JSON", value_parser = poker_json, help_heading = "Structured fields")]
+    pub poker: Option<CardPokerInput>,
+
+    /// Replace custom-field values with a typed JSON array; [] clears them.
+    #[arg(long, value_name = "JSON", value_parser = json_array::<CardCustomFieldInput>, help_heading = "Structured fields")]
+    pub custom_fields: Option<JsonArray<CardCustomFieldInput>>,
+
+    /// Replace stickers with a typed JSON array; [] clears them.
+    #[arg(long, value_name = "JSON", value_parser = json_array::<CardStickerInput>, help_heading = "Structured fields")]
+    pub stickers: Option<JsonArray<CardStickerInput>>,
+
+    /// Replace locations with a typed JSON array; [] clears them.
+    #[arg(long, value_name = "JSON", value_parser = json_array::<CardLocationInput>, help_heading = "Structured fields")]
+    pub locations: Option<JsonArray<CardLocationInput>>,
 }
 
 pub(super) async fn execute(
@@ -174,6 +227,17 @@ pub(super) async fn execute(
         members: replacement(args.members, args.clear_members),
         assignees: replacement(args.assignees, args.clear_assignees),
         due_complete: args.due_complete,
+        swimlane_id: args.swimlane_id,
+        list_id: args.destination_list_id,
+        new_board_id: args.new_board_id,
+        new_swimlane_id: args.new_swimlane_id,
+        new_list_id: args.new_list_id,
+        archive: args.archive,
+        vote: args.vote,
+        poker: args.poker,
+        custom_fields: args.custom_fields.map(|value| value.0),
+        stickers: args.stickers.map(|value| value.0),
+        locations: args.locations.map(|value| value.0),
     };
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
     let redactor = Redactor::with_secret(context.record().token());
@@ -266,12 +330,72 @@ fn submitted_fields(args: &UpdateArgs) -> Vec<CardSubmittedField> {
             CardSubmittedField::Assignees,
         ),
         (args.due_complete.is_some(), CardSubmittedField::DueComplete),
+        (args.swimlane_id.is_some(), CardSubmittedField::SwimlaneId),
+        (
+            args.destination_list_id.is_some(),
+            CardSubmittedField::ListId,
+        ),
+        (args.new_board_id.is_some(), CardSubmittedField::NewBoardId),
+        (
+            args.new_swimlane_id.is_some(),
+            CardSubmittedField::NewSwimlaneId,
+        ),
+        (args.new_list_id.is_some(), CardSubmittedField::NewListId),
+        (args.archive.is_some(), CardSubmittedField::Archive),
+        (args.vote.is_some(), CardSubmittedField::Vote),
+        (args.poker.is_some(), CardSubmittedField::Poker),
+        (
+            args.custom_fields.is_some(),
+            CardSubmittedField::CustomFields,
+        ),
+        (args.stickers.is_some(), CardSubmittedField::Stickers),
+        (args.locations.is_some(), CardSubmittedField::Locations),
     ] {
         if present {
             fields.push(field);
         }
     }
     fields
+}
+
+fn json_input<T: serde::de::DeserializeOwned>(value: &str) -> Result<T, String> {
+    if !value.trim_start().starts_with('{') {
+        return Err("expected a JSON object".to_owned());
+    }
+    serde_json::from_str(value)
+        .map_err(|_| "expected JSON with the documented field names and types".to_owned())
+}
+
+fn json_array<T: serde::de::DeserializeOwned>(value: &str) -> Result<JsonArray<T>, String> {
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(value).map_err(|_| "expected a JSON array of objects".to_owned())?;
+    items
+        .into_iter()
+        .map(|item| {
+            if !item.is_object() {
+                return Err("expected a JSON array of objects".to_owned());
+            }
+            serde_json::from_value(item)
+                .map_err(|_| "expected JSON with the documented field names and types".to_owned())
+        })
+        .collect::<Result<Vec<T>, String>>()
+        .map(JsonArray)
+}
+
+fn vote_json(value: &str) -> Result<CardVoteInput, String> {
+    let vote: CardVoteInput = json_input(value)?;
+    if let Some(Some(end)) = &vote.end {
+        rfc3339(end)?;
+    }
+    Ok(vote)
+}
+
+fn poker_json(value: &str) -> Result<CardPokerInput, String> {
+    let poker: CardPokerInput = json_input(value)?;
+    if let Some(Some(end)) = &poker.end {
+        rfc3339(end)?;
+    }
+    Ok(poker)
 }
 
 fn card_color(value: &str) -> Result<String, String> {

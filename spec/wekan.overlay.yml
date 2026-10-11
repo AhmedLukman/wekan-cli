@@ -24327,3 +24327,24 @@ actions:
             pattern: ^<!DOCTYPE html>
       security:
         - {}
+
+  - target: $.definitions.CardUpdateRequest.properties
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js lines 1555-1657 and 1660-1697. The dedicated card E2E
+      test verifies a same-board list move combined with dueComplete, stickers and
+      locations: HTTP 200 acknowledges all fields, but the later writes still use
+      the original list selector and match nothing (W11-019).
+    update:
+      dueComplete:
+        description: String(value).toLowerCase() === "true" sets true; other supplied values set false.
+          This write uses the original board/list/card scope. A list or board move earlier in the same
+          request can therefore prevent it from persisting despite an HTTP 200 acknowledgement.
+      stickers:
+        description: Array of modeled stickers, or a JSON string encoding that array. Unknown item keys
+          are accepted and cleaned away. This write uses the original board/list/card scope; a list or
+          board move earlier in the same request can prevent persistence despite HTTP 200.
+      locations:
+        description: Array of normalized locations, or a JSON string encoding that array. This write
+          uses the original board/list/card scope; a list or board move earlier in the same request
+          can prevent persistence despite HTTP 200.

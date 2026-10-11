@@ -6,6 +6,11 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+mod inputs;
+pub use inputs::{
+    CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,
+};
+
 pub const CARD_COLORS: &[&str] = &[
     "white",
     "green",
@@ -60,7 +65,7 @@ pub enum CardCustomFieldValue {
     String(String),
     Number(Number),
     Boolean(bool),
-    Strings(Vec<String>),
+    Strings(Vec<Option<String>>),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -261,7 +266,10 @@ pub struct CardDocument {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCardRequest {
-    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub linked_id: Option<String>,
     pub swimlane_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -279,7 +287,7 @@ pub struct CreateCardRequest {
     pub end_at: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCardRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -316,6 +324,28 @@ pub struct UpdateCardRequest {
     pub assignees: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due_complete: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub swimlane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_board_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_swimlane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_list_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vote: Option<CardVoteInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poker: Option<CardPokerInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<Vec<CardCustomFieldInput>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stickers: Option<Vec<CardStickerInput>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locations: Option<Vec<CardLocationInput>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

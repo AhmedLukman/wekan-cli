@@ -43,7 +43,7 @@ fn complete_card_response() -> serde_json::Value {
             {"_id": "field-1", "value": "text"},
             {"_id": "field-2", "value": 2.5},
             {"_id": "field-3", "value": true},
-            {"_id": "field-4", "value": ["one", "two"]},
+            {"_id": "field-4", "value": ["one", null, "two"]},
             {"_id": "field-5", "value": null}
         ],
         "dateLastActivity": "2030-01-02T03:06:05Z",
@@ -1138,7 +1138,8 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
-                    title: "Todo".to_owned(),
+                    title: Some("Todo".to_owned()),
+                    linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),
                     description: None,
                     members: None,
@@ -1171,6 +1172,7 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
         members: None,
         assignees: None,
         due_complete: Some(false),
+        ..UpdateCardRequest::default()
     };
     assert!(matches!(
         client

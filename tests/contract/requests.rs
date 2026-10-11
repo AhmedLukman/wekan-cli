@@ -478,7 +478,8 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
-                title: "Todo".to_owned(),
+                title: Some("Todo".to_owned()),
+                linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
                 description: Some("Details".to_owned()),
                 members: Some(vec!["member-1".to_owned(), "member-2".to_owned()]),
@@ -497,7 +498,8 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
-                title: "Minimal".to_owned(),
+                title: Some("Minimal".to_owned()),
+                linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
                 description: None,
                 members: None,
@@ -534,6 +536,7 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
                 members: Some(vec![]),
                 assignees: Some(vec!["assignee-2".to_owned()]),
                 due_complete: Some(false),
+                ..UpdateCardRequest::default()
             },
             &user_token(),
         )
@@ -543,6 +546,46 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
         .delete_card("board/1", "list/1", "card/1", &user_token())
         .await
         .unwrap();
+}
+
+#[test]
+fn structured_inputs_preserve_null_values_and_omitted_fields() {
+    use wekan_cli::client::cards::{
+        CardCustomFieldInput, CardLocationInput, CardPokerInput, CardVoteInput,
+    };
+
+    for value in [
+        json!({}),
+        json!({"end":null}),
+        json!({"question":"Ship?","public":false}),
+    ] {
+        let input: CardVoteInput = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(input).unwrap(), value);
+    }
+    for value in [
+        json!({}),
+        json!({"question":null,"one":null,"end":null,"allowNonBoardMembers":null,"estimation":null}),
+        json!({"question":false,"oneHundred":["user-1"],"estimation":0}),
+    ] {
+        let input: CardPokerInput = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(input).unwrap(), value);
+    }
+    for value in [
+        json!({}),
+        json!({"_id":null,"value":null}),
+        json!({"value":["a",null,"b"]}),
+    ] {
+        let input: CardCustomFieldInput = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(input).unwrap(), value);
+    }
+    for value in [
+        json!({}),
+        json!({"_id":null,"name":null,"address":null,"latitude":null,"longitude":null}),
+        json!({"latitude":0,"longitude":1.25}),
+    ] {
+        let input: CardLocationInput = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(input).unwrap(), value);
+    }
 }
 
 #[tokio::test]
@@ -560,7 +603,8 @@ async fn card_mutations_are_not_retried_and_redirects_are_not_followed() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
-                    title: "Todo".to_owned(),
+                    title: Some("Todo".to_owned()),
+                    linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),
                     description: None,
                     members: None,

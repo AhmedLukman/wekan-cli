@@ -12521,21 +12521,21 @@ definitions:
                 x-oneOf:
                     - type: boolean
                     - type: string
-                description: String(value).toLowerCase() === "true" sets true; other supplied values set false. archive is scoped by board/card, independent of URL list; dueComplete uses board/list/card.
+                description: String(value).toLowerCase() === "true" sets true; other supplied values set false. This write uses the original board/list/card scope. A list or board move earlier in the same request can therefore prevent it from persisting despite an HTTP 200 acknowledgement.
             stickers:
                 x-oneOf:
                     - type: array
                       items:
                         $ref: "#/definitions/CardStickerRequest"
                     - type: string
-                description: Array of modeled stickers, or a JSON string encoding that array. Unknown item keys are accepted and cleaned away.
+                description: Array of modeled stickers, or a JSON string encoding that array. Unknown item keys are accepted and cleaned away. This write uses the original board/list/card scope; a list or board move earlier in the same request can prevent persistence despite HTTP 200.
             locations:
                 x-oneOf:
                     - type: array
                       items:
                         $ref: "#/definitions/CardLocationRequest"
                     - type: string
-                description: Array of normalized locations, or a JSON string encoding that array.
+                description: Array of normalized locations, or a JSON string encoding that array. This write uses the original board/list/card scope; a list or board move earlier in the same request can prevent persistence despite HTTP 200.
     CardCopyRequest:
         type: object
         description: Card copy destinations and position from server/models/cards.js lines 2080-2123; only toSwimlaneId is required.
