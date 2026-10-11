@@ -340,6 +340,22 @@ The delete result only means Wekan accepted its hard-idempotent request; it does
 not prove prior existence or removal. Declining card deletion uses the standard
 cancellation shape with `operation: "card_delete"`.
 
+`card archive` returns
+`{"board_id":"...","list_id":"...","card_id":"...","archived":true,"archived_at":"<RFC3339>"}`.
+`card restore` returns the same identifiers and `"archived":false`, without
+`archived_at`. Archive's timestamp comes from the acknowledgement and can
+differ from the document timestamp. Restore keeps the stored timestamp. Both
+commands recursively change child cards and run without confirmation.
+
+These dedicated commands require the actual board/list/card scope and expected
+initial archived state. Unknown fields, missing or invalid required values,
+unexpected result states, and mismatched card IDs produce `protocol_error`
+with `outcome_unknown:true`. Wekan v11.06 missing-card, wrong-list, wrong-existing-board,
+and wrong-state failures are HTTP 500 HTML responses; they remain `server_error`
+with `http_status:500` and `outcome_unknown:true`. Missing boards produce
+`not_found` with HTTP 404. HTTP 401/403 retains authentication/permission
+classification. No command preflight, retry, or follow-up request is issued.
+
 ## Comment success
 
 `comment list` returns `{"board_id":"...","card_id":"...","comments":[...]}`.

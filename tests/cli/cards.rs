@@ -42,7 +42,7 @@ fn scoped_card_syntax_requires_named_parents_and_help_is_readable() {
 }
 
 #[test]
-fn card_help_exposes_only_core_crud_and_supported_fields() {
+fn card_help_exposes_core_crud_archive_restore_and_supported_fields() {
     cargo_bin_cmd!("wekan")
         .args(["card", "--help"])
         .assert()
@@ -53,7 +53,8 @@ fn card_help_exposes_only_core_crud_and_supported_fields() {
         .stdout(predicate::str::contains("update"))
         .stdout(predicate::str::contains("delete"))
         .stdout(predicate::str::contains("move").not())
-        .stdout(predicate::str::contains("archive").not())
+        .stdout(predicate::str::contains("archive"))
+        .stdout(predicate::str::contains("restore"))
         .stdout(predicate::str::contains("comment").not())
         .stderr(predicate::str::is_empty());
 
@@ -83,6 +84,49 @@ fn card_help_exposes_only_core_crud_and_supported_fields() {
         .stdout(predicate::str::contains("--sort <SORT>"))
         .stdout(predicate::str::contains("--is-over-time <IS_OVER_TIME>"))
         .stdout(predicate::str::contains("--due-complete <DUE_COMPLETE>"));
+}
+
+#[test]
+fn archive_restore_require_scoped_identifiers_and_expose_global_help() {
+    let directory = super::support::TestDirectory::new("archive-restore-parser");
+    for action in ["archive", "restore"] {
+        for args in [
+            vec!["card", action, "card-1"],
+            vec!["card", action, "card-1", "--board", "board-1"],
+            vec!["card", action, "card-1", "--list", "list-1"],
+            vec![
+                "card", action, " ", "--board", "board-1", "--list", "list-1",
+            ],
+            vec!["card", action, "card-1", "--board", " ", "--list", "list-1"],
+            vec![
+                "card", action, "card-1", "--board", "board-1", "--list", " ",
+            ],
+            vec![
+                "card", action, "card-1", "--board", "board-1", "--list", "list-1", "--yes",
+            ],
+        ] {
+            super::support::no_target_cli(&directory)
+                .args(args)
+                .assert()
+                .code(2)
+                .stdout(predicate::str::is_empty());
+        }
+        cargo_bin_cmd!("wekan")
+            .args(["card", action, "--help"])
+            .assert()
+            .success()
+            .stderr(predicate::str::is_empty())
+            .stdout(predicate::str::contains("--board <BOARD_ID>"))
+            .stdout(predicate::str::contains("--list <LIST_ID>"))
+            .stdout(predicate::str::contains("<CARD_ID>"))
+            .stdout(predicate::str::contains("--server"))
+            .stdout(predicate::str::contains("--profile"))
+            .stdout(predicate::str::contains("--output"))
+            .stdout(predicate::str::contains("--allow-insecure-http"))
+            .stdout(predicate::str::contains("--yes").not())
+            .stdout(predicate::str::contains("Example:"));
+    }
+    assert_eq!(std::fs::read_dir(&directory.0).unwrap().count(), 0);
 }
 
 #[test]

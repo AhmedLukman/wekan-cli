@@ -136,6 +136,207 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 #[tokio::test]
+async fn archive_restore_dispatch_typed_results_without_confirmation() {
+    let server = MockServer::start().await;
+    for (command, action, response) in [
+        (
+            "archive",
+            "archive",
+            json!({"_id":"card-1", "archived":true, "archivedAt":"2030-01-02T03:04:05Z"}),
+        ),
+        (
+            "restore",
+            "unarchive",
+            json!({"_id":"card-1", "archived":false}),
+        ),
+    ] {
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/api/boards/board-1/lists/list-1/cards/card-1/{action}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let confirmation = FakeConfirmationProvider::declining();
+        let store = FakeCredentialStore::authenticated(&server);
+        let result = dispatch(
+            card_command(&[command, "card-1", "--board", "board-1", "--list", "list-1"]),
+            &factory(&server),
+            &store,
+            &confirmation,
+        )
+        .await
+        .unwrap();
+        match result {
+            CommandSuccess::CardArchived(data) => {
+                assert_eq!(
+                    (
+                        data.board_id.as_str(),
+                        data.list_id.as_str(),
+                        data.card_id.as_str()
+                    ),
+                    ("board-1", "list-1", "card-1")
+                );
+                assert!(data.archived);
+                assert_eq!(data.archived_at, "2030-01-02T03:04:05Z");
+            }
+            CommandSuccess::CardRestored(data) => {
+                assert_eq!(
+                    (
+                        data.board_id.as_str(),
+                        data.list_id.as_str(),
+                        data.card_id.as_str()
+                    ),
+                    ("board-1", "list-1", "card-1")
+                );
+                assert!(!data.archived);
+            }
+            other => panic!("unexpected result: {other:?}"),
+        }
+        assert!(confirmation.requests().is_empty());
+        assert_eq!(store.lock_count.load(Ordering::SeqCst), 0);
+    }
+    assert_eq!(server.received_requests().await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn archive_restore_failures_preserve_status_uncertainty_and_safe_diagnostics() {
+    for (command, action, archived) in [
+        ("archive", "archive", true),
+        ("restore", "unarchive", false),
+    ] {
+        for (status, body, expected_code, unknown) in [
+            (401, json!(null), ErrorCode::AuthenticationRejected, None),
+            (403, json!(null), ErrorCode::PermissionDenied, None),
+            (404, json!(null), ErrorCode::NotFound, None),
+            (500, json!(null), ErrorCode::ServerError, Some(true)),
+            (
+                200,
+                json!({"_id":"card-1", "archived":archived, "card-token":"secret-value"}),
+                ErrorCode::ProtocolError,
+                Some(true),
+            ),
+            (
+                200,
+                json!({"_id":"other", "archived":archived, "archivedAt":"2030-01-02T03:04:05Z"}),
+                ErrorCode::ProtocolError,
+                Some(true),
+            ),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path(format!(
+                    "/api/boards/board-1/lists/list-1/cards/card-1/{action}"
+                )))
+                .respond_with(if status == 200 {
+                    ResponseTemplate::new(status).set_body_json(body)
+                } else {
+                    ResponseTemplate::new(status)
+                        .set_body_string("<!DOCTYPE html><title>Error</title>")
+                })
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = dispatch(
+                card_command(&[command, "card-1", "--board", "board-1", "--list", "list-1"]),
+                &factory(&server),
+                &FakeCredentialStore::authenticated(&server),
+                &FakeConfirmationProvider::accepting(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.code(), expected_code);
+            assert_eq!(error.details().http_status, Some(status));
+            assert_eq!(error.details().outcome_unknown, unknown);
+            assert!(!format!("{error:?}").contains("card-token"));
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
+}
+
+#[test]
+fn archive_restore_accept_global_options_and_trim_identifiers() {
+    for action in ["archive", "restore"] {
+        let cli = Cli::try_parse_from([
+            "wekan",
+            "card",
+            action,
+            " card-1 ",
+            "--board",
+            " board-1 ",
+            "--list",
+            " list-1 ",
+            "--server",
+            "http://localhost:3000",
+            "--profile",
+            "local",
+            "--output",
+            "json",
+            "--allow-insecure-http",
+        ])
+        .unwrap();
+        assert_eq!(cli.server.as_deref(), Some("http://localhost:3000"));
+        assert_eq!(cli.profile_name.as_deref(), Some("local"));
+        assert_eq!(cli.output, crate::output::OutputFormat::Json);
+        assert!(cli.allow_insecure_http);
+        let RootCommand::Card(args) = cli.command else {
+            panic!("expected card command")
+        };
+        match args.command {
+            CardCommand::Archive(args) => assert_eq!(
+                (
+                    args.board_id.as_str(),
+                    args.list_id.as_str(),
+                    args.card_id.as_str()
+                ),
+                ("board-1", "list-1", "card-1")
+            ),
+            CardCommand::Restore(args) => assert_eq!(
+                (
+                    args.board_id.as_str(),
+                    args.list_id.as_str(),
+                    args.card_id.as_str()
+                ),
+                ("board-1", "list-1", "card-1")
+            ),
+            _ => panic!("expected archive or restore"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn archive_restore_transport_failures_report_unknown_outcomes() {
+    for command in ["archive", "restore"] {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let server_url = format!("http://{}/", listener.local_addr().unwrap());
+        let store = FakeCredentialStore {
+            record: Mutex::new(Some(CredentialRecord::new(
+                server_url.clone(),
+                "user-1".to_owned(),
+                SecretString::from("card-token".to_owned()),
+                OffsetDateTime::now_utc() + Duration::hours(1),
+            ))),
+            replacement_on_lock: Mutex::new(None),
+            lock_count: AtomicUsize::new(0),
+        };
+        let factory = WekanClientFactory::for_profile(server_url, "default".to_owned(), false);
+        drop(listener);
+        let error = dispatch(
+            card_command(&[command, "card-1", "--board", "board-1", "--list", "list-1"]),
+            &factory,
+            &store,
+            &FakeConfirmationProvider::accepting(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::TransportError);
+        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(!format!("{error:?}").contains("card-token"));
+    }
+}
+
+#[tokio::test]
 async fn linked_creation_and_extended_updates_send_typed_bodies_once() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))

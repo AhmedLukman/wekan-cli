@@ -959,6 +959,47 @@ fn comment_outputs_are_stable_comprehensive_and_terminal_safe() {
 }
 
 #[test]
+fn archive_restore_outputs_have_exact_envelopes_and_escape_terminal_controls() {
+    use crate::command_result::{CardArchiveSuccess, CardRestoreSuccess};
+    let archive = CommandSuccess::CardArchived(CardArchiveSuccess {
+        board_id: "board\n1".to_owned(),
+        list_id: "list\t1".to_owned(),
+        card_id: "card\u{1b}]52;c;x\u{7}".to_owned(),
+        archived: true,
+        archived_at: "2030-01-02T03:04:05.000Z".to_owned(),
+    });
+    let restore = CommandSuccess::CardRestored(CardRestoreSuccess {
+        board_id: "board\n1".to_owned(),
+        list_id: "list\t1".to_owned(),
+        card_id: "card\u{1b}]52;c;x\u{7}".to_owned(),
+        archived: false,
+    });
+    for (result, expected) in [
+        (
+            &archive,
+            serde_json::json!({"ok":true,"data":{"board_id":"board\n1","list_id":"list\t1","card_id":"card\u{1b}]52;c;x\u{7}","archived":true,"archived_at":"2030-01-02T03:04:05.000Z"}}),
+        ),
+        (
+            &restore,
+            serde_json::json!({"ok":true,"data":{"board_id":"board\n1","list_id":"list\t1","card_id":"card\u{1b}]52;c;x\u{7}","archived":false}}),
+        ),
+    ] {
+        let actual: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, result)).unwrap();
+        assert_eq!(actual, expected);
+        let human = render_success(OutputFormat::Human, result);
+        for control in ['\n', '\t', '\u{1b}', '\u{7}'] {
+            assert!(!human.contains(control));
+        }
+        assert!(human.contains(r"board\n1"));
+        assert!(human.contains(r"list\t1"));
+    }
+    assert!(render_success(OutputFormat::Human, &archive).contains("Archived card"));
+    assert!(render_success(OutputFormat::Human, &archive).contains("2030-01-02T03:04:05.000Z"));
+    assert!(render_success(OutputFormat::Human, &restore).contains("Restored card"));
+}
+
+#[test]
 fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     let collection = CommandSuccess::SwimlaneCollection(SwimlaneCollectionSuccess {
         board_id: "board-1".to_owned(),

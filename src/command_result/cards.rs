@@ -203,6 +203,23 @@ pub struct CardUpdateSuccess {
     pub submitted_fields: Vec<CardSubmittedField>,
 }
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CardArchiveSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub archived: bool,
+    pub archived_at: String,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CardRestoreSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub archived: bool,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CardDeleteMode {

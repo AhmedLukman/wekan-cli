@@ -1,4 +1,6 @@
 use super::support::*;
+#[path = "cards/archival.rs"]
+mod archival;
 #[path = "cards/extensions.rs"]
 mod extensions;
 #[tokio::test]
@@ -166,6 +168,21 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         &board.board_id,
         nonce,
         "readonly",
+    )
+    .await;
+
+    archival::verify_archive_restore(
+        &app,
+        &normal_app,
+        &[
+            ("comment-only", &comment_app),
+            ("worker", &worker_app),
+            ("read-only", &read_only_app),
+        ],
+        &server,
+        &board,
+        &list,
+        &parent.card_id,
     )
     .await;
 

@@ -1,13 +1,15 @@
 # Cards
 
-The singular `wekan card` family covers the five board/list-scoped core
-CRUD operations:
+The singular `wekan card` family covers board/list-scoped core CRUD, archive,
+and restore operations:
 
 ```console
 wekan card list --board <BOARD_ID> --list <LIST_ID>
 wekan card get <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
 wekan card create --board <BOARD_ID> --list <LIST_ID> --title <TITLE> --swimlane-id <ID> [FIELDS...]
 wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS...>
+wekan card archive <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
+wekan card restore <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
 wekan card delete <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--yes]
 ```
 
@@ -105,20 +107,54 @@ wekan card update card-id --board board-id --list list-id --list-id destination-
 wekan card update card-id --board board-id --list list-id --custom-fields '[{"_id":"field-id","value":"Ready"}]'
 ```
 
+## Dedicated archive and restore
+
+`card archive` and `card restore` each send one bodyless POST request to the
+dedicated `/archive` or `/unarchive` endpoint. Both run directly without a
+confirmation prompt or `--yes`. They also accept `--server`, `--profile`,
+`--output <human|json>`, `--allow-insecure-http`, and `--help`.
+
+Supply the card's actual board and list IDs. Archive requires an active card;
+restore requires an archived card. Both recursively change child cards, even
+when the children belong to other lists. Archived cards disappear from scoped
+`card list` and `card get`; restored cards become visible again. Restore keeps
+the document's previous `archived_at` timestamp.
+
+The existing `card update --archive <true|false>` remains available for requests
+that combine fields. Its restore behavior differs: the update endpoint selects
+by board and card ID independently of the supplied list, while the dedicated
+restore endpoint requires the correct list.
+
+Wekan v11.06 returns HTTP 500 with an HTML body for a missing card, wrong list,
+wrong existing board, or wrong archived state, including repeated archive or
+restore. The CLI preserves this as `server_error` with `http_status: 500` and
+`outcome_unknown: true`; it does not turn these failures into success or retry.
+A missing board returns HTTP 404 (`not_found`), and authentication and board
+permission failures retain their HTTP 401/403 classifications.
+
 ## Stable output
 
 Use `--output json` for stable machine-readable envelopes. Collection, create,
-update, and delete data have these shapes:
+update, archive, restore, and delete data have these shapes:
 
 ```json
 {"board_id":"board-id","list_id":"list-id","cards":[{"card_id":"card-id","title":"Todo","description":"Details","swimlane_id":"swimlane-id","received_at":null,"start_at":null,"due_at":null,"end_at":null,"assignees":[],"sort":0}]}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id"}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id","submitted_fields":["title","due_at"]}
+{"board_id":"board-id","list_id":"list-id","card_id":"card-id","archived":true,"archived_at":"2030-01-02T03:04:05.000Z"}
+{"board_id":"board-id","list_id":"list-id","card_id":"card-id","archived":false}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id","deleted":true,"delete_mode":"hard"}
 ```
 
 Update result board/list IDs identify the request's source scope, including after
 movement.
+
+Archive's `archived_at` is the timestamp returned in the acknowledgement; Wekan
+creates it separately from the stored document timestamp. Restore does not
+return a timestamp, so its result omits `archived_at`. Both results require the
+requested card ID and expected archived state. Unknown response fields,
+missing required fields, invalid types or timestamps, and mismatched IDs or
+states cause `protocol_error` with `outcome_unknown: true`.
 
 These objects appear under the usual `{"ok":true,"data":...}` envelope.
 `card get` returns the complete supported Wekan v11.06 card document in snake

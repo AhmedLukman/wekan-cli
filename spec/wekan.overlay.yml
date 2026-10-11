@@ -24348,3 +24348,72 @@ actions:
         description: Array of normalized locations, or a JSON string encoding that array. This write
           uses the original board/list/card scope; a list or board move earlier in the same request
           can prevent persistence despite HTTP 200.
+
+  - target: $.paths["/api/boards/{board}/lists/{list}/cards/{card}/archive"].post
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js lines 1960-1981 and models/cards.js archive/applyToChildren.
+      The 2026-10-11 cards::complete_card_lifecycle_matches_wekan_v11_06 live test
+      verifies typed acknowledgements, recursive child/grandchild changes, board/list/state
+      selection, 401/403/404 permission/resource errors and missing-card/wrong-scope/repeated
+      archive HTTP 500 responses (W11-033).
+    update:
+      summary: Archive an active card and its child cards.
+      description: >-
+        Requires board write access and an active card matching the exact board/list/card
+        scope. Recursively archives child cards without filtering their list or prior
+        archived state. Returns the requested ID, archived true and a fresh acknowledgement
+        timestamp; archivedAt is created separately from the stored document timestamp.
+        Missing cards, wrong existing boards/lists and already archived cards throw a numeric
+        Meteor.Error(404) that the default handler exposes as HTTP 500 HTML (W11-033).
+        Missing boards use HTTP 404; authentication and permission failures use HTTP 401/403.
+        No request body is required.
+      responses:
+        "200":
+          description: Card and recursive child archival completed.
+          schema:
+            additionalProperties: false
+            properties:
+              archived:
+                enum: [true]
+              archivedAt:
+                description: Fresh acknowledgement timestamp, separate from the document's archivedAt.
+        "500":
+          description: >-
+            Missing scoped card or incorrect initial archived state throws numeric
+            Meteor.Error(404), producing HTTP 500 HTML rather than HTTP 404. Other uncaught
+            failures also use HTTP 500 and may follow partial recursive child changes.
+          x-wekan-v11.06-defect: card-archive-restore-missing-card-http500
+
+  - target: $.paths["/api/boards/{board}/lists/{list}/cards/{card}/unarchive"].post
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js lines 1984-2005 and models/cards.js restore/applyToChildren.
+      The 2026-10-11 cards::complete_card_lifecycle_matches_wekan_v11_06 live test
+      verifies typed acknowledgements without archivedAt, recursive child/grandchild restoration,
+      retained stored timestamps, board/list/state selection, 401/403/404 permission/resource
+      errors and missing-card/wrong-scope/repeated restore HTTP 500 responses (W11-033).
+    update:
+      summary: Restore an archived card and its child cards.
+      description: >-
+        Requires board write access and an archived card matching the exact board/list/card
+        scope. Recursively restores child cards without filtering their list or prior
+        archived state. Returns the requested ID and archived false, without archivedAt.
+        Stored archivedAt values remain unchanged. Missing cards, wrong existing boards/lists
+        and already active cards throw a numeric Meteor.Error(404) that the default handler
+        exposes as HTTP 500 HTML (W11-033). Missing boards use HTTP 404; authentication and
+        permission failures use HTTP 401/403. No request body is required.
+      responses:
+        "200":
+          description: Card and recursive child restoration completed; no timestamp is returned.
+          schema:
+            additionalProperties: false
+            properties:
+              archived:
+                enum: [false]
+        "500":
+          description: >-
+            Missing scoped card or incorrect initial archived state throws numeric
+            Meteor.Error(404), producing HTTP 500 HTML rather than HTTP 404. Other uncaught
+            failures also use HTTP 500 and may follow partial recursive child changes.
+          x-wekan-v11.06-defect: card-archive-restore-missing-card-http500

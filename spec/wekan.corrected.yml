@@ -4285,7 +4285,7 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Card and recursive child archival completed.
                     schema:
                         type: object
                         required:
@@ -4297,9 +4297,12 @@ paths:
                                 type: string
                             archived:
                                 type: boolean
+                                enum: [true]
                             archivedAt:
                                 type: string
                                 format: date-time
+                                description: Fresh acknowledgement timestamp, separate from the document's archivedAt.
+                        additionalProperties: false
                 "400":
                     description: Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -4329,10 +4332,11 @@ paths:
                         type: string
                         pattern: ^<!DOCTYPE html>
                 "500":
-                    description: Uncaught validation, numeric Meteor.Error code or other failure uses the default HTML error handler.
+                    description: Missing scoped card or incorrect initial archived state throws numeric Meteor.Error(404), producing HTTP 500 HTML rather than HTTP 404. Other uncaught failures also use HTTP 500 and may follow partial recursive child changes.
                     schema:
                         type: string
                         minLength: 1
+                    x-wekan-v11.06-defect: card-archive-restore-missing-card-http500
             produces:
                 - application/json
                 - text/html
@@ -4340,6 +4344,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            summary: Archive an active card and its child cards.
+            description: >-
+                Requires board write access and an active card matching the exact board/list/card scope. Recursively archives child cards without filtering their list or prior archived state. Returns the requested ID, archived true and a fresh acknowledgement timestamp; archivedAt is created separately from the stored document timestamp. Missing cards, wrong existing boards/lists and already archived cards throw a numeric Meteor.Error(404) that the default handler exposes as HTTP 500 HTML (W11-033). Missing boards use HTTP 404; authentication and permission failures use HTTP 401/403. No request body is required.
         parameters:
             - in: query
               name: access_token
@@ -5048,7 +5055,7 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Card and recursive child restoration completed; no timestamp is returned.
                     schema:
                         type: object
                         required:
@@ -5059,6 +5066,8 @@ paths:
                                 type: string
                             archived:
                                 type: boolean
+                                enum: [false]
+                        additionalProperties: false
                 "400":
                     description: Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -5088,10 +5097,11 @@ paths:
                         type: string
                         pattern: ^<!DOCTYPE html>
                 "500":
-                    description: Uncaught validation, numeric Meteor.Error code or other failure uses the default HTML error handler.
+                    description: Missing scoped card or incorrect initial archived state throws numeric Meteor.Error(404), producing HTTP 500 HTML rather than HTTP 404. Other uncaught failures also use HTTP 500 and may follow partial recursive child changes.
                     schema:
                         type: string
                         minLength: 1
+                    x-wekan-v11.06-defect: card-archive-restore-missing-card-http500
             produces:
                 - application/json
                 - text/html
@@ -5099,6 +5109,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            summary: Restore an archived card and its child cards.
+            description: >-
+                Requires board write access and an archived card matching the exact board/list/card scope. Recursively restores child cards without filtering their list or prior archived state. Returns the requested ID and archived false, without archivedAt. Stored archivedAt values remain unchanged. Missing cards, wrong existing boards/lists and already active cards throw a numeric Meteor.Error(404) that the default handler exposes as HTTP 500 HTML (W11-033). Missing boards use HTTP 404; authentication and permission failures use HTTP 401/403. No request body is required.
         parameters:
             - in: query
               name: access_token

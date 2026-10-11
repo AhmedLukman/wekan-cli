@@ -1,6 +1,7 @@
 use super::formatting::{escape_terminal_controls, render_named_value_complete};
 use crate::command_result::{
-    CardCollectionSuccess, CardCreateSuccess, CardDeleteSuccess, CardDetail, CardUpdateSuccess,
+    CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardDeleteSuccess, CardDetail,
+    CardRestoreSuccess, CardUpdateSuccess,
 };
 
 pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
@@ -86,6 +87,25 @@ pub(super) fn render_card_updated(data: &CardUpdateSuccess) -> String {
 pub(super) fn render_card_deleted(data: &CardDeleteSuccess) -> String {
     format!(
         "Permanently deleted card {} from list {} on board {}.",
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
+pub(super) fn render_card_archived(data: &CardArchiveSuccess) -> String {
+    format!(
+        "Archived card {} in list {} on board {} at {}.",
+        escape_terminal_controls(&data.card_id),
+        escape_terminal_controls(&data.list_id),
+        escape_terminal_controls(&data.board_id),
+        escape_terminal_controls(&data.archived_at)
+    )
+}
+
+pub(super) fn render_card_restored(data: &CardRestoreSuccess) -> String {
+    format!(
+        "Restored card {} in list {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)

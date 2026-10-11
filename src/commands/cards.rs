@@ -1,7 +1,9 @@
+mod archive;
 mod create;
 mod delete;
 mod get;
 mod list;
+mod restore;
 mod update;
 
 #[cfg(test)]
@@ -35,6 +37,12 @@ pub enum CardCommand {
     /// Update one or more editable card fields.
     Update(Box<update::UpdateArgs>),
 
+    /// Archive an active card and its child cards.
+    Archive(archive::ArchiveArgs),
+
+    /// Restore an archived card and its child cards.
+    Restore(restore::RestoreArgs),
+
     /// Permanently delete a card and its child resources.
     Delete(delete::DeleteArgs),
 }
@@ -50,6 +58,12 @@ pub(crate) async fn dispatch(
         CardCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         CardCommand::Create(args) => create::execute(*args, client_factory, credential_store).await,
         CardCommand::Update(args) => update::execute(*args, client_factory, credential_store).await,
+        CardCommand::Archive(args) => {
+            archive::execute(args, client_factory, credential_store).await
+        }
+        CardCommand::Restore(args) => {
+            restore::execute(args, client_factory, credential_store).await
+        }
         CardCommand::Delete(args) => {
             delete::execute(args, client_factory, credential_store, confirmation).await
         }

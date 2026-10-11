@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Dedicated `card archive` and `card restore` commands, including recursive
+  child-card changes and typed archive timestamps.
 - Linked-card creation with `card create --linked-id`.
 - Card updates for list/swimlane and cross-board movement, archive/restore,
   vote and poker settings, custom-field values, stickers, and locations.

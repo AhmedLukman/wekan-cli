@@ -21,10 +21,11 @@ pub use boards::{
     UserBoardSummary,
 };
 pub use cards::{
-    CardCollectionSuccess, CardCreateSuccess, CardDeleteMode, CardDeleteSuccess, CardDetail,
-    CardDetailCustomField, CardDetailCustomFieldValue, CardDetailDependency, CardDetailLocation,
-    CardDetailPoker, CardDetailSticker, CardDetailStickerHighlight, CardDetailVote,
-    CardSubmittedField, CardSummary, CardUpdateSuccess,
+    CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardDeleteMode,
+    CardDeleteSuccess, CardDetail, CardDetailCustomField, CardDetailCustomFieldValue,
+    CardDetailDependency, CardDetailLocation, CardDetailPoker, CardDetailSticker,
+    CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess, CardSubmittedField,
+    CardSummary, CardUpdateSuccess,
 };
 pub use comments::{
     CommentCollectionSuccess, CommentCreateSuccess, CommentDeleteMode, CommentDeleteSuccess,
@@ -79,6 +80,8 @@ pub enum CommandSuccess {
     CardShown(Box<CardDetail>),
     CardCreated(CardCreateSuccess),
     CardUpdated(CardUpdateSuccess),
+    CardArchived(CardArchiveSuccess),
+    CardRestored(CardRestoreSuccess),
     CardDeleted(CardDeleteSuccess),
     CommentCollection(CommentCollectionSuccess),
     CommentShown(CommentDetail),

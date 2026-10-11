@@ -24,9 +24,10 @@ pub use boards::{
     PresentParentTask, RenameBoardResult,
 };
 pub use cards::{
-    CardCustomField, CardCustomFieldValue, CardDependency, CardDocument, CardLocation, CardPoker,
-    CardSticker, CardStickerHighlight, CardSummary, CardVote, CreateCardRequest, CreateCardResult,
-    DeleteCardResult, UpdateCardRequest, UpdateCardResult,
+    ArchiveCardResult, CardCustomField, CardCustomFieldValue, CardDependency, CardDocument,
+    CardLocation, CardPoker, CardSticker, CardStickerHighlight, CardSummary, CardVote,
+    CreateCardRequest, CreateCardResult, DeleteCardResult, RestoreCardResult, UpdateCardRequest,
+    UpdateCardResult,
 };
 pub use comments::{
     CommentDocument, CommentSummary, CreateCommentRequest, CreateCommentResult, DeleteCommentResult,

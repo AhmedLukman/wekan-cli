@@ -22,6 +22,128 @@ use super::{
     user_token,
 };
 
+#[tokio::test]
+async fn archive_restore_responses_reject_unknown_missing_and_invalid_fields() {
+    for archive in [true, false] {
+        let valid = if archive {
+            json!({"_id":"card-1", "archived":true, "archivedAt":"2030-01-02T03:04:05.000Z"})
+        } else {
+            json!({"_id":"card-1", "archived":false})
+        };
+        let mut invalid = vec![json!(null), json!([]), json!({})];
+        for field in valid.as_object().unwrap().keys() {
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            invalid.push(missing);
+            for value in [
+                json!(null),
+                json!({"unknown":true}),
+                json!(["bad"]),
+                json!(42),
+            ] {
+                let mut bad_type = valid.clone();
+                bad_type[field] = value;
+                invalid.push(bad_type);
+            }
+        }
+        for (field, value) in [
+            ("_id", json!(" ")),
+            ("_id", json!("different-card")),
+            ("archived", json!(!archive)),
+            ("archived", json!("true")),
+            ("unknown", json!({"nested":"secret-value"})),
+        ] {
+            let mut response = valid.clone();
+            response[field] = value;
+            invalid.push(response);
+        }
+        if archive {
+            for value in ["", "2030-01-02", "not-a-date"] {
+                let mut response = valid.clone();
+                response["archivedAt"] = json!(value);
+                invalid.push(response);
+            }
+        } else {
+            let mut unexpected_timestamp = valid.clone();
+            unexpected_timestamp["archivedAt"] = json!("2030-01-02T03:04:05Z");
+            invalid.push(unexpected_timestamp);
+        }
+        for response in invalid {
+            let server = MockServer::start().await;
+            let action = if archive { "archive" } else { "unarchive" };
+            Mock::given(method("POST"))
+                .and(path(format!(
+                    "/api/boards/board-1/lists/list-1/cards/card-1/{action}"
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response.clone()))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = if archive {
+                client(&server)
+                    .archive_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            } else {
+                client(&server)
+                    .restore_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            }
+            .unwrap_err();
+            assert!(
+                matches!(
+                    error,
+                    ClientError::Protocol {
+                        success_status_received: true,
+                        ..
+                    }
+                ),
+                "{action}: {response}: {error:?}"
+            );
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn archive_restore_empty_and_malformed_success_is_a_protocol_error() {
+    for archive in [true, false] {
+        for body in ["", "not JSON", "{\"_id\":\"secret-value\""] {
+            let server = MockServer::start().await;
+            let action = if archive { "archive" } else { "unarchive" };
+            Mock::given(method("POST"))
+                .and(path(format!(
+                    "/api/boards/board-1/lists/list-1/cards/card-1/{action}"
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_string(body))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = if archive {
+                client(&server)
+                    .archive_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            } else {
+                client(&server)
+                    .restore_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            }
+            .unwrap_err();
+            assert!(matches!(
+                error,
+                ClientError::Protocol {
+                    success_status_received: true,
+                    ..
+                }
+            ));
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
+}
+
 fn complete_card_response() -> serde_json::Value {
     json!({
         "_id": "card-1",

@@ -79,7 +79,8 @@ wekan --profile local auth login --username alice
 
 The first release includes profile and authentication management plus typed
 commands for users, boards, lists, swimlanes, cards, and comments. It implements
-36 of the 140 operations in the corrected Wekan v11.06 contract. Operations
+38 of the 143 operations in the corrected Wekan v11.06 contract, including
+dedicated `card archive` and `card restore` commands. Operations
 without a dedicated command remain available through the same-origin
 `wekan api request` escape hatch.
 

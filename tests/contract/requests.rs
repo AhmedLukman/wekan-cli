@@ -13,9 +13,89 @@ use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
 
 use super::{
-    client, create_board_request, create_user_request, login_request, logout_request, logout_token,
-    register_request, status_token, user_card_query, user_token,
+    client, client_from_url, create_board_request, create_user_request, login_request,
+    logout_request, logout_token, register_request, status_token, user_card_query, user_token,
 };
+
+#[tokio::test]
+async fn archive_restore_use_bodyless_authenticated_encoded_post_requests() {
+    let server = MockServer::start().await;
+    for (action, body) in [
+        (
+            "archive",
+            json!({"_id":"card/1", "archived":true, "archivedAt":"2030-01-02T03:04:05.000Z"}),
+        ),
+        ("unarchive", json!({"_id":"card/1", "archived":false})),
+    ] {
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/prefix/api/boards/board%2F1/lists/list%2F1/cards/card%2F1/{action}"
+            )))
+            .and(header("authorization", "Bearer user-token"))
+            .and(header("accept", "application/json"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let client = client_from_url(&format!("{}/prefix/", server.uri()));
+    let archived = client
+        .archive_card("board/1", "list/1", "card/1", &user_token())
+        .await
+        .unwrap();
+    assert!(archived.archived);
+    assert_eq!(archived.archived_at, "2030-01-02T03:04:05.000Z");
+    let restored = client
+        .restore_card("board/1", "list/1", "card/1", &user_token())
+        .await
+        .unwrap();
+    assert!(!restored.archived);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(requests.iter().all(|request| request.body.is_empty()));
+}
+
+#[tokio::test]
+async fn archive_restore_do_not_retry_or_follow_redirects() {
+    for archive in [true, false] {
+        for status in [307, 429, 500] {
+            let server = MockServer::start().await;
+            let action = if archive { "archive" } else { "unarchive" };
+            Mock::given(method("POST"))
+                .and(path(format!(
+                    "/api/boards/board-1/lists/list-1/cards/card-1/{action}"
+                )))
+                .respond_with(
+                    ResponseTemplate::new(status)
+                        .insert_header("location", "/redirected")
+                        .insert_header("retry-after", "0"),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+            let result = if archive {
+                client(&server)
+                    .archive_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            } else {
+                client(&server)
+                    .restore_card("board-1", "list-1", "card-1", &user_token())
+                    .await
+                    .map(|_| ())
+            };
+            if status == 307 {
+                assert!(matches!(
+                    result,
+                    Err(ClientError::UnexpectedRedirect { .. })
+                ));
+            } else {
+                assert!(matches!(result, Err(ClientError::Server { .. })));
+            }
+            assert_eq!(server.received_requests().await.unwrap().len(), 1);
+        }
+    }
+}
 
 #[tokio::test]
 async fn board_lifecycle_uses_verified_paths_and_bodies() {

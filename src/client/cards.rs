@@ -6,6 +6,8 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+mod archival;
+pub use archival::{ArchiveCardResult, RestoreCardResult};
 mod inputs;
 pub use inputs::{
     CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,

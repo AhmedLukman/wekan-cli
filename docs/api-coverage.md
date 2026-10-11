@@ -5,7 +5,7 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 User response decoding accepts notifications with absent, null, or populated read
 timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).
 
-**Coverage:** 36 of 143 operations implemented (25.2%); 107 remaining.
+**Coverage:** 38 of 143 operations implemented (26.6%); 105 remaining.
 
 ## Status rules
 
@@ -89,7 +89,7 @@ Both list and card updates require at least one supported field flag. List WIP u
 | 63 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}` | `get_board_list_card` | Get one card from a board list. | `wekan card get <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 64 | Cards | `PUT` | `/api/boards/{board}/lists/{list}/cards/{card}` | `put_board_list_card` | Update or move a card. | `wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--title <TITLE>] [--sort <NUMBER>] [--parent-id <CARD_ID>] [--description <TEXT>] [--color <COLOR>] [--label <LABEL_ID>]... [--clear-labels] [--requested-by <NAME>] [--assigned-by <NAME>] [--received-at <RFC3339>] [--clear-received-at] [--start-at <RFC3339>] [--clear-start-at] [--due-at <RFC3339>] [--clear-due-at] [--end-at <RFC3339>] [--clear-end-at] [--spent-time <NUMBER>] [--is-over-time <BOOL>] [--member <USER_ID>]... [--clear-members] [--assignee <USER_ID>]... [--clear-assignees] [--due-complete <BOOL>] [--swimlane-id <ID>] [--list-id <LIST_ID>] [--new-board-id <BOARD_ID>] [--new-swimlane-id <ID>] [--new-list-id <LIST_ID>] [--archive <BOOL>] [--vote <JSON>] [--poker <JSON>] [--custom-fields <JSON>] [--stickers <JSON>] [--locations <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 65 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}` | `delete_board_list_card` | Delete a card from a board list. | `wekan card delete <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
-| 66 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/archive` | `post_board_list_card_archive` | Archive a card. | — | ✗ |
+| 66 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/archive` | `post_board_list_card_archive` | Archive an active card and its child cards. | `wekan card archive <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 67 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `post_board_list_card_assignee` | Add an assignee to a card. | — | ✗ |
 | 68 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `delete_board_list_card_assignee` | Remove an assignee from a card. | — | ✗ |
 | 69 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/copy` | `post_board_list_card_copy` | Copy a card. | — | ✗ |
@@ -98,7 +98,7 @@ Both list and card updates require at least one supported field flag. List WIP u
 | 72 | Boards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}/exportPDF` | `exportCardPDF` | Export a single card to PDF. | — | ✗ |
 | 73 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/members/{member}` | `post_board_list_card_member` | Add a member to a card. | — | ✗ |
 | 74 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}/members/{member}` | `delete_board_list_card_member` | Remove a member from a card. | — | ✗ |
-| 75 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/unarchive` | `post_board_list_card_unarchive` | Restore an archived card. | — | ✗ |
+| 75 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/unarchive` | `post_board_list_card_unarchive` | Restore an archived card and its child cards. | `wekan card restore <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 76 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/bulk` | `post_board_list_cards_bulk` | Create multiple cards in a board list. | — | ✗ |
 | 77 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards_count` | `get_board_list_cards_count` | Count cards in a board list. | — | ✗ |
 | 78 | Lists | `POST` | `/api/boards/{board}/lists/{list}/copy` | `post_board_list_copy` | Copy a board list. | — | ✗ |

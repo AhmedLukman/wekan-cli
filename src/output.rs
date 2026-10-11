@@ -15,8 +15,8 @@ use boards::{
     render_board_list, render_board_renamed,
 };
 use cards::{
-    render_card_collection, render_card_created, render_card_deleted, render_card_detail,
-    render_card_updated,
+    render_card_archived, render_card_collection, render_card_created, render_card_deleted,
+    render_card_detail, render_card_restored, render_card_updated,
 };
 use comments::{
     render_comment_collection, render_comment_created, render_comment_deleted,
@@ -176,6 +176,10 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::CardCreated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardUpdated(data)) => render_card_updated(data),
         (OutputFormat::Json, CommandSuccess::CardUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardArchived(data)) => render_card_archived(data),
+        (OutputFormat::Json, CommandSuccess::CardArchived(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardRestored(data)) => render_card_restored(data),
+        (OutputFormat::Json, CommandSuccess::CardRestored(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardDeleted(data)) => render_card_deleted(data),
         (OutputFormat::Json, CommandSuccess::CardDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CommentCollection(data)) => {
