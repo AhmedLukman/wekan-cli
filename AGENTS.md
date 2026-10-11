@@ -142,6 +142,10 @@ For every new or changed API-facing command:
 
 Observed server behavior determines compatibility, but document behaviour believed to be an upstream defect.
 
+Record verified Wekan server defects in
+`Desktop/wekan-v11.06-defects.md`, including the affected operations,
+observed behavior, and matching-version source and live-test evidence.
+
 Verified upstream defects are part of the pinned compatibility contract. Do not add CLI-side
 preflights, retries, emulation, or other workarounds that alter or mask their observed behavior
 unless the user explicitly requests a workaround. Document and regression-test those behaviors;
