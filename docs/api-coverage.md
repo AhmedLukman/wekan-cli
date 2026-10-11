@@ -5,7 +5,7 @@ This tracker inventories every HTTP operation in the corrected Wekan v11.06 cont
 User response decoding accepts notifications with absent, null, or populated read
 timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).
 
-**Coverage:** 36 of 140 operations implemented (25.7%); 104 remaining.
+**Coverage:** 36 of 143 operations implemented (25.2%); 107 remaining.
 
 ## Status rules
 
@@ -164,3 +164,6 @@ Both list and card updates require at least one supported field flag. List WIP u
 | 138 | Boards | `DELETE` | `/api/boards/{boardId}/domains/{domain}` | `delete_board_domain` | Stop sharing a board with an email domain. | — | ✗ |
 | 139 | Boards | `GET` | `/api/boards/{boardId}/attachments` | `get_board_attachments` | List board attachment links using the legacy response shape. | — | ✗ |
 | 140 | System | `GET` | `/schema-upgrade-status` | `get_schema_upgrade_status` | Get live startup schema-upgrade status. | — | ✗ |
+| 141 | Authentication | `OPTIONS` | `/users/login` | `options_login` | Authentication preflight with an empty response. | — | ✗ |
+| 142 | Authentication | `OPTIONS` | `/users/register` | `options_register` | Authentication preflight with an empty response. | — | ✗ |
+| 143 | Authentication | `OPTIONS` | `/users/logout` | `options_logout` | Authentication preflight with an empty response. | — | ✗ |
