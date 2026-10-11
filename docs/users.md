@@ -1,16 +1,16 @@
 # Users
 
 The `wekan user` family covers the complete Wekan v11.06 `/api/user` and
-`/api/users` REST slice: eight operations across five paths, with one bounded
-client method per operation. Every command requires an existing profile and a
-stored credential whose expiry is still in the future.
+`/api/users` REST slice: eight operations across five paths. Every command
+requires an existing profile and a stored credential whose expiry is still in the future.
 
 ```text
 wekan user current
-wekan user cards [--due] [--from <RFC3339>] [--to <RFC3339>]
+wekan user cards [--due] [--from <DATE>] [--to <DATE>]
 wekan user list
 wekan user get <USER>
-wekan user create --username <NAME> --email <EMAIL> [--password-stdin]
+wekan user update <USER_ID>
+wekan user create --username <NAME> --email <EMAIL> [--password-stdin | --password-raw-stdin | --password-digest-stdin]
 wekan user boards <USER_ID>
 wekan user take-ownership <USER_ID> [--yes]
 wekan user disable-login <USER_ID> [--yes]
@@ -19,8 +19,9 @@ wekan user delete <USER_ID> [--yes]
 ```
 
 `current` calls `GET /api/user`. Its exact allowlist is `_id`, `username`,
-emails (`address`, `verified`), `profile.fullname`, `isAdmin`, `loginDisabled`,
-`authenticationMethod`, `createdAt`, `modifiedAt`, `lastConnectionDate`, typed
+emails (`address`, `verified`), the complete typed `profile`, `isAdmin`, `loginDisabled`,
+`authenticationMethod`, `createdAt`, `modifiedAt`, `createdThroughApi`, `heartbeat`, `sessionData.totalHits`,
+`importUsernames`, `lastConnectionDate`, typed
 organization/team memberships, and typed board-role flags. The shared client
 operation also powers
 `auth status`, but the commands intentionally project it differently:
@@ -30,12 +31,12 @@ credential-presence, and token-expiry metadata.
 `cards` calls `GET /api/user/cards`. Wekan returns non-archived cards on active
 boards readable by the caller where the caller is a card member, assignee,
 requester, or assigner. `--due` requires a due date. `--from` and `--to` accept
-RFC 3339 timestamps; either bound enables due-date filtering, and the CLI
-rejects a range in which `from` is later than `to` before HTTP. Missing or
+timestamps, date-only and textual dates interpreted by Wekan. Either bound
+enables due-date filtering; a reversed valid range returns an empty array. Missing or
 invalid authentication is an HTTP 401 response on this route, unlike the
 HTTP-200 embedded authentication error returned by `GET /api/user`.
 
-`list`, `get`, `create`, `take-ownership`, `disable-login`, `enable-login`, and
+`list`, `get`, `update`, `create`, `take-ownership`, `disable-login`, `enable-login`, and
 `delete` require a Wekan site administrator. `get` accepts a user ID or
 username. `boards` requires either the selected user's own credential or a site
 administrator and returns active, non-archived, non-internal board ID/title
@@ -43,12 +44,19 @@ summaries. The authenticated-self form is also exposed as `wekan board list`.
 Wekan usernames are optional, so `list` emits JSON `null` and the
 human table displays `<none>` for an email-only account.
 
+`update <USER_ID>` sends an empty PUT body, exercising Wekan's no-action form
+and returning the unchanged user. Use the dedicated commands for actual actions.
+
 ## Creating users
 
 The new password is never accepted as a command-line value or environment
 variable. Interactive use reads and confirms it without echo. Automation uses
 `--password-stdin` and supplies exactly one password line. The password and
 stored bearer token are redacted from every failure and never appear in output.
+`--password-raw-stdin` instead preserves all UTF-8 input through EOF, including
+line breaks. `--password-digest-stdin` reads a JSON object with a 64-character
+`digest` and `algorithm: "sha-256"` through EOF. These three stdin modes conflict;
+passwords and digests are never command-line values.
 
 Wekan v11.06 creates the account but returns `_id: {}` because its handler
 serializes an unawaited `Accounts.createUser` Promise. The CLI does not perform
@@ -71,11 +79,15 @@ an ambiguous username lookup afterward. It reports:
 
 `take-ownership` sends the explicit `takeOwnership` action. It transfers every
 board administered by the target user to the authenticated caller and returns
-the affected board summaries. Targeting oneself is rejected locally.
+the affected board summaries. Self-targeting is sent after confirmation. When
+another active board administrator exists, Wekan v11.06 can deactivate the
+caller's membership; the CLI preserves that upstream defect.
 
 `disable-login` sends `disableLogin`, sets the target's `loginDisabled` field,
-and clears their existing Wekan sessions. Targeting oneself is rejected
-locally. Wekan v11.06's REST login handler does not inspect `loginDisabled`, so
+and clears their existing Wekan sessions. Self-targeting is sent after
+confirmation; Wekan's pinned route returns the unchanged user and does not
+disable the caller. Wekan v11.06's REST login handler does not inspect
+`loginDisabled`, so
 correct credentials can still create a new REST session; this is documented as
 an upstream defect rather than reported as confirmed access prevention.
 `enable-login` sends `enableLogin` and needs no confirmation. Wekan v11.06
@@ -105,9 +117,12 @@ fields. Every string received from Wekan is escaped before terminal rendering.
 JSON uses the standard `{ "ok": true, "data": ... }` envelope.
 
 User detail output includes only the exact fields listed for `current` above.
-All other profile fields, `createdThroughApi`, `services`, `sessionData`,
-password or token material, UI preferences, and unknown Wekan fields are
-excluded. Verified HTTP or embedded status 403 maps to `permission_denied`.
+This includes profile preferences, `createdThroughApi`, and `sessionData.totalHits`,
+using stable snake_case output names. Workspace nodes map `id`, `name`, `icon`,
+and recursive `children`; additional fields on a node or child produce
+`protocol_error`. Services and password or token material are excluded.
+Unmapped response fields are rejected rather than omitted.
+Verified HTTP or embedded status 403 maps to `permission_denied`.
 The user operations do not consistently expose a verified not-found identifier,
 so other server and embedded errors preserve their original metadata instead of
 being generalized to `user_not_found`. If `user current` receives a valid user

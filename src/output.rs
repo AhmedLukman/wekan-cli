@@ -125,9 +125,11 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Human, CommandSuccess::AuthStatus(data)) => render_auth_status(data),
         (OutputFormat::Json, CommandSuccess::AuthStatus(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::UserCurrent(data))
-        | (OutputFormat::Human, CommandSuccess::UserShown(data)) => render_user_detail(data),
+        | (OutputFormat::Human, CommandSuccess::UserShown(data))
+        | (OutputFormat::Human, CommandSuccess::UserUpdated(data)) => render_user_detail(data),
         (OutputFormat::Json, CommandSuccess::UserCurrent(data))
-        | (OutputFormat::Json, CommandSuccess::UserShown(data)) => render_json_success(data),
+        | (OutputFormat::Json, CommandSuccess::UserShown(data))
+        | (OutputFormat::Json, CommandSuccess::UserUpdated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::UserList(data)) => render_user_list(data),
         (OutputFormat::Json, CommandSuccess::UserList(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::UserCards(data)) => render_user_cards(data),

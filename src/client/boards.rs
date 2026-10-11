@@ -147,6 +147,16 @@ impl BoardWatchLevel {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBoardRequest {
+    #[serde(
+        skip_serializing_if = "is_true",
+        serialize_with = "serialize_owner_flag"
+    )]
+    pub is_admin: bool,
+    #[serde(
+        skip_serializing_if = "is_true",
+        serialize_with = "serialize_owner_flag"
+    )]
+    pub is_active: bool,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
@@ -162,6 +172,10 @@ pub struct CreateBoardRequest {
 
 const fn is_false(value: &bool) -> bool {
     !*value
+}
+
+const fn is_true(value: &bool) -> bool {
+    *value
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -612,4 +626,11 @@ fn require_non_empty(value: &str, operation: &str, field: &str) -> Result<(), Cl
     } else {
         Ok(())
     }
+}
+
+fn serialize_owner_flag<S: serde::Serializer>(
+    value: &bool,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(if *value { "true" } else { "false" })
 }

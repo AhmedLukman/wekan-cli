@@ -95,9 +95,17 @@ pub struct CreateArgs {
     #[arg(long, value_parser = trimmed_non_empty)]
     pub title: String,
 
-    /// User ID for the initial active administrator; defaults to the caller.
+    /// User ID for the initial member; defaults to the caller.
     #[arg(long, value_parser = trimmed_non_empty)]
     pub owner: Option<String>,
+
+    /// Whether the initial member administers the board.
+    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
+    pub is_admin: bool,
+
+    /// Whether the initial member is active; false can make the board inaccessible.
+    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
+    pub is_active: bool,
 
     /// Board visibility.
     #[arg(long, value_enum, default_value = "private")]
@@ -133,6 +141,8 @@ pub(super) async fn execute(
             &CreateBoardRequest {
                 title: args.title,
                 owner: args.owner,
+                is_admin: args.is_admin,
+                is_active: args.is_active,
                 permission: args.permission.into(),
                 color: args.color.into(),
                 is_no_comments: args.no_comments,

@@ -6,7 +6,7 @@ and restore operations:
 ```console
 wekan card list --board <BOARD_ID> --list <LIST_ID>
 wekan card get <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
-wekan card create --board <BOARD_ID> --list <LIST_ID> --title <TITLE> --swimlane-id <ID> [FIELDS...]
+wekan card create --board <BOARD_ID> --list <LIST_ID> [--title <TITLE> | --null-title] --swimlane-id <ID> [FIELDS...]
 wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS...>
 wekan card archive <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
 wekan card restore <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
@@ -20,10 +20,10 @@ endpoints, attachments, comments, and checklists are outside this family.
 ## Create and update fields
 
 Create accepts `--description`, repeated `--member` and `--assignee`, and
-`--received-at`, `--start-at`, `--due-at`, and `--end-at`. Dates must be
-RFC3339 date-times. Repeated member and assignee flags supply the complete
-initial arrays. Swimlane ID is required. Title is required unless `--linked-id`
-selects an existing source card. Wekan checks read access to the source board
+`--received-at`, `--start-at`, `--due-at`, and `--end-at`. Wekan interprets
+timestamps, date-only and textual dates, and numeric epoch milliseconds. Repeated member and assignee flags supply the complete
+initial arrays. Swimlane ID is required. Omitting title uses Wekan's empty default; empty text is allowed. `--null-title` and `--null-description`
+send explicit null and conflict with their text forms. `--linked-id` selects an existing source card. Wekan checks read access to the source board
 and ignores other content fields when creating a linked card. Wekan v11.06
 silently ignores `parentId` in the body of this single-card creation endpoint, so the
 CLI does not expose it.
@@ -34,8 +34,9 @@ Update accepts:
   `--assigned-by`;
 - repeated `--label`, `--member`, and `--assignee` replacement arrays, or the
   corresponding `--clear-labels`, `--clear-members`, and
-  `--clear-assignees` flags;
-- RFC3339 date values, or one of `--clear-received-at`, `--clear-start-at`,
+  `--clear-assignees` flags; `--labels <JSON>` also permits null label elements
+  and conflicts with `--label` and `--clear-labels`;
+- date values accepted by Wekan, or one of `--clear-received-at`, `--clear-start-at`,
   `--clear-due-at`, and `--clear-end-at`;
 - finite `--sort` and `--spent-time`;
 - `--is-over-time <true|false>`;
@@ -47,7 +48,9 @@ Update accepts:
   containing JSON with the fields described below.
 
 At least one update field is required. Set and clear forms conflict. IDs and
-text cannot be empty after trimming. Colors use Wekan v11.06's card palette or
+text are treated separately: IDs cannot be empty after trimming. Text is sent
+unchanged, so whitespace can trigger Wekan's text-clearing behavior. Empty text
+and null are ignored by the update route's truthiness checks. Colors use Wekan v11.06's card palette or
 exactly `#rrggbb`.
 
 Update values intentionally mirror broken Wekan v11.06 behavior. Wekan
@@ -90,13 +93,15 @@ Structured flags accept one JSON object or array, using Wekan's wire field names
 
 | Flag | JSON shape and supported fields |
 |---|---|
-| `--vote` | Object: `question` (string), `positive`/`negative` (string arrays), `end` (RFC3339 string or null), `public`/`allowNonBoardMembers` (booleans). Wekan requires a question and defaults omitted booleans to false. |
-| `--poker` | Object: `question` (boolean or null), `one`, `two`, `three`, `five`, `eight`, `thirteen`, `twenty`, `forty`, `oneHundred`, `unsure` (string arrays or null), `end` (RFC3339 string or null), `allowNonBoardMembers` (boolean or null), `estimation` (number or null). Omitted `allowNonBoardMembers` defaults to false. |
-| `--custom-fields` | Array of objects: `_id` (string or null), `value` (string, number, boolean, string array with optional null members, or null). Both keys may be omitted. |
-| `--stickers` | Array of objects: optional `icon`/`name` (strings), `highlight` (`underline` or `round`), `position` (number). |
-| `--locations` | Array of objects: optional `_id`/`name`/`address` (strings or null), `latitude`/`longitude` (numbers or null). Wekan generates omitted IDs, defaults omitted names/addresses to empty strings, and converts null coordinates to zero. |
+| `--vote` | Object: `question` (string), `positive`/`negative` (string arrays), `end` (Wekan date string or null), `public`/`allowNonBoardMembers` (booleans). Wekan requires a question and defaults omitted booleans to false. |
+| `--poker` | Object: `question` (boolean or null), `one`, `two`, `three`, `five`, `eight`, `thirteen`, `twenty`, `forty`, `oneHundred`, `unsure` (string arrays or null), `end` (Wekan date string or null), `allowNonBoardMembers` (boolean or null), `estimation` (number or null). Omitted `allowNonBoardMembers` defaults to false. |
+| `--custom-fields` | Array of objects: `_id` (string or null), `value` (JSON value, including objects and mixed arrays; Wekan cleans these to its supported stored types). Both keys may be omitted. |
+| `--stickers` | Array of objects: optional `icon`/`name` (strings), `highlight` (`underline` or `round`), `position` (a JSON value cleaned by Wekan, including numeric strings). |
+| `--locations` | Array of objects: optional `_id`/`name`/`address` (strings or null), `latitude`/`longitude` (JSON values coerced by Wekan, including numbers, strings, booleans and null). Wekan generates omitted IDs, defaults omitted names/addresses to empty strings, and converts null coordinates to zero. |
 
-Unknown keys and invalid types fail argument parsing. Vote and poker objects
+Unknown keys and invalid object/array shapes fail argument parsing. Custom-field
+values, coordinates, sticker positions and date strings are interpreted by Wekan;
+server-side rejection retains the mutation error and partial-outcome details. Vote and poker objects
 replace their settings; Wekan resets every voter array regardless of supplied
 values. Custom fields, stickers, and locations replace their complete arrays;
 `[]` clears them. Explicit null values are preserved.
@@ -180,3 +185,7 @@ and card ID before cascading child deletion, but includes the list ID only when
 removing the card itself. A wrong list ID can therefore delete the card's child
 resources while leaving the card intact. The CLI mirrors the endpoint and does
 not preflight or post-verify existence.
+
+Card reads preserve JavaScript ISO timestamps with signed six-digit years,
+empty custom-field IDs generated by Wekan, and null label-array elements.
+Response objects still reject unmapped fields and invalid known types.

@@ -234,7 +234,7 @@ fn parser_exposes_the_supported_lifecycle_and_validates_inputs() {
     };
     assert_eq!(args.board_id, "board-1");
     assert_eq!(args.card_id, "card-1");
-    assert_eq!(args.text, "Hello world");
+    assert_eq!(args.text, " Hello world ");
 }
 
 #[tokio::test]
@@ -270,7 +270,7 @@ async fn list_get_and_create_return_stable_typed_results() {
         .await;
     Mock::given(method("POST"))
         .and(path(collection_path))
-        .and(body_json(json!({"comment": "Hello"})))
+        .and(body_json(json!({"comment": " Hello "})))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "comment-2"})))
         .expect(1)
         .mount(&server)
@@ -319,6 +319,45 @@ async fn list_get_and_create_return_stable_typed_results() {
         panic!("expected comment creation")
     };
     assert_eq!(created.comment_id, "comment-2");
+}
+
+#[tokio::test]
+async fn create_preserves_next_line_characters_in_the_request() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    for text in ["\u{85}", "\u{85}Hello\u{85}", " \u{feff}\u{85}Hello\u{85} "] {
+        Mock::given(method("POST"))
+            .and(path("/api/boards/board-1/cards/card-1/comments"))
+            .and(body_json(json!({"comment": text})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id": "comment-1"})))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let result = dispatch(
+            comment_command(&[
+                "create", "--board", "board-1", "--card", "card-1", "--text", text,
+            ]),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::accepting(),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(result, CommandSuccess::CommentCreated(_)));
+    }
+}
+
+#[test]
+fn create_rejects_empty_and_javascript_blank_text() {
+    for text in ["", " \t\r\n", "\u{feff}", " \u{feff}\u{2028}\u{2029} "] {
+        assert!(
+            Cli::try_parse_from([
+                "wekan", "comment", "create", "--board", "board-1", "--card", "card-1", "--text",
+                text,
+            ])
+            .is_err()
+        );
+    }
 }
 
 #[tokio::test]

@@ -12,7 +12,7 @@ use wiremock::{
     matchers::{body_json, header, method, path},
 };
 
-use super::{UserCommand, cards::validate_range};
+use super::UserCommand;
 use crate::{
     cli::Cli,
     client::{ClientError, WekanClientFactory},
@@ -169,6 +169,9 @@ impl FakeSecrets {
 }
 
 impl SecretInputProvider for FakeSecrets {
+    fn read_raw_secret(&self) -> Result<SecretString, AppError> {
+        Ok(self.password.clone())
+    }
     fn read_new_account_password(&self, from_stdin: bool) -> Result<SecretString, AppError> {
         self.modes.lock().unwrap().push(from_stdin);
         Ok(self.password.clone())
@@ -200,7 +203,6 @@ async fn dispatch(
     secret_input: &dyn SecretInputProvider,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
-    command.validate()?;
     super::dispatch(
         command,
         client_factory,
@@ -229,17 +231,14 @@ fn parser_exposes_every_user_operation_and_validates_inputs() {
     }
 
     assert!(Cli::try_parse_from(["wekan", "user", "get", ""]).is_err());
-    assert!(Cli::try_parse_from(["wekan", "user", "cards", "--from", "not-a-date"]).is_err());
+    assert!(Cli::try_parse_from(["wekan", "user", "cards", "--from", "2026-08-28"]).is_ok());
     assert!(Cli::try_parse_from(["wekan", "user", "create", "--username", "alice",]).is_err());
     assert!(Cli::try_parse_from(["wekan", "user", "enable-login", "user-1", "--yes"]).is_err());
 }
 
 #[test]
-fn card_date_range_must_be_ordered() {
-    let error =
-        validate_range(Some("2026-08-28T00:00:00Z"), Some("2026-08-27T00:00:00Z")).unwrap_err();
-    assert_eq!(error.code(), ErrorCode::InvalidInput);
-    validate_range(Some("2026-08-27T00:00:00Z"), None).unwrap();
+fn card_query_accepts_textual_dates_and_reversed_ranges() {
+    user_command(&["cards", "--from", "August 28, 2026", "--to", "2026-08-27"]);
 }
 
 #[tokio::test]
@@ -378,27 +377,149 @@ async fn destructive_decline_sends_no_http_request() {
 }
 
 #[tokio::test]
-async fn self_guards_run_before_confirmation_or_http() {
+async fn self_actions_still_require_confirmation() {
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server, "admin-1");
-    let confirmation = FakeConfirmationProvider::accepting();
-
-    for command in [
-        user_command(&["take-ownership", "admin-1"]),
-        user_command(&["disable-login", "admin-1"]),
-    ] {
-        let error = dispatch(
-            command,
+    let confirmation = FakeConfirmationProvider::declining();
+    for action in ["take-ownership", "disable-login"] {
+        let result = dispatch(
+            user_command(&[action, "admin-1"]),
             &factory(&server),
             &store,
             &FakeSecrets::new("unused"),
             &confirmation,
         )
         .await
+        .unwrap();
+        assert!(matches!(result, CommandSuccess::Cancelled(_)));
+    }
+    assert_eq!(confirmation.requests().len(), 2);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn user_detail_preserves_profile_settings_and_metadata() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "_id":"admin-1", "createdThroughApi":true, "heartbeat":"2030-01-01T00:00:00Z",
+            "sessionData":{"totalHits":12}, "importUsernames":["imported"],
+            "profile":{"dateFormat":"DD/MM/YYYY", "cardZoom":1.5, "keyboardShortcuts":false,
+                "listWidths":{"board-1":{"list-1":320}}, "notifications":[{"activity":"activity-1","read":null}],
+                "starredPages":[{"url":"/board-1","title":"Board"}],
+                "boardWorkspacesTree":[{"id":"root","name":"Delivery","children":[
+                    {"id":"child","name":"Nested","icon":"folder","children":[]}, {}
+                ]}]}
+        }))).expect(1).mount(&server).await;
+    let result = dispatch(
+        user_command(&["current"]),
+        &factory(&server),
+        &FakeCredentialStore::authenticated(&server, "admin-1"),
+        &FakeSecrets::new("unused"),
+        &FakeConfirmationProvider::accepting(),
+    )
+    .await
+    .unwrap();
+    let CommandSuccess::UserCurrent(user) = result else {
+        panic!("user")
+    };
+    let value = serde_json::to_value(user).unwrap();
+    assert_eq!(value["profile"]["date_format"], "DD/MM/YYYY");
+    assert_eq!(value["profile"]["card_zoom"], 1.5);
+    assert_eq!(value["profile"]["keyboard_shortcuts"], false);
+    assert_eq!(value["profile"]["list_widths"]["board-1"]["list-1"], 320);
+    assert_eq!(
+        value["profile"]["notifications"][0]["activity"],
+        "activity-1"
+    );
+    assert_eq!(value["profile"]["starred_pages"][0]["title"], "Board");
+    let nodes = &value["profile"]["board_workspaces_tree"];
+    assert_eq!(nodes[0]["id"], "root");
+    assert_eq!(nodes[0]["icon"], serde_json::Value::Null);
+    assert_eq!(nodes[0]["children"][0]["name"], "Nested");
+    assert_eq!(nodes[0]["children"][0]["icon"], "folder");
+    assert_eq!(nodes[0]["children"][0]["children"], json!([]));
+    assert_eq!(
+        nodes[0]["children"][1],
+        json!({"id":null,"name":null,"icon":null,"children":null})
+    );
+    assert_eq!(value["created_through_api"], true);
+    assert_eq!(value["heartbeat"], "2030-01-01T00:00:00Z");
+    assert_eq!(value["session_data"]["total_hits"], 12);
+    assert_eq!(value["import_usernames"], json!(["imported"]));
+}
+
+#[tokio::test]
+async fn digest_creation_reads_secret_stdin_and_sends_a_password_object() {
+    let server = MockServer::start().await;
+    let digest = "a".repeat(64);
+    Mock::given(method("POST")).and(path("/api/users"))
+        .and(body_json(json!({"username":"bob","email":"bob@example.test","password":{"digest":digest,"algorithm":"sha-256"}})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":{}})))
+        .expect(1).mount(&server).await;
+    let secrets = FakeSecrets::new(&json!({"digest":digest,"algorithm":"sha-256"}).to_string());
+    let result = dispatch(
+        user_command(&[
+            "create",
+            "--username",
+            "bob",
+            "--email",
+            "bob@example.test",
+            "--password-digest-stdin",
+        ]),
+        &factory(&server),
+        &FakeCredentialStore::authenticated(&server, "admin-1"),
+        &secrets,
+        &FakeConfirmationProvider::accepting(),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(result, CommandSuccess::UserCreated(_)));
+    assert!(secrets.modes.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn digest_creation_maps_input_errors_without_http_or_secret_disclosure() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server, "admin-1");
+    for (input, message) in [
+        (
+            "sensitive",
+            "expected a SHA-256 password digest object on stdin",
+        ),
+        (
+            r#"{"digest":"sensitive","algorithm":"sha-256","extra":true}"#,
+            "expected a SHA-256 password digest object on stdin",
+        ),
+        (
+            r#"{"digest":"sensitive","algorithm":"sha-256"}"#,
+            "expected a 64-character digest with algorithm sha-256",
+        ),
+        (
+            r#"{"digest":"sensitive","algorithm":"other"}"#,
+            "expected a 64-character digest with algorithm sha-256",
+        ),
+    ] {
+        let error = dispatch(
+            user_command(&[
+                "create",
+                "--username",
+                "bob",
+                "--email",
+                "bob@example.test",
+                "--password-digest-stdin",
+            ]),
+            &factory(&server),
+            &store,
+            &FakeSecrets::new(input),
+            &FakeConfirmationProvider::accepting(),
+        )
+        .await
         .unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidInput);
+        assert_eq!(error.message(), message);
+        assert!(!format!("{error:?}").contains("sensitive"));
     }
-    assert!(confirmation.requests().is_empty());
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 

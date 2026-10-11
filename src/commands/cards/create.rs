@@ -11,7 +11,7 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{non_empty, rfc3339, trimmed_non_empty};
+use super::{date_input, non_empty};
 
 #[derive(Debug, Args)]
 #[command(
@@ -27,9 +27,13 @@ pub struct CreateArgs {
     #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
-    /// Card title; required unless linking an existing card.
-    #[arg(long, value_parser = trimmed_non_empty, required_unless_present = "linked_id")]
+    /// Card title; omit to use Wekan's empty default.
+    #[arg(long, conflicts_with = "null_title")]
     pub title: Option<String>,
+
+    /// Send an explicit null title.
+    #[arg(long, conflicts_with = "title")]
+    pub null_title: bool,
 
     /// Source card ID for linked-card creation. Wekan ignores other content fields.
     #[arg(long, value_parser = non_empty)]
@@ -40,8 +44,12 @@ pub struct CreateArgs {
     pub swimlane_id: String,
 
     /// Card description.
-    #[arg(long, value_parser = trimmed_non_empty)]
+    #[arg(long, conflicts_with = "null_description")]
     pub description: Option<String>,
+
+    /// Send an explicit null description.
+    #[arg(long, conflicts_with = "description")]
+    pub null_description: bool,
 
     /// Member ID; may be repeated.
     #[arg(long = "member", value_parser = non_empty)]
@@ -51,21 +59,21 @@ pub struct CreateArgs {
     #[arg(long = "assignee", value_parser = non_empty)]
     pub assignees: Vec<String>,
 
-    /// Received date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339)]
-    pub received_at: Option<String>,
+    /// Received date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true)]
+    pub received_at: Option<crate::client::cards::CardDateInput>,
 
-    /// Start date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339)]
-    pub start_at: Option<String>,
+    /// Start date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true)]
+    pub start_at: Option<crate::client::cards::CardDateInput>,
 
-    /// Due date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339)]
-    pub due_at: Option<String>,
+    /// Due date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true)]
+    pub due_at: Option<crate::client::cards::CardDateInput>,
 
-    /// End date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339)]
-    pub end_at: Option<String>,
+    /// End date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true)]
+    pub end_at: Option<crate::client::cards::CardDateInput>,
 }
 
 pub(super) async fn execute(
@@ -74,10 +82,18 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
     let request = CreateCardRequest {
-        title: args.title,
+        title: if args.null_title {
+            Some(None)
+        } else {
+            args.title.map(Some)
+        },
         linked_id: args.linked_id,
         swimlane_id: args.swimlane_id,
-        description: args.description,
+        description: if args.null_description {
+            Some(None)
+        } else {
+            args.description.map(Some)
+        },
         members: (!args.members.is_empty()).then_some(args.members),
         assignees: (!args.assignees.is_empty()).then_some(args.assignees),
         received_at: args.received_at,

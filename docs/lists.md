@@ -10,7 +10,7 @@ cards and other subresources.
 wekan list list --board <BOARD_ID>
 wekan list get <LIST_ID> --board <BOARD_ID>
 wekan list create --board <BOARD_ID> --title <TITLE> [--swimlane-id <ID>]
-wekan list update <LIST_ID> --board <BOARD_ID> [--title <TITLE>] [--color <COLOR>] [--starred <true|false>] [--wip-limit <NUMBER> --wip-enabled <true|false> --wip-soft <true|false>]
+wekan list update <LIST_ID> --board <BOARD_ID> [--title <TITLE>] [--color <COLOR>] [--starred <true|false> | --clear-starred] [--wip-limit <NUMBER>] [--wip-enabled <true|false>] [--wip-soft <true|false>]
 wekan list delete <LIST_ID> --board <BOARD_ID> [--yes]
 ```
 
@@ -20,8 +20,10 @@ units; the CLI submits longer titles unchanged so that pinned behavior remains
 visible. Update colors use Wekan v11.06's list palette; custom colors have
 exactly six hexadecimal digits after `#`. Wekan can return `color: ""` for a
 persisted unset color; `list get` preserves that response form, while the
-update flag accepts only named palette colors or `#rrggbb`. The three WIP
-options are one field and must always be supplied together.
+update flag accepts only named palette colors or `#rrggbb`. Any combination of WIP options is accepted. Wekan replaces the whole
+WIP object, defaulting omitted `value` to 1 and omitted `enabled`/`soft` to false;
+it does not merge with the previous settings. `--clear-starred` sends null and
+conflicts with `--starred`.
 
 Use `--output json` for stable machine-readable envelopes. A collection result
 has the shape:

@@ -19,6 +19,7 @@ pub enum LoginSecretMode {
     PromptPassword,
     PromptPasswordAndCode,
     StdinPassword,
+    RawStdinPassword,
     StdinPasswordAndCode,
 }
 
@@ -39,6 +40,12 @@ impl LoginSecrets {
 }
 
 pub trait SecretInputProvider: Send + Sync {
+    /// Read exact UTF-8 bytes through EOF, including line endings and empty input.
+    fn read_raw_secret(&self) -> Result<SecretString, crate::error::AppError> {
+        Err(crate::error::AppError::invalid_input(
+            "raw secret input is unavailable",
+        ))
+    }
     fn read_new_account_password(
         &self,
         from_stdin: bool,
@@ -54,6 +61,9 @@ pub trait SecretInputProvider: Send + Sync {
 pub struct SystemSecretInputProvider;
 
 impl SecretInputProvider for SystemSecretInputProvider {
+    fn read_raw_secret(&self) -> Result<SecretString, crate::error::AppError> {
+        stdin::read_raw_secret(io::stdin().lock())
+    }
     fn read_new_account_password(
         &self,
         from_stdin: bool,
@@ -71,6 +81,9 @@ impl SecretInputProvider for SystemSecretInputProvider {
         mode: LoginSecretMode,
     ) -> Result<LoginSecrets, crate::error::AppError> {
         match mode {
+            LoginSecretMode::RawStdinPassword => self
+                .read_raw_secret()
+                .map(|password| LoginSecrets::new(password, None)),
             LoginSecretMode::PromptPassword => {
                 require_terminal(PASSWORD_STDIN_GUIDANCE)?;
                 let password = prompt::read_password()?;

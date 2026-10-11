@@ -54,6 +54,16 @@ pub(super) fn render_user_detail(data: &UserDetail) -> String {
     if !data.boards.is_empty() {
         lines.push(format!("Board memberships: {}", data.boards.len()));
     }
+    let value = serde_json::to_value(data).expect("user details serialize");
+    for name in [
+        "profile",
+        "created_through_api",
+        "heartbeat",
+        "session_data",
+        "import_usernames",
+    ] {
+        super::formatting::render_named_value_complete(&mut lines, 0, name, &value[name]);
+    }
     lines.join("\n")
 }
 
@@ -157,12 +167,13 @@ pub(super) fn render_user_ownership(data: &UserOwnershipSuccess) -> String {
 
 pub(super) fn render_user_login_change(data: &UserLoginChangeSuccess) -> String {
     let action = match data.action {
-        crate::command_result::UserLoginAction::Disabled => "Set loginDisabled=true for",
-        crate::command_result::UserLoginAction::Enabled => "Cleared loginDisabled for",
+        crate::command_result::UserLoginAction::Disabled => "Requested disabling login for",
+        crate::command_result::UserLoginAction::Enabled => "Requested enabling login for",
     };
     format!(
-        "{action} user {}.",
-        escape_terminal_controls(&data.user.user_id)
+        "{action} user {}.\n{}",
+        escape_terminal_controls(&data.user.user_id),
+        render_user_detail(&data.user)
     )
 }
 

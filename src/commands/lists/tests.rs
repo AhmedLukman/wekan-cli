@@ -200,8 +200,9 @@ fn parser_exposes_only_crud_and_validates_update_groups() {
             "--board",
             "board-1",
             "list-1",
-            "--wip-limit",
-            "2",
+            "--starred",
+            "true",
+            "--clear-starred",
         ],
         vec![
             "wekan", "list", "update", "--board", "board-1", "list-1", "--color", "belize",

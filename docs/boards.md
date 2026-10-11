@@ -7,7 +7,7 @@ lifecycle:
 wekan board list [--public]
 wekan board count
 wekan board get <BOARD_ID>
-wekan board create --title <TITLE> [--owner <USER_ID>] [--permission private|public] [--color <COLOR>] [--no-comments] [--comment-only] [--worker]
+wekan board create --title <TITLE> [--owner <USER_ID>] [--is-admin <true|false>] [--is-active <true|false>] [--permission private|public] [--color <COLOR>] [--no-comments] [--comment-only] [--worker]
 wekan board rename <BOARD_ID> --title <TITLE>
 wekan board delete <BOARD_ID> [--yes]
 ```
@@ -37,9 +37,9 @@ authenticated caller. Permission defaults to `private`, and color defaults to
 `moderndark`, `exodark`, `cleandark`, and `cleanlight`.
 
 `--no-comments`, `--comment-only`, and `--worker` independently set the matching
-role flags on the initial member. Wekan v11.06 always makes that member active
-and an administrator, so the CLI does not expose ineffective `isActive` or
-`isAdmin` controls. `rename` also requires a non-empty title and verifies both
+role flags on the initial member. `--is-admin` and `--is-active` both default to true. False values use Wekan's
+accepted string representation because its route ignores literal boolean false.
+An inactive initial member may be unable to read the newly created board. `rename` also requires a non-empty title and verifies both
 the ID and title returned by Wekan.
 
 ## Board detail

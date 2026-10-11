@@ -478,20 +478,15 @@ fn structured_inputs_reject_unknown_fields_invalid_shapes_and_types() {
         ("--vote", r#"{"future":true}"#),
         ("--vote", r#"{"public":"true"}"#),
         ("--vote", r#"{"public":null}"#),
-        ("--vote", r#"{"end":"tomorrow"}"#),
         ("--poker", r#"{"future":true}"#),
         ("--poker", r#"{"question":"Estimate?"}"#),
-        ("--poker", r#"{"end":"tomorrow"}"#),
         ("--custom-fields", r#"[{"_id":"f","future":true}]"#),
-        ("--custom-fields", r#"[{"value":{"unmapped":true}}]"#),
         ("--stickers", r#"[{"future":true}]"#),
         ("--stickers", r#"[{"highlight":"unknown"}]"#),
-        ("--stickers", r#"[{"position":null}]"#),
         ("--stickers", "[[]]"),
         ("--custom-fields", "[[]]"),
         ("--locations", "[[]]"),
         ("--locations", r#"[{"future":true}]"#),
-        ("--locations", r#"[{"latitude":"north"}]"#),
         ("--locations", "{}"),
         ("--vote", "[]"),
         ("--poker", "[]"),
@@ -702,53 +697,43 @@ fn parser_exposes_crud_and_enforces_update_contract() {
 }
 
 #[test]
-fn parser_validates_identifiers_text_and_dates_without_masking_title_truncation() {
-    for invalid in [
-        vec!["wekan", "card", "list", "--board", " ", "--list", "list-1"],
-        vec![
-            "wekan",
-            "card",
+fn parser_preserves_text_and_delegates_date_interpretation_to_wekan() {
+    assert!(
+        Cli::try_parse_from(["wekan", "card", "list", "--board", " ", "--list", "list-1"]).is_err()
+    );
+    for text in ["", " ", "😀"] {
+        let CardCommand::Update(args) = card_command(&[
+            "update",
+            "card-1",
+            "--board",
+            "board-1",
+            "--list",
+            "list-1",
+            "--description",
+            text,
+        ]) else {
+            panic!("expected update")
+        };
+        assert_eq!(args.description.as_deref(), Some(text));
+    }
+    for date in [
+        "2030-01-01",
+        "January 1, 2030",
+        "253402300800000",
+        "-62198755200000",
+    ] {
+        card_command(&[
             "create",
             "--board",
             "board-1",
             "--list",
             "list-1",
-            "--title",
-            " ",
-            "--swimlane-id",
-            "swimlane-1",
-        ],
-        vec![
-            "wekan",
-            "card",
-            "create",
-            "--board",
-            "board-1",
-            "--list",
-            "list-1",
-            "--title",
-            "Todo",
             "--swimlane-id",
             "swimlane-1",
             "--due-at",
-            "tomorrow",
-        ],
-        vec![
-            "wekan",
-            "card",
-            "update",
-            "--board",
-            "board-1",
-            "--list",
-            "list-1",
-            "card-1",
-            "--description",
-            " ",
-        ],
-    ] {
-        assert!(Cli::try_parse_from(invalid).is_err());
+            date,
+        ]);
     }
-
     let accepted = "😀".repeat(501);
     card_command(&[
         "update", "--board", "board-1", "--list", "list-1", "card-1", "--title", &accepted,
@@ -788,7 +773,7 @@ async fn commands_return_typed_results_and_canonical_submitted_fields() {
     Mock::given(method("POST"))
         .and(path("/api/boards/board%2F1/lists/list%2F1/cards"))
         .and(body_json(json!({
-            "title": "Todo",
+            "title": " Todo ",
             "swimlaneId": "swimlane-1",
             "members": ["user-1"],
             "dueAt": "2030-01-03T00:00:00Z"

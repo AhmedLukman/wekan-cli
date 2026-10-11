@@ -8,6 +8,8 @@ mod boards;
 mod cards;
 #[path = "e2e/comments.rs"]
 mod comments;
+#[path = "e2e/compatibility.rs"]
+mod compatibility;
 #[path = "e2e/lists.rs"]
 mod lists;
 #[path = "support/mod.rs"]

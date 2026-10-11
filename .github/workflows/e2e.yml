@@ -55,6 +55,10 @@ jobs:
             key: users
             variable: WEKAN_USER_E2E_URL
             test: users::complete_user_flow_matches_wekan_v11_06
+          - name: Pinned API compatibility
+            key: compatibility
+            variable: WEKAN_COMPATIBILITY_E2E_URL
+            test: compatibility::audited_behavior_gaps_match_wekan_v11_06
           - name: Boards
             key: boards
             variable: WEKAN_BOARD_E2E_URL

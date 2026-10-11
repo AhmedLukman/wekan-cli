@@ -447,7 +447,26 @@ fn renders_the_stable_json_error_envelope() {
 
 #[test]
 fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
+    let profile_map = serde_json::json!({
+        "object\u{1b}]52;c;clipboard\u{7}": {
+            "array\r\n": [{
+                "string\t": "value\u{1b}[2J",
+                "null\u{7}": null,
+                "boolean\r": true,
+                "number\u{85}": 42,
+                "ordinary": "Café"
+            }]
+        }
+    });
     let success = CommandSuccess::UserCurrent(UserDetail {
+        profile: Box::new(crate::command_result::UserProfileDetail {
+            move_and_copy_dialog: Some(serde_json::from_value(profile_map.clone()).unwrap()),
+            ..Default::default()
+        }),
+        created_through_api: None,
+        heartbeat: None,
+        session_data: None,
+        import_usernames: vec![],
         user_id: "user-1".to_owned(),
         username: Some("alice\u{1b}]52;c;clipboard\u{7}".to_owned()),
         full_name: Some("Alice".to_owned()),
@@ -469,6 +488,7 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
     assert_eq!(json["data"]["user_id"], "user-1");
+    assert_eq!(json["data"]["profile"]["move_and_copy_dialog"], profile_map);
     for forbidden in [
         "services",
         "sessionData",
@@ -482,6 +502,25 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
     assert!(!human.contains('\u{1b}'));
     assert!(!human.contains('\u{7}'));
     assert!(human.contains(r"alice\u{1b}]52;c;clipboard\u{7}"));
+    for escaped in [
+        r"object\u{1b}]52;c;clipboard\u{7}:",
+        r"array\r\n: [1]",
+        r"string\t: value\u{1b}[2J",
+        r"null\u{7}: null",
+        r"boolean\r: true",
+        r"number\u{85}: 42",
+        "ordinary: Café",
+    ] {
+        assert!(
+            human.contains(escaped),
+            "missing escaped profile field: {escaped}"
+        );
+    }
+    assert!(
+        human
+            .chars()
+            .all(|character| !character.is_control() || character == '\n')
+    );
 }
 
 #[test]

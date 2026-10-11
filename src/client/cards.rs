@@ -2,7 +2,6 @@ use reqwest::{StatusCode, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Number;
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
@@ -40,6 +39,19 @@ pub const CARD_COLORS: &[&str] = &[
     "mistyrose",
     "indigo",
 ];
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum CardDateInput {
+    Text(String),
+    EpochMilliseconds(Number),
+}
+
+impl From<String> for CardDateInput {
+    fn from(value: String) -> Self {
+        Self::Text(value)
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
@@ -205,7 +217,7 @@ pub struct CardDocument {
     pub requested_by: Option<String>,
     pub assigned_by: Option<String>,
     #[serde(default, deserialize_with = "deserialize_nullable_vec")]
-    pub label_ids: Vec<String>,
+    pub label_ids: Vec<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable_vec")]
     pub members: Vec<String>,
     #[serde(default, deserialize_with = "deserialize_nullable_vec")]
@@ -269,24 +281,24 @@ pub struct CardDocument {
 #[serde(rename_all = "camelCase")]
 pub struct CreateCardRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
+    pub title: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linked_id: Option<String>,
     pub swimlane_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub description: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub members: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assignees: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub received_at: Option<String>,
+    pub received_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_at: Option<String>,
+    pub start_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub due_at: Option<String>,
+    pub due_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_at: Option<String>,
+    pub end_at: Option<CardDateInput>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
@@ -303,19 +315,19 @@ pub struct UpdateCardRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub label_ids: Option<Vec<String>>,
+    pub label_ids: Option<Vec<Option<String>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assigned_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub received_at: Option<String>,
+    pub received_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_at: Option<String>,
+    pub start_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub due_at: Option<String>,
+    pub due_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_at: Option<String>,
+    pub end_at: Option<CardDateInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spent_time: Option<Number>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -599,9 +611,6 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
             "the card response contained an invalid color `{color}`"
         )));
     }
-    for field in &card.custom_fields {
-        validate_optional_id(field.custom_field_id.as_deref(), "card", "custom field id")?;
-    }
     for location in &card.locations {
         require_non_empty(&location.location_id, "card", "location id")?;
     }
@@ -619,7 +628,6 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
         }
     }
     for (values, field) in [
-        (&card.label_ids, "label id"),
         (&card.members, "member id"),
         (&card.assignees, "assignee id"),
         (&card.requesters, "requester id"),
@@ -628,6 +636,9 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
         (&card.link_id_gantt, "Gantt link id"),
     ] {
         validate_ids(values, "card", field)?;
+    }
+    for label_id in card.label_ids.iter().flatten() {
+        require_non_empty(label_id, "card", "label id")?;
     }
     if let Some(vote) = &card.vote {
         validate_ids(&vote.positive, "card", "positive voter id")?;
@@ -708,13 +719,11 @@ fn validate_optional_date_time(
 }
 
 fn validate_date_time(value: &str, field: &str, operation: &str) -> Result<(), ClientError> {
-    OffsetDateTime::parse(value, &Rfc3339)
-        .map(|_| ())
-        .map_err(|_| {
-            protocol_error(format!(
-                "the {operation} response contained an invalid {field} date-time"
-            ))
-        })
+    super::datetime::validate_response_date(value).map_err(|_| {
+        protocol_error(format!(
+            "the {operation} response contained an invalid {field} date-time"
+        ))
+    })
 }
 
 fn protocol_error(message: String) -> ClientError {

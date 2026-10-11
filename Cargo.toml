@@ -39,7 +39,7 @@ serde_json = { version = "1.0.151", features = ["arbitrary_precision"] }
 serde_path_to_error = "0.1.20"
 sha2 = "0.10.9"
 thiserror = "2.0.20"
-time = { version = "0.3.55", features = ["formatting", "parsing", "serde"] }
+time = { version = "0.3.55", features = ["formatting", "parsing", "serde", "large-dates"] }
 tokio = { version = "1.53.1", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7.18", features = ["io"] }
 url = "2.5.8"

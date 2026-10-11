@@ -46,6 +46,7 @@ pub(super) fn render_named_value_complete(
     name: &str,
     value: &serde_json::Value,
 ) {
+    let name = escape_terminal_controls(name);
     let padding = " ".repeat(indent);
     match value {
         serde_json::Value::Array(values) => {

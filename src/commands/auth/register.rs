@@ -40,6 +40,10 @@ pub struct RegisterArgs {
     /// Read the password from one line of standard input.
     #[arg(long)]
     pub password_stdin: bool,
+
+    /// Read the exact password through EOF; empty input creates a passwordless account.
+    #[arg(long, conflicts_with = "password_stdin")]
+    pub password_raw_stdin: bool,
 }
 
 pub(crate) async fn execute(
@@ -63,7 +67,11 @@ pub(crate) async fn execute(
     ensure_credential_absent(credential_mutation.as_ref(), target)
         .map_err(|error| error.with_account_created(false))?;
 
-    let password = secret_input.read_new_account_password(args.password_stdin)?;
+    let password = if args.password_raw_stdin {
+        secret_input.read_raw_secret()?
+    } else {
+        secret_input.read_new_account_password(args.password_stdin)?
+    };
     let request = RegisterRequest {
         username: args.username,
         email: args.email,

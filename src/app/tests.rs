@@ -250,6 +250,7 @@ fn login_command() -> RootCommand {
             username: Some("alice".to_owned()),
             email: None,
             password_stdin: false,
+            password_raw_stdin: false,
             code: false,
             code_stdin: false,
         }),
@@ -262,6 +263,7 @@ fn registration_command() -> RootCommand {
             username: Some("alice".to_owned()),
             email: Some("alice@example.com".to_owned()),
             password_stdin: false,
+            password_raw_stdin: false,
         }),
     })
 }

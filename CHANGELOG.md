@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Secure raw stdin passwords for multiline and empty input, and SHA-256 password
+  digest input for administrative user creation.
+- Initial board owner administrator/active controls and a no-action user update.
+
+### Fixed
+
+- Reject unmapped workspace-node fields, including nested children, in typed
+  user responses and preserve the known node fields in profile output.
+- Preserve Wekan's accepted Unicode comment text during creation and reads,
+  including comments containing only U+0085 (next line).
+- Support partial WIP updates, nullable starred state, nullable/empty card
+  creation text, Wekan date inputs and reversed user-card query ranges.
+- Read back extended-year card dates, empty custom-field IDs and null labels;
+  accept Wekan's custom-field value and coordinate coercions and text clearing.
+- Preserve user profile settings and metadata in detail/action output, and send
+  confirmed self-actions with Wekan v11.06's actual behavior.
+
+### Security
+
+- Escape terminal control characters in user profile map keys in human output.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added

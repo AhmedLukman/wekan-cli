@@ -1,8 +1,8 @@
 use serde_json::json;
 use wekan_cli::client::{
     BoardColor, BoardPermission, ClientError, CreateBoardRequest, CreateCardRequest,
-    CreateCommentRequest, CreateListRequest, CreateSwimlaneRequest, ListWipLimit,
-    UpdateCardRequest, UpdateListRequest, UpdateSwimlaneRequest, UserAction, UserActionResult,
+    CreateCommentRequest, CreateListRequest, CreateSwimlaneRequest, UpdateCardRequest,
+    UpdateListRequest, UpdateSwimlaneRequest, UserAction, UserActionResult,
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -11,11 +11,119 @@ use wiremock::{
 
 use secrecy::SecretString;
 use wekan_cli::client::LoginRequest;
+use wekan_cli::client::users::{PasswordDigestError, UserPassword};
 
 use super::{
     client, client_from_url, create_board_request, create_user_request, login_request,
     logout_request, logout_token, register_request, status_token, user_card_query, user_token,
 };
+
+#[test]
+fn password_digest_validation_preserves_wire_values_and_returns_focused_errors() {
+    for digest in ["a".repeat(64), "g".repeat(64), "\u{1f600}".repeat(32)] {
+        let wire = json!({"digest": digest, "algorithm": "sha-256"});
+        let password =
+            UserPassword::from_digest_json(&SecretString::from(wire.to_string())).unwrap();
+        assert_eq!(serde_json::to_value(&password).unwrap(), wire);
+    }
+    for (input, expected) in [
+        ("sensitive", PasswordDigestError::InvalidObject),
+        (
+            r#"{"digest":"sensitive"}"#,
+            PasswordDigestError::InvalidObject,
+        ),
+        (
+            r#"{"digest":"sensitive","algorithm":"sha-256"}"#,
+            PasswordDigestError::InvalidDigest,
+        ),
+        (
+            r#"{"digest":"sensitive","algorithm":"other"}"#,
+            PasswordDigestError::InvalidDigest,
+        ),
+    ] {
+        let error =
+            UserPassword::from_digest_json(&SecretString::from(input.to_owned())).unwrap_err();
+        assert_eq!(error, expected);
+        let diagnostic = format!("{error:?}: {error}");
+        assert!(!diagnostic.contains("sensitive"));
+        assert!(!diagnostic.contains("stdin"));
+    }
+}
+
+#[tokio::test]
+async fn nullable_card_creation_and_partial_list_updates_preserve_wire_forms() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .and(body_json(
+            json!({"title":null,"description":"","swimlaneId":"lane-1","dueAt":1.5}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"card-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/boards/board-1/lists/list-1"))
+        .and(body_json(
+            json!({"starred":null,"wipLimit":{"enabled":true}}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"list-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    client
+        .create_card(
+            "board-1",
+            "list-1",
+            &CreateCardRequest {
+                title: Some(None),
+                description: Some(Some(String::new())),
+                linked_id: None,
+                swimlane_id: "lane-1".to_owned(),
+                members: None,
+                assignees: None,
+                received_at: None,
+                start_at: None,
+                end_at: None,
+                due_at: Some(wekan_cli::client::cards::CardDateInput::EpochMilliseconds(
+                    serde_json::Number::from_f64(1.5).unwrap(),
+                )),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+    client
+        .update_list(
+            "board-1",
+            "list-1",
+            &UpdateListRequest {
+                title: None,
+                color: None,
+                starred: Some(None),
+                wip_limit: Some(wekan_cli::client::lists::ListWipLimitInput {
+                    enabled: Some(true),
+                    ..Default::default()
+                }),
+            },
+            &user_token(),
+        )
+        .await
+        .unwrap();
+}
+
+#[test]
+fn card_update_serializes_null_label_elements() {
+    let request = UpdateCardRequest {
+        label_ids: Some(vec![None, Some("label-1".to_owned())]),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_value(request).unwrap(),
+        json!({"labelIds":[null,"label-1"]})
+    );
+}
 
 #[tokio::test]
 async fn archive_restore_use_bodyless_authenticated_encoded_post_requests() {
@@ -190,6 +298,8 @@ async fn board_lifecycle_uses_verified_paths_and_bodies() {
     client
         .create_board(
             &CreateBoardRequest {
+                is_admin: true,
+                is_active: true,
                 title: "Default board".to_owned(),
                 owner: None,
                 permission: BoardPermission::Private,
@@ -286,11 +396,11 @@ async fn list_lifecycle_uses_verified_paths_and_bodies() {
             &UpdateListRequest {
                 title: Some("Doing".to_owned()),
                 color: Some("#12aBcF".to_owned()),
-                starred: Some(false),
-                wip_limit: Some(ListWipLimit {
-                    value: 2.into(),
-                    enabled: true,
-                    soft: false,
+                starred: Some(Some(false)),
+                wip_limit: Some(wekan_cli::client::lists::ListWipLimitInput {
+                    value: Some(2.into()),
+                    enabled: Some(true),
+                    soft: Some(false),
                 }),
             },
             &user_token(),
@@ -558,16 +668,16 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
-                title: Some("Todo".to_owned()),
+                title: Some(Some("Todo".to_owned())),
                 linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
-                description: Some("Details".to_owned()),
+                description: Some(Some("Details".to_owned())),
                 members: Some(vec!["member-1".to_owned(), "member-2".to_owned()]),
                 assignees: Some(vec!["assignee-1".to_owned()]),
-                received_at: Some("2030-01-01T00:00:00Z".to_owned()),
-                start_at: Some("2030-01-02T00:00:00Z".to_owned()),
-                due_at: Some("2030-01-03T00:00:00Z".to_owned()),
-                end_at: Some("2030-01-04T00:00:00Z".to_owned()),
+                received_at: Some("2030-01-01T00:00:00Z".to_owned().into()),
+                start_at: Some("2030-01-02T00:00:00Z".to_owned().into()),
+                due_at: Some("2030-01-03T00:00:00Z".to_owned().into()),
+                end_at: Some("2030-01-04T00:00:00Z".to_owned().into()),
             },
             &user_token(),
         )
@@ -578,7 +688,7 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
-                title: Some("Minimal".to_owned()),
+                title: Some(Some("Minimal".to_owned())),
                 linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
                 description: None,
@@ -607,10 +717,10 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
                 label_ids: Some(vec![]),
                 requested_by: Some("Requester".to_owned()),
                 assigned_by: Some("Dispatcher".to_owned()),
-                received_at: Some(String::new()),
-                start_at: Some("2030-02-02T00:00:00Z".to_owned()),
-                due_at: Some(String::new()),
-                end_at: Some("2030-02-04T00:00:00Z".to_owned()),
+                received_at: Some(String::new().into()),
+                start_at: Some("2030-02-02T00:00:00Z".to_owned().into()),
+                due_at: Some(String::new().into()),
+                end_at: Some("2030-02-04T00:00:00Z".to_owned().into()),
                 spent_time: Some(serde_json::Number::from_f64(2.5).unwrap()),
                 is_over_time: Some(false),
                 members: Some(vec![]),
@@ -683,7 +793,7 @@ async fn card_mutations_are_not_retried_and_redirects_are_not_followed() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
-                    title: Some("Todo".to_owned()),
+                    title: Some(Some("Todo".to_owned())),
                     linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),
                     description: None,

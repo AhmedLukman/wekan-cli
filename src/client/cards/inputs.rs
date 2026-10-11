@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
-use super::{CardCustomFieldValue, CardStickerHighlight};
+use super::CardStickerHighlight;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -148,7 +148,7 @@ pub struct CardCustomFieldInput {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "nullable_value"
     )]
-    pub value: Option<Option<CardCustomFieldValue>>,
+    pub value: Option<Option<serde_json::Value>>,
 }
 
 fn nullable_value<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -185,7 +185,7 @@ pub struct CardStickerInput {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "present_value"
     )]
-    pub position: Option<Number>,
+    pub position: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -215,13 +215,13 @@ pub struct CardLocationInput {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "nullable_value"
     )]
-    pub latitude: Option<Option<Number>>,
+    pub latitude: Option<Option<serde_json::Value>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "nullable_value"
     )]
-    pub longitude: Option<Option<Number>>,
+    pub longitude: Option<Option<serde_json::Value>>,
 }
 
 fn present_value<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>

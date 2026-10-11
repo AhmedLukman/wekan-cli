@@ -49,12 +49,14 @@ fn create_user_request() -> CreateUserRequest {
     CreateUserRequest {
         username: "alice".to_owned(),
         email: "alice@example.com".to_owned(),
-        password: SecretString::from("new-user-password".to_owned()),
+        password: SecretString::from("new-user-password".to_owned()).into(),
     }
 }
 
 fn create_board_request() -> CreateBoardRequest {
     CreateBoardRequest {
+        is_admin: true,
+        is_active: true,
         title: "Delivery".to_owned(),
         owner: Some("owner/1".to_owned()),
         permission: BoardPermission::Public,

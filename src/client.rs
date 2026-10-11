@@ -2,6 +2,7 @@ pub mod auth;
 pub mod boards;
 pub mod cards;
 pub mod comments;
+mod datetime;
 mod decoding;
 pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub mod error;
@@ -46,7 +47,7 @@ pub use swimlanes::{
 pub use users::{
     CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard, CurrentUserEmail,
     CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery, UserEmail,
-    UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam,
+    UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam, UserWorkspaceNode,
 };
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);

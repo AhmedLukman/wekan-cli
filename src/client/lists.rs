@@ -103,9 +103,9 @@ pub struct UpdateListRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub starred: Option<bool>,
+    pub starred: Option<Option<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub wip_limit: Option<ListWipLimit>,
+    pub wip_limit: Option<ListWipLimitInput>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -457,4 +457,14 @@ mod tests {
         assert!(missing_modified_at.is_err());
         assert!(missing_cards_modified_at.is_err());
     }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct ListWipLimitInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<Number>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub soft: Option<bool>,
 }

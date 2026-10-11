@@ -20,6 +20,9 @@ use crate::{
 use super::{map_client_error, non_empty, user_detail};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Wekan v11.06 self-targeting returns the unchanged user without disabling login."
+)]
 pub struct DisableLoginArgs {
     /// Wekan user ID whose login will be disabled.
     #[arg(value_parser = non_empty)]
@@ -36,11 +39,6 @@ pub(super) async fn execute(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
-    if args.user_id == context.record().user_id() {
-        return Err(AppError::invalid_input(
-            "cannot disable login for the currently authenticated user",
-        ));
-    }
     let request = ConfirmationRequest::new(
         DestructiveOperation::UserDisableLogin,
         format!(

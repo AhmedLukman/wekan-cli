@@ -119,9 +119,6 @@ where
                 &self.confirmation,
             );
         }
-        if let RootCommand::User(args) = &command {
-            args.command.validate()?;
-        }
         let policy = match &command {
             RootCommand::Auth(args) => args.command.missing_profile_resolution(),
             _ => crate::config::MissingProfileResolution::Reject,

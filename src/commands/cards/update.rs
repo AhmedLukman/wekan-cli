@@ -14,7 +14,7 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{non_empty, rfc3339, trimmed_non_empty};
+use super::{date_input, non_empty};
 use crate::client::cards::{
     CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,
 };
@@ -36,7 +36,7 @@ pub struct JsonArray<T>(pub Vec<T>);
         .required(true)
         .multiple(true)
         .args([
-            "title", "sort", "parent_id", "description", "color", "label_ids", "clear_labels",
+            "labels", "title", "sort", "parent_id", "description", "color", "label_ids", "clear_labels",
             "requested_by", "assigned_by", "received_at", "clear_received_at", "start_at",
             "clear_start_at", "due_at", "clear_due_at", "end_at", "clear_end_at",
             "spent_time", "is_over_time", "members", "clear_members", "assignees",
@@ -59,7 +59,7 @@ pub struct UpdateArgs {
     pub card_id: String,
 
     /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
-    #[arg(long, value_parser = trimmed_non_empty, help_heading = "Fields")]
+    #[arg(long, help_heading = "Fields")]
     pub title: Option<String>,
 
     /// Numeric card order. Wekan v11.06 silently ignores zero.
@@ -71,7 +71,7 @@ pub struct UpdateArgs {
     pub parent_id: Option<String>,
 
     /// New card description.
-    #[arg(long, value_parser = trimmed_non_empty, help_heading = "Fields")]
+    #[arg(long, help_heading = "Fields")]
     pub description: Option<String>,
 
     /// Named Wekan card color or a custom #rrggbb color.
@@ -79,48 +79,52 @@ pub struct UpdateArgs {
     pub color: Option<String>,
 
     /// Label ID; repeat to replace the complete label array.
-    #[arg(long = "label", value_parser = non_empty, conflicts_with = "clear_labels", help_heading = "People and labels")]
+    #[arg(long = "label", value_parser = non_empty, conflicts_with_all = ["clear_labels", "labels"], help_heading = "People and labels")]
     pub label_ids: Vec<String>,
 
+    /// Replace labels with a JSON array of strings or null elements.
+    #[arg(long, value_name = "JSON", value_parser = labels_json, conflicts_with_all = ["label_ids", "clear_labels"], help_heading = "People and labels")]
+    pub labels: Option<JsonArray<Option<String>>>,
+
     /// Replace labels with an empty array.
-    #[arg(long, conflicts_with = "label_ids", help_heading = "People and labels")]
+    #[arg(long, conflicts_with_all = ["label_ids", "labels"], help_heading = "People and labels")]
     pub clear_labels: bool,
 
     /// Requested-by display name.
-    #[arg(long, value_parser = trimmed_non_empty, help_heading = "People and labels")]
+    #[arg(long, help_heading = "People and labels")]
     pub requested_by: Option<String>,
 
     /// Assigned-by display name.
-    #[arg(long, value_parser = trimmed_non_empty, help_heading = "People and labels")]
+    #[arg(long, help_heading = "People and labels")]
     pub assigned_by: Option<String>,
 
-    /// Received date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_received_at", help_heading = "Dates")]
-    pub received_at: Option<String>,
+    /// Received date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true, conflicts_with = "clear_received_at", help_heading = "Dates")]
+    pub received_at: Option<crate::client::cards::CardDateInput>,
 
     /// Clear the received date.
     #[arg(long, conflicts_with = "received_at", help_heading = "Dates")]
     pub clear_received_at: bool,
 
-    /// Start date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_start_at", help_heading = "Dates")]
-    pub start_at: Option<String>,
+    /// Start date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true, conflicts_with = "clear_start_at", help_heading = "Dates")]
+    pub start_at: Option<crate::client::cards::CardDateInput>,
 
     /// Clear the start date.
     #[arg(long, conflicts_with = "start_at", help_heading = "Dates")]
     pub clear_start_at: bool,
 
-    /// Due date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_due_at", help_heading = "Dates")]
-    pub due_at: Option<String>,
+    /// Due date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true, conflicts_with = "clear_due_at", help_heading = "Dates")]
+    pub due_at: Option<crate::client::cards::CardDateInput>,
 
     /// Clear the due date.
     #[arg(long, conflicts_with = "due_at", help_heading = "Dates")]
     pub clear_due_at: bool,
 
-    /// End date-time in RFC3339 format.
-    #[arg(long, value_parser = rfc3339, conflicts_with = "clear_end_at", help_heading = "Dates")]
-    pub end_at: Option<String>,
+    /// End date accepted by Wekan (timestamp, date-only, textual date or epoch milliseconds).
+    #[arg(long, value_parser = date_input, allow_hyphen_values = true, conflicts_with = "clear_end_at", help_heading = "Dates")]
+    pub end_at: Option<crate::client::cards::CardDateInput>,
 
     /// Clear the end date.
     #[arg(long, conflicts_with = "end_at", help_heading = "Dates")]
@@ -213,7 +217,10 @@ pub(super) async fn execute(
         parent_id: args.parent_id,
         description: args.description,
         color: args.color,
-        label_ids: replacement(args.label_ids, args.clear_labels),
+        label_ids: args.labels.map(|value| value.0).or_else(|| {
+            replacement(args.label_ids, args.clear_labels)
+                .map(|ids| ids.into_iter().map(Some).collect())
+        }),
         requested_by: args.requested_by,
         assigned_by: args.assigned_by,
         received_at: date_value(args.received_at, args.clear_received_at),
@@ -285,8 +292,15 @@ fn replacement(values: Vec<String>, clear: bool) -> Option<Vec<String>> {
     }
 }
 
-fn date_value(value: Option<String>, clear: bool) -> Option<String> {
-    if clear { Some(String::new()) } else { value }
+fn date_value(
+    value: Option<crate::client::cards::CardDateInput>,
+    clear: bool,
+) -> Option<crate::client::cards::CardDateInput> {
+    if clear {
+        Some(String::new().into())
+    } else {
+        value
+    }
 }
 
 fn submitted_fields(args: &UpdateArgs) -> Vec<CardSubmittedField> {
@@ -298,7 +312,7 @@ fn submitted_fields(args: &UpdateArgs) -> Vec<CardSubmittedField> {
         (args.description.is_some(), CardSubmittedField::Description),
         (args.color.is_some(), CardSubmittedField::Color),
         (
-            !args.label_ids.is_empty() || args.clear_labels,
+            !args.label_ids.is_empty() || args.clear_labels || args.labels.is_some(),
             CardSubmittedField::LabelIds,
         ),
         (args.requested_by.is_some(), CardSubmittedField::RequestedBy),
@@ -384,17 +398,11 @@ fn json_array<T: serde::de::DeserializeOwned>(value: &str) -> Result<JsonArray<T
 
 fn vote_json(value: &str) -> Result<CardVoteInput, String> {
     let vote: CardVoteInput = json_input(value)?;
-    if let Some(Some(end)) = &vote.end {
-        rfc3339(end)?;
-    }
     Ok(vote)
 }
 
 fn poker_json(value: &str) -> Result<CardPokerInput, String> {
     let poker: CardPokerInput = json_input(value)?;
-    if let Some(Some(end)) = &poker.end {
-        rfc3339(end)?;
-    }
     Ok(poker)
 }
 
@@ -415,4 +423,10 @@ fn finite_number(value: &str) -> Result<f64, String> {
     } else {
         Err("value must be finite".to_owned())
     }
+}
+
+fn labels_json(value: &str) -> Result<JsonArray<Option<String>>, String> {
+    serde_json::from_str(value)
+        .map(JsonArray)
+        .map_err(|_| "expected a JSON array of strings or null".to_owned())
 }

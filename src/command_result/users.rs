@@ -1,8 +1,18 @@
+mod profile;
 use super::UserBoardSummary;
+pub use profile::{
+    UserProfileDetail, UserProfileNotificationDetail, UserProfileStarredPageDetail,
+    UserWorkspaceNodeDetail,
+};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserDetail {
+    pub profile: Box<UserProfileDetail>,
+    pub created_through_api: Option<bool>,
+    pub heartbeat: Option<String>,
+    pub session_data: Option<UserSessionData>,
+    pub import_usernames: Vec<String>,
     pub user_id: String,
     pub username: Option<String>,
     pub full_name: Option<String>,
@@ -130,4 +140,9 @@ pub struct UserDeleteSuccess {
     pub deleted_current_user: bool,
     pub credential_stored: bool,
     pub local_credential_removed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct UserSessionData {
+    pub total_hits: Option<serde_json::Number>,
 }

@@ -43,6 +43,10 @@ pub struct LoginArgs {
     #[arg(long)]
     pub password_stdin: bool,
 
+    /// Read the exact password through EOF, preserving line endings and empty input.
+    #[arg(long, conflicts_with_all = ["password_stdin", "code", "code_stdin"])]
+    pub password_raw_stdin: bool,
+
     /// Prompt without echo for a two-factor authentication code.
     #[arg(long, conflicts_with_all = ["password_stdin", "code_stdin"])]
     pub code: bool,
@@ -54,7 +58,9 @@ pub struct LoginArgs {
 
 impl LoginArgs {
     const fn secret_mode(&self) -> LoginSecretMode {
-        if self.password_stdin {
+        if self.password_raw_stdin {
+            LoginSecretMode::RawStdinPassword
+        } else if self.password_stdin {
             if self.code_stdin {
                 LoginSecretMode::StdinPasswordAndCode
             } else {

@@ -11,9 +11,12 @@ wekan comment delete <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID> [--yes]
 ```
 
 Wekan does not expose a REST endpoint for editing a comment, so this family has
-no `update` command. Identifiers and comment text are trimmed and must not be
-empty. The create endpoint accepts only the text; it cannot create a threaded
-reply, although `comment get` preserves a returned `parent_id`.
+no `update` command. Identifiers are trimmed and must not be empty. Comment
+creation sends the text unchanged and rejects text that is blank under
+JavaScript's whitespace rules. Wekan trims that whitespace before insertion;
+U+0085 (next line) is preserved, including when it is the entire comment, while
+U+FEFF is trimmed. The create endpoint accepts only the text; it cannot create
+a threaded reply, although `comment get` preserves a returned `parent_id`.
 
 ## Stable output
 
@@ -31,8 +34,10 @@ These objects appear under the usual `{"ok":true,"data":...}` envelope.
 Wekan's compact collection fields (`comment` and `authorId`) and full-document
 fields (`text` and `userId`) are normalized to the same stable `text` and
 `author_id` names. Empty, null, or omitted top-level `parentId` becomes JSON
-`null`. All response objects reject unknown fields; IDs and text must be
-non-empty and timestamps must be RFC3339 date-times.
+`null`. All response objects reject unknown fields; IDs must be non-empty,
+text must not be blank under JavaScript's whitespace rules, and timestamps
+must be RFC3339 date-times. List and get preserve the returned text, including
+U+0085.
 
 A missing individual comment produces an empty HTTP 200 response in Wekan
 v11.06. The CLI normalizes it to `not_found`. Listing a nonexistent card

@@ -2,7 +2,9 @@ use clap::{ArgGroup, Args};
 use serde_json::Number;
 
 use crate::{
-    client::{ListWipLimit, UpdateListRequest, WekanClientFactory, lists::is_valid_list_color},
+    client::{
+        UpdateListRequest, WekanClientFactory, lists::ListWipLimitInput, lists::is_valid_list_color,
+    },
     command_result::{CommandSuccess, ListUpdateSuccess, ListUpdatedField},
     commands::{
         authenticated::AuthenticatedContext,
@@ -25,7 +27,7 @@ use super::{non_empty, trimmed_non_empty};
     ArgGroup::new("updates")
         .required(true)
         .multiple(true)
-        .args(["title", "color", "starred", "wip_limit"])
+        .args(["title", "color", "starred", "clear_starred", "wip_limit", "wip_enabled", "wip_soft"])
 ))]
 pub struct UpdateArgs {
     /// Wekan board ID.
@@ -45,19 +47,23 @@ pub struct UpdateArgs {
     pub color: Option<String>,
 
     /// Whether the list is starred.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_starred")]
     pub starred: Option<bool>,
 
+    /// Set starred to null.
+    #[arg(long, conflicts_with = "starred")]
+    pub clear_starred: bool,
+
     /// Numeric WIP limit value.
-    #[arg(long, value_parser = finite_number, requires_all = ["wip_enabled", "wip_soft"])]
+    #[arg(long, value_parser = finite_number)]
     pub wip_limit: Option<f64>,
 
     /// Whether WIP limiting is enabled.
-    #[arg(long, requires_all = ["wip_limit", "wip_soft"])]
+    #[arg(long)]
     pub wip_enabled: Option<bool>,
 
     /// Whether exceeding the WIP limit is allowed with a warning.
-    #[arg(long, requires_all = ["wip_limit", "wip_enabled"])]
+    #[arg(long)]
     pub wip_soft: Option<bool>,
 }
 
@@ -67,19 +73,22 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
     let updated_fields = updated_fields(&args);
+    let wip_limit = has_wip(&args).then(|| ListWipLimitInput {
+        value: args
+            .wip_limit
+            .map(|value| Number::from_f64(value).expect("finite number")),
+        enabled: args.wip_enabled,
+        soft: args.wip_soft,
+    });
     let request = UpdateListRequest {
         title: args.title,
         color: args.color,
-        starred: args.starred,
-        wip_limit: args.wip_limit.map(|value| ListWipLimit {
-            value: Number::from_f64(value).expect("the parser rejects non-finite numbers"),
-            enabled: args
-                .wip_enabled
-                .expect("Clap requires every WIP option together"),
-            soft: args
-                .wip_soft
-                .expect("Clap requires every WIP option together"),
-        }),
+        starred: if args.clear_starred {
+            Some(None)
+        } else {
+            args.starred.map(Some)
+        },
+        wip_limit,
     };
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
     let redactor = Redactor::with_secret(context.record().token());
@@ -125,10 +134,10 @@ fn updated_fields(args: &UpdateArgs) -> Vec<ListUpdatedField> {
     if args.color.is_some() {
         fields.push(ListUpdatedField::Color);
     }
-    if args.starred.is_some() {
+    if args.starred.is_some() || args.clear_starred {
         fields.push(ListUpdatedField::Starred);
     }
-    if args.wip_limit.is_some() {
+    if has_wip(args) {
         fields.push(ListUpdatedField::WipLimit);
     }
     fields
@@ -151,4 +160,8 @@ fn finite_number(value: &str) -> Result<f64, String> {
     } else {
         Err("value must be finite".to_owned())
     }
+}
+
+fn has_wip(args: &UpdateArgs) -> bool {
+    args.wip_limit.is_some() || args.wip_enabled.is_some() || args.wip_soft.is_some()
 }

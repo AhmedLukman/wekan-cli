@@ -11,7 +11,7 @@ use super::{ClientError, WekanClient, boards::BoardSummary, transport::decode_su
 pub struct CreateUserRequest {
     pub username: String,
     pub email: String,
-    pub password: SecretString,
+    pub password: UserPassword,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -82,83 +82,92 @@ pub type CurrentUserEmail = UserEmail;
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserProfile {
     pub fullname: Option<String>,
-    avatar_url: Option<String>,
-    email_buffer: Option<Vec<Option<String>>>,
-    show_desktop_drag_handles: Option<bool>,
-    left_menu_collapsed: Option<bool>,
-    collapsed_workspaces: Option<BTreeMap<String, bool>>,
-    left_menu_width: Option<Number>,
-    submit_on_enter: Option<bool>,
-    open_many_cards_at_once: Option<bool>,
-    all_boards_theme_tiles: Option<bool>,
-    global_theme_color: Option<String>,
-    global_theme_custom_colors: Option<Vec<Option<String>>>,
-    ui_font: Option<String>,
-    ui_font_size: Option<String>,
-    ui_text_color: Option<String>,
-    ui_text_bg_color: Option<String>,
-    dismissed_announcement_version: Option<String>,
-    card_maximized: Option<bool>,
-    card_collapsed: Option<bool>,
-    show_activities: Option<bool>,
-    custom_fields_grid: Option<bool>,
-    trello_api_saved: Option<bool>,
-    hidden_minicard_label_text: Option<bool>,
-    initials: Option<String>,
-    board_workspaces_tree: Option<Vec<BTreeMap<String, Value>>>,
-    board_workspace_assignments: Option<BTreeMap<String, String>>,
-    invited_boards: Option<Vec<Option<String>>>,
-    language: Option<String>,
-    map_provider: Option<String>,
-    move_and_copy_dialog: Option<BTreeMap<String, Value>>,
-    move_checklist_dialog: Option<BTreeMap<String, Value>>,
-    copy_checklist_dialog: Option<BTreeMap<String, Value>>,
-    notifications: Option<Vec<UserProfileNotification>>,
-    rescue_card_description: Option<bool>,
-    show_cards_count_at: Option<Number>,
-    start_day_of_week: Option<Number>,
-    starred_boards: Option<Vec<Option<String>>>,
-    starred_pages: Option<Vec<UserProfileStarredPage>>,
-    default_board_id: Option<String>,
-    icode: Option<String>,
-    board_view: Option<String>,
-    list_sort_by: Option<String>,
-    all_boards_sort_by: Option<String>,
-    templates_board_id: Option<String>,
-    card_templates_swimlane_id: Option<String>,
-    list_templates_swimlane_id: Option<String>,
-    board_templates_swimlane_id: Option<String>,
-    sidebar_width: Option<Number>,
-    list_widths: Option<BTreeMap<String, BTreeMap<String, Number>>>,
-    list_constraints: Option<BTreeMap<String, BTreeMap<String, Value>>>,
-    auto_width_boards: Option<BTreeMap<String, bool>>,
-    board_sort_index: Option<BTreeMap<String, Number>>,
-    fixed_list_width_boards: Option<BTreeMap<String, bool>>,
-    fixed_list_widths: Option<BTreeMap<String, Number>>,
-    swimlane_heights: Option<BTreeMap<String, BTreeMap<String, Number>>>,
-    collapsed_lists: Option<BTreeMap<String, BTreeMap<String, bool>>>,
-    collapsed_swimlanes: Option<BTreeMap<String, BTreeMap<String, bool>>>,
-    collapsed_card_sections: Option<BTreeMap<String, BTreeMap<String, bool>>>,
-    keyboard_shortcuts: Option<bool>,
-    vertical_scrollbars: Option<bool>,
-    show_week_of_year: Option<bool>,
-    date_format: Option<String>,
-    mobile_mode: Option<bool>,
-    card_zoom: Option<Number>,
+    pub avatar_url: Option<String>,
+    pub email_buffer: Option<Vec<Option<String>>>,
+    pub show_desktop_drag_handles: Option<bool>,
+    pub left_menu_collapsed: Option<bool>,
+    pub collapsed_workspaces: Option<BTreeMap<String, bool>>,
+    pub left_menu_width: Option<Number>,
+    pub submit_on_enter: Option<bool>,
+    pub open_many_cards_at_once: Option<bool>,
+    pub all_boards_theme_tiles: Option<bool>,
+    pub global_theme_color: Option<String>,
+    pub global_theme_custom_colors: Option<Vec<Option<String>>>,
+    pub ui_font: Option<String>,
+    pub ui_font_size: Option<String>,
+    pub ui_text_color: Option<String>,
+    pub ui_text_bg_color: Option<String>,
+    pub dismissed_announcement_version: Option<String>,
+    pub card_maximized: Option<bool>,
+    pub card_collapsed: Option<bool>,
+    pub show_activities: Option<bool>,
+    pub custom_fields_grid: Option<bool>,
+    pub trello_api_saved: Option<bool>,
+    pub hidden_minicard_label_text: Option<bool>,
+    pub initials: Option<String>,
+    pub board_workspaces_tree: Option<Vec<UserWorkspaceNode>>,
+    pub board_workspace_assignments: Option<BTreeMap<String, String>>,
+    pub invited_boards: Option<Vec<Option<String>>>,
+    pub language: Option<String>,
+    pub map_provider: Option<String>,
+    pub move_and_copy_dialog: Option<BTreeMap<String, Value>>,
+    pub move_checklist_dialog: Option<BTreeMap<String, Value>>,
+    pub copy_checklist_dialog: Option<BTreeMap<String, Value>>,
+    pub notifications: Option<Vec<UserProfileNotification>>,
+    pub rescue_card_description: Option<bool>,
+    pub show_cards_count_at: Option<Number>,
+    pub start_day_of_week: Option<Number>,
+    pub starred_boards: Option<Vec<Option<String>>>,
+    pub starred_pages: Option<Vec<UserProfileStarredPage>>,
+    pub default_board_id: Option<String>,
+    pub icode: Option<String>,
+    pub board_view: Option<String>,
+    pub list_sort_by: Option<String>,
+    pub all_boards_sort_by: Option<String>,
+    pub templates_board_id: Option<String>,
+    pub card_templates_swimlane_id: Option<String>,
+    pub list_templates_swimlane_id: Option<String>,
+    pub board_templates_swimlane_id: Option<String>,
+    pub sidebar_width: Option<Number>,
+    pub list_widths: Option<BTreeMap<String, BTreeMap<String, Number>>>,
+    pub list_constraints: Option<BTreeMap<String, BTreeMap<String, Value>>>,
+    pub auto_width_boards: Option<BTreeMap<String, bool>>,
+    pub board_sort_index: Option<BTreeMap<String, Number>>,
+    pub fixed_list_width_boards: Option<BTreeMap<String, bool>>,
+    pub fixed_list_widths: Option<BTreeMap<String, Number>>,
+    pub swimlane_heights: Option<BTreeMap<String, BTreeMap<String, Number>>>,
+    pub collapsed_lists: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    pub collapsed_swimlanes: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    pub collapsed_card_sections: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    pub keyboard_shortcuts: Option<bool>,
+    pub vertical_scrollbars: Option<bool>,
+    pub show_week_of_year: Option<bool>,
+    pub date_format: Option<String>,
+    pub mobile_mode: Option<bool>,
+    pub card_zoom: Option<Number>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
-struct UserProfileNotification {
-    activity: String,
-    read: Option<String>,
+pub struct UserWorkspaceNode {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub icon: Option<String>,
+    pub children: Option<Vec<UserWorkspaceNode>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
-struct UserProfileStarredPage {
-    url: String,
-    title: String,
+pub struct UserProfileNotification {
+    pub activity: String,
+    pub read: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct UserProfileStarredPage {
+    pub url: String,
+    pub title: String,
 }
 
 pub type CurrentUserProfile = UserProfile;
@@ -300,7 +309,7 @@ where
 struct CreateUserRequestBody<'a> {
     username: &'a str,
     email: &'a str,
-    password: &'a str,
+    password: &'a UserPassword,
 }
 
 #[derive(Serialize)]
@@ -327,6 +336,22 @@ struct IdResponse {
 }
 
 impl WekanClient {
+    pub async fn update_user_without_action(
+        &self,
+        user_id: &str,
+        token: &SecretString,
+    ) -> Result<UserRecord, ClientError> {
+        let body = self
+            .execute_success_request(
+                self.http
+                    .put(self.user_endpoint(user_id, None)?)
+                    .header(ACCEPT, "application/json")
+                    .bearer_auth(token.expose_secret())
+                    .json(&serde_json::json!({})),
+            )
+            .await?;
+        validate_user_record(decode_success(&body, "user update", true)?, "user update")
+    }
     pub async fn current_user(&self, token: &SecretString) -> Result<CurrentUser, ClientError> {
         let body = self
             .execute_success_request(
@@ -407,7 +432,7 @@ impl WekanClient {
         let body = CreateUserRequestBody {
             username: &request.username,
             email: &request.email,
-            password: request.password.expose_secret(),
+            password: &request.password,
         };
         let response = self
             .execute_success_request(
@@ -603,5 +628,59 @@ mod strict_response_tests {
             }))
             .is_err()
         );
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum UserPassword {
+    Plaintext(SecretString),
+    Sha256(SecretString),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum PasswordDigestError {
+    #[error("invalid password digest object")]
+    InvalidObject,
+    #[error("password digest must use sha-256 and contain 64 UTF-16 code units")]
+    InvalidDigest,
+}
+impl From<SecretString> for UserPassword {
+    fn from(value: SecretString) -> Self {
+        Self::Plaintext(value)
+    }
+}
+impl UserPassword {
+    pub fn secret(&self) -> &SecretString {
+        match self {
+            Self::Plaintext(secret) | Self::Sha256(secret) => secret,
+        }
+    }
+    pub fn from_digest_json(input: &SecretString) -> Result<Self, PasswordDigestError> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Digest {
+            digest: String,
+            algorithm: String,
+        }
+        let value: Digest = serde_json::from_str(input.expose_secret())
+            .map_err(|_| PasswordDigestError::InvalidObject)?;
+        if value.algorithm != "sha-256" || value.digest.encode_utf16().count() != 64 {
+            return Err(PasswordDigestError::InvalidDigest);
+        }
+        Ok(Self::Sha256(SecretString::from(value.digest)))
+    }
+}
+impl Serialize for UserPassword {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Plaintext(value) => serializer.serialize_str(value.expose_secret()),
+            Self::Sha256(value) => {
+                use serde::ser::SerializeStruct;
+                let mut object = serializer.serialize_struct("PasswordDigest", 2)?;
+                object.serialize_field("digest", value.expose_secret())?;
+                object.serialize_field("algorithm", "sha-256")?;
+                object.end()
+            }
+        }
     }
 }

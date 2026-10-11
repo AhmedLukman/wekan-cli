@@ -93,6 +93,13 @@ requires `--password-stdin`; interactive `--code` conflicts with both stdin
 flags. Password and code value arguments, `WEKAN_PASSWORD`, and code environment
 variables are deliberately unsupported.
 
+For passwords containing line breaks, use `--password-raw-stdin` on login or
+registration. It reads exact UTF-8 input through EOF, including the final newline,
+and conflicts with `--password-stdin` and login code options. Empty raw input is
+accepted: Wekan can register a passwordless account, but its login route cannot
+subsequently log that account in with an empty password. Secrets remain absent
+from arguments, environment variables and output.
+
 ## Authentication status
 
 `auth status` reads the credential stored for the resolved target. It

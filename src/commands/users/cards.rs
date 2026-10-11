@@ -1,5 +1,4 @@
 use clap::Args;
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::{
     client::{UserCardQuery, WekanClientFactory},
@@ -18,12 +17,12 @@ pub struct CardsArgs {
     #[arg(long)]
     pub due: bool,
 
-    /// Include cards due at or after this RFC3339 timestamp.
-    #[arg(long, value_parser = rfc3339)]
+    /// Include cards due at or after this date accepted by Wekan.
+    #[arg(long, allow_hyphen_values = true)]
     pub from: Option<String>,
 
-    /// Include cards due at or before this RFC3339 timestamp.
-    #[arg(long, value_parser = rfc3339)]
+    /// Include cards due at or before this date accepted by Wekan.
+    #[arg(long, allow_hyphen_values = true)]
     pub to: Option<String>,
 }
 
@@ -61,27 +60,4 @@ pub(super) async fn execute(
         })
         .collect();
     Ok(CommandSuccess::UserCards(UserCardsSuccess { cards }))
-}
-
-fn rfc3339(value: &str) -> Result<String, String> {
-    OffsetDateTime::parse(value, &Rfc3339)
-        .map(|_| value.to_owned())
-        .map_err(|_| "value must be an RFC3339 timestamp".to_owned())
-}
-
-pub(super) fn validate_range(from: Option<&str>, to: Option<&str>) -> Result<(), AppError> {
-    let (Some(from), Some(to)) = (from, to) else {
-        return Ok(());
-    };
-    let from = OffsetDateTime::parse(from, &Rfc3339)
-        .map_err(|_| AppError::invalid_input("--from must be an RFC3339 timestamp"))?;
-    let to = OffsetDateTime::parse(to, &Rfc3339)
-        .map_err(|_| AppError::invalid_input("--to must be an RFC3339 timestamp"))?;
-    if from > to {
-        Err(AppError::invalid_input(
-            "--from must not be later than --to",
-        ))
-    } else {
-        Ok(())
-    }
 }

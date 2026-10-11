@@ -43,7 +43,9 @@ pub use swimlanes::{
 pub use users::{
     UserBoardMembership, UserBoardsSuccess, UserCard, UserCardsSuccess, UserCreateSuccess,
     UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail, UserListSuccess, UserLoginAction,
-    UserLoginChangeSuccess, UserOrganization, UserOwnershipSuccess, UserSummary, UserTeam,
+    UserLoginChangeSuccess, UserOrganization, UserOwnershipSuccess, UserProfileDetail,
+    UserProfileNotificationDetail, UserProfileStarredPageDetail, UserSessionData, UserSummary,
+    UserTeam, UserWorkspaceNodeDetail,
 };
 
 use serde::Serialize;
@@ -59,6 +61,7 @@ pub enum CommandSuccess {
     UserCurrent(UserDetail),
     UserList(UserListSuccess),
     UserShown(UserDetail),
+    UserUpdated(UserDetail),
     UserCards(UserCardsSuccess),
     UserCreated(UserCreateSuccess),
     UserBoards(UserBoardsSuccess),

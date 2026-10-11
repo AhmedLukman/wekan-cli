@@ -589,7 +589,7 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     );
     assert_eq!(after_update.description.as_deref(), Some("Updated details"));
     assert_eq!(after_update.color.as_deref(), Some("#12aBcF"));
-    assert_eq!(after_update.label_ids, [label_id.clone()]);
+    assert_eq!(after_update.label_ids, [Some(label_id.clone())]);
     assert_eq!(after_update.requested_by.as_deref(), Some("Requester"));
     assert_eq!(after_update.assigned_by.as_deref(), Some("Dispatcher"));
     assert_eq!(

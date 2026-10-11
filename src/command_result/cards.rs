@@ -119,7 +119,7 @@ pub struct CardDetail {
     pub description: Option<String>,
     pub requested_by: Option<String>,
     pub assigned_by: Option<String>,
-    pub label_ids: Vec<String>,
+    pub label_ids: Vec<Option<String>>,
     pub members: Vec<String>,
     pub assignees: Vec<String>,
     pub requesters: Vec<String>,

@@ -216,14 +216,15 @@ For example, a local-only deletion is:
 
 ## User success
 
-`user current` and `user get` return the same typed, resource-focused user
+`user current`, `user get`, and no-action `user update` return the same typed, resource-focused user
 shape. Optional scalar values are JSON `null`; collection fields are arrays.
 The exact scalar allowlist is `user_id`, `username`, `full_name`, `emails`,
 `is_admin`, `login_disabled`, `authentication_method`, `created_at`,
 `modified_at`, and `last_connection_date`, plus typed organization, team, and
-board-role memberships. All other profile fields, `created_through_api`, Wekan
-service/session data, password/token material, UI preferences, and unknown
-fields are excluded.
+board-role memberships. The complete typed `profile` uses snake_case keys;
+`created_through_api`, `heartbeat`, `session_data.total_hits`, and
+`import_usernames` preserve decoded metadata. Password/token material and Wekan
+services are excluded. Unknown response fields remain protocol errors.
 
 List results are nested under their resource name: `{"users": [...]}` for
 `user list`, `{"cards": [...]}` for `user cards`, and
@@ -246,8 +247,9 @@ Wekan v11.06's create-user response cannot provide the created ID:
 ```
 
 Login actions return `{"action":"disabled|enabled","user":{...}}`. In Wekan
-v11.06, `disabled` means the `loginDisabled` field was set and existing tokens
-were cleared; the REST login route does not enforce that field and can still
+v11.06, `disabled` records the requested action. Other-user requests set
+`loginDisabled` and clear existing tokens; self-targeting is an unchanged-user
+no-op. The returned user shows the actual state; the REST login route does not enforce that field and can still
 mint a new token with correct credentials. After `enableLogin`, Wekan v11.06
 omits `loginDisabled` from returned user documents, so the CLI outputs
 `login_disabled: null`.

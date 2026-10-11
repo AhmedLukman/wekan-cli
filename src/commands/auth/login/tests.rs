@@ -205,6 +205,7 @@ fn args() -> LoginArgs {
         username: Some("alice".to_owned()),
         email: None,
         password_stdin: false,
+        password_raw_stdin: false,
         code: false,
         code_stdin: false,
     }
@@ -342,6 +343,7 @@ fn valid_flags_map_to_one_secret_input_mode() {
             username: Some("alice".to_owned()),
             email: None,
             password_stdin,
+            password_raw_stdin: false,
             code,
             code_stdin,
         };

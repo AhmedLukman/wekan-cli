@@ -187,6 +187,119 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     };
     assert_eq!(raw_detail.text, "Server-trimmed comment");
 
+    let mut whitespace_comment_ids = Vec::new();
+    let comment_path = format!(
+        "api/boards/{}/cards/{}/comments",
+        board.board_id, card.card_id
+    );
+    for (input, expected) in [
+        ("\u{85}", "\u{85}"),
+        ("\u{85}Hello\u{85}", "\u{85}Hello\u{85}"),
+        (" \u{feff}\u{85}Hello\u{85} \n", "\u{85}Hello\u{85}"),
+        ("\u{feff}Hello\u{feff}", "Hello"),
+    ] {
+        let raw = live_api_json(
+            &http,
+            &canonical_server,
+            &admin_token,
+            reqwest::Method::POST,
+            &comment_path,
+            Some(serde_json::json!({"comment": input})),
+        )
+        .await;
+        let raw_id = required_id(&raw, "raw Unicode comment creation");
+        let CommandSuccess::CommentCreated(typed) = execute_live_comment(
+            &app,
+            &server,
+            &[
+                "create",
+                "--board",
+                &board.board_id,
+                "--card",
+                &card.card_id,
+                "--text",
+                input,
+            ],
+        )
+        .await
+        .expect("Wekan-compatible Unicode comment creation must succeed") else {
+            panic!("expected Unicode comment creation output")
+        };
+        for comment_id in [raw_id, typed.comment_id] {
+            let raw_detail = live_api_json(
+                &http,
+                &canonical_server,
+                &admin_token,
+                reqwest::Method::GET,
+                &format!("{comment_path}/{comment_id}"),
+                None,
+            )
+            .await;
+            assert_eq!(raw_detail["text"], expected);
+            let CommandSuccess::CommentShown(detail) = execute_live_comment(
+                &app,
+                &server,
+                &[
+                    "get",
+                    "--board",
+                    &board.board_id,
+                    "--card",
+                    &card.card_id,
+                    &comment_id,
+                ],
+            )
+            .await
+            .expect("Unicode comment reads must match the live server") else {
+                panic!("expected Unicode comment detail")
+            };
+            assert_eq!(detail.text, expected);
+            let CommandSuccess::CommentCollection(collection) = execute_live_comment(
+                &app,
+                &server,
+                &["list", "--board", &board.board_id, "--card", &card.card_id],
+            )
+            .await
+            .expect("listing must accept Wekan's Unicode comment text") else {
+                panic!("expected Unicode comment collection")
+            };
+            assert_eq!(
+                collection
+                    .comments
+                    .iter()
+                    .find(|comment| comment.comment_id == comment_id)
+                    .expect("the Unicode comment must be listed")
+                    .text,
+                expected
+            );
+            whitespace_comment_ids.push(comment_id);
+        }
+    }
+    for blank in ["", " \t\r\n", "\u{feff}", " \u{feff}\u{2028}\u{2029} "] {
+        let response = http
+            .post(format!("{canonical_server}{comment_path}"))
+            .bearer_auth(&admin_token)
+            .json(&serde_json::json!({"comment": blank}))
+            .send()
+            .await
+            .expect("the blank-comment probe must reach Wekan");
+        assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+        assert!(
+            Cli::try_parse_from([
+                "wekan",
+                "comment",
+                "create",
+                "--board",
+                &board.board_id,
+                "--card",
+                &card.card_id,
+                "--text",
+                blank,
+            ])
+            .is_err(),
+            "CLI and Wekan must reject the same blank text"
+        );
+    }
+
     let missing = execute_live_comment(
         &app,
         &server,
@@ -458,7 +571,10 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     };
     assert_eq!(admin_deleted_foreign.delete_mode, CommentDeleteMode::Hard);
 
-    for comment_id in [created.comment_id, raw_comment_id] {
+    for comment_id in [created.comment_id, raw_comment_id]
+        .into_iter()
+        .chain(whitespace_comment_ids)
+    {
         let CommandSuccess::CommentDeleted(deleted) = execute_live_comment(
             &app,
             &server,

@@ -400,6 +400,64 @@ async fn comment_responses_reject_unmapped_missing_and_invalid_fields() {
 }
 
 #[tokio::test]
+async fn comment_reads_accept_next_line_text_and_reject_javascript_blank_text() {
+    let server = MockServer::start().await;
+    let client = client(&server);
+    for (index, (text, accepted)) in [
+        ("\u{85}", true),
+        ("\u{85}Hello\u{85}", true),
+        ("", false),
+        (" \t\r\n", false),
+        ("\u{feff}", false),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let card_id = format!("card-{index}");
+        let base = format!("/api/boards/board-1/cards/{card_id}/comments");
+        Mock::given(method("GET"))
+            .and(path(&base))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "_id": "comment-1", "comment": text, "authorId": "user-1"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("{base}/comment-1")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id": "comment-1", "boardId": "board-1", "cardId": card_id,
+                "text": text, "userId": "user-1",
+                "createdAt": "2030-01-02T03:04:05.000Z",
+                "modifiedAt": "2030-01-02T03:04:05.000Z"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let collection = client
+            .card_comments("board-1", &card_id, &user_token())
+            .await;
+        let detail = client
+            .comment("board-1", &card_id, "comment-1", &user_token())
+            .await;
+        if accepted {
+            assert_eq!(collection.unwrap()[0].text, text);
+            assert_eq!(detail.unwrap().text, text);
+        } else {
+            for error in [collection.unwrap_err(), detail.unwrap_err()] {
+                assert!(matches!(
+                    error,
+                    ClientError::Protocol {
+                        success_status_received: true,
+                        ..
+                    }
+                ));
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn comment_missing_and_mutation_id_response_shapes_are_strict() {
     let server = MockServer::start().await;
     let base = "/api/boards/board-1/cards/card-1/comments";
@@ -1048,6 +1106,46 @@ async fn card_responses_decode_complete_documents_and_normalize_omissions() {
 }
 
 #[tokio::test]
+async fn card_reads_preserve_cleaned_custom_fields_nullable_labels_and_extended_dates() {
+    let server = MockServer::start().await;
+    let mut body = complete_card_response();
+    body["customFields"] = json!([{"_id":"","value":""}]);
+    body["labelIds"] = json!([null, "label-1"]);
+    body["dueAt"] = json!("+010000-01-01T00:00:00.000Z");
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards/card-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board-1/lists/list-1/cards"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{"_id":"card-1","dueAt":"-000001-01-01T00:00:00.000Z"}])),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    let card = client
+        .card("board-1", "list-1", "card-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(card.custom_fields[0].custom_field_id.as_deref(), Some(""));
+    assert_eq!(card.label_ids, vec![None, Some("label-1".to_owned())]);
+    assert_eq!(card.due_at.as_deref(), Some("+010000-01-01T00:00:00.000Z"));
+    let cards = client
+        .board_list_cards("board-1", "list-1", &user_token())
+        .await
+        .unwrap();
+    assert_eq!(
+        cards[0].due_at.as_deref(),
+        Some("-000001-01-01T00:00:00.000Z")
+    );
+}
+
+#[tokio::test]
 async fn card_responses_reject_unmapped_top_level_and_nested_fields() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -1260,7 +1358,7 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
-                    title: Some("Todo".to_owned()),
+                    title: Some(Some("Todo".to_owned())),
                     linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),
                     description: None,
@@ -2547,6 +2645,76 @@ async fn current_user_accepts_absent_optional_profile_fields() {
     assert_eq!(user.full_name(), None);
     assert_eq!(user.is_admin(), None);
     assert!(user.emails().is_empty());
+}
+
+#[tokio::test]
+async fn user_workspace_nodes_decode_known_fields_and_reject_unmapped_nested_fields() {
+    let known = json!([{
+        "id": "root", "name": "Delivery", "children": [
+            {"id":"child", "name":"Nested", "icon":"folder", "children":[]},
+            {}
+        ]
+    }]);
+    let mut unknown_node = known.clone();
+    unknown_node[0]["unmapped"] = json!(true);
+    let mut unknown_child = known.clone();
+    unknown_child[0]["children"][0]["unmapped"] = json!(true);
+    let mut unknown_descendant = known.clone();
+    unknown_descendant[0]["children"][0]["children"] = json!([{"unmapped":true}]);
+    for (tree, accepted) in [
+        (known.clone(), true),
+        (json!([]), true),
+        (unknown_node, false),
+        (unknown_child, false),
+        (unknown_descendant, false),
+        (json!([{"id":42}]), false),
+        (json!([{"name":true}]), false),
+        (json!([{"icon":42}]), false),
+        (json!([{"children":{}}]), false),
+        (json!([{"children":["invalid"]}]), false),
+        (json!([{"children":[{"name":42}]}]), false),
+    ] {
+        let server = MockServer::start().await;
+        for endpoint in ["/api/user", "/api/users/user-1"] {
+            Mock::given(method("GET"))
+                .and(path(endpoint))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "_id":"user-1", "profile":{"boardWorkspacesTree":tree}
+                })))
+                .expect(1)
+                .mount(&server)
+                .await;
+        }
+        let client = client(&server);
+        for result in [
+            client.current_user(&status_token()).await,
+            client.user("user-1", &user_token()).await,
+        ] {
+            if accepted {
+                let nodes = result.unwrap().profile.board_workspaces_tree.unwrap();
+                assert_eq!(nodes.len(), tree.as_array().unwrap().len());
+                if !nodes.is_empty() {
+                    assert_eq!(nodes[0].id.as_deref(), Some("root"));
+                    assert_eq!(nodes[0].name.as_deref(), Some("Delivery"));
+                    assert_eq!(nodes[0].icon, None);
+                    let children = nodes[0].children.as_ref().unwrap();
+                    assert_eq!(children[0].icon.as_deref(), Some("folder"));
+                    assert_eq!(children[0].children.as_ref().unwrap().len(), 0);
+                    assert_eq!(children[1].id, None);
+                    assert_eq!(children[1].name, None);
+                    assert_eq!(children[1].children, None);
+                }
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(ClientError::Protocol {
+                        success_status_received: true,
+                        ..
+                    })
+                ));
+            }
+        }
+    }
 }
 
 #[tokio::test]

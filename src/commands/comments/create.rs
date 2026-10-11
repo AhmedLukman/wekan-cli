@@ -1,7 +1,7 @@
 use clap::Args;
 
 use crate::{
-    client::{CreateCommentRequest, WekanClientFactory},
+    client::{CreateCommentRequest, WekanClientFactory, comments::is_blank_comment_text},
     command_result::{CommandSuccess, CommentCreateSuccess},
     commands::{authenticated::AuthenticatedContext, client_error::map_client_error},
     credentials::CredentialStore,
@@ -25,9 +25,17 @@ pub struct CreateArgs {
     #[arg(long = "card", value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
-    /// Comment text.
-    #[arg(long, value_parser = non_empty)]
+    /// Comment text; Wekan trims JavaScript whitespace and preserves other characters.
+    #[arg(long, value_parser = comment_text)]
     pub text: String,
+}
+
+fn comment_text(value: &str) -> Result<String, String> {
+    if is_blank_comment_text(value) {
+        Err("comment text must not be empty or JavaScript whitespace".to_owned())
+    } else {
+        Ok(value.to_owned())
+    }
 }
 
 pub(super) async fn execute(

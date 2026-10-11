@@ -10,7 +10,6 @@ mod update;
 mod tests;
 
 use clap::{Args, Subcommand};
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::{
     client::WekanClientFactory, command_result::CommandSuccess, credentials::CredentialStore,
@@ -83,8 +82,10 @@ fn trimmed_non_empty(value: &str) -> Result<String, String> {
     }
 }
 
-fn rfc3339(value: &str) -> Result<String, String> {
-    OffsetDateTime::parse(value, &Rfc3339)
-        .map(|_| value.to_owned())
-        .map_err(|_| "value must be an RFC3339 date-time".to_owned())
+fn date_input(value: &str) -> Result<crate::client::cards::CardDateInput, String> {
+    use crate::client::cards::CardDateInput;
+    Ok(match value.trim().parse::<serde_json::Number>() {
+        Ok(number) => CardDateInput::EpochMilliseconds(number),
+        Err(_) => CardDateInput::Text(value.to_owned()),
+    })
 }

@@ -20,6 +20,9 @@ use crate::{
 use super::{map_client_error, non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Wekan v11.06 self-targeting can deactivate your membership when another active board administrator exists."
+)]
 pub struct TakeOwnershipArgs {
     /// Wekan user ID whose administered boards will be transferred.
     #[arg(value_parser = non_empty)]
@@ -36,18 +39,15 @@ pub(super) async fn execute(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
-    if args.user_id == context.record().user_id() {
-        return Err(AppError::invalid_input(
-            "cannot transfer ownership from the currently authenticated user",
-        ));
-    }
-    let request = ConfirmationRequest::new(
-        DestructiveOperation::UserTakeOwnership,
+    let effect = if args.user_id == context.record().user_id() {
+        "Run Wekan's self ownership action, which can deactivate your board memberships?".to_owned()
+    } else {
         format!(
             "Transfer every board administered by Wekan user `{}` to the current user?",
             args.user_id
-        ),
-    );
+        )
+    };
+    let request = ConfirmationRequest::new(DestructiveOperation::UserTakeOwnership, effect);
     if confirm_or_skip(&args.confirmation, confirmation, &request)?
         == ConfirmationDecision::Cancelled
     {

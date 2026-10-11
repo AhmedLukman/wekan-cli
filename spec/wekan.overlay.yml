@@ -1193,8 +1193,9 @@ actions:
         type: object
         description: >-
           Board-create body consumed by Wekan v11.06 server/models/boards.js.
-          The route always makes the initial owner an active administrator;
-          isAdmin and isActive are therefore not meaningful caller controls.
+          The initial owner defaults to an active administrator. Boolean false is
+          forced to true by the route; string "false" is truthy, passes through
+          and is cleaned to false by the board schema.
         required: [title]
         properties:
           title:
@@ -1212,10 +1213,10 @@ actions:
             default: belize
           isAdmin:
             type: boolean
-            description: Accepted by the route but always forced to true in v11.06.
+            description: Boolean false is forced to true; string false is accepted and persists false.
           isActive:
             type: boolean
-            description: Accepted by the route but always forced to true in v11.06.
+            description: Boolean false is forced to true; string false is accepted and persists false.
           isNoComments:
             type: boolean
           isCommentOnly:
@@ -24417,3 +24418,90 @@ actions:
             Meteor.Error(404), producing HTTP 500 HTML rather than HTTP 404. Other uncaught
             failures also use HTTP 500 and may follow partial recursive child changes.
           x-wekan-v11.06-defect: card-archive-restore-missing-card-http500
+
+  - target: $.definitions.BoardCreateRequest.properties.isAdmin
+    description: Replace the boolean-only initial owner flag before recording verified string input.
+    remove: true
+  - target: $.definitions.BoardCreateRequest.properties.isActive
+    description: Replace the boolean-only initial owner flag before recording verified string input.
+    remove: true
+  - target: $.definitions.BoardCreateRequest.properties
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/boards.js 936-944 and models/boards.js member schema.
+      tests/e2e/compatibility.rs verifies string false creates a non-admin owner
+      and an inactive owner loses board read access. Literal false still becomes true.
+    update:
+      isAdmin:
+        x-oneOf:
+          - type: boolean
+          - type: string
+        description: Defaults to true. Boolean false is ignored; string false persists false after schema cleaning.
+      isActive:
+        x-oneOf:
+          - type: boolean
+          - type: string
+        description: Defaults to true. Boolean false is ignored; string false persists false after schema cleaning.
+  - target: $.definitions.ListUpdateRequest.properties.starred
+    description: >-
+      Wekan v11.06 models/lib/listApiUpdate.js forwards explicitly present starred values.
+      tests/e2e/compatibility.rs updates starred to null and reads it back through the CLI.
+    update:
+      x-nullable: true
+  - target: $.definitions.CardSummary.properties[?(@.format == 'date-time')].format
+    description: JavaScript Date.toISOString supports signed six-digit years outside RFC3339.
+    remove: true
+  - target: $.definitions.Cards.properties[?(@.format == 'date-time')].format
+    description: JavaScript Date.toISOString supports signed six-digit years outside RFC3339.
+    remove: true
+  - target: $.definitions.UserCardSummary.properties[?(@.format == 'date-time')].format
+    description: JavaScript Date.toISOString supports signed six-digit years outside RFC3339.
+    remove: true
+  - target: $.definitions.CardsVote.properties.end.format
+    description: JavaScript Date.toISOString supports signed six-digit years outside RFC3339.
+    remove: true
+  - target: $.definitions.CardsPoker.properties.end.format
+    description: JavaScript Date.toISOString supports signed six-digit years outside RFC3339.
+    remove: true
+  - target: $.definitions.CardSummary.properties.dueAt
+    description: >-
+      Wekan v11.06 server/lib/restCardHelpers.js 79-106 accepts epoch milliseconds;
+      server/models/cards.js returns the stored JavaScript Date. The pinned live
+      regression in tests/e2e/compatibility.rs writes 253402300800000 and reads
+      +010000-01-01T00:00:00.000Z through both card get and card list. The same
+      Date serialization applies to every card response date property.
+    update:
+      description: JavaScript ISO date string, including signed six-digit years within the JavaScript Date range.
+  - target: $.definitions.CommentCreateRequest.properties.comment
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/lib/apiResponseHelpers.js 101-107 uses String.prototype.trim();
+      server/models/cardComments.js 149-168 inserts that value. Live regression
+      tests/e2e/comments.rs verifies U+0085 alone/surrounding text and U+FEFF.
+    update:
+      description: >-
+        Must be nonblank after JavaScript String.prototype.trim(). Wekan trims
+        JavaScript whitespace before insertion; U+0085 is preserved, while U+FEFF
+        is whitespace. A comment containing only U+0085 is accepted.
+  - target: $.definitions.CommentSummary.properties.comment
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cardComments.js 95-110 projects stored text without trimming.
+      Live regression tests/e2e/comments.rs verifies Unicode comment readback.
+    update:
+      description: Stored comment text, preserving U+0085 even when it is the entire comment.
+  - target: $.definitions.CardComments.properties.text
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cardComments.js 119-134 returns the complete stored document.
+      Live regression tests/e2e/comments.rs verifies Unicode comment readback.
+    update:
+      description: Stored comment text, preserving U+0085 even when it is the entire comment.
+  - target: $.definitions.CardUpdateRequest.properties.labelIds["x-oneOf"][?(@.type == 'array')].items
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js 1408-1418 forwards labelIds array elements unchanged.
+      tests/e2e/compatibility.rs updates labels to [null] and reads back the
+      persisted null element through card get.
+    update:
+      x-nullable: true

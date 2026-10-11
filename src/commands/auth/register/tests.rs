@@ -145,6 +145,7 @@ fn args() -> RegisterArgs {
         username: Some("alice".to_owned()),
         email: Some("alice@example.com".to_owned()),
         password_stdin: false,
+        password_raw_stdin: false,
     }
 }
 

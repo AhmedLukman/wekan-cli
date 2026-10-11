@@ -196,7 +196,7 @@ fn validate_comment_summaries(
 ) -> Result<Vec<CommentSummary>, ClientError> {
     for comment in &comments {
         require_non_empty(&comment.comment_id, "card comment collection", "comment id")?;
-        require_non_empty(&comment.text, "card comment collection", "text")?;
+        require_comment_text(&comment.text, "card comment collection")?;
         require_non_empty(&comment.author_id, "card comment collection", "author id")?;
     }
     Ok(comments)
@@ -207,11 +207,11 @@ fn validate_comment_document(comment: CommentDocument) -> Result<CommentDocument
         ("comment id", comment.comment_id.as_str()),
         ("board id", comment.board_id.as_str()),
         ("card id", comment.card_id.as_str()),
-        ("text", comment.text.as_str()),
         ("author id", comment.author_id.as_str()),
     ] {
         require_non_empty(value, "comment", field)?;
     }
+    require_comment_text(&comment.text, "comment")?;
     if let Some(parent_id) = &comment.parent_id {
         require_non_empty(parent_id, "comment", "parent id")?;
     }
@@ -231,6 +231,36 @@ fn require_non_empty(value: &str, operation: &str, field: &str) -> Result<(), Cl
     if value.trim().is_empty() {
         return Err(protocol_error(format!(
             "the {operation} response contained an empty {field}"
+        )));
+    }
+    Ok(())
+}
+
+/// Matches String.prototype.trim() in Wekan v11.06's validateCommentBody.
+/// JavaScript preserves U+0085 and trims U+FEFF, unlike Rust's Unicode whitespace.
+pub(crate) fn is_blank_comment_text(value: &str) -> bool {
+    value.chars().all(|character| {
+        matches!(
+            character,
+            '\u{0009}'..='\u{000D}'
+                | ' '
+                | '\u{00A0}'
+                | '\u{1680}'
+                | '\u{2000}'..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
+        )
+    })
+}
+
+fn require_comment_text(value: &str, operation: &str) -> Result<(), ClientError> {
+    if is_blank_comment_text(value) {
+        return Err(protocol_error(format!(
+            "the {operation} response contained an empty text"
         )));
     }
     Ok(())

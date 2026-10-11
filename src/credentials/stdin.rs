@@ -4,6 +4,14 @@ use secrecy::SecretString;
 
 use crate::error::AppError;
 
+pub(super) fn read_raw_secret(mut reader: impl std::io::Read) -> Result<SecretString, AppError> {
+    let mut value = String::new();
+    reader
+        .read_to_string(&mut value)
+        .map_err(|_| AppError::invalid_input("could not read UTF-8 secret input from stdin"))?;
+    Ok(SecretString::from(value))
+}
+
 pub(super) fn read_password_line(mut reader: impl BufRead) -> Result<SecretString, AppError> {
     let password = read_line(&mut reader, "password")?;
     super::validate_password(password, None)
@@ -38,6 +46,15 @@ mod tests {
     use secrecy::ExposeSecret;
 
     use super::{read_code_line, read_password_line};
+
+    #[test]
+    fn raw_input_preserves_every_byte_and_accepts_empty_passwords() {
+        for input in ["", "first\nsecond\r\n", " leading and trailing \n"] {
+            let secret = super::read_raw_secret(input.as_bytes()).unwrap();
+            assert_eq!(secret.expose_secret(), input);
+        }
+        assert!(super::read_raw_secret(&b"\xff"[..]).is_err());
+    }
 
     #[test]
     fn removes_only_the_line_ending() {
