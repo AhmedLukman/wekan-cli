@@ -117,6 +117,30 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::BoardMembers(data)) => {
+            boards::render_membership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardMembers(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardMemberChanged(data)) => {
+            boards::render_membership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardMemberChanged(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardMemberUpdated(data)) => {
+            boards::render_membership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardMemberUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardMembers(data)) => cards::render_membership(data),
+        (OutputFormat::Json, CommandSuccess::CardMembers(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardAssignees(data)) => {
+            cards::render_membership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CardAssignees(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardMembershipChanged(data)) => {
+            cards::render_membership(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CardMembershipChanged(data)) => {
+            render_json_success(data)
+        }
         (OutputFormat::Human, CommandSuccess::CardDependencies(data)) => {
             dependencies::card_collection(data)
         }

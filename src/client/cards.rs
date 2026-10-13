@@ -7,6 +7,7 @@ use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
 mod custom_fields;
+pub mod membership;
 pub use archival::{ArchiveCardResult, RestoreCardResult};
 pub(crate) use custom_fields::validate_custom_field_query_value;
 pub use custom_fields::{SetCardCustomFieldRequest, SetCardCustomFieldResponse};

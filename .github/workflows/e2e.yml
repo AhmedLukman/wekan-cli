@@ -39,6 +39,10 @@ jobs:
       max-parallel: 4
       matrix:
         include:
+          - name: Board and card memberships
+            key: memberships
+            variable: WEKAN_MEMBERSHIP_E2E_URL
+            test: memberships::complete_membership_lifecycle_matches_wekan_v11_06
           - name: Dependencies
             key: dependencies
             variable: WEKAN_DEPENDENCY_E2E_URL

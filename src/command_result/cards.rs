@@ -1,6 +1,41 @@
 use serde::Serialize;
 use serde_json::Number;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CardMembershipKind {
+    Member,
+    Assignee,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardMemberCollectionSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub members: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardAssigneeCollectionSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub assignees: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardMembershipMutationSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub user_id: String,
+    pub kind: CardMembershipKind,
+    pub action: super::MembershipAction,
+    pub members: Vec<String>,
+    pub assignees: Vec<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CardSummary {
     pub card_id: String,

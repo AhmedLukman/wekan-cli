@@ -4,6 +4,7 @@ mod delete;
 mod find_by_custom_field;
 mod get;
 mod list;
+mod membership;
 mod restore;
 mod set_custom_field;
 mod update;
@@ -14,8 +15,11 @@ mod tests;
 use clap::{Args, Subcommand};
 
 use crate::{
-    client::WekanClientFactory, command_result::CommandSuccess, credentials::CredentialStore,
-    error::AppError, input::ConfirmationProvider,
+    client::WekanClientFactory,
+    command_result::{CardMembershipKind, CommandSuccess},
+    credentials::CredentialStore,
+    error::AppError,
+    input::ConfirmationProvider,
 };
 
 #[derive(Debug, Args)]
@@ -26,6 +30,10 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    /// List or merge individual card members.
+    Member(membership::MembershipArgs),
+    /// List or merge individual card assignees.
+    Assignee(membership::MembershipArgs),
     /// List the cards returned by Wekan for a board list.
     List(list::ListArgs),
 
@@ -59,6 +67,24 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::Member(args) => {
+            membership::dispatch(
+                args.command,
+                CardMembershipKind::Member,
+                client_factory,
+                credential_store,
+            )
+            .await
+        }
+        CardCommand::Assignee(args) => {
+            membership::dispatch(
+                args.command,
+                CardMembershipKind::Assignee,
+                client_factory,
+                credential_store,
+            )
+            .await
+        }
         CardCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         CardCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         CardCommand::SetCustomField(args) => {

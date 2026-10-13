@@ -1,5 +1,10 @@
 # Cards
 
+`card member list/add/remove` and `card assignee list/add/remove` inspect and
+merge individual assignments. See [board and card memberships](memberships.md)
+for syntax and pinned behavior. The existing create/update flags continue to
+supply complete replacement arrays.
+
 Card-to-card dependency management is covered by the root
 [`wekan dependency` family](dependencies.md). Its list endpoints return normalized
 metadata. `card get` preserves raw optional/null/empty dependency metadata and

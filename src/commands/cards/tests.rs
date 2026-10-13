@@ -136,6 +136,95 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 #[tokio::test]
+async fn membership_commands_render_lists_and_both_mutation_arrays_without_confirmation() {
+    use crate::output::{OutputFormat, render_success};
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let confirmation = FakeConfirmationProvider::declining();
+    for kind in ["member", "assignee"] {
+        for action in ["list", "add", "remove"] {
+            server.reset().await;
+            let response = if action == "list" {
+                json!({"_id":"c","title":"Card","boardId":"b","listId":"l","archived":false,"swimlaneId":"s","createdAt":"2030-01-02T03:04:05Z","modifiedAt":"2030-01-02T03:04:05Z","dateLastActivity":"2030-01-02T03:04:05Z","userId":"u","type":"cardType-card","showActivities":false,"members":["u\u{1b}[31m"],"assignees":["a"]})
+            } else {
+                json!({"_id":"c","members":["u\u{1b}[31m"],"assignees":["a"]})
+            };
+            Mock::given(method(match action {
+                "list" => "GET",
+                "add" => "POST",
+                _ => "DELETE",
+            }))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+            let mut args = vec![kind, action];
+            if action != "list" {
+                args.push("u");
+            }
+            args.extend(["--board", "b", "--list", "l", "--card", "c"]);
+            let result = dispatch(
+                card_command(&args),
+                &factory(&server),
+                &store,
+                &confirmation,
+            )
+            .await
+            .unwrap();
+            let data = serde_json::from_str::<serde_json::Value>(&render_success(
+                OutputFormat::Json,
+                &result,
+            ))
+            .unwrap()["data"]
+                .clone();
+            assert_eq!(data["card_id"], "c");
+            assert_eq!(data["board_id"], "b");
+            assert_eq!(data["list_id"], "l");
+            if action != "list" {
+                assert_eq!(data["action"], action);
+                assert_eq!(data["kind"], kind);
+                assert_eq!(data["assignees"], json!(["a"]));
+                assert_eq!(data["members"], json!(["u\u{1b}[31m"]));
+            }
+            assert!(!render_success(OutputFormat::Human, &result).contains('\u{1b}'));
+            assert_eq!(server.received_requests().await.unwrap().len(), 1);
+        }
+    }
+    assert!(confirmation.requests().is_empty());
+}
+
+#[tokio::test]
+async fn membership_mutation_protocol_failures_have_unknown_outcomes() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    for kind in ["member", "assignee"] {
+        for action in ["add", "remove"] {
+            server.reset().await;
+            Mock::given(method(if action == "add" { "POST" } else { "DELETE" }))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({"_id":"wrong","members":[],"assignees":[]})),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = dispatch(
+                card_command(&[
+                    kind, action, "u", "--board", "b", "--list", "l", "--card", "c",
+                ]),
+                &factory(&server),
+                &store,
+                &FakeConfirmationProvider::declining(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.code(), ErrorCode::ProtocolError);
+            assert_eq!(error.details().outcome_unknown, Some(true));
+        }
+    }
+}
+
+#[tokio::test]
 async fn archive_restore_dispatch_typed_results_without_confirmation() {
     let server = MockServer::start().await;
     for (command, action, response) in [

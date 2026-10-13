@@ -660,6 +660,28 @@ still determines the error classification and exit status. A syntactically
 valid JSON error object with unmapped fields or invalid known-field types is a
 `protocol_error`; it is never silently reduced to a generic server error.
 
+## Memberships
+
+Nested `board member`, `card member`, and `card assignee` commands use the
+standard human/JSON envelopes. Board lists preserve all membership records,
+including inactive members and nullable optional permission flags. Card lists
+preserve the selected user-ID array in server order. These reads strictly
+decode the complete board/card document before projecting the membership data.
+
+Board add/remove expose `board_id`, `user_id`, `action`, returned `boards`, and
+`mutation_confirmed: false`. Permission updates expose `board_id`, `user_id`,
+`affected_documents`, and ordered `submitted_fields`; counts are not saved
+permission values. Card mutations expose `board_id`, `list_id`, `card_id`,
+`user_id`, `kind` (`member` or `assignee`), `action` (`add` or `remove`), and both
+returned `members` and `assignees` arrays from the requested card. For linked
+cards, Wekan changes the source card but returns the link's stored arrays;
+those arrays do not confirm the source's saved assignments. Unknown fields,
+invalid response types, empty board mutation bodies, and mismatched card IDs
+fail explicitly.
+Ambiguous mutation errors include `outcome_unknown: true`; no retry or repair
+occurs. Removals require no confirmation and accept no `--yes`.
+See [membership commands](memberships.md) for permissions and pinned no-ops.
+
 ## Custom fields
 
 Custom-field and dropdown-item commands use the standard typed success/error

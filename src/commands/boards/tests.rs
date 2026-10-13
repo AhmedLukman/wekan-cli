@@ -135,6 +135,147 @@ fn factory(server: &MockServer) -> WekanClientFactory {
     WekanClientFactory::for_profile(format!("{}/", server.uri()), "default".to_owned(), false)
 }
 
+#[tokio::test]
+async fn membership_commands_render_full_records_and_unconfirmed_acknowledgments() {
+    use crate::output::{OutputFormat, render_success};
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let confirmation = FakeConfirmationProvider::declining();
+    let cases = [
+        (
+            vec!["member", "list", "--board", "b"],
+            "/api/boards/b",
+            json!({"_id":"b","title":"Board","members":[{"userId":"u\u{1b}[31m","isAdmin":false,"isActive":false,"isReadOnly":true}]}),
+            None,
+        ),
+        (
+            vec![
+                "member",
+                "add",
+                "u",
+                "--board",
+                "b",
+                "--role",
+                "WoRkEr",
+                "--is-admin",
+                "false",
+            ],
+            "/api/boards/b/members/u/add",
+            json!([{"_id":"b","title":"Board"}]),
+            Some(json!({"action":"add","role":"worker","isAdmin":false})),
+        ),
+        (
+            vec!["member", "remove", "u", "--board", "b"],
+            "/api/boards/b/members/u/remove",
+            json!([]),
+            Some(json!({"action":"remove"})),
+        ),
+        (
+            vec![
+                "member",
+                "update",
+                "u",
+                "--board",
+                "b",
+                "--is-read-only",
+                "false",
+            ],
+            "/api/boards/b/members/u",
+            json!(0),
+            Some(json!({"isReadOnly":false})),
+        ),
+    ];
+    for (args, endpoint, response, request) in cases {
+        server.reset().await;
+        let mut mock =
+            Mock::given(path(endpoint)).and(method(if request.is_some() { "POST" } else { "GET" }));
+        if let Some(request) = request {
+            mock = mock.and(body_json(request));
+        }
+        mock.respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let result = dispatch(
+            board_command(&args),
+            &factory(&server),
+            &store,
+            &confirmation,
+        )
+        .await
+        .unwrap();
+        let data =
+            serde_json::from_str::<serde_json::Value>(&render_success(OutputFormat::Json, &result))
+                .unwrap()["data"]
+                .clone();
+        let human = render_success(OutputFormat::Human, &result);
+        assert!(human.contains("board_id: b"));
+        assert!(!human.contains('\u{1b}'));
+        match args[1] {
+            "list" => {
+                assert_eq!(data["members"][0]["is_active"], false);
+                assert_eq!(data["members"][0]["is_read_only"], true);
+                assert!(data["members"][0]["is_worker"].is_null());
+            }
+            "add" | "remove" => {
+                assert_eq!(data["mutation_confirmed"], false);
+                assert_eq!(data["action"], args[1]);
+            }
+            "update" => {
+                assert_eq!(data["affected_documents"], 0);
+                assert_eq!(data["submitted_fields"], json!(["is_read_only"]));
+            }
+            _ => unreachable!(),
+        }
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    }
+    assert!(confirmation.requests().is_empty());
+}
+
+#[tokio::test]
+async fn membership_errors_retain_strict_decoding_and_unknown_mutation_outcomes() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    for (args, response, expected, unknown) in [
+        (
+            vec!["member", "list", "--board", "b"],
+            json!({"_id":"b","title":"Board","members":[{"userId":"u","isAdmin":true,"isActive":true,"unmapped":"secret"}]}),
+            ErrorCode::ProtocolError,
+            false,
+        ),
+        (
+            vec!["member", "add", "u", "--board", "b"],
+            json!([{"_id":"b","title":"Board","unmapped":"secret"}]),
+            ErrorCode::ProtocolError,
+            true,
+        ),
+        (
+            vec!["member", "update", "u", "--board", "b", "--role", "normal"],
+            json!({"error":"not-authorized","reason":"Denied","statusCode":403}),
+            ErrorCode::PermissionDenied,
+            false,
+        ),
+    ] {
+        server.reset().await;
+        Mock::given(method(if args[1] == "list" { "GET" } else { "POST" }))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let error = dispatch(
+            board_command(&args),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::declining(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code(), expected);
+        assert_eq!(error.details().outcome_unknown == Some(true), unknown);
+        assert!(!error.message().contains("secret"));
+    }
+}
+
 fn board_command(arguments: &[&str]) -> BoardCommand {
     let mut all = vec!["wekan", "--server", "https://wekan.example", "board"];
     all.extend_from_slice(arguments);

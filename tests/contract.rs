@@ -94,3 +94,5 @@ mod attachments;
 mod custom_fields;
 #[path = "contract/dependencies.rs"]
 mod dependencies;
+#[path = "contract/memberships.rs"]
+mod memberships;

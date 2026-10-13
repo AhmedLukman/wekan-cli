@@ -5,6 +5,15 @@ use crate::command_result::{
     CardUpdateSuccess,
 };
 
+pub(super) fn render_membership<T: serde::Serialize>(data: &T) -> String {
+    let value = serde_json::to_value(data).expect("card membership results serialize as objects");
+    let mut lines = Vec::new();
+    for (name, value) in value.as_object().expect("membership result object") {
+        render_named_value_complete(&mut lines, 0, name, value);
+    }
+    lines.join("\n")
+}
+
 pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
     if data.cards.is_empty() {
         return format!(

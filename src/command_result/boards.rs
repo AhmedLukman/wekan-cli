@@ -2,6 +2,43 @@ use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct BoardMemberCollectionSuccess {
+    pub board_id: String,
+    pub members: Vec<BoardDetailMember>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct BoardMemberMutationSuccess {
+    pub board_id: String,
+    pub user_id: String,
+    pub action: super::MembershipAction,
+    pub boards: Vec<BoardSummary>,
+    pub mutation_confirmed: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BoardMemberSubmittedField {
+    Role,
+    IsAdmin,
+    IsNoComments,
+    IsCommentOnly,
+    IsWorker,
+    IsNormalAssignedOnly,
+    IsCommentAssignedOnly,
+    IsReadOnly,
+    IsReadAssignedOnly,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct BoardMemberUpdateSuccess {
+    pub board_id: String,
+    pub user_id: String,
+    pub affected_documents: u64,
+    pub submitted_fields: Vec<BoardMemberSubmittedField>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct BoardSummary {
     pub board_id: String,
     pub title: String,

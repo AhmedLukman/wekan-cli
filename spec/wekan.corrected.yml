@@ -4424,9 +4424,10 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Returns the requested card ID and its stored member/assignee arrays after the awaited mutation. For a linked card, the mutation changes the source card but the response reads the link's own arrays copied at creation, which can remain empty or retain older assignments. These arrays do not confirm the source's saved assignments.
                     schema:
                         $ref: "#/definitions/CardMemberResponse"
+                    x-wekan-v11.06-defect: linked-card-membership-response-reads-link
                 "400":
                     description: Added user ID is not an active member of this board. Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -4498,9 +4499,10 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Returns the requested card ID and its stored member/assignee arrays after the awaited mutation. For a linked card, the mutation changes the source card but the response reads the link's own arrays copied at creation, which can remain empty or retain older assignments. These arrays do not confirm the source's saved assignments.
                     schema:
                         $ref: "#/definitions/CardMemberResponse"
+                    x-wekan-v11.06-defect: linked-card-membership-response-reads-link
                 "400":
                     description: Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -4946,9 +4948,10 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Returns the requested card ID and its stored member/assignee arrays after the awaited mutation. For a linked card, the mutation changes the source card but the response reads the link's own arrays copied at creation, which can remain empty or retain older assignments. These arrays do not confirm the source's saved assignments.
                     schema:
                         $ref: "#/definitions/CardMemberResponse"
+                    x-wekan-v11.06-defect: linked-card-membership-response-reads-link
                 "400":
                     description: Added user ID is not an active member of this board. Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -5020,9 +5023,10 @@ paths:
                   required: true
             responses:
                 "200":
-                    description: 200 response
+                    description: Returns the requested card ID and its stored member/assignee arrays after the awaited mutation. For a linked card, the mutation changes the source card but the response reads the link's own arrays copied at creation, which can remain empty or retain older assignments. These arrays do not confirm the source's saved assignments.
                     schema:
                         $ref: "#/definitions/CardMemberResponse"
+                    x-wekan-v11.06-defect: linked-card-membership-response-reads-link
                 "400":
                     description: Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -12921,7 +12925,7 @@ definitions:
         additionalProperties: false
     CardMemberResponse:
         type: object
-        description: Card member/assignee merge result from server/models/cards.js lines 2012-2052.
+        description: Snapshot of the requested card's stored arrays. Linked-card membership mutations change the source card but return the link's own ID and arrays copied at creation, which can remain empty or retain older assignments and do not confirm the source's state.
         required:
             - _id
             - members
@@ -12929,14 +12933,17 @@ definitions:
         properties:
             _id:
                 type: string
+                description: Requested card ID, including the link ID for linked cards.
             members:
                 type: array
                 items:
                     type: string
+                description: Stored member IDs on the requested card, not its linked source.
             assignees:
                 type: array
                 items:
                     type: string
+                description: Stored assignee IDs on the requested card, not its linked source.
         additionalProperties: false
     CardDependency:
         type: object

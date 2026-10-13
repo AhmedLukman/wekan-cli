@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Nested `board member`, `card member`, and `card assignee` commands for
+  membership lists and individual additions/removals, plus board member roles
+  and permission updates. Typed human/JSON output distinguishes unconfirmed
+  board acknowledgments from returned scoped card snapshots and preserves
+  Wekan v11.06 errors and no-op behavior.
+
 ## [0.8.0] - 2026-10-13
 
 ### Added

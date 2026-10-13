@@ -4,6 +4,15 @@ use crate::command_result::{
     BoardListSuccess, BoardRenameSuccess,
 };
 
+pub(super) fn render_membership<T: serde::Serialize>(data: &T) -> String {
+    let value = serde_json::to_value(data).expect("board membership results serialize as objects");
+    let mut lines = Vec::new();
+    for (name, value) in value.as_object().expect("membership result object") {
+        super::formatting::render_named_value_complete(&mut lines, 0, name, value);
+    }
+    lines.join("\n")
+}
+
 pub(super) fn render_board_list(data: &BoardListSuccess) -> String {
     if data.boards.is_empty() {
         return match data.scope {

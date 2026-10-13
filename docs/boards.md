@@ -13,8 +13,12 @@ wekan board delete <BOARD_ID> [--yes]
 ```
 
 Every command requires a selected profile and an unexpired stored credential.
-Board imports, copies, labels, memberships, domains, attachments, card settings,
+Board imports, copies, labels, domains, attachments, card settings,
 and other subresources are outside this command family's scope.
+
+`board member list/add/remove/update` implements board membership management.
+See [board and card memberships](memberships.md) for syntax, permission inputs,
+stable results, and Wekan's unconfirmed acknowledgments and no-op behavior.
 
 ## Listing and counting
 

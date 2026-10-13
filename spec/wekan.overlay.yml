@@ -24610,6 +24610,44 @@ actions:
         description: >-
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/members/{member}", "/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}"]["post", "delete"].responses["200"]'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/cards.js 1070-1083 copies source fields when creating a link.
+      models/cards.js 1098-1107 and 2945-2967 resolve membership mutations to
+      the linked source ID. server/models/cards.js 2042-2052 awaits the mutation
+      but reads the requested card ID for the response. Live source/link detail
+      reads verified both membership kinds and both actions on 2026-10-13;
+      tests/e2e/memberships.rs maintains the regression (W11-043).
+    update:
+      description: >-
+        Returns the requested card ID and its stored member/assignee arrays
+        after the awaited mutation. For a linked card, the mutation changes the
+        source card but the response reads the link's own arrays copied at
+        creation, which can remain empty or retain older assignments. These
+        arrays do not confirm the source's saved assignments.
+      x-wekan-v11.06-defect: linked-card-membership-response-reads-link
+
+  - target: '$.definitions.CardMemberResponse'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js 2048-2052 projects the requested card even when
+      models/cards.js 2945-2967 mutated its linked source. The maintained
+      membership lifecycle independently reads both documents after add/remove.
+    update:
+      description: >-
+        Snapshot of the requested card's stored arrays. Linked-card membership
+        mutations change the source card but return the link's own ID and
+        arrays copied at creation, which can remain empty or retain older
+        assignments and do not confirm the source's state.
+      properties:
+        _id:
+          description: Requested card ID, including the link ID for linked cards.
+        members:
+          description: Stored member IDs on the requested card, not its linked source.
+        assignees:
+          description: Stored assignee IDs on the requested card, not its linked source.
   - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post.parameters'
     description: >-
       Replace the array before recording all accepted JSON items forms. Verified

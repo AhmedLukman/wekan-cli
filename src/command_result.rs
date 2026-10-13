@@ -25,12 +25,20 @@ pub use boards::{
     BoardDetailWatcher, BoardListScope, BoardListSuccess, BoardRenameSuccess, BoardSummary,
     UserBoardSummary,
 };
+pub use boards::{
+    BoardMemberCollectionSuccess, BoardMemberMutationSuccess, BoardMemberSubmittedField,
+    BoardMemberUpdateSuccess,
+};
 pub use cards::{
     CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardDeleteMode,
     CardDeleteSuccess, CardDetail, CardDetailCustomField, CardDetailCustomFieldValue,
     CardDetailDependency, CardDetailLocation, CardDetailPoker, CardDetailSticker,
     CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess, CardSubmittedField,
     CardSummary, CardUpdateSuccess,
+};
+pub use cards::{
+    CardAssigneeCollectionSuccess, CardMemberCollectionSuccess, CardMembershipKind,
+    CardMembershipMutationSuccess,
 };
 pub use cards::{CardCustomFieldQuerySuccess, CardCustomFieldSetSuccess};
 pub use checklist_items::{
@@ -83,6 +91,12 @@ pub use attachments::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BoardMembers(BoardMemberCollectionSuccess),
+    BoardMemberChanged(BoardMemberMutationSuccess),
+    BoardMemberUpdated(BoardMemberUpdateSuccess),
+    CardMembers(CardMemberCollectionSuccess),
+    CardAssignees(CardAssigneeCollectionSuccess),
+    CardMembershipChanged(CardMembershipMutationSuccess),
     BoardDependencies(BoardDependencyCollectionSuccess),
     CardDependencies(CardDependencyCollectionSuccess),
     DependencyCreated(DependencyCreateSuccess),
@@ -169,6 +183,13 @@ pub enum CommandSuccess {
     ProfileUsed(ProfileItem),
     ProfileUpdated(ProfileItem),
     ProfileRemoved(ProfileRemoveSuccess),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MembershipAction {
+    Add,
+    Remove,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

@@ -102,6 +102,16 @@ Adding `--volumes` deletes only the selected project's database and uploaded
 files. Omitting `--volumes` preserves them for the next start with that project
 name.
 
+The dedicated membership lifecycle requires a fresh isolated stack and
+exercises board roles, removals/reactivation, and card member/assignee merges.
+Linked-card regressions independently read the source and link after each
+addition/removal to verify Wekan's returned arrays describe the link:
+
+```powershell
+$env:WEKAN_MEMBERSHIP_E2E_URL = "http://localhost:3101"
+cargo test --locked --test e2e memberships::complete_membership_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
 ## Stop or reset the stack
 
 Stop and remove the containers while preserving MongoDB data and uploaded files:

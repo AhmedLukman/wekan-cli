@@ -165,7 +165,7 @@ fn board_detail(board: BoardDocument) -> BoardDetail {
     }
 }
 
-fn board_detail_member(member: BoardMember) -> BoardDetailMember {
+pub(super) fn board_detail_member(member: BoardMember) -> BoardDetailMember {
     BoardDetailMember {
         user_id: member.user_id,
         is_admin: member.is_admin,

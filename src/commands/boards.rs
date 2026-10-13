@@ -3,6 +3,7 @@ mod create;
 mod delete;
 mod get;
 mod list;
+mod members;
 mod rename;
 
 #[cfg(test)]
@@ -23,6 +24,8 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// List, add, remove, or change board members.
+    Member(members::MemberArgs),
     /// List active boards for the authenticated user, or all public boards.
     List(list::ListArgs),
 
@@ -49,6 +52,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Member(args) => {
+            members::dispatch(args.command, client_factory, credential_store).await
+        }
         BoardCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         BoardCommand::Count(args) => count::execute(args, client_factory, credential_store).await,
         BoardCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
