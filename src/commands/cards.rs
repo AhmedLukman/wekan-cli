@@ -1,9 +1,11 @@
 mod archive;
 mod create;
 mod delete;
+mod find_by_custom_field;
 mod get;
 mod list;
 mod restore;
+mod set_custom_field;
 mod update;
 
 #[cfg(test)]
@@ -30,6 +32,10 @@ pub enum CardCommand {
     /// Show one card by board, list, and card ID.
     Get(get::GetArgs),
 
+    /// Assign an existing custom-field entry on an active card.
+    SetCustomField(set_custom_field::SetCustomFieldArgs),
+    /// Find active cards using Wekan's string custom-field query.
+    FindByCustomField(find_by_custom_field::FindByCustomFieldArgs),
     /// Create a card in a board list.
     Create(Box<create::CreateArgs>),
 
@@ -55,6 +61,12 @@ pub(crate) async fn dispatch(
     match command {
         CardCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         CardCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
+        CardCommand::SetCustomField(args) => {
+            set_custom_field::execute(args, client_factory, credential_store).await
+        }
+        CardCommand::FindByCustomField(args) => {
+            find_by_custom_field::execute(args, client_factory, credential_store).await
+        }
         CardCommand::Create(args) => create::execute(*args, client_factory, credential_store).await,
         CardCommand::Update(args) => update::execute(*args, client_factory, credential_store).await,
         CardCommand::Archive(args) => {

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Full `custom-field` and `custom-field-item` commands for definition and dropdown
+  management, plus `card set-custom-field` and `card find-by-custom-field`, with
+  strict typed human/JSON output and exact JSON input forms for Wekan v11.06.
+  Custom-field deletions report a requested, unconfirmed operation; missing
+  definition lookups preserve HTTP 200 without invented server metadata. Card
+  lookup rejects empty and dot-only values before HTTP instead of sending an
+  incorrect endpoint. Definition and dropdown-item deletion prompts warn that
+  deletion affects all boards associated with a shared field. Optional settings
+  preserve explicit nulls in requests and accept nullable Wekan responses.
+  Dot-only target IDs and settings whose dropdown item IDs become dot-only after
+  Wekan trims whitespace are rejected before HTTP instead of losing selectors.
+  Custom-field ID parsing preserves Wekan's U+0085 characters so distinct dropdown
+  options remain distinct update and deletion targets.
+
 ## [0.5.0] - 2026-10-12
 
 ### Added

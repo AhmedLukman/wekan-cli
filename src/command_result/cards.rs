@@ -234,3 +234,19 @@ pub struct CardDeleteSuccess {
     pub deleted: bool,
     pub delete_mode: CardDeleteMode,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardCustomFieldSetSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub custom_field_id: String,
+    pub custom_fields: Vec<CardDetailCustomField>,
+}
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardCustomFieldQuerySuccess {
+    pub board_id: String,
+    pub custom_field_id: String,
+    pub value: String,
+    pub cards: Vec<CardDetail>,
+}

@@ -154,3 +154,28 @@ cargo test --locked --test e2e checklists::complete_checklist_lifecycle_matches_
 ```
 
 This suite is also registered in the Wekan E2E workflow's isolated-stack matrix.
+
+## Custom-field lifecycle
+
+The dedicated suite covers all ten custom-field operations, nullable and omitted
+settings with exact request preservation, dropdown filtering, exact card JSON
+inputs and cleaned responses, string lookup, role
+gates, no-op acknowledgments, shared deletion, and partial-update failures.
+Fixtures use only the isolated project's data; typed response decoding remains
+strict. The suite is registered in the E2E workflow matrix.
+Regression cases verify unconfirmed deletion output for real, repeated, missing,
+and wrong-board targets, preserved HTTP 200 metadata on missing reads, and query
+encoding near dot segments. Dot-only lookup inputs are rejected locally.
+Dropdown regression cases verify Wekan's acceptance and trimming of supplied
+dot-only IDs, local rejection of unaddressable selectors/settings, and successful
+update/deletion of IDs containing encoded slashes, percent signs, and dot text.
+They also verify that U+0085 IDs remain readable and deleting an option surrounded
+by U+0085 leaves its plain-ID counterpart intact.
+
+```powershell
+$env:WEKAN_PORT = "3114"
+$env:COMPOSE_PROJECT_NAME = "wekan-custom-field-tests"
+docker compose up -d --wait
+$env:WEKAN_CUSTOM_FIELD_E2E_URL = "http://localhost:3114"
+cargo test --locked --test e2e custom_fields::complete_custom_field_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```

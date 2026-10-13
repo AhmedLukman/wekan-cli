@@ -20,3 +20,6 @@ mod support;
 mod swimlanes;
 #[path = "e2e/users.rs"]
 mod users;
+
+#[path = "e2e/custom_fields.rs"]
+mod custom_fields;

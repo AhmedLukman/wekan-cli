@@ -4,9 +4,12 @@ pub mod cards;
 pub mod checklist_items;
 pub mod checklists;
 pub mod comments;
+pub mod custom_fields;
 mod datetime;
 mod decoding;
+mod strings;
 pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
+pub(crate) use strings::trim_javascript_whitespace;
 pub mod error;
 pub mod lists;
 mod raw;
@@ -29,8 +32,8 @@ pub use boards::{
 pub use cards::{
     ArchiveCardResult, CardCustomField, CardCustomFieldValue, CardDependency, CardDocument,
     CardLocation, CardPoker, CardSticker, CardStickerHighlight, CardSummary, CardVote,
-    CreateCardRequest, CreateCardResult, DeleteCardResult, RestoreCardResult, UpdateCardRequest,
-    UpdateCardResult,
+    CreateCardRequest, CreateCardResult, DeleteCardResult, RestoreCardResult,
+    SetCardCustomFieldRequest, SetCardCustomFieldResponse, UpdateCardRequest, UpdateCardResult,
 };
 pub use checklist_items::{
     ChecklistItemDocument, ChecklistItemFinishedInput, ChecklistItemSortInput,
@@ -43,6 +46,11 @@ pub use checklists::{
 };
 pub use comments::{
     CommentDocument, CommentSummary, CreateCommentRequest, CreateCommentResult, DeleteCommentResult,
+};
+pub use custom_fields::{
+    CreateCustomFieldItemsRequest, CreateCustomFieldRequest, CustomFieldDocument,
+    CustomFieldDropdownItem, CustomFieldIdResponse, CustomFieldSettings, CustomFieldSummary,
+    CustomFieldType, UpdateCustomFieldItemRequest, UpdateCustomFieldRequest,
 };
 pub use error::ClientError;
 pub use lists::{

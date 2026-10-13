@@ -144,7 +144,7 @@ async fn archive_restore_empty_and_malformed_success_is_a_protocol_error() {
     }
 }
 
-fn complete_card_response() -> serde_json::Value {
+pub(super) fn complete_card_response() -> serde_json::Value {
     json!({
         "_id": "card-1",
         "title": "Todo",

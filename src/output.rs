@@ -4,6 +4,8 @@ mod cards;
 mod checklist_items;
 mod checklists;
 mod comments;
+mod custom_field_items;
+mod custom_fields;
 mod formatting;
 mod lists;
 mod profiles;
@@ -232,6 +234,56 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             render_checklist_item_deleted(data)
         }
         (OutputFormat::Json, CommandSuccess::ChecklistItemDeleted(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::CustomFieldCollection(data)) => {
+            custom_fields::collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldCollection(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::CustomFieldShown(data)) => {
+            custom_fields::detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CustomFieldCreated(data)) => {
+            custom_fields::created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CustomFieldUpdated(data)) => {
+            custom_fields::updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CustomFieldDeleted(data)) => {
+            custom_fields::deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CustomFieldItemsCreated(data)) => {
+            custom_field_items::created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldItemsCreated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::CustomFieldItemUpdated(data)) => {
+            custom_field_items::updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldItemUpdated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::CustomFieldItemDeleted(data)) => {
+            custom_field_items::deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CustomFieldItemDeleted(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::CardCustomFieldSet(data)) => {
+            cards::render_card_custom_field_set(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CardCustomFieldSet(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardCustomFieldQuery(data)) => {
+            cards::render_card_custom_field_query(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CardCustomFieldQuery(data)) => {
             render_json_success(data)
         }
         (OutputFormat::Human, CommandSuccess::CommentCollection(data)) => {

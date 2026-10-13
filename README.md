@@ -77,12 +77,12 @@ wekan --profile local auth login --username alice
 
 ## Command coverage
 
-The CLI includes profile and authentication management plus typed
-commands for users, boards, lists, swimlanes, cards, comments, checklists, and
-checklist items. It implements 46 of the 143 operations in the corrected Wekan
-v11.06 contract, including
-dedicated `card archive` and `card restore` commands. Operations
-without a dedicated command remain available through the same-origin
+The CLI includes profile and authentication management plus typed commands for
+users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
+custom-field definitions, and dropdown items. It implements 56 of the 143
+operations in the corrected Wekan v11.06 contract, including dedicated card
+archive/restore, custom-field assignment, and custom-field lookup commands.
+Operations without a dedicated command remain available through the same-origin
 `wekan api request` escape hatch.
 
 Run `wekan --help` or `wekan <COMMAND> --help` for the complete command syntax.
@@ -91,6 +91,7 @@ Detailed behavior is documented in:
 - [Profiles and configuration](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/config.md)
 - [Authentication](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/auth.md)
 - [Checklists and checklist items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/checklists.md)
+- [Custom fields and dropdown items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/custom-fields.md)
 - [Raw API requests](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api.md)
 - [Agent output and error contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/agent-contract.md)
 - [API-to-CLI coverage](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api-coverage.md)

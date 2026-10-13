@@ -1,7 +1,8 @@
 use super::formatting::{escape_terminal_controls, render_named_value_complete};
 use crate::command_result::{
-    CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardDeleteSuccess, CardDetail,
-    CardRestoreSuccess, CardUpdateSuccess,
+    CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardCustomFieldQuerySuccess,
+    CardCustomFieldSetSuccess, CardDeleteSuccess, CardDetail, CardRestoreSuccess,
+    CardUpdateSuccess,
 };
 
 pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
@@ -110,4 +111,30 @@ pub(super) fn render_card_restored(data: &CardRestoreSuccess) -> String {
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)
     )
+}
+
+pub(super) fn render_card_custom_field_set(data: &CardCustomFieldSetSuccess) -> String {
+    let serde_json::Value::Object(fields) =
+        serde_json::to_value(data).expect("card custom-field results serialize as objects")
+    else {
+        unreachable!()
+    };
+    let mut lines = Vec::new();
+    for (name, value) in fields {
+        render_named_value_complete(&mut lines, 0, &name, &value);
+    }
+    lines.join("\n")
+}
+pub(super) fn render_card_custom_field_query(data: &CardCustomFieldQuerySuccess) -> String {
+    if data.cards.is_empty() {
+        return format!(
+            "No matching cards found on board {}.",
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    data.cards
+        .iter()
+        .map(render_card_detail)
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }

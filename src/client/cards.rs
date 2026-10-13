@@ -6,7 +6,10 @@ use serde_json::Number;
 use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
+mod custom_fields;
 pub use archival::{ArchiveCardResult, RestoreCardResult};
+pub(crate) use custom_fields::validate_custom_field_query_value;
+pub use custom_fields::{SetCardCustomFieldRequest, SetCardCustomFieldResponse};
 mod inputs;
 pub use inputs::{
     CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,

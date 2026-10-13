@@ -12,7 +12,7 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 46 of 143 operations implemented (32.2%); 97 remaining.
+**Coverage:** 56 of 143 operations implemented (39.2%); 87 remaining.
 
 ## Status rules
 
@@ -39,6 +39,27 @@ forms conflict. Item creation permits finite numeric `--sort` or `--sort-json`
 and either boolean `--is-finished` or `--is-finished-json` (boolean or string);
 the completion forms conflict. Text and JSON wire types are preserved. Only
 checklist and item deletion accept `--yes`.
+
+
+Custom-field operations #31, #33–40, and #70 use explicit board scope. Definitions
+accept seven pinned types; creation defaults settings to `{}` and supports four
+boolean display flags, while update also supports `--always-on-card`. Updates
+allow no fields. Settings accept explicit null for their four optional properties
+and preserve null separately from omission in requests. Repeated dropdown `--item`
+conflicts with exact JSON `--items`; card assignment text `--value` conflicts with
+`--value-json`. Omission differs
+from explicit null. Lookup uses a string path value and no list selector;
+assignment requires the list selector. Lookup rejects empty values and the exact
+values `.` and `..` before HTTP because the client's URL library cannot preserve
+dot-only segments; Wekan itself accepts percent-encoded dots. Target IDs and other
+selectors in these commands also reject dot-only segments before HTTP. Identifier
+trimming follows Wekan's JavaScript rules, preserving U+0085 and trimming U+FEFF.
+Supplied settings reject dropdown IDs that become `.` or `..` after Wekan's JavaScript
+whitespace trimming. Only definition and item deletion accept `--yes`. Both
+deletion prompts disclose their effect on all
+boards associated with a shared definition; the board selector scopes the
+lookup rather than limiting deletion to that board. See
+[custom-field behavior and results](custom-fields.md).
 
 ## Operations
 
@@ -74,16 +95,16 @@ checklist and item deletion accept `--yes`.
 | 28 | Dependencies | `DELETE` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `delete_card_dependency` | Remove a dependency line from a card. | — | ✗ |
 | 29 | Cards | `DELETE` | `/api/boards/{board}/cards/bulk` | `delete_board_cards_bulk` | Delete multiple cards from a board. | — | ✗ |
 | 30 | Cards | `POST` | `/api/boards/{board}/cards/labels` | `post_board_cards_labels` | Apply labels to multiple cards on a board. | — | ✗ |
-| 31 | Cards | `GET` | `/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}` | `get_board_customFieldValue` | List cards whose custom field has a specified value. | — | ✗ |
+| 31 | Cards | `GET` | `/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}` | `get_board_customFieldValue` | List cards whose custom field has a specified value. | `wekan card find-by-custom-field --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> --value <TEXT> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 32 | Cards | `GET` | `/api/boards/{board}/cards_count` | `get_board_cards_count` | Count cards on a board. | — | ✗ |
-| 33 | CustomFields | `GET` | `/api/boards/{board}/custom-fields` | `get_board_custom-fields` | List custom-field definitions on a board. | — | ✗ |
-| 34 | CustomFields | `POST` | `/api/boards/{board}/custom-fields` | `post_board_custom-fields` | Create a custom-field definition on a board. | — | ✗ |
-| 35 | CustomFields | `GET` | `/api/boards/{board}/custom-fields/{customField}` | `get_board_customField` | Get one custom-field definition. | — | ✗ |
-| 36 | CustomFields | `PUT` | `/api/boards/{board}/custom-fields/{customField}` | `put_board_customField` | Update a custom-field definition. | — | ✗ |
-| 37 | CustomFields | `DELETE` | `/api/boards/{board}/custom-fields/{customField}` | `delete_board_customField` | Delete a custom-field definition. | — | ✗ |
-| 38 | CustomFields | `POST` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items` | `post_board_customField_dropdown-items` | Add a dropdown option to a custom field. | — | ✗ |
-| 39 | CustomFields | `PUT` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `put_board_customField_dropdownItem` | Update a custom-field dropdown option. | — | ✗ |
-| 40 | CustomFields | `DELETE` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `delete_board_customField_dropdownItem` | Delete a custom-field dropdown option. | — | ✗ |
+| 33 | CustomFields | `GET` | `/api/boards/{board}/custom-fields` | `get_board_custom-fields` | List custom-field definitions on a board. | `wekan custom-field list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 34 | CustomFields | `POST` | `/api/boards/{board}/custom-fields` | `post_board_custom-fields` | Create a custom-field definition on a board. | `wekan custom-field create --board <BOARD_ID> --name <NAME> --type <TYPE> [--settings <JSON>] [--show-on-card <BOOL>] [--automatically-on-card <BOOL>] [--show-label-on-mini-card <BOOL>] [--show-sum-at-top-of-list <BOOL>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 35 | CustomFields | `GET` | `/api/boards/{board}/custom-fields/{customField}` | `get_board_customField` | Get one custom-field definition. | `wekan custom-field get <CUSTOM_FIELD_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 36 | CustomFields | `PUT` | `/api/boards/{board}/custom-fields/{customField}` | `put_board_customField` | Update a custom-field definition. | `wekan custom-field update <CUSTOM_FIELD_ID> --board <BOARD_ID> [--name <NAME>] [--type <TYPE>] [--settings <JSON>] [--show-on-card <BOOL>] [--automatically-on-card <BOOL>] [--show-label-on-mini-card <BOOL>] [--show-sum-at-top-of-list <BOOL>] [--always-on-card <BOOL>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 37 | CustomFields | `DELETE` | `/api/boards/{board}/custom-fields/{customField}` | `delete_board_customField` | Delete a custom-field definition. | `wekan custom-field delete <CUSTOM_FIELD_ID> --board <BOARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 38 | CustomFields | `POST` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items` | `post_board_customField_dropdown-items` | Add a dropdown option to a custom field. | `wekan custom-field-item create --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--item <TEXT>]... [--items <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 39 | CustomFields | `PUT` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `put_board_customField_dropdownItem` | Update a custom-field dropdown option. | `wekan custom-field-item update <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--name <NAME>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 40 | CustomFields | `DELETE` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `delete_board_customField_dropdownItem` | Delete a custom-field dropdown option. | `wekan custom-field-item delete <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 41 | Dependencies | `GET` | `/api/boards/{board}/dependencies` | `get_board_dependencies` | Get all card dependency lines ("Red Strings") of a board. | — | ✗ |
 | 42 | Boards | `GET` | `/api/boards/{board}/export` | `exportJson` | This route is used to export the board to a json file format. | — | ✗ |
 | 43 | Boards | `GET` | `/api/boards/{board}/export/{format}` | `exportExternal` | Export the board as a NextCloud Deck / OpenProject / GitHub /  GitLab / Gitea / Forgejo style JSON. | — | ✗ |
@@ -113,7 +134,7 @@ checklist and item deletion accept `--yes`.
 | 67 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `post_board_list_card_assignee` | Add an assignee to a card. | — | ✗ |
 | 68 | Cards | `DELETE` | `/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}` | `delete_board_list_card_assignee` | Remove an assignee from a card. | — | ✗ |
 | 69 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/copy` | `post_board_list_card_copy` | Copy a card. | — | ✗ |
-| 70 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}` | `post_board_list_card_customField` | Set a custom-field value on a card. | — | ✗ |
+| 70 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}` | `post_board_list_card_customField` | Set a custom-field value on a card. | `wekan card set-custom-field <CARD_ID> --board <BOARD_ID> --list <LIST_ID> --custom-field <CUSTOM_FIELD_ID> [--value <TEXT>] [--value-json <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 71 | Cards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}/exportExcel` | `exportExcelCard` | Export a single card to Excel (.xlsx), formatted for DIN A4 Portrait printing. | — | ✗ |
 | 72 | Boards | `GET` | `/api/boards/{board}/lists/{list}/cards/{card}/exportPDF` | `exportCardPDF` | Export a single card to PDF. | — | ✗ |
 | 73 | Cards | `POST` | `/api/boards/{board}/lists/{list}/cards/{card}/members/{member}` | `post_board_list_card_member` | Add a member to a card. | — | ✗ |

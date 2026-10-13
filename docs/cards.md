@@ -1,7 +1,7 @@
 # Cards
 
 The singular `wekan card` family covers board/list-scoped core CRUD, archive,
-and restore operations:
+and restore operations, plus custom-field assignment and board-wide lookup:
 
 ```console
 wekan card list --board <BOARD_ID> --list <LIST_ID>
@@ -11,11 +11,22 @@ wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS...>
 wekan card archive <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
 wekan card restore <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
 wekan card delete <CARD_ID> --board <BOARD_ID> --list <LIST_ID> [--yes]
+wekan card set-custom-field <CARD_ID> --board <BOARD_ID> --list <LIST_ID> --custom-field <CUSTOM_FIELD_ID> [--value <TEXT>] [--value-json <JSON>]
+wekan card find-by-custom-field --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> --value <TEXT>
 ```
 
 Create also supports linked cards; update supports movement, archive/restore,
 votes, poker, custom-field values, stickers, and locations. Dedicated ordering
 endpoints, attachments, comments, and checklists are outside this family.
+
+`set-custom-field` changes an already attached field entry; its text and JSON
+value modes conflict. `find-by-custom-field` uses a string value and requires
+board scope without a list selector. Both inherit the usual global options.
+Lookup rejects empty and exact dot-only (`.` or `..`) values before HTTP because
+the URL library cannot preserve those path segments.
+Both custom-field commands also reject dot-only target IDs before HTTP.
+See [custom-field commands](custom-fields.md) for exact input forms, cleaned
+response values, full lookup output, and pinned server limitations.
 
 ## Create and update fields
 

@@ -8,6 +8,8 @@ pub mod checklists;
 pub(crate) mod client_error;
 pub mod comments;
 pub(crate) mod credential_ops;
+pub mod custom_field_items;
+pub mod custom_fields;
 pub mod lists;
 pub mod profile;
 pub mod swimlanes;
@@ -46,6 +48,12 @@ pub enum RootCommand {
 
     /// Inspect and manage comments on Wekan cards.
     Comment(comments::CommentArgs),
+
+    /// Inspect and manage custom-field definitions.
+    CustomField(custom_fields::CustomFieldArgs),
+
+    /// Manage custom-field dropdown items.
+    CustomFieldItem(custom_field_items::CustomFieldItemArgs),
 
     /// Inspect and manage swimlanes on Wekan boards.
     Swimlane(swimlanes::SwimlaneArgs),

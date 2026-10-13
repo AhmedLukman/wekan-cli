@@ -66,7 +66,7 @@ pub(super) async fn execute(
     Ok(CommandSuccess::CardShown(Box::new(card_detail(card))))
 }
 
-fn card_detail(card: CardDocument) -> CardDetail {
+pub(super) fn card_detail(card: CardDocument) -> CardDetail {
     CardDetail {
         card_id: card.card_id,
         title: card.title,
@@ -138,7 +138,7 @@ fn card_detail(card: CardDocument) -> CardDetail {
     }
 }
 
-fn card_detail_custom_field(field: CardCustomField) -> CardDetailCustomField {
+pub(super) fn card_detail_custom_field(field: CardCustomField) -> CardDetailCustomField {
     CardDetailCustomField {
         custom_field_id: field.custom_field_id,
         value: field.value.map(card_detail_custom_field_value),

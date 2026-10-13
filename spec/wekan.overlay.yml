@@ -24610,6 +24610,142 @@ actions:
         description: >-
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post.parameters'
+    description: >-
+      Replace the array before recording all accepted JSON items forms. Verified
+      against v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/customFields.js 214-245, and the isolated custom-field
+      lifecycle on 2026-10-12: omitted, null, object and string items are no-ops;
+      mixed arrays append only string entries.
+    remove: true
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items"].post'
+    description: >-
+      Same pinned source and live evidence as the preceding parameter removal.
+    update:
+      parameters:
+        - name: board
+          in: path
+          type: string
+          required: true
+        - name: customField
+          in: path
+          type: string
+          required: true
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              items:
+                x-nullable: true
+                x-anyOf:
+                  - type: array
+                    items: {}
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: object
+                    additionalProperties: true
+                description: >-
+                  Only string array entries are appended. Omitted, null or
+                  non-array items is a successful no-op. Generated option IDs
+                  are six characters; success acknowledges the parent field ID.
+      description: >-
+        Appends string array entries without checking the field type. Missing
+        or wrongly scoped fields can be acknowledged without changing anything.
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].put'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/customFields.js 173-211 and after-update hook at 91-95.
+      The 2026-10-12 isolated lifecycle verifies empty and zero-match updates,
+      complete settings replacement, bypassed alwaysOnCard population, and
+      HTTP500 after name was saved but later settings validation failed.
+    update:
+      description: >-
+        Recognized supplied fields are written sequentially; settings replaces
+        its complete object. An empty request or a missing/wrongly scoped field
+        is acknowledged without a not-found response. A later validation failure
+        can return HTTP500 after earlier fields were saved. Direct updates bypass
+        the UI's after-update hook, so alwaysOnCard does not populate existing cards.
+      x-wekan-v11.06-defects:
+        - custom-field-update-can-fail-after-partial-writes
+        - custom-field-direct-update-bypasses-always-on-card-hook
+        - custom-field-mutation-acknowledges-zero-match
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}"].delete'
+    description: >-
+      Pinned v11.06 server/models/customFields.js 305-315 and before-remove
+      hook at 98-112. The 2026-10-12 lifecycle verifies missing and wrong-board
+      no-ops, then shared definition removal through its second board and
+      cascading removal of card values from the first board.
+    update:
+      description: >-
+        Removes the whole definition, including association with every board
+        in boardIds, and its values from cards on those boards. A board selector
+        only scopes the definition lookup. HTTP200 echoes the requested field
+        ID even when no definition matched; it does not prove removal.
+      x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].put'
+    description: >-
+      Pinned v11.06 server/models/customFields.js 247-279. The 2026-10-12
+      lifecycle verifies missing-field/item and omitted-name acknowledgements.
+    update:
+      description: >-
+        Supplied name replaces the matching option object. Omitted name is a
+        no-op. HTTP200 echoes the requested item ID even when the field or item
+        does not match the board-scoped selector.
+      x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
+  - target: '$.paths["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"].delete'
+    description: >-
+      Pinned v11.06 server/models/customFields.js 281-302 and the 2026-10-12
+      lifecycle's repeated and missing-field/item deletions.
+    update:
+      description: >-
+        Removes the matching dropdown option and returns the parent custom-field
+        ID. HTTP200 also occurs when no field or item matched; it does not prove
+        that an option existed or was removed.
+      x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}"].post'
+    description: >-
+      Pinned v11.06 server/models/cards.js 1928-1962 and models/cards.js 189-223.
+      The 2026-10-12 isolated lifecycle verifies cleaned acknowledgements and
+      stored values for whitespace, omitted/null/scalar/object/mixed-array inputs,
+      unattached-field no-op, and missing/wrong-list/archived-card HTML500.
+    update:
+      description: >-
+        Updates all existing custom-field entries with the requested ID on an
+        active board/list-scoped card. It does not attach an absent entry and
+        does not require a board definition for that ID. Schema cleaning mutates
+        the returned array as well as stored values: strings are trimmed,
+        omitted value defaults to an empty string, null is retained, object
+        input becomes an empty string, numeric/boolean array members become
+        strings, null members remain, and object members are removed. Nested
+        array members fail with HTML500. Missing, wrongly listed or archived
+        cards throw a numeric Meteor.Error and return HTML500, not HTTP404.
+      x-wekan-v11.06-defect: custom-field-assignment-missing-card-http500
+  - target: '$.paths["/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}"].get'
+    description: >-
+      Pinned v11.06 server/models/cards.js 1908-1925 and the 2026-10-12
+      lifecycle verifies encoded values, string-array membership, numeric
+      non-match and archived-card exclusion.
+    update:
+      description: >-
+        Returns full active card documents in server order. The path value stays
+        a string, without numeric/boolean coercion; it matches string values and
+        string-array members through MongoDB's element-match query. Archived
+        cards are excluded. Query whitespace is preserved, unlike schema-cleaned
+        stored strings.
+
+  - target: '$.definitions["CustomFieldsSettings", "CustomFieldSettingsRequest"].properties["currencyCode", "dropdownItems", "stringtemplateFormat", "stringtemplateSeparator"]'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/customFields.js 46-88 declares these settings optional. The REST
+      create/update routes in server/models/customFields.js 136-211 retain
+      explicit null values. Verified with create/update/get against the pinned
+      Compose stack on 2026-10-12 and regression-tested in the isolated
+      tests/e2e/custom_fields.rs lifecycle; an empty settings object omits them.
+    update:
+      x-nullable: true
 
   - target: '$.definitions["Checklists", "ChecklistDetail", "ChecklistItems"].properties.boardId'
     description: >-

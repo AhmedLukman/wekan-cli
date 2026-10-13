@@ -22,3 +22,6 @@ mod support;
 mod swimlanes;
 #[path = "cli/users.rs"]
 mod users;
+
+#[path = "cli/custom_fields.rs"]
+mod custom_fields;

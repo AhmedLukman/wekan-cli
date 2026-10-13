@@ -190,6 +190,24 @@ where
                 )
                 .await
             }
+            RootCommand::CustomField(args) => {
+                commands::custom_fields::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
+            RootCommand::CustomFieldItem(args) => {
+                commands::custom_field_items::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.confirmation,
+                )
+                .await
+            }
             RootCommand::Comment(args) => {
                 commands::comments::dispatch(
                     args.command,

@@ -5,6 +5,8 @@ mod cards;
 mod checklist_items;
 mod checklists;
 mod comments;
+mod custom_field_items;
+mod custom_fields;
 mod lists;
 mod profiles;
 mod swimlanes;
@@ -29,6 +31,7 @@ pub use cards::{
     CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess, CardSubmittedField,
     CardSummary, CardUpdateSuccess,
 };
+pub use cards::{CardCustomFieldQuerySuccess, CardCustomFieldSetSuccess};
 pub use checklist_items::{
     ChecklistItemCreateSuccess, ChecklistItemDeleteMode, ChecklistItemDeleteSuccess,
     ChecklistItemDetail, ChecklistItemSubmittedField, ChecklistItemUpdateSuccess,
@@ -40,6 +43,15 @@ pub use checklists::{
 pub use comments::{
     CommentCollectionSuccess, CommentCreateSuccess, CommentDeleteMode, CommentDeleteSuccess,
     CommentDetail, CommentSummary,
+};
+pub use custom_field_items::{
+    CustomFieldItemCreateSuccess, CustomFieldItemDeleteMode, CustomFieldItemDeleteSuccess,
+    CustomFieldItemSubmittedField, CustomFieldItemUpdateSuccess,
+};
+pub use custom_fields::{
+    CustomFieldCollectionSuccess, CustomFieldCreateSuccess, CustomFieldDeleteMode,
+    CustomFieldDeleteSuccess, CustomFieldDetail, CustomFieldDropdownItem, CustomFieldSettings,
+    CustomFieldSubmittedField, CustomFieldSummary, CustomFieldUpdateSuccess,
 };
 pub use lists::{
     ListCollectionSuccess, ListCreateSuccess, ListDeleteMode, ListDeleteSuccess, ListDetail,
@@ -104,6 +116,16 @@ pub enum CommandSuccess {
     ChecklistItemCreated(ChecklistItemCreateSuccess),
     ChecklistItemUpdated(ChecklistItemUpdateSuccess),
     ChecklistItemDeleted(ChecklistItemDeleteSuccess),
+    CustomFieldCollection(CustomFieldCollectionSuccess),
+    CustomFieldShown(CustomFieldDetail),
+    CustomFieldCreated(CustomFieldCreateSuccess),
+    CustomFieldUpdated(CustomFieldUpdateSuccess),
+    CustomFieldDeleted(CustomFieldDeleteSuccess),
+    CustomFieldItemsCreated(CustomFieldItemCreateSuccess),
+    CustomFieldItemUpdated(CustomFieldItemUpdateSuccess),
+    CustomFieldItemDeleted(CustomFieldItemDeleteSuccess),
+    CardCustomFieldSet(CardCustomFieldSetSuccess),
+    CardCustomFieldQuery(CardCustomFieldQuerySuccess),
     CommentCollection(CommentCollectionSuccess),
     CommentShown(CommentDetail),
     CommentCreated(CommentCreateSuccess),
@@ -135,6 +157,8 @@ pub enum DestructiveOperation {
     CardDelete,
     ChecklistDelete,
     ChecklistItemDelete,
+    CustomFieldDelete,
+    CustomFieldItemDelete,
     CommentDelete,
     SwimlaneDelete,
 }
@@ -153,6 +177,8 @@ impl DestructiveOperation {
             Self::CardDelete => "card delete",
             Self::ChecklistDelete => "checklist delete",
             Self::ChecklistItemDelete => "checklist-item delete",
+            Self::CustomFieldDelete => "custom-field delete",
+            Self::CustomFieldItemDelete => "custom-field-item delete",
             Self::CommentDelete => "comment delete",
             Self::SwimlaneDelete => "swimlane delete",
         }

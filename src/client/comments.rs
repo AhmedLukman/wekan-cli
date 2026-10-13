@@ -236,25 +236,8 @@ fn require_non_empty(value: &str, operation: &str, field: &str) -> Result<(), Cl
     Ok(())
 }
 
-/// Matches String.prototype.trim() in Wekan v11.06's validateCommentBody.
-/// JavaScript preserves U+0085 and trims U+FEFF, unlike Rust's Unicode whitespace.
 pub(crate) fn is_blank_comment_text(value: &str) -> bool {
-    value.chars().all(|character| {
-        matches!(
-            character,
-            '\u{0009}'..='\u{000D}'
-                | ' '
-                | '\u{00A0}'
-                | '\u{1680}'
-                | '\u{2000}'..='\u{200A}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202F}'
-                | '\u{205F}'
-                | '\u{3000}'
-                | '\u{FEFF}'
-        )
-    })
+    super::strings::trim_javascript_whitespace(value).is_empty()
 }
 
 fn require_comment_text(value: &str, operation: &str) -> Result<(), ClientError> {

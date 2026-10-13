@@ -2111,6 +2111,8 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Returns full active card documents in server order. The path value stays a string, without numeric/boolean coercion; it matches string values and string-array members through MongoDB's element-match query. Archived cards are excluded. Query whitespace is preserved, unlike schema-cleaned stored strings.
         parameters:
             - in: query
               name: access_token
@@ -2411,6 +2413,12 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Recognized supplied fields are written sequentially; settings replaces its complete object. An empty request or a missing/wrongly scoped field is acknowledged without a not-found response. A later validation failure can return HTTP500 after earlier fields were saved. Direct updates bypass the UI's after-update hook, so alwaysOnCard does not populate existing cards.
+            x-wekan-v11.06-defects:
+                - custom-field-update-can-fail-after-partial-writes
+                - custom-field-direct-update-bypasses-always-on-card-hook
+                - custom-field-mutation-acknowledges-zero-match
         delete:
             operationId: delete_board_customField
             tags:
@@ -2471,6 +2479,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Removes the whole definition, including association with every board in boardIds, and its values from cards on those boards. A board selector only scopes the definition lookup. HTTP200 echoes the requested field ID even when no definition matched; it does not prove removal.
+            x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
         parameters:
             - in: query
               name: access_token
@@ -2521,6 +2532,13 @@ paths:
                         type: string
                         pattern: ^<!DOCTYPE html>
             consumes: [application/json]
+            produces:
+                - application/json
+                - text/html
+                - text/plain
+            security:
+                - UserSecurity: []
+                - AccessTokenSecurity: []
             parameters:
                 - name: board
                   in: path
@@ -2537,16 +2555,19 @@ paths:
                     type: object
                     properties:
                         items:
-                            type: array
-                            items: {}
-                            description: Only string entries are appended; non-strings are ignored. Missing/non-array items is a successful no-op.
-            produces:
-                - application/json
-                - text/html
-                - text/plain
-            security:
-                - UserSecurity: []
-                - AccessTokenSecurity: []
+                            x-nullable: true
+                            x-anyOf:
+                                - type: array
+                                  items: {}
+                                - type: string
+                                - type: number
+                                - type: boolean
+                                - type: object
+                                  additionalProperties: true
+                            description: >-
+                                Only string array entries are appended. Omitted, null or non-array items is a successful no-op. Generated option IDs are six characters; success acknowledges the parent field ID.
+            description: >-
+                Appends string array entries without checking the field type. Missing or wrongly scoped fields can be acknowledged without changing anything.
         parameters:
             - in: query
               name: access_token
@@ -2612,6 +2633,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Supplied name replaces the matching option object. Omitted name is a no-op. HTTP200 echoes the requested item ID even when the field or item does not match the board-scoped selector.
+            x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
         delete:
             operationId: delete_board_customField_dropdownItem
             tags:
@@ -2677,6 +2701,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Removes the matching dropdown option and returns the parent custom-field ID. HTTP200 also occurs when no field or item matched; it does not prove that an option existed or was removed.
+            x-wekan-v11.06-defect: custom-field-mutation-acknowledges-zero-match
         parameters:
             - in: query
               name: access_token
@@ -4692,6 +4719,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Updates all existing custom-field entries with the requested ID on an active board/list-scoped card. It does not attach an absent entry and does not require a board definition for that ID. Schema cleaning mutates the returned array as well as stored values: strings are trimmed, omitted value defaults to an empty string, null is retained, object input becomes an empty string, numeric/boolean array members become strings, null members remain, and object members are removed. Nested array members fail with HTML500. Missing, wrongly listed or archived cards throw a numeric Meteor.Error and return HTML500, not HTTP404.
+            x-wekan-v11.06-defect: custom-field-assignment-missing-card-http500
         parameters:
             - in: query
               name: access_token
@@ -9196,16 +9226,20 @@ definitions:
         properties:
             currencyCode:
                 type: string
+                x-nullable: true
             dropdownItems:
                 description: |
                     list of drop down items objects
                 type: array
                 items:
                     $ref: "#/definitions/CustomFieldsSettingsDropdownitems"
+                x-nullable: true
             stringtemplateFormat:
                 type: string
+                x-nullable: true
             stringtemplateSeparator:
                 type: string
+                x-nullable: true
         additionalProperties: false
     CustomFieldsBoardids:
         type: array
@@ -11326,14 +11360,18 @@ definitions:
         properties:
             currencyCode:
                 type: string
+                x-nullable: true
             dropdownItems:
                 type: array
                 items:
                     $ref: "#/definitions/CustomFieldsSettingsDropdownitems"
+                x-nullable: true
             stringtemplateFormat:
                 type: string
+                x-nullable: true
             stringtemplateSeparator:
                 type: string
+                x-nullable: true
     CustomFieldCreateRequest:
         type: object
         description: Create requires name, type and settings. Unrecognized body keys, including alwaysOnCard, are ignored; alwaysOnCard is initialized false. authorId is ignored and activity authorship uses the caller.

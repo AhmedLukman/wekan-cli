@@ -643,3 +643,43 @@ When a non-success error response body is empty or is not JSON, its HTTP status
 still determines the error classification and exit status. A syntactically
 valid JSON error object with unmapped fields or invalid known-field types is a
 `protocol_error`; it is never silently reduced to a generic server error.
+
+## Custom fields
+
+Custom-field and dropdown-item commands use the standard typed success/error
+envelopes and human/JSON formats. Definitions expose snake-case IDs, field types,
+settings and display controls; nested dropdown items expose item_id/name.
+Optional settings accept explicit nulls, preserve them in requests, and expose
+both absent and null properties as null in stable output.
+Creation acknowledges a field ID, including dropdown creation; updates expose
+ordered submitted_fields. Card assignment returns its complete cleaned field
+array; lookup returns full card details plus the exact string query and scope.
+
+All response objects reject unmapped top-level and nested fields. Malformed or
+mismatched mutation acknowledgments report protocol_error with an unknown
+outcome. The two deletion commands require confirmation or --yes; cancellation
+operations are custom_field_delete and custom_field_item_delete. Success exposes
+deletion_requested: true and mutation_confirmed: false, including successful
+no-ops; it does not claim completed removal. Shared definition deletion affects
+all associated boards and their card values. Dropdown-item deletion changes the
+shared definition's options for every associated board. Both confirmation
+prompts disclose the full scope and identify the requested board.
+
+Exact JSON input is sent without coercion; Wekan cleans card values before
+returning them. Omitted assignment value defaults to an empty string; explicit
+null remains null. REST writes can bypass UI hooks and definition updates can
+fail after earlier writes. No automatic retry or repair occurs. See
+[custom-field commands and pinned behavior](custom-fields.md) for all options,
+input conflicts, stable fields, and server limitations.
+
+Missing definition lookup maps an empty HTTP 200 to not_found with http_status
+200 and no wekan_status_code, server_error or server_reason. Lookup rejects empty
+and dot-only (`.` or `..`) values as invalid_input before credentials or HTTP;
+the URL library cannot preserve these dot-only segments.
+The custom-field families and the two card custom-field commands likewise
+reject dot-only target IDs before credentials or HTTP. Supplied settings reject
+dropdown item IDs that become dot-only after Wekan's JavaScript trimming;
+existing responses containing these IDs still decode normally.
+Target parsing and response ID validation use the same JavaScript whitespace
+rules: U+0085 is preserved, including IDs consisting only of that character,
+while U+FEFF is trimmed. Distinct dropdown IDs remain distinct mutation targets.
