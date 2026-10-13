@@ -257,6 +257,7 @@ wekan-cli/
 │   │
 │   ├── input.rs                       # Shared non-credential input façade
 │   ├── input/
+│   │   ├── binary.rs                  # Bounded binary acquisition from regular files or stdin
 │   │   ├── payload.rs                 # JSON/YAML from arguments, files or stdin
 │   │   ├── confirmation.rs            # Interactive confirmation and `--yes`
 │   │   └── ...

@@ -120,6 +120,29 @@ docker compose down --volumes
 The volume-removal command permanently deletes the local database and uploaded
 files. The next start will require Wekan's initial account setup again.
 
+## Attachment lifecycle
+
+The attachment suite covers all 12 operations, real filesystem/GridFS bytes,
+strict metadata/version decoding, downloads above 1 MiB, file replacement,
+raw stdout, missing resources, deletion, ignored deeper list scopes, and the four
+normal JSON POST operations' HTTP 408 responses. Success POST contracts are
+mock-tested separately because the pinned server cannot execute those paths.
+Deletion also polls up to 10 seconds for the seeded filesystem path and GridFS
+files/chunks to disappear before board or stack cleanup can remove those bytes.
+Test-only persisted fixtures seed files; the CLI continues to use REST.
+
+```powershell
+$env:WEKAN_PORT = "3107"
+$env:COMPOSE_PROJECT_NAME = "wekan-attachment-tests"
+docker compose up -d --wait
+$env:WEKAN_ATTACHMENT_E2E_URL = "http://localhost:3107"
+cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
+Use the matching Compose project and URL; this suite mutates the isolated stack.
+It is included in the Wekan E2E workflow matrix. Remove that disposable stack
+and its volumes when finished with `docker compose down --volumes`.
+
 ## Troubleshooting
 
 Inspect the state and logs for all three services:

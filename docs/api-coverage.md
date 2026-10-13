@@ -12,14 +12,14 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 56 of 143 operations implemented (39.2%); 87 remaining.
+**Coverage:** 68 of 143 operations implemented (47.6%); 75 remaining.
 
 ## Status rules
 
 - ✓ means a dedicated CLI command currently calls the operation.
 - ✗ means no dedicated equivalent CLI command exists yet.
 - Coverage counts HTTP operations, not support for every field or action available through an operation.
-- Command cells include all command and global options. For these typed commands, `--output` accepts `human` or `json`.
+- Command cells include all command and global options. Typed commands accept `--output human` or `json`; attachment downloads additionally support raw output with `--destination -`.
 - `--help` (also `-h`) displays command help without calling the API. The root-only `wekan --version` (also `wekan -V`) displays the CLI version.
 - Multiple CLI commands may intentionally map to one API operation when Wekan selects behavior through the request body.
 - Local-only commands such as `wekan profile ...` are excluded because they do not implement Wekan API operations.
@@ -62,6 +62,14 @@ lookup rather than limiting deletion to that board. See
 [custom-field behavior and results](custom-fields.md).
 
 ## Operations
+
+Attachment operations #108–119 are typed commands. Listing adds selectors in
+board/swimlane/list/card order; `--list` requires `--swimlane-id`, and `--card`
+requires `--list`. Adding each selector changes the endpoint as shown below.
+Wekan v11.06 returns board-wide results at every list depth; output exposes both
+requested and effective scope. Upload sources accept `-` for stdin with a required
+filename. Downloads require an explicit path or stdout; raw/stdout and structured/file
+forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachments.md).
 
 | # | Area | Method | API path | Operation ID | What it does | Equivalent CLI command | Status |
 |---:|---|---|---|---|---|---|:---:|
@@ -172,18 +180,18 @@ lookup rather than limiting deletion to that board. See
 | 105 | Users | `GET` | `/api/users/{user}` | `get_user` | Return a user by ID or username (site admin only). | `wekan user get <USER> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 106 | Users | `PUT` | `/api/users/{user}` | `put_user` | Perform an administrative action on a user. | `wekan user take-ownership <USER_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`wekan user disable-login <USER_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`wekan user enable-login <USER_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`wekan user update <USER_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 107 | Users | `DELETE` | `/api/users/{user}` | `delete_user` | Delete a user (site admin only). | `wekan user delete <USER_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
-| 108 | Attachments | `POST` | `/api/attachment/upload` | `upload_attachment` | Upload a file as a card attachment. | — | ✗ |
-| 109 | Attachments | `POST` | `/api/attachment/upload-background` | `upload_board_background` | Upload a board background image. | — | ✗ |
-| 110 | Attachments | `GET` | `/api/attachment/download-background/{boardId}` | `download_board_background` | Download the board's current background image as base64. | — | ✗ |
-| 111 | Attachments | `GET` | `/api/attachment/download/{attachmentId}` | `download_attachment` | Download an attachment as base64. | — | ✗ |
-| 112 | Attachments | `GET` | `/api/attachment/info/{attachmentId}` | `get_attachment_info` | Get attachment metadata. | — | ✗ |
-| 113 | Attachments | `GET` | `/api/attachment/list/{boardId}` | `list_board_attachments` | List all attachments of a board. | — | ✗ |
-| 114 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}` | `list_swimlane_attachments` | List attachments of a board filtered by swimlane. | — | ✗ |
-| 115 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}/{listId}` | `list_list_attachments` | List attachments of a board filtered by swimlane and list. | — | ✗ |
-| 116 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}/{listId}/{cardId}` | `list_card_attachments` | List attachments of a single card. | — | ✗ |
-| 117 | Attachments | `POST` | `/api/attachment/copy` | `copy_attachment` | Copy an attachment to another card. | — | ✗ |
-| 118 | Attachments | `POST` | `/api/attachment/move` | `move_attachment` | Move an attachment to another card. | — | ✗ |
-| 119 | Attachments | `DELETE` | `/api/attachment/delete/{attachmentId}` | `delete_attachment` | Delete an attachment. | — | ✗ |
+| 108 | Attachments | `POST` | `/api/attachment/upload` | `upload_attachment` | Upload a file as a card attachment. | `wekan attachment upload <FILE> --board <BOARD_ID> --swimlane-id <SWIMLANE_ID> --list <LIST_ID> --card <CARD_ID> [--file-name <NAME>] [--file-type <MIME>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`<FILE>` may be `-` (stdin), requiring `--file-name`. JSON requests return HTTP 408 in pinned Wekan; client deadline is 60 seconds. | ✓ |
+| 109 | Attachments | `POST` | `/api/attachment/upload-background` | `upload_board_background` | Upload a board background image. | `wekan attachment upload-background <FILE> --board <BOARD_ID> [--file-name <NAME>] [--file-type <MIME>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`<FILE>` may be `-` (stdin), requiring `--file-name`. JSON requests return HTTP 408 in pinned Wekan; client deadline is 60 seconds. | ✓ |
+| 110 | Attachments | `GET` | `/api/attachment/download-background/{boardId}` | `download_board_background` | Download the board's current background image as base64. | `wekan attachment download-background --board <BOARD_ID> --destination <PATH> [--overwrite] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`wekan --output raw attachment download-background --board <BOARD_ID> --destination - [--server <URL>] [--profile <PROFILE>] [--allow-insecure-http] [--help]`<br>`--destination -` requires raw output and conflicts with `--overwrite`; file destinations require human/JSON output. | ✓ |
+| 111 | Attachments | `GET` | `/api/attachment/download/{attachmentId}` | `download_attachment` | Download an attachment as base64. | `wekan attachment download <ATTACHMENT_ID> --destination <PATH> [--overwrite] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>`wekan --output raw attachment download <ATTACHMENT_ID> --destination - [--server <URL>] [--profile <PROFILE>] [--allow-insecure-http] [--help]`<br>`--destination -` requires raw output and conflicts with `--overwrite`; file destinations require human/JSON output. | ✓ |
+| 112 | Attachments | `GET` | `/api/attachment/info/{attachmentId}` | `get_attachment_info` | Get attachment metadata. | `wekan attachment get <ATTACHMENT_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 113 | Attachments | `GET` | `/api/attachment/list/{boardId}` | `list_board_attachments` | List all attachments of a board. | `wekan attachment list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 114 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}` | `list_swimlane_attachments` | List attachments of a board filtered by swimlane. | `wekan attachment list --board <BOARD_ID> --swimlane-id <SWIMLANE_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Wekan v11.06 ignores the deeper selectors and returns all board attachments; effective scope is board. | ✓ |
+| 115 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}/{listId}` | `list_list_attachments` | List attachments of a board filtered by swimlane and list. | `wekan attachment list --board <BOARD_ID> --swimlane-id <SWIMLANE_ID> --list <LIST_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Wekan v11.06 ignores the deeper selectors and returns all board attachments; effective scope is board. | ✓ |
+| 116 | Attachments | `GET` | `/api/attachment/list/{boardId}/{swimlaneId}/{listId}/{cardId}` | `list_card_attachments` | List attachments of a single card. | `wekan attachment list --board <BOARD_ID> --swimlane-id <SWIMLANE_ID> --list <LIST_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Wekan v11.06 ignores the deeper selectors and returns all board attachments; effective scope is board. | ✓ |
+| 117 | Attachments | `POST` | `/api/attachment/copy` | `copy_attachment` | Copy an attachment to another card. | `wekan attachment copy <ATTACHMENT_ID> --target-board <BOARD_ID> --target-swimlane-id <SWIMLANE_ID> --target-list <LIST_ID> --target-card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>All four target selectors required; JSON requests return HTTP 408 in pinned Wekan; client deadline is 60 seconds. | ✓ |
+| 118 | Attachments | `POST` | `/api/attachment/move` | `move_attachment` | Move an attachment to another card. | `wekan attachment move <ATTACHMENT_ID> --target-board <BOARD_ID> --target-swimlane-id <SWIMLANE_ID> --target-list <LIST_ID> --target-card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>All four target selectors required; JSON requests return HTTP 408 in pinned Wekan; client deadline is 60 seconds. | ✓ |
+| 119 | Attachments | `DELETE` | `/api/attachment/delete/{attachmentId}` | `delete_attachment` | Delete an attachment. | `wekan attachment delete <ATTACHMENT_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Confirmation precedes a guarded credential re-read; removal, replacement, or expiry prevents HTTP. | ✓ |
 | 120 | Boards | `GET` | `/api/boards/{boardId}/cardSettings` | `get_board_card_settings` | Get a board's card settings (display toggles + card aging). | — | ✗ |
 | 121 | Boards | `PUT` | `/api/boards/{boardId}/cardSettings` | `edit_board_card_settings` | Update a board's card settings (display toggles + card aging). | — | ✗ |
 | 122 | Cards | `POST` | `/api/boards/{boardId}/swimlanes/{swimlaneId}/lists/{listId}/ics` | `import_ics` | Import an iCalendar (.ics) file into a board as cards. | — | ✗ |

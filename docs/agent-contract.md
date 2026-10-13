@@ -9,9 +9,13 @@ is one JSON object followed by a newline.
 - Error envelopes are written to stderr and stdout is empty.
 - `--help` and `--version` remain human-readable text on stdout.
 - Human-mode errors are written to stderr.
-- `--output raw` is valid only for `api request`. A 2xx response body is written
+- `api request --output raw`: a 2xx response body is written
   byte-for-byte to stdout; a non-2xx body is written byte-for-byte to stderr.
   Raw output adds no newline or envelope.
+- Attachment downloads accept `--output raw` only with `--destination -`.
+  The full typed response and base64 contents are validated first; decoded
+  file bytes go to stdout with no envelope or newline. Errors are human-readable
+  on stderr. A local stdout write failure can leave partial bytes.
 - Interactive confirmation prompts are written to stderr. JSON output never
   prompts; destructive automation must pass command-local `--yes`.
 
@@ -44,7 +48,7 @@ Raw API output continues to preserve the upstream response without typed decodin
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
 `user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`,
-`comment delete`, `checklist delete`, `checklist-item delete`, and `swimlane delete`
+`comment delete`, `checklist delete`, `checklist-item delete`, `attachment delete`, and `swimlane delete`
 require interactive confirmation or
 `--yes`. Where a command performs target or removability preflight, it runs first and errors retain
 their documented codes. Otherwise, non-terminal and JSON invocations without
@@ -75,9 +79,21 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
 `user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
-`comment_delete`, `checklist_delete`, `checklist_item_delete`, `swimlane_delete`,
+`comment_delete`, `checklist_delete`, `checklist_item_delete`, `attachment_delete`, `swimlane_delete`,
 or `api_request`. Human output is
 `Cancelled; no changes made.`
+
+## Attachment results
+
+Attachment results and transfer behavior are described in [attachments.md](attachments.md).
+File open/read/staging/save failures use `file_io_error` and exit status 4.
+If download completion reporting fails after the file was saved, error details
+include `file_saved: true` and `destination`. Invalid transfer option combinations
+use `invalid_input`, exit 2, before profile/credential access or HTTP.
+Attachment mutations return `mutation_confirmed: false`; they acknowledge the
+server's response without an authoritative readback. Optional output fields use
+null when absent; response DTOs reject explicit null where the corrected contract
+permits only omission. Scoped listings expose `requested_scope` and `effective_scope`.
 
 ## Raw API success
 

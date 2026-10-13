@@ -1,4 +1,5 @@
 pub mod api;
+pub mod attachments;
 pub mod auth;
 pub(crate) mod authenticated;
 pub mod boards;
@@ -19,6 +20,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Inspect, transfer and manage Wekan attachments.
+    Attachment(attachments::AttachmentArgs),
     /// Send a low-level request to the selected Wekan server.
     Api(api::ApiArgs),
 
@@ -60,7 +63,26 @@ pub enum RootCommand {
 }
 
 impl RootCommand {
-    pub const fn supports_raw_output(&self) -> bool {
+    pub fn supports_raw_output(&self) -> bool {
         matches!(self, Self::Api(_))
+            || matches!(self, Self::Attachment(args) if args.command.download_destination().is_some_and(|d| d.is_stdout()))
+    }
+
+    pub fn validate_output(
+        &self,
+        format: crate::output::OutputFormat,
+    ) -> Result<(), crate::error::AppError> {
+        if let Self::Attachment(args) = self {
+            args.command.validate_input()?;
+            if let Some(destination) = args.command.download_destination() {
+                destination.validate_output(format)?;
+            }
+        }
+        if format == crate::output::OutputFormat::Raw && !self.supports_raw_output() {
+            return Err(crate::error::AppError::invalid_input(
+                "--output raw requires api request or an attachment download with --destination -",
+            ));
+        }
+        Ok(())
     }
 }

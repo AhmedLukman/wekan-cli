@@ -54,8 +54,7 @@ pub async fn run() -> ExitCode {
     };
 
     let output_format = cli.output;
-    if output_format == OutputFormat::Raw && !cli.command.supports_raw_output() {
-        let error = AppError::invalid_input("--output raw is valid only with wekan api request");
+    if let Err(error) = cli.command.validate_output(output_format) {
         eprintln!("{}", render_error(output_format, &error));
         return error.exit_code().into();
     }

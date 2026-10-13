@@ -88,5 +88,7 @@ fn client_from_url(raw: &str) -> WekanClient {
         .unwrap()
 }
 
+#[path = "contract/attachments.rs"]
+mod attachments;
 #[path = "contract/custom_fields.rs"]
 mod custom_fields;

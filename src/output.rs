@@ -1,3 +1,4 @@
+mod attachments;
 mod auth;
 mod boards;
 mod cards;
@@ -115,11 +116,35 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::AttachmentList(data)) => attachments::list(data),
+        (OutputFormat::Json, CommandSuccess::AttachmentList(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentShown(data)) => attachments::detail(data),
+        (OutputFormat::Json, CommandSuccess::AttachmentShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentUploaded(data)) => {
+            attachments::detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentUploaded(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BackgroundUploaded(data)) => {
+            attachments::detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BackgroundUploaded(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentCopied(data)) => attachments::detail(data),
+        (OutputFormat::Json, CommandSuccess::AttachmentCopied(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentMoved(data)) => attachments::detail(data),
+        (OutputFormat::Json, CommandSuccess::AttachmentMoved(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentDeleted(data)) => attachments::detail(data),
+        (OutputFormat::Json, CommandSuccess::AttachmentDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentDownloaded(data)) => {
+            attachments::detail(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentDownloaded(data)) => {
+            render_json_success(data)
+        }
         (_, CommandSuccess::ApiResponse(_)) => {
             panic!("streaming API responses must be consumed by output::write_success")
         }
         (OutputFormat::Raw, CommandSuccess::Cancelled(_)) => String::new(),
-        (OutputFormat::Raw, _) => panic!("raw output is valid only for api request"),
+        (OutputFormat::Raw, _) => panic!("raw results must be consumed by output::write_success"),
         (OutputFormat::Human, CommandSuccess::Cancelled(_)) => {
             "Cancelled; no changes made.".to_owned()
         }
@@ -355,9 +380,40 @@ pub async fn write_success(
     if let CommandSuccess::ApiResponse(response) = success {
         return raw::write_response(format, response, stdout, stderr).await;
     }
+    if format == OutputFormat::Raw {
+        if let CommandSuccess::AttachmentDownloaded(data) = &success {
+            let bytes = data.bytes.as_deref().ok_or_else(|| {
+                AppError::invalid_input("raw attachment output requires --destination -")
+            })?;
+            stdout
+                .write_all(bytes)
+                .and_then(|()| stdout.flush())
+                .map_err(output_write_error)?;
+            return Ok(ExitCode::SUCCESS);
+        }
+    }
     let rendered = render_success(format, &success);
     if !rendered.is_empty() {
-        writeln!(stdout, "{rendered}").map_err(output_write_error)?;
+        let written = writeln!(stdout, "{rendered}").and_then(|()| {
+            if matches!(&success, CommandSuccess::AttachmentDownloaded(data) if data.file_saved) {
+                stdout.flush()
+            } else {
+                Ok(())
+            }
+        });
+        written.map_err(|e| {
+            let error = output_write_error(e);
+            if let CommandSuccess::AttachmentDownloaded(data) = &success {
+                if data.file_saved {
+                    return error.with_details(crate::error::ErrorDetails {
+                        file_saved: Some(true),
+                        destination: Some(data.destination.clone()),
+                        ..crate::error::ErrorDetails::default()
+                    });
+                }
+            }
+            error
+        })?;
     }
     Ok(ExitCode::SUCCESS)
 }
@@ -385,6 +441,14 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
             if let Some(response) = &error.details().response {
                 rendered.push('\n');
                 rendered.push_str(&render_api_response_human(response));
+            }
+            if error.details().file_saved == Some(true) {
+                if let Some(destination) = &error.details().destination {
+                    rendered.push_str(&format!(
+                        "\nDownload saved to `{}`; completion output failed.",
+                        formatting::escape_terminal_controls(destination)
+                    ));
+                }
             }
             rendered
         }

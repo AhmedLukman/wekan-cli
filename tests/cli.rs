@@ -23,5 +23,7 @@ mod swimlanes;
 #[path = "cli/users.rs"]
 mod users;
 
+#[path = "cli/attachments.rs"]
+mod attachments;
 #[path = "cli/custom_fields.rs"]
 mod custom_fields;

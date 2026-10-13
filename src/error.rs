@@ -36,6 +36,7 @@ pub enum ErrorCode {
     CredentialStoreUnavailable,
     CredentialStoreFailed,
     InternalError,
+    FileIoError,
 }
 
 impl ErrorCode {
@@ -67,12 +68,17 @@ impl ErrorCode {
             Self::CredentialStoreUnavailable => "credential_store_unavailable",
             Self::CredentialStoreFailed => "credential_store_failed",
             Self::InternalError => "internal_error",
+            Self::FileIoError => "file_io_error",
         }
     }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_saved: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Complete `attachment` commands for board/scoped listings, metadata, file or
+  stdin uploads, file or raw stdout downloads, board backgrounds, copying,
+  moving, and confirmed deletion. Downloads preserve existing files unless
+  `--overwrite` is supplied and report completed-file context on output errors.
+  Strict typed output exposes the board-wide results returned for deeper list
+  scopes by Wekan v11.06. Upload, background-upload, copy, and move use 60-second
+  deadlines so the pinned server's HTTP 408 failures can be reported.
+
+### Fixed
+
+- Attachment uploads reject named pipes and other non-regular file sources before
+  opening them, avoiding FIFO hangs on Unix.
+- Attachment deletion rejects credentials removed, replaced, or expired during
+  confirmation before sending a destructive request.
+
 ## [0.6.0] - 2026-10-13
 
 ### Added

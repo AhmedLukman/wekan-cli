@@ -21,5 +21,7 @@ mod swimlanes;
 #[path = "e2e/users.rs"]
 mod users;
 
+#[path = "e2e/attachments.rs"]
+mod attachments;
 #[path = "e2e/custom_fields.rs"]
 mod custom_fields;

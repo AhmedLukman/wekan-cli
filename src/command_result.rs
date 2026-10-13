@@ -72,8 +72,25 @@ pub use users::{
 
 use serde::Serialize;
 
+pub mod attachments;
+pub use attachments::*;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    AttachmentList(AttachmentCollectionSuccess),
+    AttachmentShown(crate::client::attachments::AttachmentInfo),
+    AttachmentUploaded(
+        AttachmentMutationSuccess<crate::client::attachments::AttachmentUploadResponse>,
+    ),
+    BackgroundUploaded(
+        AttachmentMutationSuccess<crate::client::attachments::BackgroundUploadResponse>,
+    ),
+    AttachmentCopied(AttachmentMutationSuccess<crate::client::attachments::AttachmentCopyResponse>),
+    AttachmentMoved(AttachmentMutationSuccess<crate::client::attachments::AttachmentMoveResponse>),
+    AttachmentDeleted(
+        AttachmentMutationSuccess<crate::client::attachments::AttachmentDeleteResponse>,
+    ),
+    AttachmentDownloaded(AttachmentDownloadSuccess),
     ApiResponse(ApiResponseSuccess),
     Cancelled(CancellationSuccess),
     Registration(AuthSuccess),
@@ -146,6 +163,7 @@ pub enum CommandSuccess {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    AttachmentDelete,
     ApiRequest,
     AuthLogout,
     ProfileRemove,
@@ -166,6 +184,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::AttachmentDelete => "attachment delete",
             Self::ApiRequest => "api request",
             Self::AuthLogout => "auth logout",
             Self::ProfileRemove => "profile remove",

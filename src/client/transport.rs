@@ -73,9 +73,28 @@ impl WekanClient {
             .require_status(StatusCode::OK)
     }
 
+    pub(super) async fn execute_success_request_with_limit(
+        &self,
+        request: reqwest::RequestBuilder,
+        success_limit: usize,
+    ) -> Result<Vec<u8>, ClientError> {
+        self.execute_request_with_limit(request, success_limit)
+            .await?
+            .require_status(StatusCode::OK)
+    }
+
     async fn execute_request(
         &self,
         request: reqwest::RequestBuilder,
+    ) -> Result<ResponseBody, ClientError> {
+        self.execute_request_with_limit(request, MAX_RESPONSE_BYTES)
+            .await
+    }
+
+    async fn execute_request_with_limit(
+        &self,
+        request: reqwest::RequestBuilder,
+        success_limit: usize,
     ) -> Result<ResponseBody, ClientError> {
         let response = request.send().await.map_err(ClientError::Transport)?;
         let status = response.status();
@@ -88,7 +107,12 @@ impl WekanClient {
             .get(RETRY_AFTER)
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse::<u64>().ok());
-        let body = read_limited_body(response, retry_after_seconds).await?;
+        let limit = if status == StatusCode::OK {
+            success_limit
+        } else {
+            MAX_RESPONSE_BYTES
+        };
+        let body = read_limited_body(response, retry_after_seconds, limit).await?;
 
         Ok(ResponseBody {
             status,
@@ -178,14 +202,15 @@ pub(super) fn decode_success<T: DeserializeOwned>(
 async fn read_limited_body(
     mut response: reqwest::Response,
     retry_after_seconds: Option<u64>,
+    limit: usize,
 ) -> Result<Vec<u8>, ClientError> {
     let status = response.status();
     if response
         .content_length()
-        .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
+        .is_some_and(|length| length > limit as u64)
     {
         return Err(ClientError::ResponseTooLarge {
-            limit_bytes: MAX_RESPONSE_BYTES,
+            limit_bytes: limit,
             status,
             retry_after_seconds,
         });
@@ -201,9 +226,9 @@ async fn read_limited_body(
             source,
         })?
     {
-        if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BYTES {
+        if body.len().saturating_add(chunk.len()) > limit {
             return Err(ClientError::ResponseTooLarge {
-                limit_bytes: MAX_RESPONSE_BYTES,
+                limit_bytes: limit,
                 status,
                 retry_after_seconds,
             });
