@@ -11,6 +11,7 @@ pub mod comments;
 pub(crate) mod credential_ops;
 pub mod custom_field_items;
 pub mod custom_fields;
+pub mod dependencies;
 pub mod lists;
 pub mod profile;
 pub mod swimlanes;
@@ -20,6 +21,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Inspect and manage card dependency lines.
+    Dependency(dependencies::DependencyArgs),
     /// Inspect, transfer and manage Wekan attachments.
     Attachment(attachments::AttachmentArgs),
     /// Send a low-level request to the selected Wekan server.

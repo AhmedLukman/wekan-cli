@@ -7,6 +7,7 @@ mod checklists;
 mod comments;
 mod custom_field_items;
 mod custom_fields;
+mod dependencies;
 mod formatting;
 mod lists;
 mod profiles;
@@ -116,6 +117,26 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::CardDependencies(data)) => {
+            dependencies::card_collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CardDependencies(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardDependencies(data)) => {
+            dependencies::board_collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardDependencies(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::DependencyCreated(data)) => {
+            dependencies::created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::DependencyCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::DependencyUpdated(data)) => {
+            dependencies::updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::DependencyUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::DependencyDeleted(data)) => {
+            dependencies::deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::DependencyDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AttachmentList(data)) => attachments::list(data),
         (OutputFormat::Json, CommandSuccess::AttachmentList(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AttachmentShown(data)) => attachments::detail(data),

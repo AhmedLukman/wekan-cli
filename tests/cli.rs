@@ -27,3 +27,5 @@ mod users;
 mod attachments;
 #[path = "cli/custom_fields.rs"]
 mod custom_fields;
+#[path = "cli/dependencies.rs"]
+mod dependencies;

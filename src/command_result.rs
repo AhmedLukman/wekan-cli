@@ -7,6 +7,7 @@ mod checklists;
 mod comments;
 mod custom_field_items;
 mod custom_fields;
+mod dependencies;
 mod lists;
 mod profiles;
 mod swimlanes;
@@ -53,6 +54,11 @@ pub use custom_fields::{
     CustomFieldDeleteSuccess, CustomFieldDetail, CustomFieldDropdownItem, CustomFieldSettings,
     CustomFieldSubmittedField, CustomFieldSummary, CustomFieldUpdateSuccess,
 };
+pub use dependencies::{
+    BoardDependencyCollectionSuccess, CardDependencyCollectionSuccess, DependencyCreateSuccess,
+    DependencyDeleteSuccess, DependencyLine, DependencySubmittedField, DependencySummary,
+    DependencyUpdateSuccess,
+};
 pub use lists::{
     ListCollectionSuccess, ListCreateSuccess, ListDeleteMode, ListDeleteSuccess, ListDetail,
     ListSummary, ListUpdateSuccess, ListUpdatedField, ListWipLimitDetail,
@@ -77,6 +83,11 @@ pub use attachments::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BoardDependencies(BoardDependencyCollectionSuccess),
+    CardDependencies(CardDependencyCollectionSuccess),
+    DependencyCreated(DependencyCreateSuccess),
+    DependencyUpdated(DependencyUpdateSuccess),
+    DependencyDeleted(DependencyDeleteSuccess),
     AttachmentList(AttachmentCollectionSuccess),
     AttachmentShown(crate::client::attachments::AttachmentInfo),
     AttachmentUploaded(
@@ -163,6 +174,7 @@ pub enum CommandSuccess {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    DependencyDelete,
     AttachmentDelete,
     ApiRequest,
     AuthLogout,
@@ -184,6 +196,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::DependencyDelete => "dependency delete",
             Self::AttachmentDelete => "attachment delete",
             Self::ApiRequest => "api request",
             Self::AuthLogout => "auth logout",

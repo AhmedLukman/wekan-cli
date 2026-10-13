@@ -202,3 +202,19 @@ docker compose up -d --wait
 $env:WEKAN_CUSTOM_FIELD_E2E_URL = "http://localhost:3114"
 cargo test --locked --test e2e custom_fields::complete_custom_field_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
+
+## Card dependency lifecycle
+
+The dependency suite covers both listing endpoints, all relation types,
+create-or-update merging, partial and empty/null metadata updates, raw card reads,
+confirmed removal, missing-edge acknowledgments, archived sources, dangling
+targets, and board permissions. It preserves pinned HTTP 500 validation failures
+and runs through strict production DTO decoding. Use an isolated stack:
+
+```powershell
+$env:WEKAN_PORT = "3011"
+$env:COMPOSE_PROJECT_NAME = "wekan-dependency-tests"
+docker compose up -d --wait
+$env:WEKAN_DEPENDENCY_E2E_URL = "http://localhost:3011"
+cargo test --locked --test e2e dependencies::complete_dependency_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```

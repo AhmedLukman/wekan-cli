@@ -1,5 +1,10 @@
 # Cards
 
+Card-to-card dependency management is covered by the root
+[`wekan dependency` family](dependencies.md). Its list endpoints return normalized
+metadata. `card get` preserves raw optional/null/empty dependency metadata and
+accepts stored dependency type strings without imposing the normalized enum.
+
 The singular `wekan card` family covers board/list-scoped core CRUD, archive,
 and restore operations, plus custom-field assignment and board-wide lookup:
 

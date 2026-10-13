@@ -1278,10 +1278,6 @@ async fn card_documents_reject_invalid_known_values() {
             "custom-value",
             json!({"customFields": [{"_id": "field-1", "value": {"raw": true}}]}),
         ),
-        (
-            "dependency-type",
-            json!({"cardDependencies": [{"cardId": "card-2", "type": "future"}]}),
-        ),
         ("member", json!({"members": [""]})),
     ] {
         let server = MockServer::start().await;
@@ -1307,6 +1303,30 @@ async fn card_documents_reject_invalid_known_values() {
                 ..
             })
         ));
+    }
+}
+
+#[tokio::test]
+async fn raw_card_dependencies_preserve_unconstrained_nullable_strings() {
+    for value in [json!(null), json!(""), json!("future")] {
+        let server = MockServer::start().await;
+        let mut response = complete_card_response();
+        response["cardDependencies"] =
+            json!([{"cardId":"card-2", "type":value, "color":null, "icon":""}]);
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .mount(&server)
+            .await;
+        let card = client(&server)
+            .card("board-1", "list-1", "card-1", &user_token())
+            .await
+            .unwrap();
+        assert_eq!(
+            card.card_dependencies[0].dependency_type,
+            value.as_str().map(str::to_owned)
+        );
+        assert_eq!(card.card_dependencies[0].color, None);
+        assert_eq!(card.card_dependencies[0].icon.as_deref(), Some(""));
     }
 }
 

@@ -92,3 +92,5 @@ fn client_from_url(raw: &str) -> WekanClient {
 mod attachments;
 #[path = "contract/custom_fields.rs"]
 mod custom_fields;
+#[path = "contract/dependencies.rs"]
+mod dependencies;

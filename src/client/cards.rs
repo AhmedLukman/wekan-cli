@@ -619,16 +619,6 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
     }
     for dependency in &card.card_dependencies {
         require_non_empty(&dependency.card_id, "card", "dependency card id")?;
-        if let Some(dependency_type) = &dependency.dependency_type
-            && !matches!(
-                dependency_type.as_str(),
-                "related-to" | "blocks" | "is-blocked-by" | "fixes" | "is-fixed-by"
-            )
-        {
-            return Err(protocol_error(format!(
-                "the card response contained an invalid dependency type `{dependency_type}`"
-            )));
-        }
     }
     for (values, field) in [
         (&card.members, "member id"),

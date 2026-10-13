@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Complete `dependency` commands for board/card listings, create-or-update,
+  nullable and empty metadata updates, and confirmed removal. Typed human/JSON
+  output preserves Wekan v11.06 defaults, server errors, and unconfirmed
+  acknowledgments for updates/removals that may match no edge.
+
+### Fixed
+
+- Card detail reads accept raw dependency type strings, including empty and
+  unfamiliar stored values, while retaining strict field and type decoding.
+
 ## [0.7.0] - 2026-10-13
 
 ### Added

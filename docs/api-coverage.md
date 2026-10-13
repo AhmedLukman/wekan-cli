@@ -12,7 +12,7 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 68 of 143 operations implemented (47.6%); 75 remaining.
+**Coverage:** 73 of 143 operations implemented (51.0%); 70 remaining.
 
 ## Status rules
 
@@ -63,6 +63,13 @@ lookup rather than limiting deletion to that board. See
 
 ## Operations
 
+Dependency operations #25–28 and #41 are typed commands. The optional `--card`
+selector switches listing from the board endpoint to the card endpoint. Create
+and update preserve omitted, empty, and explicit null metadata; value/null forms
+for the same field conflict. An empty update is sent to Wekan and fails with its
+pinned HTTP 500 response. Only dependency deletion accepts `--yes`; update and
+delete outputs report unconfirmed acknowledgments. See [dependency behavior](dependencies.md).
+
 Attachment operations #108–119 are typed commands. Listing adds selectors in
 board/swimlane/list/card order; `--list` requires `--swimlane-id`, and `--card`
 requires `--list`. Adding each selector changes the endpoint as shown below.
@@ -97,10 +104,10 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 22 | CardComments | `POST` | `/api/boards/{board}/cards/{card}/comments` | `post_board_card_comments` | Create a comment on a card. | `wekan comment create --board <BOARD_ID> --card <CARD_ID> --text <TEXT> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 23 | CardComments | `GET` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `get_board_card_comment` | Get one card comment. | `wekan comment get <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 24 | CardComments | `DELETE` | `/api/boards/{board}/cards/{card}/comments/{comment}` | `delete_board_card_comment` | Delete a card comment. | `wekan comment delete <COMMENT_ID> --board <BOARD_ID> --card <CARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
-| 25 | Dependencies | `GET` | `/api/boards/{board}/cards/{card}/dependencies` | `get_card_dependencies` | Get one card's dependencies. | — | ✗ |
-| 26 | Dependencies | `POST` | `/api/boards/{board}/cards/{card}/dependencies` | `new_card_dependency` | Add (or update) a typed dependency line from a card to another card. | — | ✗ |
-| 27 | Dependencies | `PUT` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `edit_card_dependency` | Edit a dependency line's type, color or icon. | — | ✗ |
-| 28 | Dependencies | `DELETE` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `delete_card_dependency` | Remove a dependency line from a card. | — | ✗ |
+| 25 | Dependencies | `GET` | `/api/boards/{board}/cards/{card}/dependencies` | `get_card_dependencies` | Get one card's dependencies. | `wekan dependency list --board <BOARD_ID> --card <CARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 26 | Dependencies | `POST` | `/api/boards/{board}/cards/{card}/dependencies` | `new_card_dependency` | Add (or update) a typed dependency line from a card to another card. | `wekan dependency create <TARGET_CARD_ID> --board <BOARD_ID> --card <CARD_ID> [--type <TYPE> \| --null-type] [--color <COLOR> \| --null-color] [--icon <ICON> \| --null-icon] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 27 | Dependencies | `PUT` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `edit_card_dependency` | Edit a dependency line's type, color or icon. | `wekan dependency update <TARGET_CARD_ID> --board <BOARD_ID> --card <CARD_ID> [--type <TYPE> \| --null-type] [--color <COLOR> \| --null-color] [--icon <ICON> \| --null-icon] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 28 | Dependencies | `DELETE` | `/api/boards/{board}/cards/{card}/dependencies/{target}` | `delete_card_dependency` | Remove a dependency line from a card. | `wekan dependency delete <TARGET_CARD_ID> --board <BOARD_ID> --card <CARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 29 | Cards | `DELETE` | `/api/boards/{board}/cards/bulk` | `delete_board_cards_bulk` | Delete multiple cards from a board. | — | ✗ |
 | 30 | Cards | `POST` | `/api/boards/{board}/cards/labels` | `post_board_cards_labels` | Apply labels to multiple cards on a board. | — | ✗ |
 | 31 | Cards | `GET` | `/api/boards/{board}/cardsByCustomField/{customField}/{customFieldValue}` | `get_board_customFieldValue` | List cards whose custom field has a specified value. | `wekan card find-by-custom-field --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> --value <TEXT> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
@@ -113,7 +120,7 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 38 | CustomFields | `POST` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items` | `post_board_customField_dropdown-items` | Add a dropdown option to a custom field. | `wekan custom-field-item create --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--item <TEXT>]... [--items <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 39 | CustomFields | `PUT` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `put_board_customField_dropdownItem` | Update a custom-field dropdown option. | `wekan custom-field-item update <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--name <NAME>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 40 | CustomFields | `DELETE` | `/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}` | `delete_board_customField_dropdownItem` | Delete a custom-field dropdown option. | `wekan custom-field-item delete <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
-| 41 | Dependencies | `GET` | `/api/boards/{board}/dependencies` | `get_board_dependencies` | Get all card dependency lines ("Red Strings") of a board. | — | ✗ |
+| 41 | Dependencies | `GET` | `/api/boards/{board}/dependencies` | `get_board_dependencies` | Get all card dependency lines ("Red Strings") of a board. | `wekan dependency list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`; supplying `--card <CARD_ID>` selects operation #25 instead. | ✓ |
 | 42 | Boards | `GET` | `/api/boards/{board}/export` | `exportJson` | This route is used to export the board to a json file format. | — | ✗ |
 | 43 | Boards | `GET` | `/api/boards/{board}/export/{format}` | `exportExternal` | Export the board as a NextCloud Deck / OpenProject / GitHub /  GitLab / Gitea / Forgejo style JSON. | — | ✗ |
 | 44 | Boards | `GET` | `/api/boards/{board}/export/csv` | `exportCSVTSV` | This route is used to export the board to a CSV or TSV file format. | — | ✗ |

@@ -39,6 +39,10 @@ jobs:
       max-parallel: 4
       matrix:
         include:
+          - name: Dependencies
+            key: dependencies
+            variable: WEKAN_DEPENDENCY_E2E_URL
+            test: dependencies::complete_dependency_lifecycle_matches_wekan_v11_06
           - name: Raw API
             key: api
             variable: WEKAN_API_E2E_URL

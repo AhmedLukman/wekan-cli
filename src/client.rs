@@ -8,6 +8,7 @@ pub mod comments;
 pub mod custom_fields;
 mod datetime;
 mod decoding;
+pub mod dependencies;
 mod strings;
 pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub(crate) use strings::trim_javascript_whitespace;
@@ -52,6 +53,10 @@ pub use custom_fields::{
     CreateCustomFieldItemsRequest, CreateCustomFieldRequest, CustomFieldDocument,
     CustomFieldDropdownItem, CustomFieldIdResponse, CustomFieldSettings, CustomFieldSummary,
     CustomFieldType, UpdateCustomFieldItemRequest, UpdateCustomFieldRequest,
+};
+pub use dependencies::{
+    BoardDependencyLine, CardDependencySummary, CreateDependencyRequest, CreateDependencyResponse,
+    DependencyMetadata, DependencyMutationResponse, DependencyType,
 };
 pub use error::ClientError;
 pub use lists::{

@@ -79,10 +79,14 @@ wekan --profile local auth login --username alice
 
 The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
-custom-field definitions, dropdown items, and attachments. It implements 68 of the 143
-operations in the corrected Wekan v11.06 contract, including dedicated card
-archive/restore, custom-field assignment, custom-field lookup, and all 12 attachment
-operations. Attachment transfers support files and stdin/stdout; pinned Wekan
+custom-field definitions, dropdown items, attachments, and card dependencies. It
+implements 73 of the 143 operations in the corrected Wekan v11.06 contract,
+including dedicated card archive/restore, custom-field assignment, custom-field
+lookup, all 12 attachment operations, and all five dependency operations.
+Dependency commands support board
+and card listings, create-or-update, nullable metadata updates, and confirmed
+removal with explicit acknowledgment output. Attachment transfers support files
+and stdin/stdout; pinned Wekan
 upload/copy/move failures and ignored list selectors remain explicitly documented.
 Operations without a dedicated command remain available through the same-origin
 `wekan api request` escape hatch.
@@ -95,6 +99,7 @@ Detailed behavior is documented in:
 - [Checklists and checklist items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/checklists.md)
 - [Custom fields and dropdown items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/custom-fields.md)
 - [Attachments and file transfers](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/attachments.md)
+- [Card dependencies](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/dependencies.md)
 - [Raw API requests](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api.md)
 - [Agent output and error contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/agent-contract.md)
 - [API-to-CLI coverage](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api-coverage.md)
