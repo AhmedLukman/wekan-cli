@@ -1,4 +1,4 @@
-use super::formatting::{escape_terminal_controls, render_named_value_complete};
+use super::formatting::{escape_terminal_controls, render_named_value_complete, render_object};
 use crate::command_result::{
     CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardCustomFieldQuerySuccess,
     CardCustomFieldSetSuccess, CardDeleteSuccess, CardDetail, CardRestoreSuccess,
@@ -18,30 +18,21 @@ pub(super) fn render_batch(batch: &crate::command_result::CardBatchResult) -> St
                 .iter()
                 .filter(|item| item.error.is_some())
                 .count(),
-            render_membership(data)
+            render_object(data)
         ),
         CardBatchResult::CardBulkDelete(data) => format!(
             "Bulk card deletion: {} deleted, {} not found.\n{}",
             data.deleted.len(),
             data.not_found.len(),
-            render_membership(data)
+            render_object(data)
         ),
         CardBatchResult::CardBulkLabels(data) => format!(
             "Bulk card labels: {} updated, {} not found.\n{}",
             data.updated.len(),
             data.not_found.len(),
-            render_membership(data)
+            render_object(data)
         ),
     }
-}
-
-pub(super) fn render_membership<T: serde::Serialize>(data: &T) -> String {
-    let value = serde_json::to_value(data).expect("card membership results serialize as objects");
-    let mut lines = Vec::new();
-    for (name, value) in value.as_object().expect("membership result object") {
-        render_named_value_complete(&mut lines, 0, name, value);
-    }
-    lines.join("\n")
 }
 
 pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
@@ -73,6 +64,71 @@ pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
                 .unwrap_or_default(),
         )
     }));
+    lines.join("\n")
+}
+
+pub(super) fn render_card_count(data: &crate::command_result::CardCountSuccess) -> String {
+    match &data.list_id {
+        Some(list_id) => format!(
+            "{} active cards in list {} on board {}.",
+            data.count,
+            escape_terminal_controls(list_id),
+            escape_terminal_controls(&data.board_id)
+        ),
+        None => format!(
+            "{} active cards on board {}.",
+            data.count,
+            escape_terminal_controls(&data.board_id)
+        ),
+    }
+}
+
+pub(super) fn render_swimlane_cards(
+    data: &crate::command_result::SwimlaneCardCollectionSuccess,
+) -> String {
+    if data.cards.is_empty() {
+        return format!(
+            "No cards found in swimlane {} on board {}.",
+            escape_terminal_controls(&data.swimlane_id),
+            escape_terminal_controls(&data.board_id)
+        );
+    }
+    let mut lines =
+        vec!["ID  TITLE  DESCRIPTION  LIST  RECEIVED  START  DUE  END  ASSIGNEES  SORT".to_owned()];
+    for card in &data.cards {
+        let assignees = card
+            .assignees
+            .as_ref()
+            .map(|values| {
+                values
+                    .iter()
+                    .map(|v| v.as_deref().unwrap_or("null"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .unwrap_or_default();
+        lines.push(
+            [
+                card.card_id.clone(),
+                card.title.clone().unwrap_or_default(),
+                card.description.clone().unwrap_or_default(),
+                card.list_id.clone().unwrap_or_default(),
+                card.received_at.clone().unwrap_or_default(),
+                card.start_at.clone().unwrap_or_default(),
+                card.due_at.clone().unwrap_or_default(),
+                card.end_at.clone().unwrap_or_default(),
+                assignees,
+                card.sort
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .unwrap_or_default(),
+            ]
+            .iter()
+            .map(|v| escape_terminal_controls(v))
+            .collect::<Vec<_>>()
+            .join("  "),
+        );
+    }
     lines.join("\n")
 }
 

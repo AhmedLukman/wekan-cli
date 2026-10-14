@@ -1,5 +1,7 @@
 mod archive;
 mod bulk;
+mod copy;
+mod count;
 mod create;
 mod delete;
 mod find_by_custom_field;
@@ -32,6 +34,10 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    /// Count active cards on a board or in a list.
+    Count(count::CountArgs),
+    /// Copy a card using Wekan's native copy operation.
+    Copy(copy::CopyArgs),
     /// Create, delete, or merge labels on up to 500 cards per request.
     Bulk(bulk::BulkArgs),
     /// List the label IDs stored on a card.
@@ -40,10 +46,10 @@ pub enum CardCommand {
     Member(membership::MembershipArgs),
     /// List or merge individual card assignees.
     Assignee(membership::MembershipArgs),
-    /// List the cards returned by Wekan for a board list.
+    /// List active cards in a board list or swimlane.
     List(list::ListArgs),
 
-    /// Show one card by board, list, and card ID.
+    /// Show a card by ID, optionally restricted to a board and list.
     Get(get::GetArgs),
 
     /// Assign an existing custom-field entry on an active card.
@@ -73,6 +79,8 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::Count(args) => count::execute(args, client_factory, credential_store).await,
+        CardCommand::Copy(args) => copy::execute(args, client_factory, credential_store).await,
         CardCommand::Bulk(args) => {
             bulk::dispatch(args.command, client_factory, credential_store, confirmation).await
         }

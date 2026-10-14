@@ -117,6 +117,48 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::BoardCopied(data)) => {
+            format!(
+                "Board copy acknowledged; effects are unconfirmed:\n{}",
+                formatting::render_object(data)
+            )
+        }
+        (OutputFormat::Json, CommandSuccess::BoardCopied(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardCopied(data)) => {
+            format!(
+                "Card copy acknowledged; effects are unconfirmed:\n{}",
+                formatting::render_object(data)
+            )
+        }
+        (OutputFormat::Json, CommandSuccess::CardCopied(data)) => render_json_success(data),
+        (
+            OutputFormat::Human,
+            CommandSuccess::ListCopied(data) | CommandSuccess::ListMoved(data),
+        ) => format!(
+            "List transfer acknowledged; effects are unconfirmed:\n{}",
+            formatting::render_object(data)
+        ),
+        (
+            OutputFormat::Json,
+            CommandSuccess::ListCopied(data) | CommandSuccess::ListMoved(data),
+        ) => render_json_success(data),
+        (
+            OutputFormat::Human,
+            CommandSuccess::SwimlaneCopied(data) | CommandSuccess::SwimlaneMoved(data),
+        ) => format!(
+            "Swimlane transfer acknowledged; effects are unconfirmed:\n{}",
+            formatting::render_object(data)
+        ),
+        (
+            OutputFormat::Json,
+            CommandSuccess::SwimlaneCopied(data) | CommandSuccess::SwimlaneMoved(data),
+        ) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardCount(data)) => cards::render_card_count(data),
+        (OutputFormat::Json, CommandSuccess::CardCount(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SwimlaneCards(data)) => {
+            cards::render_swimlane_cards(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SwimlaneCards(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardBatch(data)) => cards::render_batch(data),
         (OutputFormat::Json, CommandSuccess::CardBatch(data)) => match data {
             crate::command_result::CardBatchResult::CardBulkCreate(data) => {
@@ -129,34 +171,34 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
                 render_json_success(data)
             }
         },
-        (OutputFormat::Human, CommandSuccess::BoardLabels(data)) => boards::render_membership(data),
+        (OutputFormat::Human, CommandSuccess::BoardLabels(data)) => formatting::render_object(data),
         (OutputFormat::Json, CommandSuccess::BoardLabels(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardLabelAdded(data)) => {
             boards::render_label_added(data)
         }
         (OutputFormat::Json, CommandSuccess::BoardLabelAdded(data)) => render_json_success(data),
-        (OutputFormat::Human, CommandSuccess::CardLabels(data)) => cards::render_membership(data),
+        (OutputFormat::Human, CommandSuccess::CardLabels(data)) => formatting::render_object(data),
         (OutputFormat::Json, CommandSuccess::CardLabels(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMembers(data)) => {
-            boards::render_membership(data)
+            formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::BoardMembers(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberChanged(data)) => {
-            boards::render_membership(data)
+            formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::BoardMemberChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberUpdated(data)) => {
-            boards::render_membership(data)
+            formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::BoardMemberUpdated(data)) => render_json_success(data),
-        (OutputFormat::Human, CommandSuccess::CardMembers(data)) => cards::render_membership(data),
+        (OutputFormat::Human, CommandSuccess::CardMembers(data)) => formatting::render_object(data),
         (OutputFormat::Json, CommandSuccess::CardMembers(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardAssignees(data)) => {
-            cards::render_membership(data)
+            formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::CardAssignees(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardMembershipChanged(data)) => {
-            cards::render_membership(data)
+            formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::CardMembershipChanged(data)) => {
             render_json_success(data)

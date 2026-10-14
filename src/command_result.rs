@@ -94,9 +94,23 @@ pub use cards::CardLabelCollection;
 
 pub mod attachments;
 pub use attachments::*;
+pub use boards::BoardCopySuccess;
+pub use cards::{
+    CardCopySuccess, CardCountSuccess, SwimlaneCardCollectionSuccess, SwimlaneCardSummary,
+};
+pub use lists::ListTransferSuccess;
+pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BoardCopied(boards::BoardCopySuccess),
+    CardCopied(cards::CardCopySuccess),
+    ListCopied(lists::ListTransferSuccess),
+    ListMoved(lists::ListTransferSuccess),
+    SwimlaneCopied(swimlanes::SwimlaneTransferSuccess),
+    SwimlaneMoved(swimlanes::SwimlaneTransferSuccess),
+    CardCount(cards::CardCountSuccess),
+    SwimlaneCards(cards::SwimlaneCardCollectionSuccess),
     CardBatch(CardBatchResult),
     BoardLabels(BoardLabelCollection),
     BoardLabelAdded(BoardLabelAdded),

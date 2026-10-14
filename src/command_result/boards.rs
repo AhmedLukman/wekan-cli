@@ -255,3 +255,11 @@ pub struct BoardLabelAdded {
     pub board_id: String,
     pub label_id: String,
 }
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct BoardCopySuccess {
+    pub source_board_id: String,
+    pub board_id: String,
+    /// The returned ID does not confirm completion of unawaited copy effects.
+    pub mutation_confirmed: bool,
+}

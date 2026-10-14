@@ -6,6 +6,9 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+mod transfer;
+pub use transfer::TransferSwimlaneRequest;
+
 pub const SWIMLANE_COLORS: &[&str] = &[
     "white",
     "green",
@@ -209,7 +212,7 @@ impl WekanClient {
         })
     }
 
-    fn swimlane_endpoint(
+    pub(super) fn swimlane_endpoint(
         &self,
         board_id: &str,
         swimlane_id: Option<&str>,

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Native board, card, list, and swimlane copying, plus list/swimlane moving,
+  with destination selectors and numeric or exact JSON position inputs.
+- `card count` for board/list totals, `card list --swimlane`, and `card get`
+  by ID alone, including archived cards. Existing scoped reads remain available.
+- All copy/move results report `mutation_confirmed: false` and explain unconfirmed
+  effects in human output. Explicit ambiguous-outcome errors preserve
+  Wekan v11.06's source-list retention, asynchronous default-swimlane insertion,
+  and partial cross-board move failures.
+- Copy documentation records Wekan v11.06 returning success while omitting
+  card attachments in board, card, list, and swimlane copies.
+
 ## [0.10.0] - 2026-10-14
 
 ### Added

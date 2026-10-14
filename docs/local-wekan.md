@@ -112,6 +112,25 @@ $env:WEKAN_MEMBERSHIP_E2E_URL = "http://localhost:3101"
 cargo test --locked --test e2e memberships::complete_membership_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
 
+## Copy, move, and remaining card reads
+
+The dedicated lifecycle test covers all ten operations, nested copies,
+position inputs, archived-card lookup, permissions, and partial move defects.
+Independent list-move fixtures distinguish new destinations with matching or
+nonmatching source swimlane filters from existing same-title destinations that
+bypass that filter. Copy results assert unconfirmed metadata even when the
+returned board/card exists and its attachments are omitted.
+It independently checks every sibling's persisted sort value and polls the
+asynchronous extra-default-lane insertion before verifying swimlane ordering.
+Run it against an isolated stack and set `COMPOSE_PROJECT_NAME` to that stack
+when using database/file fixtures:
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-test-1"
+$env:WEKAN_TRANSFER_E2E_URL = "http://localhost:3101"
+cargo test --locked --test e2e transfers::complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
 ## Stop or reset the stack
 
 Stop and remove the containers while preserving MongoDB data and uploaded files:

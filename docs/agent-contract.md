@@ -329,10 +329,17 @@ list deletion returns the standard cancellation shape with
 
 ## Card success
 
-`card list` returns `{"board_id":"...","list_id":"...","cards":[...]}`.
+`card list --list` returns `{"board_id":"...","list_id":"...","cards":[...]}`.
 Each projected card contains `card_id`, nullable `title`, `description`,
 `swimlane_id`, `received_at`, `start_at`, `due_at`, and `end_at`, plus the
 `assignees` array and nullable numeric `sort`.
+
+`card list --swimlane` returns `{"board_id":"...","swimlane_id":"...","cards":[...]}`.
+Its summaries project `list_id` instead of `swimlane_id`; `assignees` preserves
+null arrays and null elements. The selectors conflict and exactly one is required.
+`card count --board <ID> [--list <ID>]` returns
+`{"board_id":"...","list_id":null,"count":N}`, with the selected list ID
+instead of null for list counts. HTTP-200 serialized server errors remain errors.
 
 `card get` returns the complete typed Wekan v11.06 card document. `_id` becomes
 `card_id`, `type` becomes `card_type`, and every field uses snake case.
@@ -342,6 +349,10 @@ array with optional null members, or null union. Unknown top-level or nested
 fields, invalid timestamps,
 colors, card types, sticker highlights, identifiers, and nested value types
 cause `protocol_error`.
+
+`card get <ID>` uses ID-only lookup and can return archived cards. Supplying
+both `--board` and `--list` selects the existing active-only scoped endpoint;
+supplying just one parent is invalid. Both modes share the complete detail shape.
 
 Creation returns `{"board_id":"...","list_id":"...","card_id":"..."}`.
 Update returns those identifiers plus canonical-order `submitted_fields`, whose
@@ -375,6 +386,24 @@ and wrong-state failures are HTTP 500 HTML responses; they remain `server_error`
 with `http_status:500` and `outcome_unknown:true`. Missing boards produce
 `not_found` with HTTP 404. HTTP 401/403 retains authentication/permission
 classification. No command preflight, retry, or follow-up request is issued.
+
+## Copy and move success
+
+`board copy` returns `source_board_id` and the new `board_id`. `card copy`
+returns `source_board_id`, `source_list_id`, `source_card_id`, requested
+`target_board_id`, `target_list_id`, `target_swimlane_id`, and new `card_id`.
+Omitted destination board/list values are resolved to the source selectors.
+Both results include `mutation_confirmed: false`, and human output states that
+effects are unconfirmed: Wekan does not await attachment duplication, which fails
+independently of the returned ID in v11.06.
+
+List transfers return `source_board_id`, `source_list_id`, `target_board_id`,
+nullable `target_swimlane_id`, `returned_list_id`, and `mutation_confirmed: false`.
+Swimlane transfers return `source_board_id`, `source_swimlane_id`,
+`target_board_id`, `returned_swimlane_id`, and `mutation_confirmed: false`.
+List moves can return the source ID while retaining that list. These results
+acknowledge native requests without independently verifying their effects.
+See [copy and move](copy-and-move.md) for defaults, ordering, and pinned defects.
 
 ## Comment success
 

@@ -39,6 +39,10 @@ jobs:
       max-parallel: 4
       matrix:
         include:
+          - name: Copy, move, and card reads
+            key: transfers
+            variable: WEKAN_TRANSFER_E2E_URL
+            test: transfers::complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06
           - name: Bulk cards and labels
             key: bulk-cards
             variable: WEKAN_BULK_CARD_E2E_URL

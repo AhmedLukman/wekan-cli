@@ -2,6 +2,7 @@ mod create;
 mod delete;
 mod get;
 mod list;
+mod transfer;
 mod update;
 
 #[cfg(test)]
@@ -22,6 +23,10 @@ pub struct SwimlaneArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum SwimlaneCommand {
+    /// Copy a swimlane using Wekan's native transfer behavior.
+    Copy(transfer::TransferArgs),
+    /// Move or reposition a swimlane using Wekan's native behavior.
+    Move(transfer::TransferArgs),
     /// List the swimlanes returned by Wekan for a board.
     List(list::ListArgs),
 
@@ -45,6 +50,12 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        SwimlaneCommand::Copy(args) => {
+            transfer::execute(args, false, client_factory, credential_store).await
+        }
+        SwimlaneCommand::Move(args) => {
+            transfer::execute(args, true, client_factory, credential_store).await
+        }
         SwimlaneCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         SwimlaneCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         SwimlaneCommand::Create(args) => {

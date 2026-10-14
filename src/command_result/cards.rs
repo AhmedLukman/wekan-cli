@@ -293,3 +293,42 @@ pub struct CardLabelCollection {
     pub card_id: String,
     pub label_ids: Vec<Option<String>>,
 }
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CardCopySuccess {
+    pub source_board_id: String,
+    pub source_list_id: String,
+    pub source_card_id: String,
+    pub target_board_id: String,
+    pub target_list_id: String,
+    pub target_swimlane_id: String,
+    pub card_id: String,
+    /// The returned ID does not confirm completion of unawaited copy effects.
+    pub mutation_confirmed: bool,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct CardCountSuccess {
+    pub board_id: String,
+    pub list_id: Option<String>,
+    pub count: u64,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct SwimlaneCardCollectionSuccess {
+    pub board_id: String,
+    pub swimlane_id: String,
+    pub cards: Vec<SwimlaneCardSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SwimlaneCardSummary {
+    pub card_id: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub list_id: Option<String>,
+    pub received_at: Option<String>,
+    pub start_at: Option<String>,
+    pub due_at: Option<String>,
+    pub end_at: Option<String>,
+    pub assignees: Option<Vec<Option<String>>>,
+    pub sort: Option<Number>,
+}

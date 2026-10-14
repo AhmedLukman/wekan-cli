@@ -38,6 +38,7 @@ wekan-cli/
 │   │   ├── authenticated.rs           # Handler-owned authenticated command state
 │   │   ├── client_error.rs            # Shared client-to-command error-detail mapping
 │   │   ├── credential_ops.rs          # Shared credential-store operation policy
+│   │   ├── tests.rs                   # Cross-family command dispatch and result tests
 │   │   │
 │   │   ├── profile.rs                 # `wekan profile` family enum, dispatch and shared policy
 │   │   ├── profile/

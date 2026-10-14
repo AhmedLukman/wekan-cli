@@ -21,21 +21,23 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::non_empty;
+use crate::commands::transfer::identifier;
 
 #[derive(Debug, Args)]
-#[command(after_help = "Example:\n  wekan card get card-id --board board-id --list list-id")]
+#[command(
+    after_help = "Examples:\n  wekan card get card-id\n  wekan card get card-id --board board-id --list list-id\n\nID-only lookup includes archived cards; scoped lookup returns active cards."
+)]
 pub struct GetArgs {
     /// Wekan board ID.
-    #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
-    pub board_id: String,
+    #[arg(long = "board", requires = "list_id", value_parser = identifier, help_heading = "Target")]
+    pub board_id: Option<String>,
 
     /// Wekan list ID.
-    #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
-    pub list_id: String,
+    #[arg(long = "list", requires = "board_id", value_parser = identifier, help_heading = "Target")]
+    pub list_id: Option<String>,
 
     /// Wekan card ID.
-    #[arg(value_parser = non_empty, help_heading = "Target")]
+    #[arg(value_parser = identifier, help_heading = "Target")]
     pub card_id: String,
 }
 
@@ -46,23 +48,29 @@ pub(super) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
     let redactor = Redactor::with_secret(context.record().token());
-    let card = context
-        .client()
-        .card(
-            &args.board_id,
-            &args.list_id,
-            &args.card_id,
-            context.record().token(),
+    let card = match (&args.board_id, &args.list_id) {
+        (Some(board), Some(list)) => {
+            context
+                .client()
+                .card(board, list, &args.card_id, context.record().token())
+                .await
+        }
+        (None, None) => {
+            context
+                .client()
+                .card_by_id(&args.card_id, context.record().token())
+                .await
+        }
+        _ => unreachable!("parent selectors are paired by clap"),
+    }
+    .map_err(|error| {
+        map_client_error_with_not_found(
+            error,
+            &redactor,
+            "card lookup",
+            "the requested Wekan card was not found",
         )
-        .await
-        .map_err(|error| {
-            map_client_error_with_not_found(
-                error,
-                &redactor,
-                "card lookup",
-                "the requested Wekan card was not found in that board list",
-            )
-        })?;
+    })?;
     Ok(CommandSuccess::CardShown(Box::new(card_detail(card))))
 }
 

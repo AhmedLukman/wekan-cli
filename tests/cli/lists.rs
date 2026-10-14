@@ -2,7 +2,7 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 #[test]
-fn list_help_exposes_only_core_crud_and_full_update_fields() {
+fn list_help_exposes_crud_transfers_and_full_update_fields() {
     cargo_bin_cmd!("wekan")
         .args(["list", "--help"])
         .assert()
@@ -12,8 +12,8 @@ fn list_help_exposes_only_core_crud_and_full_update_fields() {
         .stdout(predicate::str::contains("create"))
         .stdout(predicate::str::contains("update"))
         .stdout(predicate::str::contains("delete"))
-        .stdout(predicate::str::contains("copy").not())
-        .stdout(predicate::str::contains("move").not())
+        .stdout(predicate::str::contains("copy"))
+        .stdout(predicate::str::contains("move"))
         .stderr(predicate::str::is_empty());
 
     cargo_bin_cmd!("wekan")

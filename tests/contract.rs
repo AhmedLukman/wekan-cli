@@ -15,6 +15,8 @@ mod checklists;
 mod requests;
 #[path = "contract/responses.rs"]
 mod responses;
+#[path = "contract/transfers.rs"]
+mod transfers;
 
 fn register_request() -> RegisterRequest {
     RegisterRequest {

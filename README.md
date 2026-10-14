@@ -80,11 +80,14 @@ wekan --profile local auth login --username alice
 The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, and card dependencies. It
-implements 84 of the 143 operations in the corrected Wekan v11.06 contract,
+implements 94 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment operations, all five dependency operations, and all
 seven board/card membership mutations, bulk card creation/deletion/label changes,
-and board label addition. Nested `board member`, `card member`,
+and board label addition. Native board/card/list/swimlane copies, list/swimlane
+moves, board/list card counts, swimlane card listings, and card lookup by ID
+alone are also available; see [copy and move](docs/copy-and-move.md) and
+[card reads](docs/cards.md). Nested `board member`, `card member`,
 and `card assignee` commands support focused lists and individual changes;
 board members also support named roles and individual permission flags.
 Dependency commands support board

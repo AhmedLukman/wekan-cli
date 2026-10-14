@@ -1,8 +1,9 @@
 # Swimlanes
 
-The singular `wekan swimlane` command family covers only the five core
-swimlane operations. It does not copy, move, order, archive, restore, operate
-on cards, or expose other swimlane subresources.
+The singular `wekan swimlane` family covers core swimlane operations plus
+native copying, moving, and repositioning. See [copy and move](copy-and-move.md)
+for transfer syntax and acknowledgments. Use `card list --board <BOARD_ID>
+--swimlane <SWIMLANE_ID>` to list cards in a swimlane.
 
 ## Commands
 
@@ -69,3 +70,6 @@ requested ID. Therefore `deleted: true` and `delete_mode: "hard"` mean Wekan
 accepted and validated the request, not that a live swimlane necessarily
 existed immediately before the call. A subsequent `swimlane get` normalizes
 Wekan's empty HTTP 200 response to the stable `not_found` error.
+
+Copy/move command syntax, position inputs, typed acknowledgments, and pinned
+server behavior are documented in [copy and move](copy-and-move.md).

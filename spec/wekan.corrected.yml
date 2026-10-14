@@ -4563,7 +4563,7 @@ paths:
                 - Cards
             responses:
                 "200":
-                    description: New card ID.
+                    description: 'New card ID. Attachments are omitted because the unawaited copyFile helper rejects with ReferenceError: ReactiveCache is not defined; the card and other copied children remain and the route still returns HTTP 200.'
                     schema:
                         $ref: "#/definitions/IdResponse"
                 "400":
@@ -4630,6 +4630,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: deep-copy-omits-attachments-reactivecache-undefined
         parameters:
             - in: query
               name: access_token
@@ -5312,7 +5313,7 @@ paths:
                     $ref: '#/definitions/ListTransferRequest'
             responses:
                 "200":
-                    description: Destination list ID. Reuses an existing active destination list with the same title, including the source ID for a same-board copy; only otherwise creates a new list.
+                    description: 'Destination list ID. Reuses an existing active destination list with the same title, including the source ID for a same-board copy; only otherwise creates a new list. Copied cards omit attachments because the unawaited copyFile helper rejects with ReferenceError: ReactiveCache is not defined; the route still returns HTTP 200.'
                     schema:
                         $ref: "#/definitions/IdResponse"
                 "401":
@@ -5356,6 +5357,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: deep-copy-omits-attachments-reactivecache-undefined
         parameters:
             - in: query
               name: access_token
@@ -5415,10 +5417,11 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
-            description: "Same-board move repositions the existing list and may change its swimlaneId. Cross-board move inserts/reuses the destination list, leaves the source list intact, ignores position, and returns the source list ID when it completes. A supplied destination swimlane is also used as a source-card filter and may leave cards unmoved. When a selected card is transferred, Cards.move writes it and then Meteor.userId() outside a DDP invocation throws: the route returns HTML 500 after partial mutation. Labels on a transferred card remap to existing destination labels by name; missing destination labels are dropped."
+            description: "Same-board move repositions the existing list and may change its swimlaneId. Cross-board move inserts/reuses the destination list, leaves the source list intact, ignores position, and returns the source list ID when it completes. For a new destination list, a supplied destination swimlane is also used as a source-card filter and may leave cards unmoved. If an active same-title destination list already exists, an earlier unfiltered card loop attempts transfers regardless of the supplied swimlane. Repeating a request that previously created a destination list without moving cards can therefore transfer a card before failing. When a selected card is transferred, Cards.move writes it and then Meteor.userId() outside a DDP invocation throws: the route returns HTML 500 after partial mutation. Labels on a transferred card remap to existing destination labels by name; missing destination labels are dropped."
             x-wekan-v11.06-defects:
                 - cross-board-list-move-keeps-source-ignores-position
                 - destination-swimlane-used-as-source-card-filter
+                - same-title-destination-list-bypasses-source-swimlane-filter
                 - populated-list-move-partial-mutation-before-meteor-userid-error
             produces:
                 - application/json
@@ -6145,7 +6148,7 @@ paths:
                     $ref: '#/definitions/SwimlaneTransferRequest'
             responses:
                 "200":
-                    description: New swimlane ID.
+                    description: 'New swimlane ID. Nested cards are copied, but their attachments are omitted because the unawaited copyFile helper rejects with ReferenceError: ReactiveCache is not defined; the route still returns HTTP 200.'
                     schema:
                         $ref: "#/definitions/IdResponse"
                 "401":
@@ -6189,6 +6192,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: deep-copy-omits-attachments-reactivecache-undefined
         parameters:
             - in: query
               name: access_token
@@ -6255,6 +6259,11 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Moves/repositions a swimlane and its cards using the native helper. A populated cross-board move can create/reuse destination lists and move a card before Meteor.userId throws outside a DDP invocation. The route then returns HTML HTTP 500 while the swimlane remains on the source board and earlier card/list changes remain saved. Successful moves also start an unawaited upsert of a deterministic boardId-default swimlane, even when active lanes already exist. If absent, that extra active lane is inserted with sort zero; HTTP 200 does not confirm its completion.
+            x-wekan-v11.06-defects:
+                - populated-swimlane-move-partial-mutation-before-meteor-userid-error
+                - swimlane-move-inserts-default-with-active-swimlanes
         parameters:
             - in: query
               name: access_token
@@ -8578,7 +8587,7 @@ paths:
                         title: {type: string}
             responses:
                 '200':
-                    description: New board ID.
+                    description: 'New board ID. Nested cards are copied, but their attachments are omitted because the unawaited copyFile helper rejects with ReferenceError: ReactiveCache is not defined; the route still returns HTTP 200.'
                     schema:
                         type: string
                 '500':
@@ -8607,6 +8616,7 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            x-wekan-v11.06-defect: deep-copy-omits-attachments-reactivecache-undefined
         parameters:
             - in: query
               name: access_token

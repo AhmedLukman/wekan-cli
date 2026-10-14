@@ -1,3 +1,12 @@
+pub(super) fn render_object<T: serde::Serialize>(data: &T) -> String {
+    let value = serde_json::to_value(data).expect("command results are serializable");
+    let mut lines = Vec::new();
+    for (name, value) in value.as_object().expect("command result object") {
+        render_named_value_complete(&mut lines, 0, name, value);
+    }
+    lines.join("\n")
+}
+
 pub(super) fn push_optional(lines: &mut Vec<String>, label: &str, value: Option<&str>) {
     if let Some(value) = value {
         lines.push(format!("{label}: {}", escape_terminal_controls(value)));

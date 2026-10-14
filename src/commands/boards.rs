@@ -1,3 +1,4 @@
+mod copy;
 mod count;
 mod create;
 mod delete;
@@ -25,6 +26,8 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// Copy a board using Wekan's native copy operation.
+    Copy(copy::CopyArgs),
     /// List or add reusable board labels.
     Label(labels::LabelArgs),
     /// List, add, remove, or change board members.
@@ -55,6 +58,7 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Copy(args) => copy::execute(args, client_factory, credential_store).await,
         BoardCommand::Label(args) => {
             labels::dispatch(args.command, client_factory, credential_store).await
         }

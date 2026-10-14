@@ -6,6 +6,10 @@ use serde_json::Number;
 use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
+mod copy;
+mod reads;
+pub use copy::{CardCopyPosition, CopyCardRequest};
+pub use reads::SwimlaneCardSummary;
 pub mod bulk;
 mod custom_fields;
 pub mod membership;

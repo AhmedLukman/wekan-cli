@@ -61,3 +61,14 @@ pub struct SwimlaneDeleteSuccess {
     pub deleted: bool,
     pub delete_mode: SwimlaneDeleteMode,
 }
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct SwimlaneTransferSuccess {
+    pub source_board_id: String,
+    pub source_swimlane_id: String,
+    pub target_board_id: String,
+
+    pub returned_swimlane_id: String,
+    /// The returned ID acknowledges the request, without independently confirming its effects.
+    pub mutation_confirmed: bool,
+}

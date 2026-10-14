@@ -2,7 +2,7 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 #[test]
-fn swimlane_help_exposes_only_core_crud_and_create_sort() {
+fn swimlane_help_exposes_crud_transfers_and_create_sort() {
     cargo_bin_cmd!("wekan")
         .args(["swimlane", "--help"])
         .assert()
@@ -12,8 +12,8 @@ fn swimlane_help_exposes_only_core_crud_and_create_sort() {
         .stdout(predicate::str::contains("create"))
         .stdout(predicate::str::contains("update"))
         .stdout(predicate::str::contains("delete"))
-        .stdout(predicate::str::contains("copy").not())
-        .stdout(predicate::str::contains("move").not())
+        .stdout(predicate::str::contains("copy"))
+        .stdout(predicate::str::contains("move"))
         .stdout(predicate::str::contains("archive").not())
         .stderr(predicate::str::is_empty());
 

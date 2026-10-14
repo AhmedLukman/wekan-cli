@@ -18,6 +18,8 @@ mod lists;
 mod support;
 #[path = "e2e/swimlanes.rs"]
 mod swimlanes;
+#[path = "e2e/transfers.rs"]
+mod transfers;
 #[path = "e2e/users.rs"]
 mod users;
 

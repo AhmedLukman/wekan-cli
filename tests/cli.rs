@@ -33,3 +33,5 @@ mod custom_fields;
 mod dependencies;
 #[path = "cli/memberships.rs"]
 mod memberships;
+#[path = "cli/transfers.rs"]
+mod transfers;

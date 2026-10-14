@@ -9,12 +9,16 @@ wekan board count
 wekan board get <BOARD_ID>
 wekan board create --title <TITLE> [--owner <USER_ID>] [--is-admin <true|false>] [--is-active <true|false>] [--permission private|public] [--color <COLOR>] [--no-comments] [--comment-only] [--worker]
 wekan board rename <BOARD_ID> --title <TITLE>
+wekan board copy <BOARD_ID> [--title <TEXT>]
 wekan board delete <BOARD_ID> [--yes]
 ```
 
 Every command requires a selected profile and an unexpired stored credential.
-Board imports, copies, labels, domains, attachments, card settings,
+Board imports, domains, attachments, card settings,
 and other subresources are outside this command family's scope.
+
+`board copy <BOARD_ID> [--title <TEXT>]` uses Wekan's native board copier.
+`board label list/add` manages reusable labels; see [bulk cards and labels](bulk-cards-and-labels.md).
 
 `board member list/add/remove/update` implements board membership management.
 See [board and card memberships](memberships.md) for syntax, permission inputs,
@@ -96,3 +100,6 @@ Their `data` values are:
 
 The list scope is `active` or `public`. `board get` uses the comprehensive typed
 document described above.
+
+Copy/move command syntax, position inputs, typed acknowledgments, and pinned
+server behavior are documented in [copy and move](copy-and-move.md).

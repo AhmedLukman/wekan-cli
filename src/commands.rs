@@ -15,7 +15,11 @@ pub mod dependencies;
 pub mod lists;
 pub mod profile;
 pub mod swimlanes;
+mod transfer;
 pub mod users;
+
+#[cfg(test)]
+mod tests;
 
 use clap::Subcommand;
 

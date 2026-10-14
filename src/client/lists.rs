@@ -6,6 +6,9 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+mod transfer;
+pub use transfer::TransferListRequest;
+
 pub const LIST_COLORS: &[&str] = &[
     "white",
     "green",
@@ -240,7 +243,7 @@ impl WekanClient {
         })
     }
 
-    fn list_endpoint(
+    pub(super) fn list_endpoint(
         &self,
         board_id: &str,
         list_id: Option<&str>,

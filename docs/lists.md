@@ -1,8 +1,8 @@
 # Lists
 
-The singular `wekan list` command family covers only the five core list
-operations. It does not copy, move, order, archive, restore, or operate on list
-cards and other subresources.
+The singular `wekan list` family covers core list operations plus native
+copying, moving, and repositioning. See [copy and move](copy-and-move.md) for
+transfer syntax, returned IDs, and Wekan v11.06's partial mutation behavior.
 
 ## Commands
 
@@ -81,3 +81,6 @@ archived lists but not soft-deleted lists and omits deletion metadata from each
 summary, so a deleted list may remain in `list list` output. Its missing
 single-list route returns an empty HTTP 200 response; the CLI normalizes that to
 the stable `not_found` error.
+
+Copy/move command syntax, position inputs, typed acknowledgments, and pinned
+server behavior are documented in [copy and move](copy-and-move.md).

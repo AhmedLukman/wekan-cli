@@ -7738,17 +7738,25 @@ actions:
     description: server/models/lists.js lines 932-962; models/lists.js lines 318-365, 392-412; models/cards.js
       lines 2620-2679 and 2709; live populated-card/label variants with matching-version server log showing
       Meteor.userId call. Verified against Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f.
+      models/lists.js 325-328 first calls this.cards() without a swimlane argument when a same-title destination
+      exists. Independent live probe and tests/e2e/transfers.rs verify a nonmatching supplied swimlane leaves
+      cards unchanged only for a new destination; an existing same-title destination moves an excluded card
+      before HTTP 500. Separate new-destination tests verify matching and nonmatching source filters.
     update:
       description: "Same-board move repositions the existing list and may change its swimlaneId. Cross-board move
         inserts/reuses the destination list, leaves the source list intact, ignores position, and returns the
-        source list ID when it completes. A supplied destination swimlane is also used as a source-card filter
-        and may leave cards unmoved. When a selected card is transferred, Cards.move writes it and then
+        source list ID when it completes. For a new destination list, a supplied destination swimlane is also
+        used as a source-card filter and may leave cards unmoved. If an active same-title destination list
+        already exists, an earlier unfiltered card loop attempts transfers regardless of the supplied
+        swimlane. Repeating a request that previously created a destination list without moving cards can
+        therefore transfer a card before failing. When a selected card is transferred, Cards.move writes it and then
         Meteor.userId() outside a DDP invocation throws: the route returns HTML 500 after partial mutation.
         Labels on a transferred card remap to existing destination labels by name; missing destination labels
         are dropped."
       x-wekan-v11.06-defects:
         - cross-board-list-move-keeps-source-ignores-position
         - destination-swimlane-used-as-source-card-filter
+        - same-title-destination-list-bypasses-source-swimlane-filter
         - populated-list-move-partial-mutation-before-meteor-userid-error
 
   # Complete v11.06 audit: cards.
@@ -24610,6 +24618,78 @@ actions:
         description: >-
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
+
+  - target: '$.paths["/api/boards/{boardId}/copy", "/api/boards/{board}/lists/{list}/cards/{card}/copy", "/api/boards/{board}/lists/{list}/copy", "/api/boards/{board}/swimlanes/{swimlane}/copy"].post'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/cards.js 989-995 calls copyFile without awaiting it. The helper in
+      models/lib/fileStoreStrategy.js 1086-1087 uses ReactiveCache without an
+      import or declaration, so it rejects before copying attachment metadata
+      or bytes. Board, list, and swimlane copiers delegate to Card.copy.
+      tests/e2e/transfers.rs verifies all four HTTP-200 copy operations against
+      a readable filesystem attachment, retained source metadata and bytes,
+      created destination cards, and absent destination attachments. Server
+      logs confirm ReferenceError: ReactiveCache is not defined (W11-047).
+    update:
+      x-wekan-v11.06-defect: deep-copy-omits-attachments-reactivecache-undefined
+  - target: '$.paths["/api/boards/{boardId}/copy"].post.responses["200"]'
+    update:
+      description: >-
+        New board ID. Nested cards are copied, but their attachments are omitted
+        because the unawaited copyFile helper rejects with ReferenceError:
+        ReactiveCache is not defined; the route still returns HTTP 200.
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/copy"].post.responses["200"]'
+    update:
+      description: >-
+        New card ID. Attachments are omitted because the unawaited copyFile helper
+        rejects with ReferenceError: ReactiveCache is not defined; the card and
+        other copied children remain and the route still returns HTTP 200.
+  - target: '$.paths["/api/boards/{board}/lists/{list}/copy"].post.responses["200"]'
+    update:
+      description: >-
+        Destination list ID. Reuses an existing active destination list with the
+        same title, including the source ID for a same-board copy; only otherwise
+        creates a new list. Copied cards omit attachments because the unawaited
+        copyFile helper rejects with ReferenceError: ReactiveCache is not defined;
+        the route still returns HTTP 200.
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/copy"].post.responses["200"]'
+    update:
+      description: >-
+        New swimlane ID. Nested cards are copied, but their attachments are omitted
+        because the unawaited copyFile helper rejects with ReferenceError:
+        ReactiveCache is not defined; the route still returns HTTP 200.
+
+  - target: '$.paths["/api/boards/{board}/swimlanes/{swimlane}/move"].post'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/swimlanes.js 335-382 creates/reuses destination lists and awaits
+      each Card.move before updating the swimlane's board. models/cards.js
+      2707-2709 writes the card and then calls Meteor.userId outside a DDP
+      invocation. tests/e2e/transfers.rs verifies HTTP 500 HTML after a selected
+      card moves to the destination board while the swimlane remains on the
+      source board (W11-048). server/models/swimlanes.js 305 has no catch.
+      models/swimlanes.js 375 calls Board.getDefaultSwimline after the awaited
+      swimlane update. models/boards.js 1841-1902 passes the Promise from
+      ReactiveCache.getSwimlanes to pickDefaultSwimlane, which rejects non-arrays
+      in models/lib/defaultSwimlane.js 43-47. The getter starts upsertAsync
+      without awaiting it, inserting a deterministic boardId-default lane even
+      when active lanes already exist. tests/e2e/transfers.rs verifies absence
+      before a successful ordinary-user move, then polls typed reads for the
+      additional active sort-zero lane (W11-049). Repeated moves preserve its
+      seeded sort because the upsert uses setOnInsert only.
+    update:
+      description: >-
+        Moves/repositions a swimlane and its cards using the native helper.
+        A populated cross-board move can create/reuse destination lists and move
+        a card before Meteor.userId throws outside a DDP invocation. The route
+        then returns HTML HTTP 500 while the swimlane remains on the source
+        board and earlier card/list changes remain saved. Successful moves also
+        start an unawaited upsert of a deterministic boardId-default swimlane,
+        even when active lanes already exist. If absent, that extra active lane
+        is inserted with sort zero; HTTP 200 does not confirm its completion.
+      x-wekan-v11.06-defects:
+        - populated-swimlane-move-partial-mutation-before-meteor-userid-error
+        - swimlane-move-inserts-default-with-active-swimlanes
 
   - target: $.definitions.BoardLabelValue
     description: >-

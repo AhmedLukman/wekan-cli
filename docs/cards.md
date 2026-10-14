@@ -14,8 +14,9 @@ The singular `wekan card` family covers board/list-scoped core CRUD, archive,
 and restore operations, plus custom-field assignment and board-wide lookup:
 
 ```console
-wekan card list --board <BOARD_ID> --list <LIST_ID>
-wekan card get <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
+wekan card count --board <BOARD_ID> [--list <LIST_ID>]
+wekan card list --board <BOARD_ID> (--list <LIST_ID> | --swimlane <SWIMLANE_ID>)
+wekan card get <CARD_ID> [--board <BOARD_ID> --list <LIST_ID>]
 wekan card create --board <BOARD_ID> --list <LIST_ID> [--title <TITLE> | --null-title] --swimlane-id <ID> [FIELDS...]
 wekan card update <CARD_ID> --board <BOARD_ID> --list <LIST_ID> <FIELDS...>
 wekan card archive <CARD_ID> --board <BOARD_ID> --list <LIST_ID>
@@ -37,6 +38,27 @@ the URL library cannot preserve those path segments.
 Both custom-field commands also reject dot-only target IDs before HTTP.
 See [custom-field commands](custom-fields.md) for exact input forms, cleaned
 response values, full lookup output, and pinned server limitations.
+
+## Remaining reads and copying
+
+`card list` requires exactly one of `--list` and `--swimlane`. List results
+preserve `{board_id, list_id, cards}`; swimlane results use
+`{board_id, swimlane_id, cards}`, with `list_id` on each card summary.
+Both use the server's active-card projection and sort order. A missing list or
+swimlane returns an empty collection after the board access check.
+
+`card count` returns `{board_id, list_id, count}`, with null `list_id` for
+board totals. Counts come from native endpoints and exclude archived cards;
+a missing list returns zero. Wekan serializes board/access failures with HTTP
+200; the CLI returns an error and preserves that HTTP status in its details.
+
+`card get` accepts both parent selectors together or neither. Omitting both
+uses the ID-only endpoint and the same full typed detail result, including
+archived cards. Scoped lookup retains its active-card filter. Unknown fields,
+including nested fields, cause a protocol error in either mode.
+
+For `card copy`, destination selectors, positions, and child resource behavior,
+see [copy and move](copy-and-move.md).
 
 ## Create and update fields
 

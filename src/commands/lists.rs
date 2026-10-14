@@ -2,6 +2,7 @@ mod create;
 mod delete;
 mod get;
 mod list;
+mod transfer;
 mod update;
 
 #[cfg(test)]
@@ -22,6 +23,10 @@ pub struct ListArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ListCommand {
+    /// Copy a list using Wekan's native transfer behavior.
+    Copy(transfer::TransferArgs),
+    /// Move or reposition a list; Wekan may retain the source or fail after partial changes.
+    Move(transfer::TransferArgs),
     /// List the lists returned by Wekan for a board.
     List(list::ListArgs),
 
@@ -45,6 +50,12 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        ListCommand::Copy(args) => {
+            transfer::execute(args, false, client_factory, credential_store).await
+        }
+        ListCommand::Move(args) => {
+            transfer::execute(args, true, client_factory, credential_store).await
+        }
         ListCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         ListCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         ListCommand::Create(args) => create::execute(args, client_factory, credential_store).await,

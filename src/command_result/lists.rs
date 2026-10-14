@@ -80,3 +80,14 @@ pub struct ListDeleteSuccess {
     pub deleted: bool,
     pub delete_mode: ListDeleteMode,
 }
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct ListTransferSuccess {
+    pub source_board_id: String,
+    pub source_list_id: String,
+    pub target_board_id: String,
+    pub target_swimlane_id: Option<String>,
+    pub returned_list_id: String,
+    /// The returned ID acknowledges the request, without independently confirming its effects.
+    pub mutation_confirmed: bool,
+}

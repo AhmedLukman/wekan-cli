@@ -1666,3 +1666,49 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
     assert!(confirmation.requests().is_empty());
     assert_eq!(store.lock_count.load(Ordering::SeqCst), 5);
 }
+
+#[tokio::test]
+async fn remaining_card_read_commands_route_and_render_scope() {
+    use crate::output::{OutputFormat, render_success};
+    for (args, route, body) in [
+        (
+            vec!["count", "--board", "b"],
+            "/api/boards/b/cards_count",
+            json!({"board_cards_count":0}),
+        ),
+        (
+            vec!["count", "--board", "b", "--list", "l"],
+            "/api/boards/b/lists/l/cards_count",
+            json!({"list_cards_count":3}),
+        ),
+        (
+            vec!["list", "--board", "b", "--swimlane", "s"],
+            "/api/boards/b/swimlanes/s/cards",
+            json!([{"_id":"c","listId":"l","title":"A\u{001b}[31m","assignees":[null,"u"]}]),
+        ),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(route))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let result = super::dispatch(
+            card_command(&args),
+            &factory(&server),
+            &FakeCredentialStore::authenticated(&server),
+            &FakeConfirmationProvider::declining(),
+        )
+        .await
+        .unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &result)).unwrap();
+        assert_eq!(value["data"]["board_id"], "b");
+        assert!(!render_success(OutputFormat::Human, &result).contains('\u{001b}'));
+        if args[0] == "list" {
+            assert_eq!(value["data"]["swimlane_id"], "s");
+            assert_eq!(value["data"]["cards"][0]["list_id"], "l");
+        }
+    }
+}
