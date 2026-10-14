@@ -1,6 +1,7 @@
 mod api;
 mod auth;
 mod boards;
+mod bulk_cards;
 mod cards;
 mod checklist_items;
 mod checklists;
@@ -86,11 +87,20 @@ pub use users::{
 
 use serde::Serialize;
 
+pub use bulk_cards::*;
+
+pub use boards::{BoardLabelAdded, BoardLabelCollection};
+pub use cards::CardLabelCollection;
+
 pub mod attachments;
 pub use attachments::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    CardBatch(CardBatchResult),
+    BoardLabels(BoardLabelCollection),
+    BoardLabelAdded(BoardLabelAdded),
+    CardLabels(CardLabelCollection),
     BoardMembers(BoardMemberCollectionSuccess),
     BoardMemberChanged(BoardMemberMutationSuccess),
     BoardMemberUpdated(BoardMemberUpdateSuccess),
@@ -195,6 +205,7 @@ pub enum MembershipAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    CardBulkDelete,
     DependencyDelete,
     AttachmentDelete,
     ApiRequest,
@@ -217,6 +228,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::CardBulkDelete => "card bulk delete",
             Self::DependencyDelete => "dependency delete",
             Self::AttachmentDelete => "attachment delete",
             Self::ApiRequest => "api request",

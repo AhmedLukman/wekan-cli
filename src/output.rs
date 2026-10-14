@@ -117,6 +117,26 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::CardBatch(data)) => cards::render_batch(data),
+        (OutputFormat::Json, CommandSuccess::CardBatch(data)) => match data {
+            crate::command_result::CardBatchResult::CardBulkCreate(data) => {
+                render_json_success(data)
+            }
+            crate::command_result::CardBatchResult::CardBulkDelete(data) => {
+                render_json_success(data)
+            }
+            crate::command_result::CardBatchResult::CardBulkLabels(data) => {
+                render_json_success(data)
+            }
+        },
+        (OutputFormat::Human, CommandSuccess::BoardLabels(data)) => boards::render_membership(data),
+        (OutputFormat::Json, CommandSuccess::BoardLabels(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardLabelAdded(data)) => {
+            boards::render_label_added(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardLabelAdded(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CardLabels(data)) => cards::render_membership(data),
+        (OutputFormat::Json, CommandSuccess::CardLabels(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMembers(data)) => {
             boards::render_membership(data)
         }
@@ -483,6 +503,16 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
                 error.code().as_str(),
                 error.message().trim()
             );
+            if let Some(batch) = &error.details().batch_result {
+                rendered.push('\n');
+                rendered.push_str(&cards::render_batch(batch));
+            }
+            if let Some(ids) = &error.details().invalid_label_ids {
+                rendered.push_str(&format!(
+                    "\nInvalid label IDs: {}",
+                    formatting::escape_terminal_controls(&ids.join(", "))
+                ));
+            }
             if let Some(response) = &error.details().response {
                 rendered.push('\n');
                 rendered.push_str(&render_api_response_human(response));

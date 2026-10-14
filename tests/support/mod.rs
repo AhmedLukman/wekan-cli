@@ -1,3 +1,5 @@
+pub(crate) mod attachment_fixtures;
+
 pub(crate) use std::{
     env, fs,
     io::Write,

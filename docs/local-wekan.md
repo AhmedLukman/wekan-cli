@@ -228,3 +228,23 @@ docker compose up -d --wait
 $env:WEKAN_DEPENDENCY_E2E_URL = "http://localhost:3011"
 cargo test --locked --test e2e dependencies::complete_dependency_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
+
+## Bulk card and label lifecycle
+
+The dedicated suite covers native creation/deletion/label batches, scoped label
+reads, label reuse and name-cleaning defects, role gates, assignments, duplicates,
+nullable label results with independent stored-state reads,
+archived/foreign/missing cards, comment deletion, retained attachment metadata
+and filesystem bytes after successful card deletion, and partial creation.
+Attachment fixtures use Docker Compose to seed the ordinary persisted metadata
+and genuine bytes because the pinned REST upload cannot create them. Use the
+same Compose project for fixtures and the matching server URL. The suite is also
+registered in the isolated-stack CI matrix.
+
+```powershell
+$env:WEKAN_PORT = "3116"
+$env:COMPOSE_PROJECT_NAME = "wekan-bulk-label-tests"
+docker compose up -d --wait
+$env:WEKAN_BULK_CARD_E2E_URL = "http://localhost:3116"
+cargo test --locked --test e2e bulk_cards::complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```

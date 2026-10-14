@@ -7,6 +7,8 @@ use wekan_cli::client::{
 };
 use wiremock::MockServer;
 
+#[path = "contract/bulk_cards.rs"]
+mod bulk_cards;
 #[path = "contract/checklists.rs"]
 mod checklists;
 #[path = "contract/requests.rs"]

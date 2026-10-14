@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Grouped `card bulk create`, `card bulk delete`, and `card bulk labels` commands
+  for native batches of up to 500 cards. Creation accepts inline JSON, files,
+  or stdin; incomplete batches return exit 5 with every returned outcome.
+- `board label add`, `board label list`, and `card label list` for reusable board
+  labels and focused reads with typed human/JSON output.
+
+### Fixed
+
+- Bulk card creation bounds JSON input to 50 MiB and rejects non-regular file
+  sources before reading, preventing unbounded buffering and pipe hangs.
+- Bulk label updates preserve stored null label IDs in successful and incomplete
+  results instead of rejecting Wekan's HTTP 200 response.
+- Bulk card deletion rechecks stored credentials after confirmation and sends
+  no request if the credential was replaced, removed, or expired while waiting.
+- Bulk-delete help and confirmation disclose that Wekan v11.06 retains ordinary
+  attachment metadata and file bytes even after successful card deletion.
+
 ## [0.9.0] - 2026-10-13
 
 ### Added

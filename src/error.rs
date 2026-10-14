@@ -10,6 +10,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
+    BatchIncomplete,
     InvalidInput,
     ConfigurationError,
     ProfileNotFound,
@@ -42,6 +43,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::BatchIncomplete => "batch_incomplete",
             Self::InvalidInput => "invalid_input",
             Self::ConfigurationError => "configuration_error",
             Self::ProfileNotFound => "profile_not_found",
@@ -75,6 +77,10 @@ impl ErrorCode {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_result: Option<crate::command_result::CardBatchResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invalid_label_ids: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_saved: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

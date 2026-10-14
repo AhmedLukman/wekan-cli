@@ -6,6 +6,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+pub mod labels;
 pub mod members;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -556,7 +557,7 @@ impl WekanClient {
             })
     }
 
-    fn board_endpoint(
+    pub(super) fn board_endpoint(
         &self,
         board_id: &str,
         suffix: Option<&str>,

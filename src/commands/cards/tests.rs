@@ -627,6 +627,505 @@ fn card_command(arguments: &[&str]) -> CardCommand {
     args.command
 }
 
+#[tokio::test]
+async fn bulk_creation_rejects_oversized_and_nonregular_files_before_http() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("cards.json");
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(50 * 1024 * 1024 + 1)
+        .unwrap();
+    for input in [path.as_path(), directory.path()] {
+        let error = dispatch(
+            card_command(&[
+                "bulk",
+                "create",
+                "--board",
+                "b",
+                "--list",
+                "l",
+                "--cards-file",
+                input.to_str().unwrap(),
+            ]),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::accepting(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidInput);
+        assert!(error.message().contains("no request was sent"));
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn bulk_creation_preserves_files_and_reports_complete_mixed_results() {
+    use crate::output::{OutputFormat, render_error, render_success};
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let request = r#"[{"title":null,"members":null},{"title":"Next"}]"#;
+    let file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(file.path(), request).unwrap();
+    for source in ["--cards", "--cards-file"] {
+        for failed in [0, 1, 2] {
+            server.reset().await;
+            let response: Vec<_> = (0..2)
+                .map(|index| {
+                    if index < failed {
+                        json!({"index":index,"error":"card-token\nerror"})
+                    } else {
+                        json!({"index":index,"_id":format!("c{index}")})
+                    }
+                })
+                .collect();
+            Mock::given(method("POST")).and(path("/api/boards/b/lists/l/cards/bulk"))
+                .and(body_json(json!({"swimlaneId":"s","cards":[{"title":null,"members":null},{"title":"Next"}]})))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response)).expect(1).mount(&server).await;
+            let result = dispatch(
+                card_command(&[
+                    "bulk",
+                    "create",
+                    "--board",
+                    "b",
+                    "--list",
+                    "l",
+                    "--swimlane-id",
+                    "s",
+                    source,
+                    if source == "--cards" {
+                        request
+                    } else {
+                        file.path().to_str().unwrap()
+                    },
+                ]),
+                &factory(&server),
+                &store,
+                &FakeConfirmationProvider::declining(),
+            )
+            .await;
+            if failed == 0 {
+                let success = result.unwrap();
+                let value: serde_json::Value =
+                    serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+                assert_eq!(
+                    value["data"]["results"][0],
+                    json!({"index":0,"card_id":"c0","error":null})
+                );
+            } else {
+                let error = result.unwrap_err();
+                assert_eq!(error.code(), ErrorCode::BatchIncomplete);
+                assert_eq!(error.exit_code(), crate::exit_code::StableExitCode::Server);
+                assert_eq!(error.details().http_status, Some(200));
+                let rendered = render_error(OutputFormat::Json, &error);
+                assert!(!rendered.contains("card-token"));
+                let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+                assert_eq!(
+                    value["error"]["details"]["batch_result"]["operation"],
+                    "card_bulk_create"
+                );
+                assert_eq!(
+                    value["error"]["details"]["batch_result"]["data"]["results"]
+                        .as_array()
+                        .unwrap()
+                        .len(),
+                    2
+                );
+                let human = render_error(OutputFormat::Human, &error);
+                assert!(human.contains("Bulk card creation:"));
+                assert!(human.contains("index"));
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn bulk_delete_guards_confirmation_and_preserves_incomplete_results() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let args = [
+        "bulk", "delete", "--board", "b", "--card", "c", "--card", "missing",
+    ];
+    let prompt = FakeConfirmationProvider::declining();
+    let cancelled = dispatch(card_command(&args), &factory(&server), &store, &prompt)
+        .await
+        .unwrap();
+    assert!(
+        matches!(cancelled,CommandSuccess::Cancelled(data) if data.operation==DestructiveOperation::CardBulkDelete)
+    );
+    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(prompt.requests().len(), 1);
+    assert!(
+        prompt.requests()[0]
+            .prompt()
+            .contains("retains attachment metadata and file bytes")
+    );
+    let replacement = CredentialRecord::new(
+        format!("{}/", server.uri()),
+        "user-2".into(),
+        SecretString::from("changed".to_owned()),
+        OffsetDateTime::now_utc() + Duration::hours(1),
+    );
+    store.replace_on_next_lock(replacement.clone());
+    let prompt = FakeConfirmationProvider::accepting();
+    let error = dispatch(card_command(&args), &factory(&server), &store, &prompt)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
+    assert_eq!(prompt.requests().len(), 1);
+    assert!(
+        store
+            .record
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .matches(&replacement)
+    );
+    assert!(server.received_requests().await.unwrap().is_empty());
+    let store = FakeCredentialStore::authenticated(&server);
+    Mock::given(method("DELETE"))
+        .and(path("/api/boards/b/cards/bulk"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"deleted":["c"],"notFound":["missing"]})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let mut confirmed = args.to_vec();
+    confirmed.push("--yes");
+    let error = dispatch(card_command(&confirmed), &factory(&server), &store, &prompt)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::BatchIncomplete);
+    assert!(
+        matches!(error.details().batch_result.as_ref(),Some(crate::command_result::CardBatchResult::CardBulkDelete(data)) if data.deleted==["c"] && data.not_found==["missing"])
+    );
+}
+
+#[tokio::test]
+async fn bulk_delete_rechecks_replacement_and_removal_during_confirmation() {
+    struct ChangingConfirmation<'a> {
+        store: &'a FakeCredentialStore,
+        replacement: Option<CredentialRecord>,
+    }
+    impl ConfirmationProvider for ChangingConfirmation<'_> {
+        fn confirm(&self, _: &crate::input::ConfirmationRequest) -> Result<bool, AppError> {
+            // Native-vault edits can bypass the CLI's file lock while it prompts.
+            std::thread::scope(|scope| {
+                scope
+                    .spawn(|| {
+                        *self.store.record.lock().unwrap() = self.replacement.clone();
+                    })
+                    .join()
+                    .unwrap();
+            });
+            Ok(true)
+        }
+    }
+    for removed in [false, true] {
+        let server = MockServer::start().await;
+        let store = FakeCredentialStore::authenticated(&server);
+        let replacement = (!removed).then(|| {
+            CredentialRecord::new(
+                format!("{}/", server.uri()),
+                "user-2".into(),
+                SecretString::from("replacement-token".to_owned()),
+                OffsetDateTime::now_utc() + Duration::hours(1),
+            )
+        });
+        let prompt = ChangingConfirmation {
+            store: &store,
+            replacement: replacement.clone(),
+        };
+        let error = dispatch(
+            card_command(&["bulk", "delete", "--board", "b", "--card", "c"]),
+            &factory(&server),
+            &store,
+            &prompt,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            error.code(),
+            if removed {
+                ErrorCode::CredentialNotFound
+            } else {
+                ErrorCode::CredentialStoreFailed
+            }
+        );
+        assert_eq!(
+            error.exit_code(),
+            crate::exit_code::StableExitCode::Credential
+        );
+        assert!(error.message().contains("no HTTP request was sent"));
+        assert!(server.received_requests().await.unwrap().is_empty());
+        let current = store.record.lock().unwrap();
+        if let Some(expected) = &replacement {
+            assert!(current.as_ref().unwrap().matches(expected));
+            assert_eq!(error.details().credential_stored, Some(true));
+        } else {
+            assert!(current.is_none());
+        }
+    }
+}
+
+#[tokio::test]
+async fn bulk_delete_rechecks_expiry_after_confirmation() {
+    struct ExpiringConfirmation {
+        expires: OffsetDateTime,
+    }
+    impl ConfirmationProvider for ExpiringConfirmation {
+        fn confirm(&self, _: &crate::input::ConfirmationRequest) -> Result<bool, AppError> {
+            while OffsetDateTime::now_utc() < self.expires {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Ok(true)
+        }
+    }
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let expires = OffsetDateTime::now_utc() + Duration::seconds(2);
+    let original = CredentialRecord::new(
+        format!("{}/", server.uri()),
+        "user-1".into(),
+        SecretString::from("card-token".to_owned()),
+        expires,
+    );
+    *store.record.lock().unwrap() = Some(original.clone());
+    let error = dispatch(
+        card_command(&["bulk", "delete", "--board", "b", "--card", "c"]),
+        &factory(&server),
+        &store,
+        &ExpiringConfirmation { expires },
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::CredentialExpired);
+    assert_eq!(error.exit_code(), crate::exit_code::StableExitCode::Server);
+    assert_eq!(
+        error.details().token_expires.as_deref(),
+        Some(
+            expires
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap()
+                .as_str()
+        )
+    );
+    assert!(error.message().contains("no HTTP request was sent"));
+    assert!(server.received_requests().await.unwrap().is_empty());
+    assert!(
+        store
+            .record
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .matches(&original)
+    );
+}
+
+#[tokio::test]
+async fn bulk_label_results_render_null_elements_in_success_and_incomplete_batches() {
+    use crate::output::{OutputFormat, render_error, render_success};
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let expected =
+        json!({"board_id":"b","updated":[{"card_id":"c","label_ids":[null,"a"]}],"not_found":[]});
+    for incomplete in [false, true] {
+        server.reset().await;
+        let not_found = if incomplete { vec!["missing"] } else { vec![] };
+        Mock::given(method("POST"))
+            .and(path("/api/boards/b/cards/labels"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "updated":[{"_id":"c","labelIds":[null,"a"]}],"notFound":not_found
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let mut args = vec![
+            "bulk",
+            "labels",
+            "--board",
+            "b",
+            "--card",
+            "c",
+            "--add-label",
+            "a",
+        ];
+        if incomplete {
+            args.extend(["--card", "missing"]);
+        }
+        let result = dispatch(
+            card_command(&args),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::declining(),
+        )
+        .await;
+        let (data, human) = if incomplete {
+            let error = result.unwrap_err();
+            assert_eq!(error.code(), ErrorCode::BatchIncomplete);
+            let value: serde_json::Value =
+                serde_json::from_str(&render_error(OutputFormat::Json, &error)).unwrap();
+            assert_eq!(
+                value["error"]["details"]["batch_result"]["operation"],
+                "card_bulk_labels"
+            );
+            (
+                value["error"]["details"]["batch_result"]["data"].clone(),
+                render_error(OutputFormat::Human, &error),
+            )
+        } else {
+            let success = result.unwrap();
+            let value: serde_json::Value =
+                serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+            (
+                value["data"].clone(),
+                render_success(OutputFormat::Human, &success),
+            )
+        };
+        let mut expected = expected.clone();
+        expected["not_found"] = json!(not_found);
+        assert_eq!(data, expected);
+        assert!(human.contains("null"));
+        assert!(human.contains("1 updated"));
+    }
+}
+
+#[tokio::test]
+async fn bulk_labels_map_partial_invalid_and_uncertain_server_failures() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    for (status, response, code) in [
+        (
+            200,
+            json!({"updated":[{"_id":"c","labelIds":["a"]}],"notFound":["missing"]}),
+            ErrorCode::BatchIncomplete,
+        ),
+        (
+            400,
+            json!({"error":"invalid labels","invalidLabelIds":["a"]}),
+            ErrorCode::ServerError,
+        ),
+        (
+            500,
+            json!({"error":"server failed"}),
+            ErrorCode::ServerError,
+        ),
+    ] {
+        server.reset().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let error = dispatch(
+            card_command(&[
+                "bulk",
+                "labels",
+                "--board",
+                "b",
+                "--card",
+                "c",
+                "--card",
+                "missing",
+                "--add-label",
+                "a",
+            ]),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::declining(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code(), code);
+        assert_eq!(error.details().http_status, Some(status));
+        assert_eq!(
+            error.details().outcome_unknown,
+            (status == 500).then_some(true)
+        );
+        if status == 400 {
+            assert_eq!(
+                error.details().invalid_label_ids.as_deref(),
+                Some(["a".to_owned()].as_slice())
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn bulk_count_boundaries_send_one_request_or_fail_before_http() {
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    for count in [1, 500, 501] {
+        server.reset().await;
+        let cards = serde_json::to_string(&vec![json!({}); count]).unwrap();
+        if count <= 500 {
+            let results: Vec<_> = (0..count)
+                .map(|i| json!({"index":i,"_id":format!("c{i}")}))
+                .collect();
+            Mock::given(method("POST"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(results))
+                .expect(1)
+                .mount(&server)
+                .await;
+        }
+        let result = dispatch(
+            card_command(&[
+                "bulk", "create", "--board", "b", "--list", "l", "--cards", &cards,
+            ]),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::declining(),
+        )
+        .await;
+        assert_eq!(result.is_ok(), count <= 500);
+        if count > 500 {
+            assert_eq!(result.unwrap_err().code(), ErrorCode::InvalidInput);
+            assert!(server.received_requests().await.unwrap().is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn card_label_projection_preserves_null_and_decodes_the_whole_card() {
+    use crate::output::{OutputFormat, render_success};
+    let server = MockServer::start().await;
+    let store = FakeCredentialStore::authenticated(&server);
+    let mut card = json!({"_id":"c","boardId":"b","listId":"l","archived":false,"swimlaneId":"s","createdAt":"2030-01-02T03:04:05Z","modifiedAt":"2030-01-02T03:04:05Z","dateLastActivity":"2030-01-02T03:04:05Z","userId":"u","type":"cardType-card","showActivities":false,"labelIds":[null,"a"]});
+    for unknown in [false, true] {
+        server.reset().await;
+        if unknown {
+            card["future"] = json!(1);
+        }
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&card))
+            .mount(&server)
+            .await;
+        let result = dispatch(
+            card_command(&[
+                "label", "list", "--board", "b", "--list", "l", "--card", "c",
+            ]),
+            &factory(&server),
+            &store,
+            &FakeConfirmationProvider::declining(),
+        )
+        .await;
+        if unknown {
+            assert_eq!(result.unwrap_err().code(), ErrorCode::ProtocolError);
+        } else {
+            let data: serde_json::Value =
+                serde_json::from_str(&render_success(OutputFormat::Json, &result.unwrap()))
+                    .unwrap();
+            assert_eq!(data["data"]["label_ids"], json!([null, "a"]));
+        }
+    }
+}
+
 #[test]
 fn parser_exposes_crud_and_enforces_update_contract() {
     for arguments in [

@@ -1,8 +1,10 @@
 mod archive;
+mod bulk;
 mod create;
 mod delete;
 mod find_by_custom_field;
 mod get;
+mod labels;
 mod list;
 mod membership;
 mod restore;
@@ -30,6 +32,10 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    /// Create, delete, or merge labels on up to 500 cards per request.
+    Bulk(bulk::BulkArgs),
+    /// List the label IDs stored on a card.
+    Label(labels::LabelArgs),
     /// List or merge individual card members.
     Member(membership::MembershipArgs),
     /// List or merge individual card assignees.
@@ -67,6 +73,12 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::Bulk(args) => {
+            bulk::dispatch(args.command, client_factory, credential_store, confirmation).await
+        }
+        CardCommand::Label(args) => {
+            labels::dispatch(args.command, client_factory, credential_store).await
+        }
         CardCommand::Member(args) => {
             membership::dispatch(
                 args.command,

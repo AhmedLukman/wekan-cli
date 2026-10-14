@@ -5,6 +5,36 @@ use crate::command_result::{
     CardUpdateSuccess,
 };
 
+pub(super) fn render_batch(batch: &crate::command_result::CardBatchResult) -> String {
+    use crate::command_result::CardBatchResult;
+    match batch {
+        CardBatchResult::CardBulkCreate(data) => format!(
+            "Bulk card creation: {} created, {} failed.\n{}",
+            data.results
+                .iter()
+                .filter(|item| item.card_id.is_some())
+                .count(),
+            data.results
+                .iter()
+                .filter(|item| item.error.is_some())
+                .count(),
+            render_membership(data)
+        ),
+        CardBatchResult::CardBulkDelete(data) => format!(
+            "Bulk card deletion: {} deleted, {} not found.\n{}",
+            data.deleted.len(),
+            data.not_found.len(),
+            render_membership(data)
+        ),
+        CardBatchResult::CardBulkLabels(data) => format!(
+            "Bulk card labels: {} updated, {} not found.\n{}",
+            data.updated.len(),
+            data.not_found.len(),
+            render_membership(data)
+        ),
+    }
+}
+
 pub(super) fn render_membership<T: serde::Serialize>(data: &T) -> String {
     let value = serde_json::to_value(data).expect("card membership results serialize as objects");
     let mut lines = Vec::new();

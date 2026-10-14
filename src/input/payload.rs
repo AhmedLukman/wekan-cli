@@ -36,6 +36,18 @@ pub(crate) enum PayloadError {
 }
 
 impl PayloadSource {
+    pub(crate) async fn acquire_bounded(
+        self,
+        limit: usize,
+    ) -> Result<Vec<u8>, super::BinaryInputError> {
+        match self {
+            Self::Text(body) if body.len() > limit => Err(super::BinaryInputError::TooLarge),
+            Self::Text(body) => Ok(body.into_bytes()),
+            Self::File(path) => super::binary::acquire_regular_file(&path, limit).await,
+            Self::Stdin => super::binary::read_bounded(tokio::io::stdin(), limit).await,
+        }
+    }
+
     pub(crate) async fn acquire(self) -> Result<AcquiredPayload, PayloadError> {
         match self {
             Self::Text(body) => Ok(AcquiredPayload {
@@ -76,6 +88,35 @@ mod tests {
     use std::path::PathBuf;
 
     use super::PayloadSource;
+
+    #[tokio::test]
+    async fn bounded_payloads_preserve_bytes_and_reject_oversized_sources() {
+        let data = "[{}]";
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("cards.json");
+        std::fs::write(&path, data).unwrap();
+        for source in [
+            PayloadSource::Text(data.into()),
+            PayloadSource::File(path.clone()),
+        ] {
+            assert_eq!(
+                source.acquire_bounded(data.len()).await.unwrap(),
+                data.as_bytes()
+            );
+        }
+        for source in [PayloadSource::Text(data.into()), PayloadSource::File(path)] {
+            assert!(matches!(
+                source.acquire_bounded(data.len() - 1).await,
+                Err(super::super::BinaryInputError::TooLarge)
+            ));
+        }
+        assert!(matches!(
+            PayloadSource::File(directory.path().into())
+                .acquire_bounded(8)
+                .await,
+            Err(super::super::BinaryInputError::NotRegularFile)
+        ));
+    }
 
     #[tokio::test]
     async fn body_file_errors_escape_terminal_control_characters() {

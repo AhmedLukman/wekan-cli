@@ -285,3 +285,11 @@ pub struct CardCustomFieldQuerySuccess {
     pub value: String,
     pub cards: Vec<CardDetail>,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct CardLabelCollection {
+    pub board_id: String,
+    pub list_id: String,
+    pub card_id: String,
+    pub label_ids: Vec<Option<String>>,
+}

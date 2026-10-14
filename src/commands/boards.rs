@@ -2,6 +2,7 @@ mod count;
 mod create;
 mod delete;
 mod get;
+mod labels;
 mod list;
 mod members;
 mod rename;
@@ -24,6 +25,8 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// List or add reusable board labels.
+    Label(labels::LabelArgs),
     /// List, add, remove, or change board members.
     Member(members::MemberArgs),
     /// List active boards for the authenticated user, or all public boards.
@@ -52,6 +55,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Label(args) => {
+            labels::dispatch(args.command, client_factory, credential_store).await
+        }
         BoardCommand::Member(args) => {
             members::dispatch(args.command, client_factory, credential_store).await
         }

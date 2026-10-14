@@ -39,6 +39,10 @@ jobs:
       max-parallel: 4
       matrix:
         include:
+          - name: Bulk cards and labels
+            key: bulk-cards
+            variable: WEKAN_BULK_CARD_E2E_URL
+            test: bulk_cards::complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06
           - name: Board and card memberships
             key: memberships
             variable: WEKAN_MEMBERSHIP_E2E_URL

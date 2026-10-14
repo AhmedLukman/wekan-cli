@@ -6,6 +6,7 @@ use serde_json::Number;
 use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
+pub mod bulk;
 mod custom_fields;
 pub mod membership;
 pub use archival::{ArchiveCardResult, RestoreCardResult};

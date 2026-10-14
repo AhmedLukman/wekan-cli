@@ -64,6 +64,20 @@ impl ResponseBody {
 }
 
 impl WekanClient {
+    pub(super) async fn execute_success_request_with_error<E: From<ClientError>>(
+        &self,
+        request: reqwest::RequestBuilder,
+        decode_error: fn(StatusCode, &[u8]) -> Result<Option<E>, ClientError>,
+    ) -> Result<Vec<u8>, E> {
+        let response = self.execute_request(request).await?;
+        if response.status != StatusCode::OK {
+            if let Some(error) = decode_error(response.status, &response.body)? {
+                return Err(error);
+            }
+        }
+        response.require_status(StatusCode::OK).map_err(E::from)
+    }
+
     pub(super) async fn execute_success_request(
         &self,
         request: reqwest::RequestBuilder,

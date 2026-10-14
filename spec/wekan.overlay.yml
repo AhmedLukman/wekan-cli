@@ -24611,6 +24611,86 @@ actions:
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
 
+  - target: $.definitions.BoardLabelValue
+    description: >-
+      Wekan v11.06 bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/boards.js 1125-1146 builds a label and calls getLabel before
+      insertion; models/boards.js 197-204 declares the optional string name and
+      1454-1456 compares name/color exactly. Live regression in
+      tests/e2e/bulk_cards.rs confirms padded names are stored trimmed, repeated
+      padded input creates duplicate labels, and cleaned input reuses the first ID.
+    update:
+      description: >-
+        A name string or an object with optional name and color. Name is stringified
+        (omitted/null becomes empty string); omitted/null/empty color defaults to
+        green. An array also enters the object branch and yields an empty-name
+        green label. Wekan trims JavaScript whitespace from names on storage, but
+        searches for existing labels using the untrimmed name and exact color.
+        Repeating a padded name can create duplicate labels; sending the cleaned
+        name reuses the first matching label. The CLI preserves this pinned defect.
+  - target: $.definitions.CardsBulkCreateRequest
+    description: >-
+      Wekan v11.06 bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js 1230-1277 inserts in a loop without a transaction or
+      per-card exception handler. tests/e2e/bulk_cards.rs observes HTTP 500 when
+      a second card lacks a swimlane and independently reads the first stored card.
+    update:
+      description: >-
+        Create 1-500 cards. Each item must resolve a nonempty swimlaneId from itself
+        or the top-level default. Omitted title defaults to empty string. Missing
+        effective swimlane fails with HTML HTTP 500 in v11.06, not a structured
+        validation error. Earlier cards can remain stored after that failure,
+        without per-item results being returned. Only title, description, parentId,
+        swimlaneId, members and assignees are consumed per card; author attribution
+        uses the session. The CLI preserves partial failure without retry or repair.
+  - target: $.paths["/api/boards/{board}/cards/bulk"].delete
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/cards.js 1801-1805 awaits cardRemover before removing the
+      card. models/cards.js 3577-3579 removes attachments using top-level
+      cardId, but models/lib/attachmentMeta.js 40-45 stores meta.cardId.
+      tests/e2e/bulk_cards.rs seeds ordinary attachment metadata and genuine
+      filesystem bytes, verifies the card is deleted, and independently checks
+      that metadata and bytes remain after a 10-second cleanup window (W11-046).
+    update:
+      description: >-
+        Hard-deletes matching cards, including archived cards, and cascades
+        comments, checklists, checklist items and subcards. Wekan v11.06 retains
+        ordinary attachment metadata and file bytes because its attachment
+        removal selector uses cardId instead of meta.cardId. HTTP 200 and a
+        card ID in deleted confirm card deletion, not attachment cleanup.
+      x-wekan-v11.06-defect: bulk-card-delete-retains-attachments
+      responses:
+        "200":
+          description: >-
+            Deleted and unmatched card IDs. Ordinary attachment metadata and
+            file bytes remain even for cards reported in deleted.
+
+  - target: $.paths["/api/boards/{board}/cards/bulk"].delete.responses["200"].schema
+    description: >-
+      Wekan v11.06 server/models/cards.js 1775-1821 returns exactly deleted and
+      notFound arrays. tests/e2e/bulk_cards.rs verifies duplicate, archived,
+      missing, foreign, and successful card deletions through strict decoding.
+    update:
+      additionalProperties: false
+
+  - target: $.definitions.CardLabelUpdate.properties.labelIds
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/lib/utils.js 237-242 preserves existing null elements while merging
+      and deduplicating label IDs. server/models/cards.js 1892-1908 returns the
+      merged array after awaiting writes. tests/e2e/bulk_cards.rs seeds
+      [null, green, null] through card update, verifies a successful bulk merge
+      returns [null, red], then verifies nullable results in an incomplete batch
+      and independently reads stored arrays. Process checks cover JSON success
+      and human/JSON batch_incomplete output with nullable elements.
+    update:
+      description: >-
+        The merged label IDs in stored order, preserving existing null elements
+        and deduplicating both null and string elements.
+      items:
+        x-nullable: true
+
   - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/members/{member}", "/api/boards/{board}/lists/{list}/cards/{card}/assignees/{assignee}"]["post", "delete"].responses["200"]'
     description: >-
       Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,

@@ -13,6 +13,14 @@ pub(super) fn render_membership<T: serde::Serialize>(data: &T) -> String {
     lines.join("\n")
 }
 
+pub(super) fn render_label_added(data: &crate::command_result::BoardLabelAdded) -> String {
+    format!(
+        "Added or reused label {} on board {}.",
+        escape_terminal_controls(&data.label_id),
+        escape_terminal_controls(&data.board_id)
+    )
+}
+
 pub(super) fn render_board_list(data: &BoardListSuccess) -> String {
     if data.boards.is_empty() {
         return match data.scope {

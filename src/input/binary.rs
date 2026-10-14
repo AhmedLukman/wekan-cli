@@ -24,6 +24,13 @@ pub(crate) async fn acquire_binary_file(
     if path == Path::new("-") {
         return read_bounded(tokio::io::stdin(), limit).await;
     }
+    acquire_regular_file(path, limit).await
+}
+
+pub(super) async fn acquire_regular_file(
+    path: &Path,
+    limit: usize,
+) -> Result<Vec<u8>, BinaryInputError> {
     // Opening a FIFO can block before descriptor metadata is available.
     if !tokio::fs::metadata(path)
         .await
@@ -55,7 +62,7 @@ pub(crate) async fn acquire_binary_file(
     read_bounded(file, limit).await
 }
 
-async fn read_bounded(
+pub(super) async fn read_bounded(
     reader: impl AsyncRead + Unpin,
     limit: usize,
 ) -> Result<Vec<u8>, BinaryInputError> {

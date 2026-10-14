@@ -47,7 +47,7 @@ Raw API output continues to preserve the upstream response without typed decodin
 ## Destructive confirmation
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`,
+`user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`, `card bulk delete`,
 `comment delete`, `checklist delete`, `checklist-item delete`, `attachment delete`, and `swimlane delete`
 require interactive confirmation or
 `--yes`. Where a command performs target or removability preflight, it runs first and errors retain
@@ -78,7 +78,7 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`,
+`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`, `card_bulk_delete`,
 `comment_delete`, `checklist_delete`, `checklist_item_delete`, `attachment_delete`, `swimlane_delete`,
 or `api_request`. Human output is
 `Cancelled; no changes made.`
@@ -721,3 +721,40 @@ existing responses containing these IDs still decode normally.
 Target parsing and response ID validation use the same JavaScript whitespace
 rules: U+0085 is preserved, including IDs consisting only of that character,
 while U+FEFF is trimmed. Distinct dropdown IDs remain distinct mutation targets.
+
+## Bulk cards and labels
+
+Complete batches use ok: true with the typed result in data. Any creation item
+error or nonempty not_found returns batch_incomplete, exit 5, with empty stdout
+and the error envelope on stderr. error.details.batch_result contains operation
+(card_bulk_create, card_bulk_delete, or card_bulk_labels) and data holding the
+complete result, including successes. Result shapes match successful batches.
+HTTP metadata retains http_status: 200 and http_success: true; retry_safe: false
+prevents treating the whole batch as safe to repeat. Human errors include each
+outcome and a count summary.
+
+Creation results expose board_id, list_id, and results; each item has index,
+card_id, and error, with the unused outcome represented as null. Deletion exposes
+board_id, deleted, and not_found. Label changes expose board_id, updated (objects
+with card_id and label_ids), and not_found. Order and duplicate records are
+preserved. Bulk label_ids arrays preserve nullable elements, including in
+batch_incomplete results. Mutation protocol/transport failures retain
+outcome_unknown: true; a server failure can follow earlier writes. No automatic
+retry or readback occurs.
+
+Invalid added labels preserve HTTP 400 server_error plus invalid_label_ids
+through an endpoint-specific strict decoder. File/stdin read failures use
+file_io_error, exit 4; invalid JSON, unsupported properties, invalid field types
+and batch sizes use invalid_input, exit 2.
+
+Board label addition returns board_id and label_id because Wekan may reuse an
+existing label. Board label lists expose board_id and labels (label_id, nullable
+name, color). Card label lists expose board_id, list_id, card_id, and label_ids,
+preserving null elements. Both strictly decode the complete source document.
+Bulk deletion reloads and validates the guarded credential after confirmation;
+replacement, removal, or expiry prevents HTTP and preserves the vault's current
+state.
+Bulk deletion's `deleted` array confirms card deletion only. Wekan v11.06
+retains ordinary attachment metadata and file bytes; successful batches do not
+confirm attachment cleanup. The CLI performs no additional cleanup requests.
+See [bulk card and label behavior](bulk-cards-and-labels.md).

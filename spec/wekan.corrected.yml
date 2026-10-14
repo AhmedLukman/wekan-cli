@@ -1883,7 +1883,7 @@ paths:
                 - Cards
             responses:
                 "200":
-                    description: Deleted and unmatched card IDs.
+                    description: Deleted and unmatched card IDs. Ordinary attachment metadata and file bytes remain even for cards reported in deleted.
                     schema:
                         type: object
                         required:
@@ -1898,6 +1898,7 @@ paths:
                                 type: array
                                 items:
                                     type: string
+                        additionalProperties: false
                 "400":
                     description: Card ID array is empty or exceeds 500. Malformed JSON bodies return HTTP 400 HTML before route dispatch.
                     schema:
@@ -1952,6 +1953,9 @@ paths:
             security:
                 - UserSecurity: []
                 - AccessTokenSecurity: []
+            description: >-
+                Hard-deletes matching cards, including archived cards, and cascades comments, checklists, checklist items and subcards. Wekan v11.06 retains ordinary attachment metadata and file bytes because its attachment removal selector uses cardId instead of meta.cardId. HTTP 200 and a card ID in deleted confirm card deletion, not attachment cleanup.
+            x-wekan-v11.06-defect: bulk-card-delete-retains-attachments
         parameters:
             - in: query
               name: access_token
@@ -11356,7 +11360,7 @@ definitions:
             - type: array
               items: {}
               description: Arrays enter the object branch in JavaScript and produce an empty name and default green color.
-        description: A name string or an object with optional name and color. Name is stringified (omitted/null becomes empty string); omitted/null/empty color defaults to green. An array is also accepted by the object branch and yields an empty-name green label.
+        description: A name string or an object with optional name and color. Name is stringified (omitted/null becomes empty string); omitted/null/empty color defaults to green. An array also enters the object branch and yields an empty-name green label. Wekan trims JavaScript whitespace from names on storage, but searches for existing labels using the untrimmed name and exact color. Repeating a padded name can create duplicate labels; sending the cleaned name reuses the first matching label. The CLI preserves this pinned defect.
     CustomFieldSettingsRequest:
         type: object
         additionalProperties: true
@@ -11910,6 +11914,9 @@ definitions:
                 type: array
                 items:
                     type: string
+                    x-nullable: true
+                description: >-
+                    The merged label IDs in stored order, preserving existing null elements and deduplicating both null and string elements.
     BulkCardResult:
         x-oneOf:
             - type: object
@@ -12453,7 +12460,7 @@ definitions:
                 $ref: "#/definitions/CardDateInput"
     CardsBulkCreateRequest:
         type: object
-        description: Create 1-500 cards. Each item must resolve a nonempty swimlaneId from itself or the top-level default. Omitted title defaults to empty string. Missing effective swimlane fails with HTML HTTP 500 in v11.06, not a structured validation error. Only title, description, parentId, swimlaneId, members and assignees are consumed per card; author attribution uses the session.
+        description: Create 1-500 cards. Each item must resolve a nonempty swimlaneId from itself or the top-level default. Omitted title defaults to empty string. Missing effective swimlane fails with HTML HTTP 500 in v11.06, not a structured validation error. Earlier cards can remain stored after that failure, without per-item results being returned. Only title, description, parentId, swimlaneId, members and assignees are consumed per card; author attribution uses the session. The CLI preserves partial failure without retry or repair.
         required:
             - cards
         properties:

@@ -243,3 +243,15 @@ pub struct BoardDeleteSuccess {
     pub board_id: String,
     pub deleted: bool,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct BoardLabelCollection {
+    pub board_id: String,
+    pub labels: Vec<BoardDetailLabel>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct BoardLabelAdded {
+    pub board_id: String,
+    pub label_id: String,
+}

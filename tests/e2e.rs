@@ -23,6 +23,8 @@ mod users;
 
 #[path = "e2e/attachments.rs"]
 mod attachments;
+#[path = "e2e/bulk_cards.rs"]
+mod bulk_cards;
 #[path = "e2e/custom_fields.rs"]
 mod custom_fields;
 #[path = "e2e/dependencies.rs"]

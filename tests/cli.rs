@@ -25,6 +25,8 @@ mod users;
 
 #[path = "cli/attachments.rs"]
 mod attachments;
+#[path = "cli/bulk_cards.rs"]
+mod bulk_cards;
 #[path = "cli/custom_fields.rs"]
 mod custom_fields;
 #[path = "cli/dependencies.rs"]
