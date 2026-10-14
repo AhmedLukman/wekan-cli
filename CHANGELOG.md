@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Copy documentation records Wekan v11.06 returning success while omitting
   card attachments in board, card, list, and swimlane copies.
 
+### Security
+
+- Upgrade the TLS dependency to rustls 0.23.46, including upstream fixes for
+  RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
+
 ## [0.10.0] - 2026-10-14
 
 ### Added
