@@ -12,7 +12,17 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 94 of 143 operations implemented (65.7%); 49 remaining.
+**Coverage:** 101 of 143 operations implemented (70.6%); 42 remaining.
+
+Integration operations #49–55 expose all seven native endpoints. Creation requires
+a URL and uses server defaults. Update accepts explicit booleans, empty titles,
+stdin token input or token clearing, and repeated activity values or array clearing.
+Token flags conflict; activity replacement conflicts with clearing. Empty updates
+send `{}`. Activity add/remove require at least one repeated `--activity` and send
+JSON, including DELETE bodies. Inputs preserve order and duplicates. Only integration
+deletion accepts `--yes`; activity removal runs directly. Update/delete acknowledgements
+do not confirm a match, and update failures can follow earlier writes. See
+[integration behavior](integrations.md).
 
 Membership add/update support named roles and all eight boolean permission flags.
 Update requires at least one permission input; named roles override individual
@@ -163,13 +173,13 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 46 | Boards | `GET` | `/api/boards/{board}/exportExcel` | `exportExcel` | This route is used to export the board Excel. | — | ✗ |
 | 47 | Boards | `GET` | `/api/boards/{board}/exportPDF` | `exportBoardPDF` | Export a whole board to PDF (board title, lists and their cards). | — | ✗ |
 | 48 | Boards | `GET` | `/api/boards/{board}/exportZip` | `exportZip` | Export as a .zip - the JSON document, and the attachments as files. | — | ✗ |
-| 49 | Integrations | `GET` | `/api/boards/{board}/integrations` | `get_board_integrations` | List integrations configured for a board. | — | ✗ |
-| 50 | Integrations | `POST` | `/api/boards/{board}/integrations` | `post_board_integrations` | Create a board integration. | — | ✗ |
-| 51 | Integrations | `GET` | `/api/boards/{board}/integrations/{int}` | `get_board_int` | Get one board integration. | — | ✗ |
-| 52 | Integrations | `PUT` | `/api/boards/{board}/integrations/{int}` | `put_board_int` | Update a board integration. | — | ✗ |
-| 53 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}` | `delete_board_int` | Delete a board integration. | — | ✗ |
-| 54 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}/activities` | `delete_board_int_activities` | Delete activities recorded for a board integration. | — | ✗ |
-| 55 | Integrations | `POST` | `/api/boards/{board}/integrations/{int}/activities` | `post_board_int_activities` | Create an activity for a board integration. | — | ✗ |
+| 49 | Integrations | `GET` | `/api/boards/{board}/integrations` | `get_board_integrations` | List integrations configured for a board. | `wekan integration list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 50 | Integrations | `POST` | `/api/boards/{board}/integrations` | `post_board_integrations` | Create a board integration. | `wekan integration create --board <BOARD_ID> --url <URL> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 51 | Integrations | `GET` | `/api/boards/{board}/integrations/{int}` | `get_board_int` | Get one board integration. | `wekan integration get <INTEGRATION_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 52 | Integrations | `PUT` | `/api/boards/{board}/integrations/{int}` | `put_board_int` | Update a board integration. | `wekan integration update <INTEGRATION_ID> --board <BOARD_ID> [--enabled <BOOL>] [--title <TEXT>] [--url <URL>] [--token-stdin \| --clear-token] [--activity <VALUE> ... \| --clear-activities] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 53 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}` | `delete_board_int` | Delete a board integration. | `wekan integration delete <INTEGRATION_ID> --board <BOARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 54 | Integrations | `DELETE` | `/api/boards/{board}/integrations/{int}/activities` | `delete_board_int_activities` | Remove activity subscriptions from a board integration. | `wekan integration activity remove <INTEGRATION_ID> --board <BOARD_ID> --activity <VALUE> [--activity <VALUE> ...] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 55 | Integrations | `POST` | `/api/boards/{board}/integrations/{int}/activities` | `post_board_int_activities` | Add activity subscriptions to a board integration. | `wekan integration activity add <INTEGRATION_ID> --board <BOARD_ID> --activity <VALUE> [--activity <VALUE> ...] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 56 | Lists | `GET` | `/api/boards/{board}/lists` | `get_board_lists` | List the lists on a board. | `wekan list list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 57 | Lists | `POST` | `/api/boards/{board}/lists` | `post_board_lists` | Create a list on a board. | `wekan list create --board <BOARD_ID> --title <TITLE> [--swimlane-id <ID>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 58 | Lists | `GET` | `/api/boards/{board}/lists/{list}` | `get_board_list` | Get one list on a board. | `wekan list get <LIST_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |

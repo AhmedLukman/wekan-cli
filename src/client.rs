@@ -9,6 +9,7 @@ pub mod custom_fields;
 mod datetime;
 mod decoding;
 pub mod dependencies;
+pub mod integrations;
 mod strings;
 pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub(crate) use strings::trim_javascript_whitespace;
@@ -59,6 +60,10 @@ pub use dependencies::{
     DependencyMetadata, DependencyMutationResponse, DependencyType,
 };
 pub use error::ClientError;
+pub use integrations::{
+    CreateIntegrationRequest, IntegrationActivitiesRequest, IntegrationActivitiesResponse,
+    IntegrationDocument, IntegrationIdResponse, UpdateIntegrationRequest,
+};
 pub use lists::{
     CreateListRequest, CreateListResult, DeleteListResult, ListDocument, ListSummary, ListWipLimit,
     UpdateListRequest, UpdateListResult,

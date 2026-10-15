@@ -232,6 +232,27 @@ $env:WEKAN_CUSTOM_FIELD_E2E_URL = "http://localhost:3114"
 cargo test --locked --test e2e custom_fields::complete_custom_field_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
 
+## Integration and webhook-subscription lifecycle
+
+The integration suite covers all seven operations, defaults, token stdin and
+clearing, replacement/addition/removal of subscriptions, duplicates, role gates,
+missing and wrongly scoped integrations, URL rejection, and partial updates.
+It uses literal public-IP URLs for validation and disables integrations before
+generating board events; it does not test outbound delivery. Token storage is
+checked through the isolated MongoDB fixture, while typed reads exclude tokens.
+Use the same Compose project for fixture checks and the server URL:
+
+```powershell
+$env:WEKAN_PORT = "3107"
+$env:COMPOSE_PROJECT_NAME = "wekan-integration-tests"
+docker compose up -d --wait
+$env:WEKAN_INTEGRATION_E2E_URL = "http://localhost:3107"
+cargo test --locked --test e2e integrations::complete_integration_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```
+
+The suite is registered in the Wekan E2E workflow's isolated-stack matrix.
+
 ## Card dependency lifecycle
 
 The dependency suite covers both listing endpoints, all relation types,

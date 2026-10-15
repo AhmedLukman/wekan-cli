@@ -126,6 +126,16 @@ where
         let mut target = self.target_resolver.resolve(&self.profile_store, policy)?;
         let profile = target.profile().to_owned();
         let result = match command {
+            RootCommand::Integration(args) => {
+                commands::integrations::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.secret_input,
+                    &self.confirmation,
+                )
+                .await
+            }
             RootCommand::Dependency(args) => {
                 commands::dependencies::dispatch(
                     args.command,

@@ -31,6 +31,8 @@ mod bulk_cards;
 mod custom_fields;
 #[path = "cli/dependencies.rs"]
 mod dependencies;
+#[path = "cli/integrations.rs"]
+mod integrations;
 #[path = "cli/memberships.rs"]
 mod memberships;
 #[path = "cli/transfers.rs"]

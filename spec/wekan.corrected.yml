@@ -3465,6 +3465,8 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Creates an enabled outgoing-webhooks integration subscribed to all, without title or token. Only url is accepted by this route. Requires board administration. Unsafe or invalid URLs return HTTP400 without insertion. GET responses exclude token.
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -3525,6 +3527,9 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Returns the complete scoped integration document with token excluded. Missing or wrongly scoped integrations return HTTP200 with an empty body, rather than a not-found status. Requires board access.
+            x-wekan-v11.06-defect: integration-missing-resource-empty-http200
             produces:
                 - application/json
                 - text/html
@@ -3554,6 +3559,11 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Applies supplied fields sequentially in enabled, title, url, token, activities order. Omitted fields stay unchanged. Activities replaces the complete array and retains duplicate strings; empty arrays clear subscriptions. Empty title/token strings remove those optional fields. An empty request or nonexistent/wrong-board integration returns the requested ID without confirming a match. A later failure can leave earlier writes saved, including title before invalid-URL HTTP400. Requires board administration; no rollback occurs.
+            x-wekan-v11.06-defect:
+                - integration-update-acknowledges-zero-match
+                - integration-update-partial-writes-before-error
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -3607,6 +3617,9 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Hard-deletes the scoped integration and returns the requested ID. Nonexistent and wrongly scoped IDs receive the same acknowledgement; it does not confirm that any integration matched or was deleted. Requires board administration.
+            x-wekan-v11.06-defect: integration-deletion-acknowledges-zero-match
             produces:
                 - application/json
                 - text/html
@@ -3648,6 +3661,9 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Removes all occurrences of the supplied activity subscriptions; absent values have no effect. Accepts a JSON activities array in the DELETE body and returns the saved _id/activities projection. Missing or wrongly scoped integrations return HTTP200 with an empty body. Requires board administration.
+            x-wekan-v11.06-defect: integration-missing-resource-empty-http200
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}
@@ -3691,6 +3707,9 @@ paths:
                     schema:
                         type: string
                         pattern: ^<!DOCTYPE html>
+            description: >-
+                Adds activity subscriptions with native set addition. Existing values, duplicates already stored, and all remain present. Returns the saved _id/activities projection. Missing or wrongly scoped integrations return HTTP200 with an empty body. Requires board administration.
+            x-wekan-v11.06-defect: integration-missing-resource-empty-http200
             consumes: [application/json]
             parameters:
                 - {name: board, in: path, type: string, required: true}

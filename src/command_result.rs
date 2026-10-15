@@ -9,6 +9,7 @@ mod comments;
 mod custom_field_items;
 mod custom_fields;
 mod dependencies;
+mod integrations;
 mod lists;
 mod profiles;
 mod swimlanes;
@@ -88,6 +89,7 @@ pub use users::{
 use serde::Serialize;
 
 pub use bulk_cards::*;
+pub use integrations::*;
 
 pub use boards::{BoardLabelAdded, BoardLabelCollection};
 pub use cards::CardLabelCollection;
@@ -103,6 +105,12 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    IntegrationCollection(IntegrationCollectionSuccess),
+    IntegrationShown(IntegrationDetail),
+    IntegrationCreated(IntegrationCreateSuccess),
+    IntegrationUpdated(IntegrationUpdateSuccess),
+    IntegrationDeleted(IntegrationDeleteSuccess),
+    IntegrationActivitiesChanged(IntegrationActivityMutationSuccess),
     BoardCopied(boards::BoardCopySuccess),
     CardCopied(cards::CardCopySuccess),
     ListCopied(lists::ListTransferSuccess),
@@ -219,6 +227,7 @@ pub enum MembershipAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    IntegrationDelete,
     CardBulkDelete,
     DependencyDelete,
     AttachmentDelete,
@@ -242,6 +251,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::IntegrationDelete => "integration delete",
             Self::CardBulkDelete => "card bulk delete",
             Self::DependencyDelete => "dependency delete",
             Self::AttachmentDelete => "attachment delete",

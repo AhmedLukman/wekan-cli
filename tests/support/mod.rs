@@ -166,6 +166,9 @@ impl CredentialStore for CapturingStore {
 pub(crate) struct FixedPassword(pub(crate) SecretString);
 
 impl SecretInputProvider for FixedPassword {
+    fn read_raw_secret(&self) -> Result<SecretString, AppError> {
+        Ok(self.0.clone())
+    }
     fn read_new_account_password(&self, _from_stdin: bool) -> Result<SecretString, AppError> {
         Ok(self.0.clone())
     }

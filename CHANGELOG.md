@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `integration list/get/create/update/delete` for board webhooks, including
+  stdin token input, explicit token clearing, and complete typed human/JSON output.
+- `integration activity add/remove` for webhook subscriptions, plus complete
+  replacement or clearing through integration update. Removal runs directly;
+  integration deletion requires confirmation or `--yes`.
+- Integration update and delete report unconfirmed matched effects. Update errors
+  preserve possible partial writes, and missing reads/subscription targets retain
+  Wekan v11.06's HTTP 200 metadata in `not_found` errors.
+
 ## [0.11.0] - 2026-10-14
 
 ### Added

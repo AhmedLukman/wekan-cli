@@ -9,6 +9,7 @@ mod custom_field_items;
 mod custom_fields;
 mod dependencies;
 mod formatting;
+mod integrations;
 mod lists;
 mod profiles;
 mod raw;
@@ -117,6 +118,32 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::IntegrationCollection(data)) => {
+            integrations::collection(data)
+        }
+        (OutputFormat::Json, CommandSuccess::IntegrationCollection(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::IntegrationShown(data)) => integrations::detail(data),
+        (OutputFormat::Json, CommandSuccess::IntegrationShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::IntegrationCreated(data)) => {
+            integrations::created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::IntegrationCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::IntegrationUpdated(data)) => {
+            integrations::updated(data)
+        }
+        (OutputFormat::Json, CommandSuccess::IntegrationUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::IntegrationDeleted(data)) => {
+            integrations::deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::IntegrationDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::IntegrationActivitiesChanged(data)) => {
+            integrations::activities(data)
+        }
+        (OutputFormat::Json, CommandSuccess::IntegrationActivitiesChanged(data)) => {
+            render_json_success(data)
+        }
         (OutputFormat::Human, CommandSuccess::BoardCopied(data)) => {
             format!(
                 "Board copy acknowledged; effects are unconfirmed:\n{}",

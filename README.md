@@ -79,17 +79,21 @@ wekan --profile local auth login --username alice
 
 The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
-custom-field definitions, dropdown items, attachments, and card dependencies. It
-implements 94 of the 143 operations in the corrected Wekan v11.06 contract,
+custom-field definitions, dropdown items, attachments, card dependencies, and
+board integrations. It implements 101 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment operations, all five dependency operations, and all
-seven board/card membership mutations, bulk card creation/deletion/label changes,
+seven board/card membership mutations, all seven integration operations,
+bulk card creation/deletion/label changes,
 and board label addition. Native board/card/list/swimlane copies, list/swimlane
 moves, board/list card counts, swimlane card listings, and card lookup by ID
 alone are also available; see [copy and move](docs/copy-and-move.md) and
 [card reads](docs/cards.md). Nested `board member`, `card member`,
 and `card assignee` commands support focused lists and individual changes;
 board members also support named roles and individual permission flags.
+`integration` commands manage board webhooks and their activity subscriptions,
+including token input through stdin and explicit unconfirmed mutation output;
+see [integrations](docs/integrations.md).
 Dependency commands support board
 and card listings, create-or-update, nullable metadata updates, and confirmed
 removal with explicit acknowledgment output. Attachment transfers support files
@@ -107,6 +111,7 @@ Detailed behavior is documented in:
 - [Custom fields and dropdown items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/custom-fields.md)
 - [Attachments and file transfers](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/attachments.md)
 - [Card dependencies](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/dependencies.md)
+- [Board integrations and webhook subscriptions](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/integrations.md)
 - [Bulk cards and labels](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/bulk-cards-and-labels.md)
 - [Board and card memberships](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/memberships.md)
 - [Raw API requests](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api.md)

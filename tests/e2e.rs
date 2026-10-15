@@ -31,5 +31,7 @@ mod bulk_cards;
 mod custom_fields;
 #[path = "e2e/dependencies.rs"]
 mod dependencies;
+#[path = "e2e/integrations.rs"]
+mod integrations;
 #[path = "e2e/memberships.rs"]
 mod memberships;
