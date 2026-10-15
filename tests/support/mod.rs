@@ -166,6 +166,18 @@ impl CredentialStore for CapturingStore {
 pub(crate) struct FixedPassword(pub(crate) SecretString);
 
 impl SecretInputProvider for FixedPassword {
+    fn read_storage_secret(
+        &self,
+        source: wekan_cli::credentials::SecretSource,
+        limit: usize,
+    ) -> wekan_cli::credentials::SecretInputFuture<'_> {
+        Box::pin(async move {
+            wekan_cli::credentials::SystemSecretInputProvider
+                .read_storage_secret(source, limit)
+                .await
+        })
+    }
+
     fn read_raw_secret(&self) -> Result<SecretString, AppError> {
         Ok(self.0.clone())
     }

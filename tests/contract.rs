@@ -107,3 +107,12 @@ mod memberships;
 
 #[path = "contract/rules.rs"]
 mod rules;
+
+#[path = "contract/admin_settings.rs"]
+mod admin_settings;
+
+#[path = "contract/admin_commands.rs"]
+mod admin_commands;
+
+#[path = "support/admin_settings.rs"]
+mod admin_fixtures;

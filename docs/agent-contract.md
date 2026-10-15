@@ -812,3 +812,18 @@ Only deletion accepts `--yes`.
 Missing rules retain HTTP 500 `not-found` as exit-5 `server_error`; missing boards
 retain HTTP 404. Mutation errors can indicate `outcome_unknown: true`; no retry,
 rollback, or readback is performed. See [rule behavior](rules.md).
+
+## Global administrator settings
+
+`admin settings get/update` and `admin attachment-settings get/update` return
+`data.settings` with snake_case keys, including `settings_id` and all mapped
+optional fields. Updates add canonical-order `submitted_fields`, using top-level
+snake_case names. Cloud secrets are excluded; boolean presence markers remain.
+The response is stored configuration, not a connectivity or migration result.
+
+Each command sends one native request. Nested section replacement/defaults and
+cloud-provider merging remain native. Strict decoding rejects unmapped fields
+at every object boundary, invalid known-field types/dates, and unmasked secrets.
+HTTP-200 application errors retain native metadata; failed updates retain
+mutation-outcome uncertainty. See [administrator settings](admin-settings.md)
+for complete input, credential, and replacement semantics.

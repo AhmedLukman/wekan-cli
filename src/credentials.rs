@@ -1,5 +1,6 @@
 mod keyring;
 mod prompt;
+mod source;
 mod stdin;
 
 use std::io::{self, IsTerminal};
@@ -10,6 +11,7 @@ use thiserror::Error;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use keyring::KeyringCredentialStore;
+pub use source::{SecretInputFuture, SecretSource};
 
 const PASSWORD_STDIN_GUIDANCE: &str = "pass --password-stdin to read the password from stdin";
 const TWO_FACTOR_STDIN_GUIDANCE: &str = "replace --code with --password-stdin --code-stdin to read the password and two-factor code from stdin";
@@ -40,6 +42,15 @@ impl LoginSecrets {
 }
 
 pub trait SecretInputProvider: Send + Sync {
+    /// Read a bounded UTF-8 storage credential, removing one final LF or CRLF.
+    fn read_storage_secret(&self, _source: SecretSource, _limit: usize) -> SecretInputFuture<'_> {
+        Box::pin(async {
+            Err(crate::error::AppError::invalid_input(
+                "storage credential input is unavailable",
+            ))
+        })
+    }
+
     /// Read exact UTF-8 bytes through EOF, including line endings and empty input.
     fn read_raw_secret(&self) -> Result<SecretString, crate::error::AppError> {
         Err(crate::error::AppError::invalid_input(
@@ -61,6 +72,10 @@ pub trait SecretInputProvider: Send + Sync {
 pub struct SystemSecretInputProvider;
 
 impl SecretInputProvider for SystemSecretInputProvider {
+    fn read_storage_secret(&self, source: SecretSource, limit: usize) -> SecretInputFuture<'_> {
+        Box::pin(source::read_storage_secret(source, limit))
+    }
+
     fn read_raw_secret(&self) -> Result<SecretString, crate::error::AppError> {
         stdin::read_raw_secret(io::stdin().lock())
     }

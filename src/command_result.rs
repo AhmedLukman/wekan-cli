@@ -1,3 +1,5 @@
+mod admin;
+pub use admin::*;
 mod api;
 mod auth;
 mod board_settings;
@@ -109,6 +111,10 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    GlobalSettings(Box<GlobalSettingsSuccess>),
+    GlobalSettingsUpdated(Box<GlobalSettingsUpdateSuccess>),
+    AttachmentSettings(Box<AttachmentSettingsSuccess>),
+    AttachmentSettingsUpdated(Box<AttachmentSettingsUpdateSuccess>),
     RuleCollection(RuleCollectionSuccess),
     RuleShown(Box<RuleDetail>),
     RuleCreated(RuleCreateSuccess),

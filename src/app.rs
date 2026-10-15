@@ -126,6 +126,15 @@ where
         let mut target = self.target_resolver.resolve(&self.profile_store, policy)?;
         let profile = target.profile().to_owned();
         let result = match command {
+            RootCommand::Admin(args) => {
+                commands::admin::dispatch(
+                    args.command,
+                    target.client_factory(),
+                    &self.credential_store,
+                    &self.secret_input,
+                )
+                .await
+            }
             RootCommand::Rule(args) => {
                 commands::rules::dispatch(
                     args.command,

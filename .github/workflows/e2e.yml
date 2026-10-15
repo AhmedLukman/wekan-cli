@@ -91,6 +91,10 @@ jobs:
             key: board-settings
             variable: WEKAN_BOARD_SETTINGS_E2E_URL
             test: board_settings::complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06
+          - name: Global admin settings and attachment storage
+            key: admin-settings
+            variable: WEKAN_ADMIN_SETTINGS_E2E_URL
+            test: admin_settings::complete_admin_settings_lifecycle_matches_wekan_v11_06
           - name: Lists
             key: lists
             variable: WEKAN_LIST_E2E_URL

@@ -119,6 +119,27 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::GlobalSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::GlobalSettings(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::GlobalSettingsUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::GlobalSettingsUpdated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::AttachmentSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentSettings(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentSettingsUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentSettingsUpdated(data)) => {
+            render_json_success(data)
+        }
+
         (OutputFormat::Human, CommandSuccess::BoardCardSettings(data)) => {
             formatting::render_object(data)
         }

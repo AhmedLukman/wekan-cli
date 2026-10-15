@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `admin settings get/update` and `admin attachment-settings get/update` for
+  global REST settings, storage backends, upload restrictions, transfer limits,
+  and migration configuration, with typed flags and strict JSON file/stdin input.
+- Cloud credential file/stdin inputs, masked credential-presence output, complete
+  human/JSON settings, and explicit errors for unmapped response fields.
+
 ## [0.14.0] - 2026-10-15
 
 ### Added

@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod api;
 pub mod attachments;
 pub mod auth;
@@ -27,6 +28,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Read and configure global administrator settings.
+    Admin(Box<admin::AdminArgs>),
     /// Inspect and manage board automation rules.
     Rule(rules::RuleArgs),
     /// Inspect and manage board integrations and webhook subscriptions.

@@ -324,3 +324,24 @@ $env:WEKAN_RULE_E2E_URL = "http://localhost:3117"
 cargo test --locked --test e2e rules::complete_rule_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
+
+## Global administrator settings lifecycle
+
+Use a fresh disposable stack; this suite changes global settings and finishes
+by exercising the missing-global-document branches. It checks every supported
+field, native nested replacement/defaults, cloud merging and secret preservation,
+strict sparse/unknown-field responses, site-admin permissions, and the production
+binary's JSON/credential stdin paths. Cloud providers use dummy credentials and
+remain disabled; external cloud transfers are not tested.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-admin-settings-test"
+$env:WEKAN_PORT = "3118"
+docker compose up -d --wait
+$env:WEKAN_ADMIN_SETTINGS_E2E_URL = "http://localhost:3118"
+cargo test --locked --test e2e admin_settings::complete_admin_settings_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```
+
+Keep the same Compose project environment for the test's fixture operations.
+The suite is registered in the isolated-stack Wekan E2E workflow matrix.

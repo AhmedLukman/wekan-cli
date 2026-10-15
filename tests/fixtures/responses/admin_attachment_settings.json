@@ -1,0 +1,77 @@
+{
+  "_id": "attachment-settings",
+  "defaultStorage": "fs",
+  "createdAt": "2026-10-15T00:00:00.000Z",
+  "updatedAt": "2026-10-15T00:00:00.000Z",
+  "createdBy": "admin",
+  "updatedBy": "admin",
+  "storageConfig": {
+    "filesystem": {
+      "enabled": true,
+      "read": true,
+      "write": true,
+      "path": "value"
+    },
+    "gridfs": {
+      "enabled": true,
+      "read": true,
+      "write": true
+    },
+    "s3": {
+      "enabled": true,
+      "read": true,
+      "write": true,
+      "endpoint": "value",
+      "region": "value",
+      "bucket": "value",
+      "accessKeyId": "value",
+      "forcePathStyle": true,
+      "secretAccessKey": "",
+      "secretAccessKeySet": false
+    },
+    "azure": {
+      "enabled": true,
+      "read": true,
+      "write": true,
+      "accountName": "value",
+      "bucket": "value",
+      "accountKey": "",
+      "accountKeySet": false,
+      "connectionString": "",
+      "connectionStringSet": false
+    },
+    "gcs": {
+      "enabled": true,
+      "read": true,
+      "write": true,
+      "projectId": "value",
+      "keyFilename": "value",
+      "bucket": "value",
+      "credentials": "",
+      "credentialsSet": false
+    }
+  },
+  "uploadSettings": {
+    "maxFileSize": 10,
+    "allowedMimeTypes": [
+      "image/png"
+    ]
+  },
+  "limitSettings": {
+    "attachmentsUploadMaxBytes": 10,
+    "attachmentsUploadBlocked": true,
+    "avatarsUploadBlocked": true,
+    "attachmentsDownloadMaxBytes": 10,
+    "attachmentsDownloadBlocked": true,
+    "apiUploadMaxBytes": 10,
+    "apiUploadBlocked": true,
+    "apiDownloadMaxBytes": 10,
+    "apiDownloadBlocked": true
+  },
+  "migrationSettings": {
+    "autoMigrate": true,
+    "batchSize": 10,
+    "delayMs": 1000,
+    "cpuThreshold": 70
+  }
+}
