@@ -26,7 +26,7 @@ use wiremock::{
     matchers::{body_json, method, path},
 };
 
-async fn run(
+pub(super) async fn run(
     server: &MockServer,
     args: &[&str],
 ) -> Result<wekan_cli::command_result::CommandSuccess, wekan_cli::error::AppError> {
@@ -37,6 +37,46 @@ async fn run_with_secrets(
     server: &MockServer,
     args: &[&str],
     secrets: impl SecretInputProvider,
+) -> Result<wekan_cli::command_result::CommandSuccess, wekan_cli::error::AppError> {
+    run_with_providers(
+        server,
+        args,
+        secrets,
+        wekan_cli::input::SystemConfirmationProvider::for_output(false),
+    )
+    .await
+}
+
+pub(super) async fn run_with_confirmation(
+    server: &MockServer,
+    args: &[&str],
+    confirmation: impl wekan_cli::input::ConfirmationProvider,
+) -> Result<wekan_cli::command_result::CommandSuccess, wekan_cli::error::AppError> {
+    run_with_providers(server, args, SystemSecretInputProvider, confirmation).await
+}
+
+async fn run_with_providers(
+    server: &MockServer,
+    args: &[&str],
+    secrets: impl SecretInputProvider,
+    confirmation: impl wekan_cli::input::ConfirmationProvider,
+) -> Result<wekan_cli::command_result::CommandSuccess, wekan_cli::error::AppError> {
+    run_with_store_and_providers(
+        server,
+        args,
+        ReadOnlyCredentialStore::authenticated(server),
+        secrets,
+        confirmation,
+    )
+    .await
+}
+
+pub(super) async fn run_with_store_and_providers(
+    server: &MockServer,
+    args: &[&str],
+    store: impl CredentialStore,
+    secrets: impl SecretInputProvider,
+    confirmation: impl wekan_cli::input::ConfirmationProvider,
 ) -> Result<wekan_cli::command_result::CommandSuccess, wekan_cli::error::AppError> {
     let mut argv = vec!["wekan", "admin"];
     argv.extend_from_slice(args);
@@ -50,14 +90,15 @@ async fn run_with_secrets(
     }
     let app = App::with_profile_store(
         ServerSelection::new(None, Some("default".into()), false),
-        ReadOnlyCredentialStore::authenticated(server),
+        store,
         secrets,
         profiles,
     );
-    app.execute(Cli::try_parse_from(argv).unwrap().command)
+    app.with_confirmation_provider(confirmation)
+        .execute(Cli::try_parse_from(argv).unwrap().command)
         .await
 }
-fn json_data(result: &wekan_cli::command_result::CommandSuccess) -> Value {
+pub(super) fn json_data(result: &wekan_cli::command_result::CommandSuccess) -> Value {
     serde_json::from_str::<Value>(&render_success(OutputFormat::Json, result)).unwrap()["data"]
         .clone()
 }
@@ -126,7 +167,7 @@ fn coverage_rows_list_every_parser_option_and_count_implemented_operations() {
             .lines()
             .filter(|line| line.starts_with("| ") && line.ends_with("| ✓ |"))
             .count(),
-        115
+        122
     );
 }
 

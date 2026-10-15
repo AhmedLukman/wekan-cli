@@ -132,6 +132,7 @@ where
                     target.client_factory(),
                     &self.credential_store,
                     &self.secret_input,
+                    &self.confirmation,
                 )
                 .await
             }

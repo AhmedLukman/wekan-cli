@@ -113,6 +113,10 @@ mod admin_settings;
 
 #[path = "contract/admin_commands.rs"]
 mod admin_commands;
+#[path = "contract/admin_people.rs"]
+mod admin_people;
+#[path = "contract/admin_people_credentials.rs"]
+mod admin_people_credentials;
 
 #[path = "support/admin_settings.rs"]
 mod admin_fixtures;

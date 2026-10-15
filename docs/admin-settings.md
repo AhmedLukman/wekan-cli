@@ -1,5 +1,8 @@
 # Global administrator settings
 
+For domain reporting and organization/team feature controls, see
+[administrator commands](admin.md).
+
 These commands use Wekan v11.06's native REST endpoints and require site
 administration. `admin settings get/update` calls `/api/settings`;
 `admin attachment-settings get/update` calls `/api/admin/attachment-settings`.

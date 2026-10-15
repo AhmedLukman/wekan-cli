@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `admin domain list`, `admin org list`, and `admin team list` for domain user
+  counts and organization/team feature summaries.
+- Individual and instance-wide organization/team feature updates, with typed
+  booleans, complete human/JSON results, and confirmation for bulk changes.
+
 ## [0.15.0] - 2026-10-15
 
 ### Added

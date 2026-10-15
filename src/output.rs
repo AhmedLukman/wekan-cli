@@ -119,6 +119,38 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::AdminDomains(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminDomains(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AdminOrganizations(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminOrganizations(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AdminTeams(data)) => formatting::render_object(data),
+        (OutputFormat::Json, CommandSuccess::AdminTeams(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AdminOrganizationUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminOrganizationUpdated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::AdminTeamUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminTeamUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::AdminOrganizationFeaturesUpdatedAll(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminOrganizationFeaturesUpdatedAll(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::AdminTeamFeaturesUpdatedAll(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AdminTeamFeaturesUpdatedAll(data)) => {
+            render_json_success(data)
+        }
         (OutputFormat::Human, CommandSuccess::GlobalSettings(data)) => {
             formatting::render_object(data)
         }

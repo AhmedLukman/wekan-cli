@@ -4,6 +4,39 @@ use crate::client::admin::{
 };
 use serde::Serialize;
 
+use crate::client::admin::people::{
+    DomainCount, FeatureField, OrganizationDocument, OrganizationSummary, TeamDocument, TeamSummary,
+};
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminDomainCollectionSuccess {
+    pub domains: Vec<DomainCount>,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminOrganizationCollectionSuccess {
+    pub organizations: Vec<OrganizationSummary>,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminTeamCollectionSuccess {
+    pub teams: Vec<TeamSummary>,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminOrganizationUpdateSuccess {
+    pub organization: OrganizationDocument,
+    pub submitted_fields: Vec<FeatureField>,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminTeamUpdateSuccess {
+    pub team: TeamDocument,
+    pub submitted_fields: Vec<FeatureField>,
+}
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AdminFeaturesUpdateAllSuccess {
+    pub field: FeatureField,
+    pub value: bool,
+    pub updated: u64,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GlobalSettingField {

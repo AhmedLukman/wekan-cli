@@ -41,5 +41,7 @@ mod memberships;
 #[path = "e2e/rules.rs"]
 mod rules;
 
+#[path = "e2e/admin_people.rs"]
+mod admin_people;
 #[path = "e2e/admin_settings.rs"]
 mod admin_settings;

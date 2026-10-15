@@ -95,6 +95,10 @@ jobs:
             key: admin-settings
             variable: WEKAN_ADMIN_SETTINGS_E2E_URL
             test: admin_settings::complete_admin_settings_lifecycle_matches_wekan_v11_06
+          - name: Admin domains and organization/team features
+            key: admin-people
+            variable: WEKAN_ADMIN_PEOPLE_E2E_URL
+            test: admin_people::complete_admin_people_lifecycle_matches_wekan_v11_06
           - name: Lists
             key: lists
             variable: WEKAN_LIST_E2E_URL

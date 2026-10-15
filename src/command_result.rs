@@ -111,6 +111,13 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    AdminDomains(AdminDomainCollectionSuccess),
+    AdminOrganizations(AdminOrganizationCollectionSuccess),
+    AdminTeams(AdminTeamCollectionSuccess),
+    AdminOrganizationUpdated(Box<AdminOrganizationUpdateSuccess>),
+    AdminTeamUpdated(Box<AdminTeamUpdateSuccess>),
+    AdminOrganizationFeaturesUpdatedAll(AdminFeaturesUpdateAllSuccess),
+    AdminTeamFeaturesUpdatedAll(AdminFeaturesUpdateAllSuccess),
     GlobalSettings(Box<GlobalSettingsSuccess>),
     GlobalSettingsUpdated(Box<GlobalSettingsUpdateSuccess>),
     AttachmentSettings(Box<AttachmentSettingsSuccess>),
@@ -246,6 +253,8 @@ pub enum MembershipAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    AdminOrganizationFeaturesUpdateAll,
+    AdminTeamFeaturesUpdateAll,
     IntegrationDelete,
     RuleDelete,
     CardBulkDelete,
@@ -271,6 +280,8 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::AdminOrganizationFeaturesUpdateAll => "admin org features update-all",
+            Self::AdminTeamFeaturesUpdateAll => "admin team features update-all",
             Self::IntegrationDelete => "integration delete",
             Self::RuleDelete => "rule delete",
             Self::CardBulkDelete => "card bulk delete",

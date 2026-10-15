@@ -28,7 +28,7 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
-    /// Read and configure global administrator settings.
+    /// Report domains and configure global settings, organizations, and teams.
     Admin(Box<admin::AdminArgs>),
     /// Inspect and manage board automation rules.
     Rule(rules::RuleArgs),

@@ -345,3 +345,23 @@ docker compose down --volumes
 
 Keep the same Compose project environment for the test's fixture operations.
 The suite is registered in the isolated-stack Wekan E2E workflow matrix.
+
+## Administrator domain and feature lifecycle
+
+Use a separate fresh stack for the seven domain/organization/team operations.
+The suite seeds fixture-only organization, team, and email records in MongoDB,
+then exercises production REST handlers and the binary. It checks all feature
+booleans, sparse and complete documents, native bulk counts, administrator
+permissions, missing IDs, strict decoding after writes, and confirmation gates.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-admin-people-test"
+$env:WEKAN_PORT = "3119"
+docker compose up -d --wait
+$env:WEKAN_ADMIN_PEOPLE_E2E_URL = "http://localhost:3119"
+cargo test --locked --test e2e admin_people::complete_admin_people_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```
+
+Keep the same Compose project environment for fixture operations. This lifecycle
+and the administrator-settings regression each have an isolated CI matrix entry.

@@ -1,5 +1,6 @@
 //! Global administrator settings for Wekan v11.06.
 pub mod attachment_settings;
+pub mod people;
 pub mod settings;
 
 use super::{ClientError, WekanClient, transport::decode_success};
@@ -42,7 +43,7 @@ pub(super) fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     T::deserialize(d).map(Some)
 }
 
-/// Serde structs also accept positional arrays; settings objects must be maps.
+/// Serde structs also accept positional arrays; API response objects must be maps.
 pub(crate) struct Object<T>(pub T);
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
@@ -50,7 +51,7 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
         impl<'de, T: Deserialize<'de>> Visitor<'de> for ObjectVisitor<T> {
             type Value = Object<T>;
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                f.write_str("a settings object")
+                f.write_str("a JSON object")
             }
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Self::Value, M::Error> {
                 T::deserialize(de::value::MapAccessDeserializer::new(map)).map(Object)

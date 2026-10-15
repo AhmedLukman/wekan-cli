@@ -43,5 +43,7 @@ mod transfers;
 #[path = "cli/rules.rs"]
 mod rules;
 
+#[path = "cli/admin_people.rs"]
+mod admin_people;
 #[path = "cli/admin_settings.rs"]
 mod admin_settings;

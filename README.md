@@ -81,7 +81,7 @@ The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies,
 board integrations, automation rules, and global administrator settings. It
-implements 115 of the 143 operations in the corrected Wekan v11.06 contract,
+implements 122 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment operations, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
@@ -99,6 +99,11 @@ and button payloads, and strict human/JSON output; see [rules](docs/rules.md).
 global REST settings and attachment storage through typed flags or JSON file/stdin
 input, with credential files/stdin and masked presence output. See
 [administrator settings](docs/admin-settings.md).
+
+`admin domain list`, `admin org list`, and `admin team list` report domain user
+counts and resource feature summaries. Organization/team `features update` and
+confirmed `features update-all` commands complete all 11 administrator operations.
+See [administrator commands](docs/admin.md).
 
 `integration` commands manage board webhooks and their activity subscriptions,
 including token input through stdin and explicit unconfirmed mutation output;
@@ -129,6 +134,7 @@ Detailed behavior is documented in:
 - [Bulk cards and labels](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/bulk-cards-and-labels.md)
 - [Board and card memberships](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/memberships.md)
 - [Global administrator settings](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/admin-settings.md)
+- [Administrator domains and feature controls](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/admin.md)
 - [Raw API requests](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api.md)
 - [Agent output and error contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/agent-contract.md)
 - [API-to-CLI coverage](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api-coverage.md)
