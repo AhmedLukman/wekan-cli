@@ -15,6 +15,7 @@ pub mod dependencies;
 pub mod integrations;
 pub mod lists;
 pub mod profile;
+pub mod rules;
 pub mod swimlanes;
 mod transfer;
 pub mod users;
@@ -26,6 +27,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Inspect and manage board automation rules.
+    Rule(rules::RuleArgs),
     /// Inspect and manage board integrations and webhook subscriptions.
     Integration(integrations::IntegrationArgs),
     /// Inspect and manage card dependency lines.

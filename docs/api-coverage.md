@@ -12,7 +12,7 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 106 of 143 operations implemented (74.1%); 37 remaining.
+**Coverage:** 111 of 143 operations implemented (77.6%); 32 remaining.
 
 Board card settings (#120–121) expose all 44 boolean controls and three aging
 thresholds. Updates require at least one typed flag and preserve omitted fields.
@@ -20,6 +20,17 @@ Domain sharing (#136–138) uses native endpoints: listing requires site
 administration, and valid writes preserve Wekan v11.06's HTTP 200
 `not-authorized` defect as exit-5 `protocol_error` with native error metadata.
 See [board settings and sharing](boards.md#card-settings-and-aging).
+
+Rule operations #82-86 expose all five native endpoints. Create/update require
+exactly one of `--rule`, `--rule-file`, or `--rule-stdin` (50 MiB, regular files).
+Supplied `trigger.lastRunAt` values must be valid Wekan date-times or null;
+invalid values fail before HTTP. Get/list responses are bounded to 64 MiB.
+Definitions use typed camelCase properties; updates allow `{}` and preserve
+native shallow merging and wildcard normalization. Only deletion accepts `--yes`.
+Rule details strictly map built-in payload fields, including schedule runtime
+metadata and button definitions. Missing rules retain HTTP 500; update effects
+remain unconfirmed. Scheduled rules preserve pinned non-execution (W11-053).
+See [rule behavior](rules.md).
 
 Integration operations #49–55 expose all seven native endpoints. Creation requires
 a URL and uses server defaults. Update accepts explicit booleans, empty titles,
@@ -213,11 +224,11 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 79 | Lists | `POST` | `/api/boards/{board}/lists/{list}/move` | `post_board_list_move` | Move a board list. | `wekan list move <LIST_ID> --board <BOARD_ID> [--target-board <ID>] [--target-swimlane-id <ID>] [--position <NUMBER> \| --position-json <JSON>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Returns an acknowledged ID; cross-board moves retain the source list and may fail after partial mutation. An existing same-title destination bypasses the supplied source swimlane filter. | ✓ |
 | 80 | Users | `POST` | `/api/boards/{board}/members/{user}/add` | `post_board_user_add` | Add a user as a board member. | `wekan board member add <USER_ID> --board <BOARD_ID> [--role <ROLE>] [--is-admin <BOOL>] [--is-no-comments <BOOL>] [--is-comment-only <BOOL>] [--is-worker <BOOL>] [--is-normal-assigned-only <BOOL>] [--is-comment-assigned-only <BOOL>] [--is-read-only <BOOL>] [--is-read-assigned-only <BOOL>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 81 | Users | `POST` | `/api/boards/{board}/members/{user}/remove` | `post_board_user_remove` | Remove a user from a board. | `wekan board member remove <USER_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
-| 82 | Rules | `GET` | `/api/boards/{board}/rules` | `get_board_rules` | Get the list of automation rules of a board. | — | ✗ |
-| 83 | Rules | `POST` | `/api/boards/{board}/rules` | `new_board_rule` | Add an automation rule to a board. | — | ✗ |
-| 84 | Rules | `GET` | `/api/boards/{board}/rules/{rule}` | `get_board_rule` | Get a single automation rule. | — | ✗ |
-| 85 | Rules | `PUT` | `/api/boards/{board}/rules/{rule}` | `edit_board_rule` | Edit an automation rule. | — | ✗ |
-| 86 | Rules | `DELETE` | `/api/boards/{board}/rules/{rule}` | `delete_board_rule` | Remove an automation rule (and its trigger and action). | — | ✗ |
+| 82 | Rules | `GET` | `/api/boards/{board}/rules` | `get_board_rules` | Get the list of automation rules of a board. | `wekan rule list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 83 | Rules | `POST` | `/api/boards/{board}/rules` | `new_board_rule` | Add an automation rule to a board. | `wekan rule create --board <BOARD_ID> (--rule <JSON> \| --rule-file <PATH> \| --rule-stdin) [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 84 | Rules | `GET` | `/api/boards/{board}/rules/{rule}` | `get_board_rule` | Get a single automation rule. | `wekan rule get <RULE_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 85 | Rules | `PUT` | `/api/boards/{board}/rules/{rule}` | `edit_board_rule` | Edit an automation rule. | `wekan rule update <RULE_ID> --board <BOARD_ID> (--rule <JSON> \| --rule-file <PATH> \| --rule-stdin) [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
+| 86 | Rules | `DELETE` | `/api/boards/{board}/rules/{rule}` | `delete_board_rule` | Remove an automation rule (and its trigger and action). | `wekan rule delete <RULE_ID> --board <BOARD_ID> [--yes] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 87 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes` | `get_board_swimlanes` | List the swimlanes on a board. | `wekan swimlane list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 88 | Swimlanes | `POST` | `/api/boards/{board}/swimlanes` | `post_board_swimlanes` | Create a swimlane on a board. | `wekan swimlane create --board <BOARD_ID> --title <TITLE> [--sort <NUMBER>] [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |
 | 89 | Swimlanes | `GET` | `/api/boards/{board}/swimlanes/{swimlane}` | `get_board_swimlane` | Get one swimlane on a board. | `wekan swimlane get <SWIMLANE_ID> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]` | ✓ |

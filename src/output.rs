@@ -13,6 +13,7 @@ mod integrations;
 mod lists;
 mod profiles;
 mod raw;
+mod rules;
 mod swimlanes;
 mod users;
 
@@ -137,6 +138,16 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             formatting::render_object(data)
         ),
         (OutputFormat::Json, CommandSuccess::BoardDomainChanged(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::RuleCollection(data)) => rules::collection(data),
+        (OutputFormat::Json, CommandSuccess::RuleCollection(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::RuleShown(data)) => rules::detail(data),
+        (OutputFormat::Json, CommandSuccess::RuleShown(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::RuleCreated(data)) => rules::created(data),
+        (OutputFormat::Json, CommandSuccess::RuleCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::RuleUpdated(data)) => rules::updated(data),
+        (OutputFormat::Json, CommandSuccess::RuleUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::RuleDeleted(data)) => rules::deleted(data),
+        (OutputFormat::Json, CommandSuccess::RuleDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::IntegrationCollection(data)) => {
             integrations::collection(data)
         }

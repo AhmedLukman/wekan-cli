@@ -24698,6 +24698,353 @@ actions:
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
 
+  # Board rule payload inventory: v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f.
+  # Source: server/models/rules.js, triggersDef.js, rulesHelper.js, scheduledRules.js,
+  # client/components/rules/{triggers,actions}, and rulesImportExport.js.
+  # Live: rules::complete_rule_lifecycle_matches_wekan_v11_06 covers all fields,
+  # numeric/text amounts, null descriptions, built-in kinds and strict decoding.
+  - target: $.definitions.RuleCreateRequest.properties.trigger.properties.activityType.type
+    description: v11.06 rules.js checks truthiness, not JSON type; live numeric activityType and boolean actionType persist unchanged.
+    remove: true
+  - target: $.definitions.RuleResponse.properties.trigger
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        activityType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        userId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        oldListName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardTitle:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItemName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        attachmentName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleKind:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        atTime:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        weekday:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        dayOfMonth:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        onDate:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dueCondition:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        lastRunKey:
+          description: Native scheduler minute-slot key, or caller-supplied data.
+        lastRunAt:
+          description: Native scheduler last-run Date serialized as ISO text, or caller-supplied data. Pinned default scheduler never starts (W11-053).
+        buttonType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        buttonLabel:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+  - target: $.definitions.RuleCreateRequest.properties.trigger
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        activityType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        userId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        oldListName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardTitle:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItemName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        attachmentName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleKind:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        atTime:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        weekday:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        dayOfMonth:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        onDate:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dueCondition:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        lastRunKey:
+          description: Native scheduler minute-slot key, or caller-supplied data.
+        lastRunAt:
+          description: Native scheduler last-run Date serialized as ISO text, or caller-supplied data. Pinned default scheduler never starts (W11-053).
+        buttonType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        buttonLabel:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        _id:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        boardId:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        createdAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        modifiedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        updatedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+  - target: $.definitions.RuleUpdateRequest.properties.trigger
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        activityType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        userId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        oldListName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardTitle:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItemName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        attachmentName:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleKind:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        scheduleType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        atTime:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        weekday:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        dayOfMonth:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        onDate:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dueCondition:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        lastRunKey:
+          description: Native scheduler minute-slot key, or caller-supplied data.
+        lastRunAt:
+          description: Native scheduler last-run Date serialized as ISO text, or caller-supplied data. Pinned default scheduler never starts (W11-053).
+        buttonType:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        buttonLabel:
+          description: Built-in trigger field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        _id:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        boardId:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        createdAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        modifiedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        updatedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+  - target: $.definitions.RuleCreateRequest.properties.action.properties.actionType.type
+    description: v11.06 rules.js checks truthiness, not JSON type; live numeric activityType and boolean actionType persist unchanged.
+    remove: true
+  - target: $.definitions.RuleResponse.properties.action
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        actionType:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        fromListName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checkItemName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItems:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dateField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        unit:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailTo:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailSubject:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailMsg:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        selectedColor:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        sortField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+  - target: $.definitions.RuleCreateRequest.properties.action
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        actionType:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        fromListName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checkItemName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItems:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dateField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        unit:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailTo:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailSubject:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailMsg:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        selectedColor:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        sortField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        _id:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        boardId:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        createdAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        modifiedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        updatedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+  - target: $.definitions.RuleUpdateRequest.properties.action
+    description: Source-defined payload fields are individually documented; schemaless storage remains open. Live rule lifecycle verifies the CLI-mapped subset.
+    update:
+      properties:
+        actionType:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        listName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        swimlaneName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        cardName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        fromListName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checkItemName:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        checklistItems:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        dateField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        unit:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailTo:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailSubject:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        emailMsg:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        selectedColor:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        labelId:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        username:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        sortField:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        desc:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps string or null.
+        days:
+          description: Built-in action field; schemaless storage does not enforce its JSON type. Typed CLI maps number, string, or null.
+        _id:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        boardId:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        createdAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        modifiedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+        updatedAt:
+          description: Discarded by the REST strip helper; boardId is rebound to the selected board and generated metadata is owned by Wekan.
+  - target: '$.paths["/api/boards/{board}/rules"].post'
+    description: v11.06 rules.js strips action boardId and omits rulesButton.js denormalized button metadata; live fixture and REST read verify persistence (W11-054).
+    update:
+      description: >-
+        Creates a rule with embedded trigger/action documents. Activity matching fields omitted,
+        null, or empty are normalized to wildcard for known activityType values. Both documents
+        are rebound to the selected board, including an action's destination boardId.
+        Trigger/action insertion precedes rule insertion and is not rolled back on failure.
+        Button definitions persist on the trigger but REST does not copy buttonType/buttonLabel
+        onto the rule as the UI method does; UI button rendering is therefore unavailable
+        for these REST-created definitions. Pinned default scheduled rules do not execute
+        because SyncedCron is never started. The CLI does not work around either defect.
+
+
   - target: '$.paths["/api/boards/{boardId}/copy", "/api/boards/{board}/lists/{list}/cards/{card}/copy", "/api/boards/{board}/lists/{list}/copy", "/api/boards/{board}/swimlanes/{swimlane}/copy"].post'
     description: >-
       Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,

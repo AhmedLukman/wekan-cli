@@ -104,3 +104,6 @@ mod dependencies;
 mod integrations;
 #[path = "contract/memberships.rs"]
 mod memberships;
+
+#[path = "contract/rules.rs"]
+mod rules;

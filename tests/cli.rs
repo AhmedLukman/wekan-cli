@@ -39,3 +39,6 @@ mod integrations;
 mod memberships;
 #[path = "cli/transfers.rs"]
 mod transfers;
+
+#[path = "cli/rules.rs"]
+mod rules;

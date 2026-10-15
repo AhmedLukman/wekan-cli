@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `rule list/get/create/update/delete` for board automation, with bounded typed
+  JSON definitions from arguments, files, or stdin and complete human/JSON output.
+- Rule payloads cover all built-in activity, schedule, button, and action fields.
+  Updates preserve native merge semantics and unconfirmed effects; deletion
+  requires confirmation or `--yes` and removes referenced trigger/action documents.
+
+### Fixed
+
+- Rule creation and updates reject invalid `lastRunAt` timestamps before writing
+  definitions that rule reads cannot decode.
+- Rule get/list accept responses up to 64 MiB so large definitions accepted by
+  create/update remain readable.
+
 ## [0.13.0] - 2026-10-15
 
 ### Added

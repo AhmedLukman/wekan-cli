@@ -787,3 +787,28 @@ Bulk deletion's `deleted` array confirms card deletion only. Wekan v11.06
 retains ordinary attachment metadata and file bytes; successful batches do not
 confirm attachment cleanup. The CLI performs no additional cleanup requests.
 See [bulk card and label behavior](bulk-cards-and-labels.md).
+
+
+## Board automation rules
+
+`rule list/get/create/update/delete` uses typed human/JSON results. List data is
+`{board_id,rules}`; each detail includes `board_id`, `rule_id`, `title`, and
+nullable `trigger`/`action`. Nested fields use snake_case, omit absent fields,
+and preserve explicit nulls. Unknown fields at the envelope or embedded object
+boundary fail with `protocol_error`; no opaque maps bypass mapping.
+
+Creation returns `board_id`, `rule_id`, `trigger_id`, and `action_id`. Update
+returns `board_id`, `rule_id`, `submitted_fields` (title/trigger/action order),
+and `mutation_confirmed: false`. Deletion returns `board_id`, `rule_id`, and
+`deleted: true`; cancellation uses operation `rule_delete`.
+
+Create/update require exactly one `--rule`, `--rule-file`, or `--rule-stdin`.
+Typed camelCase JSON input is limited to 50 MiB. Supplied `trigger.lastRunAt`
+values must be valid Wekan date-time strings or null; invalid values fail with
+`invalid_input` before credentials or HTTP. Get/list responses are bounded to
+64 MiB; exceeding this aggregate limit returns `protocol_error` (exit 4).
+Sparse updates, including `{}`, are passed to native shallow merging.
+Only deletion accepts `--yes`.
+Missing rules retain HTTP 500 `not-found` as exit-5 `server_error`; missing boards
+retain HTTP 404. Mutation errors can indicate `outcome_unknown: true`; no retry,
+rollback, or readback is performed. See [rule behavior](rules.md).

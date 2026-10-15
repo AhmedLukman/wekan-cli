@@ -37,3 +37,6 @@ mod dependencies;
 mod integrations;
 #[path = "e2e/memberships.rs"]
 mod memberships;
+
+#[path = "e2e/rules.rs"]
+mod rules;

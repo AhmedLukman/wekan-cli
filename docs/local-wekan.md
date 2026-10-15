@@ -301,3 +301,26 @@ docker compose up -d --wait
 $env:WEKAN_BULK_CARD_E2E_URL = "http://localhost:3116"
 cargo test --locked --test e2e bulk_cards::complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
+
+
+## Board automation rule lifecycle
+
+The rule suite covers all five REST endpoints, every built-in payload field and
+kind, permissions, wildcard normalization, shallow merging, null/absent fields,
+strict rejection of custom payload fields, dangling references, and referenced
+document deletion. It proves move-to/add-member and move-away/remove-member
+execution and verifies the pinned scheduler non-execution for 90 seconds. Button
+persistence and REST destination rebinding are checked without DDP workarounds.
+Fixture checks require the same Compose project as the server URL. The suite
+also runs in the isolated-stack CI matrix.
+Regression cases reject invalid `lastRunAt` input without changing stored rules
+and round-trip 2–3 MiB definitions through create/update and both read commands.
+
+```powershell
+$env:WEKAN_PORT = "3117"
+$env:COMPOSE_PROJECT_NAME = "wekan-rule-tests"
+docker compose up -d --wait
+$env:WEKAN_RULE_E2E_URL = "http://localhost:3117"
+cargo test --locked --test e2e rules::complete_rule_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```

@@ -10,6 +10,7 @@ mod datetime;
 mod decoding;
 pub mod dependencies;
 pub mod integrations;
+pub mod rules;
 mod strings;
 pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub(crate) use strings::trim_javascript_whitespace;
@@ -70,6 +71,10 @@ pub use lists::{
 };
 pub use raw::RawApiResponse;
 pub(crate) use raw::{RawApiAuthentication, RawApiRequest, RawApiRequestBody, RawApiRequestError};
+pub use rules::{
+    CreateRuleRequest, RuleAction, RuleActionInput, RuleCreateResponse, RuleDocument,
+    RuleIdResponse, RuleNumber, RuleTrigger, RuleTriggerInput, UpdateRuleRequest,
+};
 pub use swimlanes::{
     CreateSwimlaneRequest, CreateSwimlaneResult, DeleteSwimlaneResult, SwimlaneDocument,
     SwimlaneSummary, UpdateSwimlaneRequest, UpdateSwimlaneResult,

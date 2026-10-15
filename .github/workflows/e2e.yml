@@ -55,6 +55,10 @@ jobs:
             key: dependencies
             variable: WEKAN_DEPENDENCY_E2E_URL
             test: dependencies::complete_dependency_lifecycle_matches_wekan_v11_06
+          - name: Board automation rules
+            key: rules
+            variable: WEKAN_RULE_E2E_URL
+            test: rules::complete_rule_lifecycle_matches_wekan_v11_06
           - name: Integrations and webhook subscriptions
             key: integrations
             variable: WEKAN_INTEGRATION_E2E_URL

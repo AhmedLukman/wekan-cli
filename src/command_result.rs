@@ -11,6 +11,8 @@ mod custom_field_items;
 mod custom_fields;
 mod dependencies;
 mod integrations;
+mod rules;
+pub use rules::*;
 mod lists;
 mod profiles;
 mod swimlanes;
@@ -107,6 +109,11 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    RuleCollection(RuleCollectionSuccess),
+    RuleShown(Box<RuleDetail>),
+    RuleCreated(RuleCreateSuccess),
+    RuleUpdated(RuleUpdateSuccess),
+    RuleDeleted(RuleDeleteSuccess),
     BoardCardSettings(BoardCardSettingsSuccess),
     BoardCardSettingsUpdated(BoardCardSettingsUpdateSuccess),
     BoardDomains(BoardDomainCollectionSuccess),
@@ -234,6 +241,7 @@ pub enum MembershipAction {
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
     IntegrationDelete,
+    RuleDelete,
     CardBulkDelete,
     DependencyDelete,
     AttachmentDelete,
@@ -258,6 +266,7 @@ impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
             Self::IntegrationDelete => "integration delete",
+            Self::RuleDelete => "rule delete",
             Self::CardBulkDelete => "card bulk delete",
             Self::DependencyDelete => "dependency delete",
             Self::AttachmentDelete => "attachment delete",
