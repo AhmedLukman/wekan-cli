@@ -1,5 +1,6 @@
 mod api;
 mod auth;
+mod board_settings;
 mod boards;
 mod bulk_cards;
 mod cards;
@@ -21,6 +22,7 @@ pub use api::{
 pub use auth::{
     AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, LogoutScope, LogoutSuccess,
 };
+pub use board_settings::*;
 pub use boards::{
     BoardCountSuccess, BoardCreateSuccess, BoardDeleteSuccess, BoardDetail, BoardDetailDomain,
     BoardDetailLabel, BoardDetailMember, BoardDetailOrganization, BoardDetailTeam,
@@ -105,6 +107,10 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BoardCardSettings(BoardCardSettingsSuccess),
+    BoardCardSettingsUpdated(BoardCardSettingsUpdateSuccess),
+    BoardDomains(BoardDomainCollectionSuccess),
+    BoardDomainChanged(BoardDomainMutationSuccess),
     IntegrationCollection(IntegrationCollectionSuccess),
     IntegrationShown(IntegrationDetail),
     IntegrationCreated(IntegrationCreateSuccess),

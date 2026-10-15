@@ -1,7 +1,9 @@
+mod card_settings;
 mod copy;
 mod count;
 mod create;
 mod delete;
+mod domains;
 mod get;
 mod labels;
 mod list;
@@ -26,6 +28,10 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// Read or update card display controls and aging thresholds.
+    CardSettings(card_settings::CardSettingsArgs),
+    /// List or request changes to email-domain sharing.
+    Domain(domains::DomainArgs),
     /// Copy a board using Wekan's native copy operation.
     Copy(copy::CopyArgs),
     /// List or add reusable board labels.
@@ -58,6 +64,12 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::CardSettings(args) => {
+            card_settings::dispatch(args.command, client_factory, credential_store).await
+        }
+        BoardCommand::Domain(args) => {
+            domains::dispatch(args.command, client_factory, credential_store).await
+        }
         BoardCommand::Copy(args) => copy::execute(args, client_factory, credential_store).await,
         BoardCommand::Label(args) => {
             labels::dispatch(args.command, client_factory, credential_store).await

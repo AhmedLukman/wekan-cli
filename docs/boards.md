@@ -14,7 +14,7 @@ wekan board delete <BOARD_ID> [--yes]
 ```
 
 Every command requires a selected profile and an unexpired stored credential.
-Board imports, domains, attachments, card settings,
+Board imports, attachments,
 and other subresources are outside this command family's scope.
 
 `board copy <BOARD_ID> [--title <TEXT>]` uses Wekan's native board copier.
@@ -103,3 +103,119 @@ document described above.
 
 Copy/move command syntax, position inputs, typed acknowledgments, and pinned
 server behavior are documented in [copy and move](copy-and-move.md).
+
+## Card settings and aging
+
+`board card-settings get --board <BOARD_ID>` reads the native card-settings
+projection. `board card-settings update --board <BOARD_ID>` requires at least
+one setting flag. Boolean values are explicit `true` or `false`; omission
+preserves the existing setting, and explicit false or zero is sent unchanged.
+
+```console
+wekan board card-settings get --board BOARD_ID
+wekan board card-settings update --board BOARD_ID --allows-attachments false --allows-creator-on-minicard true
+wekan --output json board card-settings update --board BOARD_ID --card-aging true --card-aging-days1 7 --card-aging-days2 14 --card-aging-days3 28
+```
+
+All boolean flags accept `<true|false>`:
+
+- `--allows-card-counter-list`
+- `--card-aging`
+- `--allows-board-member-list`
+- `--allows-show-lists`
+- `--allows-attachments`
+- `--allows-checklists`
+- `--allows-comments`
+- `--allows-description-title`
+- `--allows-description-text`
+- `--allows-activities`
+- `--allows-labels`
+- `--allows-creator`
+- `--allows-assignee`
+- `--allows-members`
+- `--allows-requested-by`
+- `--allows-card-sorting-by-number`
+- `--allows-card-number`
+- `--allows-assigned-by`
+- `--allows-received-date`
+- `--allows-start-date`
+- `--allows-end-date`
+- `--allows-due-date`
+- `--allows-subtasks`
+- `--allows-creator-on-minicard`
+- `--allows-attachments-on-minicard`
+- `--allows-checklists-on-minicard`
+- `--allows-checklist-at-minicard`
+- `--allows-cover-attachment-on-minicard`
+- `--allows-badge-attachment-on-minicard`
+- `--allows-card-sorting-by-number-on-minicard`
+- `--allows-card-number-on-minicard`
+- `--allows-description-title-on-minicard`
+- `--allows-description-text-on-minicard`
+- `--allows-labels-on-minicard`
+- `--allows-assignee-on-minicard`
+- `--allows-members-on-minicard`
+- `--allows-requested-by-on-minicard`
+- `--allows-assigned-by-on-minicard`
+- `--allows-received-date-on-minicard`
+- `--allows-start-date-on-minicard`
+- `--allows-end-date-on-minicard`
+- `--allows-due-date-on-minicard`
+- `--allows-subtasks-on-minicard`
+- `--allows-show-lists-on-minicard`
+
+`--card-aging-days1`, `--card-aging-days2`, and `--card-aging-days3` accept
+integer days from 0 through 9007199254740991 (JavaScript's maximum safe integer).
+Negative, fractional, and larger inputs fail locally. Threshold order is not
+restricted. Flags cannot repeat. Use `wekan api request` for Wekan's broader
+string/JSON input coercions.
+
+Both reads and updates return `board_id` and a complete `settings` object;
+updates also return `submitted_fields` in corrected-contract order. Settings
+keys match the snake_case names in `board get`. Omitted response properties
+appear as JSON null; explicit null, incorrect types, and unknown properties
+are protocol errors. Stored numeric thresholds can be fractional or negative
+and are returned without coercion. Human output includes every setting.
+
+Reading uses Wekan's board-access check; updating uses its board-write check.
+Normal members can update settings, read-only members can read them, and site
+administrators pass both checks. Wekan can return HTML permission or
+missing-board errors on these routes; the CLI preserves their HTTP classification.
+
+## Domain sharing
+
+```console
+wekan board domain list --board BOARD_ID
+wekan board domain add example.com --board BOARD_ID
+wekan board domain remove example.com --board BOARD_ID
+```
+
+Domain listing uses the dedicated endpoint and requires a **site administrator**,
+including for a public board or a board administered by the caller. It includes
+inactive records in stored order. Regular callers receive Wekan's HTTP 200
+serialized Forbidden error, mapped to `permission_denied` with the embedded 403.
+
+Addition sends the domain unchanged as JSON. Removal encodes the supplied value
+as one path segment and rejects empty values and the exact values `.` and `..`
+before HTTP. Wekan handles trimming, lowercasing, and validation. Removal runs
+directly without confirmation or `--yes`.
+
+**Pinned Wekan v11.06 defect:** valid board/site-administrator domain additions
+and removals fail with HTTP 200 `not-authorized` because `setBoardDomains`
+receives no DDP user identity. Sharing remains unchanged, including when adding
+an existing domain or removing an absent one. The CLI returns `protocol_error`
+with exit 5 and preserves `http_status`, `server_error`, `server_reason`,
+`server_message`, `server_error_type`, and `server_is_client_safe`.
+It sends the native request without a workaround or retry.
+See the [pinned route and method implementation](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/server/models/boards.js).
+
+Domain list success contains `{board_id, domains}`. Each record has `domain`
+and `is_active`. Native successful mutation arrays are modeled as
+`{board_id, domain, action, domains}`, where `domain` is the submitted value
+and `action` is `add` or `remove`. They describe the returned snapshot;
+they do not claim that a requested addition/removal changed sharing.
+Unknown properties and missing or incorrectly typed domain fields cause a
+protocol error.
+
+All five commands support the global `--server`, `--profile`, `--output`
+(`human` or `json`), `--allow-insecure-http`, and `--help` options.

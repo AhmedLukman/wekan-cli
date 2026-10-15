@@ -94,6 +94,8 @@ fn client_from_url(raw: &str) -> WekanClient {
 
 #[path = "contract/attachments.rs"]
 mod attachments;
+#[path = "contract/board_settings.rs"]
+mod board_settings;
 #[path = "contract/custom_fields.rs"]
 mod custom_fields;
 #[path = "contract/dependencies.rs"]

@@ -2,6 +2,8 @@
 mod api;
 #[path = "cli/auth.rs"]
 mod auth;
+#[path = "cli/board_settings.rs"]
+mod board_settings;
 #[path = "cli/boards.rs"]
 mod boards;
 #[path = "cli/cards.rs"]

@@ -2,6 +2,8 @@
 mod api;
 #[path = "e2e/auth.rs"]
 mod auth;
+#[path = "e2e/board_settings.rs"]
+mod board_settings;
 #[path = "e2e/boards.rs"]
 mod boards;
 #[path = "e2e/cards.rs"]

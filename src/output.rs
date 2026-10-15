@@ -118,6 +118,25 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::BoardCardSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardCardSettings(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardCardSettingsUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardCardSettingsUpdated(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::BoardDomains(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardDomains(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardDomainChanged(data)) => format!(
+            "Board domains returned for the requested sharing change:\n{}",
+            formatting::render_object(data)
+        ),
+        (OutputFormat::Json, CommandSuccess::BoardDomainChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::IntegrationCollection(data)) => {
             integrations::collection(data)
         }

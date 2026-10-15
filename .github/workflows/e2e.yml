@@ -83,6 +83,10 @@ jobs:
             key: boards
             variable: WEKAN_BOARD_E2E_URL
             test: boards::complete_board_lifecycle_matches_wekan_v11_06
+          - name: Board card settings and domain sharing
+            key: board-settings
+            variable: WEKAN_BOARD_SETTINGS_E2E_URL
+            test: board_settings::complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06
           - name: Lists
             key: lists
             variable: WEKAN_LIST_E2E_URL

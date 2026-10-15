@@ -3,6 +3,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
+#[path = "settings_tests.rs"]
+mod settings;
+
 use clap::Parser;
 use secrecy::SecretString;
 use serde_json::json;

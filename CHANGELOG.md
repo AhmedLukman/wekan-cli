@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `board card-settings get/update` for all card display controls and aging
+  thresholds, with explicit boolean/integer inputs and complete typed human/JSON
+  output. Updates require at least one setting and preserve omitted fields.
+- `board domain list/add/remove` for native domain-sharing operations. Listing
+  requires site administration; valid writes preserve Wekan v11.06's
+  `not-authorized` failure as exit-5 errors with native metadata.
+
 ## [0.12.0] - 2026-10-15
 
 ### Added

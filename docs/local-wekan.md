@@ -131,6 +131,19 @@ $env:WEKAN_TRANSFER_E2E_URL = "http://localhost:3101"
 cargo test --locked --test e2e transfers::complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
 
+## Board card settings and domain sharing
+
+The dedicated lifecycle covers all 47 settings, partial updates, stored numeric
+values, permission boundaries, and native domain reads/writes. It requires a
+fresh isolated stack and MongoDB fixtures for existing sharing records, since
+Wekan v11.06 domain writes fail with `not-authorized`.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-test-1"
+$env:WEKAN_BOARD_SETTINGS_E2E_URL = "http://localhost:3101"
+cargo test --locked --test e2e board_settings::complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
 ## Stop or reset the stack
 
 Stop and remove the containers while preserving MongoDB data and uploaded files:

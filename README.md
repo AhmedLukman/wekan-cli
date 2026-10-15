@@ -80,7 +80,7 @@ wekan --profile local auth login --username alice
 The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies, and
-board integrations. It implements 101 of the 143 operations in the corrected Wekan v11.06 contract,
+board integrations. It implements 106 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment operations, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
@@ -94,6 +94,10 @@ board members also support named roles and individual permission flags.
 `integration` commands manage board webhooks and their activity subscriptions,
 including token input through stdin and explicit unconfirmed mutation output;
 see [integrations](docs/integrations.md).
+`board card-settings get/update` exposes card display controls and aging thresholds;
+`board domain list/add/remove` exposes native sharing endpoints. Domain listing
+requires a site administrator; valid sharing writes preserve Wekan v11.06's
+`not-authorized` failure. See [board settings and sharing](docs/boards.md#card-settings-and-aging).
 Dependency commands support board
 and card listings, create-or-update, nullable metadata updates, and confirmed
 removal with explicit acknowledgment output. Attachment transfers support files

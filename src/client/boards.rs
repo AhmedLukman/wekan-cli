@@ -6,7 +6,9 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+pub mod card_settings;
 mod copy;
+pub mod domains;
 pub use copy::CopyBoardRequest;
 pub mod labels;
 pub mod members;
