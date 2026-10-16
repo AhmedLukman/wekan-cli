@@ -281,9 +281,9 @@ wekan-cli/
 ├── spec/
 │   ├── wekan.yml                      # Untouched upstream OpenAPI specification
 │   ├── wekan.overlay.yml              # Maintained corrections and additions
-│   ├── wekan.corrected.yml            # Generated merged specification
-│   ├── wekan.html                     # Rendered upstream API documentation
-│   └── wekan.corrected.html           # Rendered corrected API documentation
+│   ├── wekan.corrected.yml            # Generated merged specification (local, ignored)
+│   ├── wekan.html                     # Generated upstream API documentation (local, ignored)
+│   └── wekan.corrected.html           # Generated corrected API documentation (local, ignored)
 │
 ├── tests/
 │   ├── cli.rs                         # Black-box CLI integration-test target
@@ -363,3 +363,7 @@ wekan-cli/
     └── pull_request_template.md
 
 ```
+
+Only `spec/wekan.yml` and `spec/wekan.overlay.yml` are tracked API reference
+files. Generate the corrected specification and HTML references on demand using
+the [contribution instructions](../CONTRIBUTING.md#api-changes).

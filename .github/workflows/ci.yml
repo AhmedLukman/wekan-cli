@@ -120,17 +120,15 @@ jobs:
           mkdir "$RUNNER_TEMP/openapi"
           tar -xzf "$RUNNER_TEMP/openapi.tar.gz" -C "$RUNNER_TEMP/openapi"
           echo "$RUNNER_TEMP/openapi" >> "$GITHUB_PATH"
-      - name: Validate and regenerate corrected specification
+      - name: Generate and validate corrected specification
         shell: bash
         run: |
           set -euo pipefail
           openapi overlay validate spec/wekan.overlay.yml
           openapi overlay apply --schema spec/wekan.yml --overlay spec/wekan.overlay.yml --out "$RUNNER_TEMP/wekan.corrected.yml"
           openapi swagger validate "$RUNNER_TEMP/wekan.corrected.yml"
-          cmp spec/wekan.corrected.yml "$RUNNER_TEMP/wekan.corrected.yml"
-      - name: Regenerate corrected HTML reference
+      - name: Generate corrected HTML reference
         shell: bash
         run: |
           set -euo pipefail
           npx --yes @redocly/cli@2.46.0 build-docs "$RUNNER_TEMP/wekan.corrected.yml" --output "$RUNNER_TEMP/wekan.corrected.html" --title "WeKan REST API v11.06 (Corrected)"
-          cmp spec/wekan.corrected.html "$RUNNER_TEMP/wekan.corrected.html"

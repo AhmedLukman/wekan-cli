@@ -1,1 +1,5 @@
 /target
+
+# API references generated on demand from the tracked base and overlay.
+/spec/wekan.corrected.yml
+/spec/*.html

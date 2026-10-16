@@ -54,18 +54,20 @@ against a real instance.
 
 ## API changes
 
-API commands target Wekan v11.06. Use the corrected
-[`wekan.corrected.yml`](spec/wekan.corrected.yml) contract and verify any
+API commands target Wekan v11.06. Generate the corrected
+`spec/wekan.corrected.yml` contract using the commands below and verify any
 discrepancy against the matching [Wekan source][wekan-source] and a live server.
 Response objects, including nested objects, must use
 `#[serde(deny_unknown_fields)]`.
 
 Keep tests and documentation synchronized. Record verified contract corrections
-only in [`wekan.overlay.yml`](spec/wekan.overlay.yml). Do not edit generated
-artifacts directly.
+only in [`wekan.overlay.yml`](spec/wekan.overlay.yml). The only committed API
+reference files are the upstream [`wekan.yml`](spec/wekan.yml) and its overlay.
+The corrected YAML and all HTML references under `spec/` are ignored local
+outputs. Generate them on demand; do not edit or commit them.
 
-The commands below require the Speakeasy `openapi` CLI on `PATH`. Generating
-the HTML reference also requires Node.js and npm.
+The commands below require Speakeasy OpenAPI CLI 1.24.1 (`openapi`) on `PATH`.
+Generating the HTML references also requires Node.js and npm.
 
 Validate the overlay and regenerate the corrected contract:
 
@@ -75,11 +77,22 @@ openapi overlay apply --schema spec/wekan.yml --overlay spec/wekan.overlay.yml -
 openapi swagger validate spec/wekan.corrected.yml
 ```
 
-Regenerate the human-readable reference with Redocly:
+Optionally generate the corrected human-readable reference with Redocly:
 
 ```console
 npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v11.06 (Corrected)"
 ```
+
+To render the upstream specification without corrections instead:
+
+```console
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v11.06 (Upstream)"
+```
+
+Open the generated HTML files locally in a browser. CI generates and validates
+the corrected specification and builds its HTML reference in a temporary
+directory, without requiring committed generated files. Rust builds and tests
+do not require these generated references.
 
 ## Pull requests
 
@@ -89,7 +102,8 @@ check that:
 
 - Required checks pass.
 - Documentation and the changelog are updated when applicable.
-- API coverage and generated artifacts are updated when applicable.
+- The API overlay and coverage are updated, and corrected references generate
+  and validate successfully when applicable.
 - Changes follow the repository's existing architecture and file organization.
 
 [conventional-commits]: https://www.conventionalcommits.org/en/v1.0.0/

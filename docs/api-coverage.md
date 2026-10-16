@@ -1,6 +1,6 @@
 # Wekan API-to-CLI coverage
 
-This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract at [spec/wekan.corrected.yml](../spec/wekan.corrected.yml) and records whether this repository exposes an equivalent first-class CLI command.
+This tracker inventories every HTTP operation in the corrected Wekan v11.06 contract and records whether this repository exposes an equivalent first-class CLI command. Generate `spec/wekan.corrected.yml` on demand from the tracked [upstream specification](../spec/wekan.yml) and [correction overlay](../spec/wekan.overlay.yml) using the [API reference generation instructions](../CONTRIBUTING.md#api-changes); the generated contract is not committed.
 
 User response decoding accepts notifications with absent, null, or populated read
 timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).

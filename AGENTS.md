@@ -61,13 +61,18 @@ on localhost on `WEKAN_PORT` (default `3000`).
 The pinned baseline is Wekan `v11.06`. Always use references from the exact Wekan version being supported.
 
 - Upstream endpoint catalog: [vendored Swagger 2.0 specification](spec/wekan.yml)
-- Upstream human-readable reference: [vendored Redoc HTML](spec/wekan.html)
 - Verified corrections: [OpenAPI Overlay 1.1](spec/wekan.overlay.yml)
-- Combined contract: [generated corrected specification](spec/wekan.corrected.yml)
-- Human-readable corrected reference: [generated Redoc HTML](spec/wekan.corrected.html)
 - Authoritative implementation and tests: [Wekan v11.06 source](https://github.com/wekan/wekan/tree/v11.06)
 
-Use the vendored `wekan.yml` for endpoint discovery and initial request/response shapes. Treat `wekan.yml` and `wekan.html` as read-only upstream material and record only verified correction deltas in `wekan.overlay.yml`. Never edit `wekan.corrected.yml` or `wekan.corrected.html` directly; regenerate them from the base and overlay.
+Only `spec/wekan.yml` and `spec/wekan.overlay.yml` are committed. Use the vendored
+`wekan.yml` for endpoint discovery and initial request/response shapes. Treat it
+as read-only upstream material and record only verified correction deltas in
+`wekan.overlay.yml`.
+
+Generate `spec/wekan.corrected.yml` before consulting the combined contract.
+The corrected specification and all HTML references under `spec/` are ignored
+local outputs; never edit or commit them. Regenerate them from the tracked inputs
+on demand.
 
 Generate and validate the corrected machine-readable contract with the
 Speakeasy `openapi` CLI:
@@ -85,8 +90,16 @@ with the `redocly` CLI:
 npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v11.06 (Corrected)"
 ```
 
-Regenerating the API reference artifacts requires Speakeasy OpenAPI CLI
-on PATH and Node.js/npm for the pinned Redocly invocation.
+The optional upstream HTML reference can also be generated locally:
+
+```console
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v11.06 (Upstream)"
+```
+
+Generating the API reference artifacts requires Speakeasy OpenAPI CLI 1.24.1
+on PATH and Node.js/npm for the pinned Redocly invocation. CI generates and
+validates the corrected specification and builds its HTML reference in a
+temporary directory; it does not compare against committed generated files.
 
 ## API-to-CLI coverage
 
