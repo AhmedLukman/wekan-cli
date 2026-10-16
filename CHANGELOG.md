@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Rename `checklist-item` commands to `checklist item` and
+  `custom-field-item` commands to `custom-field item`. The old spellings are no
+  longer accepted; arguments and structured output are unchanged.
+
 ## [0.16.0] - 2026-10-15
 
 ### Added

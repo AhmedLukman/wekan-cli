@@ -94,9 +94,10 @@ impl Target<'_> {
     }
 
     async fn item(&self, checklist: &str, args: &[&str]) -> Result<CommandSuccess, AppError> {
-        let mut argv = args.to_vec();
+        let mut argv = vec!["item"];
+        argv.extend_from_slice(args);
         argv.extend(["--checklist", checklist]);
-        self.run("checklist-item", &argv).await
+        self.run("checklist", &argv).await
     }
 
     async fn detail(&self, id: &str) -> ChecklistDetail {

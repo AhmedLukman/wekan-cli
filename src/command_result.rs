@@ -297,9 +297,9 @@ impl DestructiveOperation {
             Self::ListDelete => "list delete",
             Self::CardDelete => "card delete",
             Self::ChecklistDelete => "checklist delete",
-            Self::ChecklistItemDelete => "checklist-item delete",
+            Self::ChecklistItemDelete => "checklist item delete",
             Self::CustomFieldDelete => "custom-field delete",
-            Self::CustomFieldItemDelete => "custom-field-item delete",
+            Self::CustomFieldItemDelete => "custom-field item delete",
             Self::CommentDelete => "comment delete",
             Self::SwimlaneDelete => "swimlane delete",
         }

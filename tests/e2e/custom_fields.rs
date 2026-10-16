@@ -24,7 +24,7 @@ impl Target<'_> {
         self.run(&argv).await
     }
     async fn item(&self, field: &str, args: &[&str]) -> Result<CommandSuccess, AppError> {
-        let mut argv = vec!["custom-field-item"];
+        let mut argv = vec!["custom-field", "item"];
         argv.extend_from_slice(args);
         argv.extend(["--custom-field", field]);
         self.run(&argv).await
@@ -315,7 +315,8 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             assert!(
                 Cli::try_parse_from([
                     "wekan",
-                    "custom-field-item",
+                    "custom-field",
+                    "item",
                     verb,
                     stored,
                     "--board",
@@ -990,16 +991,18 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             ],
             vec!["custom-field", "update", "missing"],
             vec!["custom-field", "delete", "missing", "--yes"],
-            vec!["custom-field-item", "create", "--custom-field", dropdown],
+            vec!["custom-field", "item", "create", "--custom-field", dropdown],
             vec![
-                "custom-field-item",
+                "custom-field",
+                "item",
                 "update",
                 "missing",
                 "--custom-field",
                 dropdown,
             ],
             vec![
-                "custom-field-item",
+                "custom-field",
+                "item",
                 "delete",
                 "missing",
                 "--custom-field",

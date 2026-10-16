@@ -48,7 +48,7 @@ Raw API output continues to preserve the upstream response without typed decodin
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
 `user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`, `card bulk delete`,
-`comment delete`, `checklist delete`, `checklist-item delete`, `attachment delete`, and `swimlane delete`
+`comment delete`, `checklist delete`, `checklist item delete`, `attachment delete`, and `swimlane delete`
 require interactive confirmation or
 `--yes`. Where a command performs target or removability preflight, it runs first and errors retain
 their documented codes. Otherwise, non-terminal and JSON invocations without
@@ -425,9 +425,9 @@ returned card ID that differs from the request reports `outcome_unknown: true`.
 Declining comment deletion uses the standard cancellation shape with
 `operation: "comment_delete"`.
 
-## Checklist and checklist-item success
+## Checklist and checklist item success
 
-`checklist get` and `checklist-item get` return complete typed documents with
+`checklist get` and `checklist item get` return complete typed documents with
 `checklist_id` or `item_id`, respectively. Both detail results include optional
 `user_id` creator metadata: Wekan UI/DDP-created records populate it, while
 REST-created records omit it. Missing creator metadata is null in JSON output.

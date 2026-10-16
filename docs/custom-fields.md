@@ -1,6 +1,6 @@
 # Custom fields and dropdown items
 
-The `custom-field` and `custom-field-item` families, together with two dedicated
+The `custom-field` family and its `item` subcommands, together with two dedicated
 card commands, cover all ten custom-field REST operations in Wekan v11.06.
 
 ```console
@@ -9,9 +9,9 @@ wekan custom-field get <CUSTOM_FIELD_ID> --board <BOARD_ID>
 wekan custom-field create --board <BOARD_ID> --name <NAME> --type <TYPE> [--settings <JSON>] [--show-on-card <BOOL>] [--automatically-on-card <BOOL>] [--show-label-on-mini-card <BOOL>] [--show-sum-at-top-of-list <BOOL>]
 wekan custom-field update <CUSTOM_FIELD_ID> --board <BOARD_ID> [--name <NAME>] [--type <TYPE>] [--settings <JSON>] [--show-on-card <BOOL>] [--automatically-on-card <BOOL>] [--always-on-card <BOOL>] [--show-label-on-mini-card <BOOL>] [--show-sum-at-top-of-list <BOOL>]
 wekan custom-field delete <CUSTOM_FIELD_ID> --board <BOARD_ID> [--yes]
-wekan custom-field-item create --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--item <TEXT>]... [--items <JSON>]
-wekan custom-field-item update <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--name <NAME>]
-wekan custom-field-item delete <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--yes]
+wekan custom-field item create --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--item <TEXT>]... [--items <JSON>]
+wekan custom-field item update <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--name <NAME>]
+wekan custom-field item delete <ITEM_ID> --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> [--yes]
 wekan card set-custom-field <CARD_ID> --board <BOARD_ID> --list <LIST_ID> --custom-field <CUSTOM_FIELD_ID> [--value <TEXT>] [--value-json <JSON>]
 wekan card find-by-custom-field --board <BOARD_ID> --custom-field <CUSTOM_FIELD_ID> --value <TEXT>
 ```
@@ -73,9 +73,9 @@ Creation acknowledges the parent field ID. Use `custom-field get` to discover
 generated six-character item IDs. Wekan has no separate item list/get endpoint.
 
 ```console
-wekan custom-field-item create --board board-id --custom-field field-id --item Ready --item Done
-wekan custom-field-item create --board board-id --custom-field field-id --items '["Ready",42,null,"Done"]'
-wekan custom-field-item update item-id --board board-id --custom-field field-id --name Complete
+wekan custom-field item create --board board-id --custom-field field-id --item Ready --item Done
+wekan custom-field item create --board board-id --custom-field field-id --items '["Ready",42,null,"Done"]'
+wekan custom-field item update item-id --board board-id --custom-field field-id --name Complete
 ```
 
 ## Card values and lookup

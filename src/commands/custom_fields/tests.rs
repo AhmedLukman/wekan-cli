@@ -135,7 +135,8 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 fn command(family: &str, arguments: &[&str]) -> RootCommand {
-    let mut argv = vec!["wekan", "--server", "https://wekan.example", family];
+    let mut argv = vec!["wekan", "--server", "https://wekan.example"];
+    argv.extend(family.split_whitespace());
     argv.extend_from_slice(arguments);
     Cli::try_parse_from(argv).unwrap().command
 }
@@ -148,15 +149,6 @@ async fn dispatch(
     match command {
         RootCommand::CustomField(args) => {
             super::dispatch(args.command, factory, store, confirmation).await
-        }
-        RootCommand::CustomFieldItem(args) => {
-            crate::commands::custom_field_items::dispatch(
-                args.command,
-                factory,
-                store,
-                confirmation,
-            )
-            .await
         }
         RootCommand::Card(args) => {
             crate::commands::cards::dispatch(args.command, factory, store, confirmation).await
@@ -176,7 +168,7 @@ fn deletion(family: &str, yes: bool) -> RootCommand {
         "--board",
         "board-1",
     ];
-    if family == "custom-field-item" {
+    if family == "custom-field item" {
         args.extend(["--custom-field", "field-1"]);
     }
     if yes {
@@ -194,7 +186,7 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
             DestructiveOperation::CustomFieldDelete,
         ),
         (
-            "custom-field-item",
+            "custom-field item",
             "/api/boards/board-1/custom-fields/field-1/dropdown-items/item-1",
             DestructiveOperation::CustomFieldItemDelete,
         ),
@@ -214,13 +206,24 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
             panic!("expected cancellation")
         };
         assert_eq!(result.operation, operation);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            json!({
+                "cancelled": true,
+                "operation": if family == "custom-field" {
+                    "custom_field_delete"
+                } else {
+                    "custom_field_item_delete"
+                },
+            })
+        );
         let requests = confirmation.requests();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].operation(), operation);
         assert!(requests[0].prompt().contains("all associated boards"));
         assert!(requests[0].prompt().contains("requested board `board-1`"));
         assert!(requests[0].prompt().contains("custom field `field-1`"));
-        if family == "custom-field-item" {
+        if family == "custom-field item" {
             assert!(requests[0].prompt().contains("dropdown item `item-1`"));
         }
         assert_eq!(store.lock_count.load(Ordering::SeqCst), 1);
@@ -234,6 +237,10 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
         .await
         .unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidInput);
+        assert_eq!(
+            error.message(),
+            format!("confirmation is required for {family} delete; rerun with --yes")
+        );
         store.replace_on_next_lock(CredentialRecord::new(
             format!("{}/", server.uri()),
             "user-2".to_owned(),
@@ -285,7 +292,7 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
                     "mutation_confirmed": false,
                     "delete_mode": "hard",
                 });
-                if family == "custom-field-item" {
+                if family == "custom-field item" {
                     expected["item_id"] = json!("item-1");
                 }
                 assert_eq!(data, json!({"ok":true,"data":expected}));

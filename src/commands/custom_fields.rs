@@ -25,6 +25,8 @@ pub enum CustomFieldCommand {
     Update(update::UpdateArgs),
     /// Permanently delete board custom-field definitions.
     Delete(delete::DeleteArgs),
+    /// Manage custom-field dropdown items.
+    Item(super::custom_field_items::CustomFieldItemArgs),
 }
 pub(crate) async fn dispatch(
     command: CustomFieldCommand,
@@ -39,6 +41,9 @@ pub(crate) async fn dispatch(
         CustomFieldCommand::Update(args) => update::execute(args, factory, store).await,
         CustomFieldCommand::Delete(args) => {
             delete::execute(args, factory, store, confirmation).await
+        }
+        CustomFieldCommand::Item(args) => {
+            super::custom_field_items::dispatch(args.command, factory, store, confirmation).await
         }
     }
 }

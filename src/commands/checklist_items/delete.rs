@@ -25,7 +25,7 @@ use super::non_empty;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Example:\n  wekan checklist-item delete item-id --board board-id --card card-id --checklist checklist-id --yes"
+    after_help = "Example:\n  wekan checklist item delete item-id --board board-id --card card-id --checklist checklist-id --yes"
 )]
 pub struct DeleteArgs {
     /// Wekan board ID.

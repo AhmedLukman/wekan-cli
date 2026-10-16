@@ -199,7 +199,7 @@ and that `mongodb` reports healthy. If startup reports that the host port is in
 use, stop the process using that port or restart the stack with another
 `WEKAN_PORT` value.
 
-## Checklist and checklist-item lifecycle
+## Checklist and checklist item lifecycle
 
 Run the dedicated ignored suite against a fresh isolated stack. It covers all eight
 operations, exact input forms, defaults and coercion, scoped failures, role

@@ -62,17 +62,11 @@ pub enum RootCommand {
     /// Inspect and manage checklists on Wekan cards.
     Checklist(checklists::ChecklistArgs),
 
-    /// Inspect and manage checklist items.
-    ChecklistItem(checklist_items::ChecklistItemArgs),
-
     /// Inspect and manage comments on Wekan cards.
     Comment(comments::CommentArgs),
 
     /// Inspect and manage custom-field definitions.
     CustomField(custom_fields::CustomFieldArgs),
-
-    /// Manage custom-field dropdown items.
-    CustomFieldItem(custom_field_items::CustomFieldItemArgs),
 
     /// Inspect and manage swimlanes on Wekan boards.
     Swimlane(swimlanes::SwimlaneArgs),

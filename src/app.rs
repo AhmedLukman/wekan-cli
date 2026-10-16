@@ -228,26 +228,8 @@ where
                 )
                 .await
             }
-            RootCommand::ChecklistItem(args) => {
-                commands::checklist_items::dispatch(
-                    args.command,
-                    target.client_factory(),
-                    &self.credential_store,
-                    &self.confirmation,
-                )
-                .await
-            }
             RootCommand::CustomField(args) => {
                 commands::custom_fields::dispatch(
-                    args.command,
-                    target.client_factory(),
-                    &self.credential_store,
-                    &self.confirmation,
-                )
-                .await
-            }
-            RootCommand::CustomFieldItem(args) => {
-                commands::custom_field_items::dispatch(
                     args.command,
                     target.client_factory(),
                     &self.credential_store,

@@ -15,7 +15,7 @@ use super::non_empty;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Example:\n  wekan checklist-item get item-id --board board-id --card card-id --checklist checklist-id"
+    after_help = "Example:\n  wekan checklist item get item-id --board board-id --card card-id --checklist checklist-id"
 )]
 pub struct GetArgs {
     /// Wekan board ID.

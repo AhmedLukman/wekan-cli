@@ -29,6 +29,9 @@ pub enum ChecklistCommand {
 
     /// Permanently delete a card checklist.
     Delete(delete::DeleteArgs),
+
+    /// Inspect and manage checklist items.
+    Item(super::checklist_items::ChecklistItemArgs),
 }
 
 pub(crate) async fn dispatch(
@@ -45,6 +48,15 @@ pub(crate) async fn dispatch(
         }
         ChecklistCommand::Delete(args) => {
             delete::execute(args, client_factory, credential_store, confirmation).await
+        }
+        ChecklistCommand::Item(args) => {
+            super::checklist_items::dispatch(
+                args.command,
+                client_factory,
+                credential_store,
+                confirmation,
+            )
+            .await
         }
     }
 }

@@ -4,10 +4,11 @@ use predicates::prelude::*;
 use wekan_cli::cli::Cli;
 
 fn parse(family: &str, args: &[&str]) -> Result<Cli, clap::Error> {
-    let mut argv = vec!["wekan", family];
+    let mut argv = vec!["wekan"];
+    argv.extend(family.split_whitespace());
     argv.extend_from_slice(args);
     argv.extend(["--board", "board-1", "--card", "card-1"]);
-    if family == "checklist-item" {
+    if family == "checklist item" {
         argv.extend(["--checklist", "checklist-1"]);
     }
     Cli::try_parse_from(argv)
@@ -15,9 +16,9 @@ fn parse(family: &str, args: &[&str]) -> Result<Cli, clap::Error> {
 
 #[test]
 fn checklist_help_exposes_exactly_the_supported_lifecycle() {
-    for family in ["checklist", "checklist-item"] {
+    for family in ["checklist", "checklist item"] {
         let assertion = cargo_bin_cmd!("wekan")
-            .args([family, "--help"])
+            .args(family.split_whitespace().chain(["--help"]))
             .assert()
             .success()
             .stdout(predicate::str::contains("create"))
@@ -36,11 +37,11 @@ fn checklist_help_exposes_exactly_the_supported_lifecycle() {
     }
     for (family, verb) in [
         ("checklist", "create"),
-        ("checklist-item", "create"),
-        ("checklist-item", "update"),
+        ("checklist item", "create"),
+        ("checklist item", "update"),
     ] {
         cargo_bin_cmd!("wekan")
-            .args([family, verb, "--help"])
+            .args(family.split_whitespace().chain([verb, "--help"]))
             .assert()
             .success()
             .stdout(predicate::str::contains("--yes").not());
@@ -63,28 +64,28 @@ fn checklist_parser_supports_defaults_repetition_and_exact_json_forms() {
     }
     for value in ["null", r#""""#, r#""NaN""#, r#""0x10""#, "-1.5", "1e309"] {
         parse(
-            "checklist-item",
+            "checklist item",
             &["create", "--title", "One", "--sort-json", value],
         )
         .unwrap();
     }
     for value in ["-1.5", "0", "1.5"] {
         parse(
-            "checklist-item",
+            "checklist item",
             &["create", "--title", "One", "--sort", value],
         )
         .unwrap();
     }
     for value in ["true", "false", r#""TRUE""#, r#""anything""#] {
         parse(
-            "checklist-item",
+            "checklist item",
             &["update", "id", "--is-finished-json", value],
         )
         .unwrap();
     }
-    parse("checklist-item", &["update", "id"]).unwrap();
+    parse("checklist item", &["update", "id"]).unwrap();
     parse(
-        "checklist-item",
+        "checklist item",
         &["update", "id", "--title", "", "--is-finished", "false"],
     )
     .unwrap();
@@ -129,13 +130,14 @@ fn checklist_parser_rejects_conflicts_invalid_json_and_unsupported_commands() {
         vec!["update", "id", "--is-finished-json", "1"],
         vec!["update", "id", "--yes"],
     ] {
-        assert!(parse("checklist-item", &args).is_err(), "{args:?}");
+        assert!(parse("checklist item", &args).is_err(), "{args:?}");
     }
     for argv in [
         vec!["wekan", "checklist", "list", "--board", "board"],
         vec![
             "wekan",
-            "checklist-item",
+            "checklist",
+            "item",
             "get",
             "id",
             "--board",

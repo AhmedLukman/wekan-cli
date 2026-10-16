@@ -1,7 +1,9 @@
 use assert_cmd::cargo::cargo_bin_cmd;
 use clap::Parser;
 use wekan_cli::cli::Cli;
-use wekan_cli::commands::{RootCommand, custom_field_items::CustomFieldItemCommand};
+use wekan_cli::commands::{
+    RootCommand, custom_field_items::CustomFieldItemCommand, custom_fields::CustomFieldCommand,
+};
 
 fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
     let mut argv = vec!["wekan"];
@@ -28,7 +30,8 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         vec!["custom-field", "get", " f "],
         vec!["custom-field", "update", "f"],
         vec![
-            "custom-field-item",
+            "custom-field",
+            "item",
             "create",
             "--custom-field",
             "f",
@@ -37,7 +40,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
             "--item",
             " N ",
         ],
-        vec!["custom-field-item", "update", "i", "--custom-field", "f"],
+        vec!["custom-field", "item", "update", "i", "--custom-field", "f"],
         vec![
             "card",
             "set-custom-field",
@@ -67,7 +70,8 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         r#"["a",null,2,{"x":1}]"#,
     ] {
         parse(&[
-            "custom-field-item",
+            "custom-field",
+            "item",
             "create",
             "--custom-field",
             "f",
@@ -94,10 +98,10 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
             "custom-field",
             vec!["list", "get", "create", "update", "delete"],
         ),
-        ("custom-field-item", vec!["create", "update", "delete"]),
+        ("custom-field item", vec!["create", "update", "delete"]),
     ] {
         let output = cargo_bin_cmd!("wekan")
-            .args([family, "--help"])
+            .args(family.split_whitespace().chain(["--help"]))
             .output()
             .unwrap();
         assert!(output.status.success());
@@ -107,7 +111,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
             assert!(help.contains(verb));
         }
         let output = cargo_bin_cmd!("wekan")
-            .args([family, "delete", "--help"])
+            .args(family.split_whitespace().chain(["delete", "--help"]))
             .output()
             .unwrap();
         assert!(String::from_utf8(output.stdout).unwrap().contains("--yes"));
@@ -130,10 +134,11 @@ fn parser_rejects_conflicts_unknown_settings_and_missing_targeting() {
             "true",
         ],
         vec!["custom-field", "get", " "],
-        vec!["custom-field-item", "get", "i", "--custom-field", "f"],
-        vec!["custom-field-item", "list", "--custom-field", "f"],
+        vec!["custom-field", "item", "get", "i", "--custom-field", "f"],
+        vec!["custom-field", "item", "list", "--custom-field", "f"],
         vec![
-            "custom-field-item",
+            "custom-field",
+            "item",
             "create",
             "--custom-field",
             "f",
@@ -158,7 +163,8 @@ fn parser_rejects_conflicts_unknown_settings_and_missing_targeting() {
         vec!["card", "find-by-custom-field", "--custom-field", "f"],
         vec!["custom-field", "list", "--yes"],
         vec![
-            "custom-field-item",
+            "custom-field",
+            "item",
             "create",
             "--custom-field",
             "f",
@@ -184,7 +190,16 @@ fn parser_rejects_conflicts_unknown_settings_and_missing_targeting() {
     }
     assert!(Cli::try_parse_from(["wekan", "custom-field", "list"]).is_err());
     assert!(
-        Cli::try_parse_from(["wekan", "custom-field-item", "update", "i", "--board", "b"]).is_err()
+        Cli::try_parse_from([
+            "wekan",
+            "custom-field",
+            "item",
+            "update",
+            "i",
+            "--board",
+            "b"
+        ])
+        .is_err()
     );
 }
 
@@ -216,10 +231,20 @@ fn settings_accept_nullable_properties_for_creation_and_update() {
 fn dropdown_selectors_preserve_javascript_non_whitespace() {
     for item in ["option", "\u{85}option\u{85}", "\u{85}", "\u{85}.\u{85}"] {
         for verb in ["update", "delete"] {
-            let parsed =
-                parse(&["custom-field-item", verb, item, "--custom-field", "field-1"]).unwrap();
-            let RootCommand::CustomFieldItem(args) = parsed.command else {
-                panic!("expected custom-field-item command")
+            let parsed = parse(&[
+                "custom-field",
+                "item",
+                verb,
+                item,
+                "--custom-field",
+                "field-1",
+            ])
+            .unwrap();
+            let RootCommand::CustomField(args) = parsed.command else {
+                panic!("expected custom-field command")
+            };
+            let CustomFieldCommand::Item(args) = args.command else {
+                panic!("expected custom-field item command")
             };
             let selector = match args.command {
                 CustomFieldItemCommand::Update(args) => args.item_id,
@@ -246,7 +271,8 @@ fn dot_only_dropdown_ids_are_rejected_before_credentials_or_http() {
                 .args([
                     "--output",
                     "json",
-                    "custom-field-item",
+                    "custom-field",
+                    "item",
                     verb,
                     item,
                     "--board",
@@ -305,7 +331,8 @@ fn dot_only_dropdown_ids_are_rejected_before_credentials_or_http() {
         ])
         .unwrap();
         parse(&[
-            "custom-field-item",
+            "custom-field",
+            "item",
             "update",
             item,
             "--custom-field",

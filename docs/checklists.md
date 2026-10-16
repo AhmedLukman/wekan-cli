@@ -1,17 +1,17 @@
 # Checklists and checklist items
 
-The singular `wekan checklist` and `wekan checklist-item` families cover all eight
-checklist operations exposed by Wekan v11.06:
+The `wekan checklist` family and its `item` subcommands cover all eight checklist
+operations exposed by Wekan v11.06:
 
 ```console
 wekan checklist list --board <BOARD_ID> --card <CARD_ID>
 wekan checklist get <CHECKLIST_ID> --board <BOARD_ID> --card <CARD_ID>
 wekan checklist create --board <BOARD_ID> --card <CARD_ID> [--title <TEXT>] [--item <TEXT>]... [--items <JSON>]
 wekan checklist delete <CHECKLIST_ID> --board <BOARD_ID> --card <CARD_ID> [--yes]
-wekan checklist-item get <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID>
-wekan checklist-item create --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> --title <TEXT> [--sort <NUMBER>] [--sort-json <JSON>]
-wekan checklist-item update <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--title <TEXT>] [--is-finished <BOOL>] [--is-finished-json <JSON>]
-wekan checklist-item delete <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--yes]
+wekan checklist item get <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID>
+wekan checklist item create --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> --title <TEXT> [--sort <NUMBER>] [--sort-json <JSON>]
+wekan checklist item update <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--title <TEXT>] [--is-finished <BOOL>] [--is-finished-json <JSON>]
+wekan checklist item delete <ITEM_ID> --board <BOARD_ID> --card <CARD_ID> --checklist <CHECKLIST_ID> [--yes]
 ```
 
 Every command also accepts `--server <URL>`, `--profile <PROFILE>`,
@@ -21,7 +21,7 @@ empty strings; Wekan performs its own cleaning and validation. Successful reads
 preserve returned titles and collection order.
 
 Wekan has no REST endpoint for updating a checklist or listing items separately.
-Use `checklist get` to read its item summaries, then `checklist-item get` for an
+Use `checklist get` to read its item summaries, then `checklist item get` for an
 item's full metadata.
 
 ## Creation and exact input forms
@@ -50,9 +50,9 @@ such as `"Infinity"` or `"NaN"` appends. The CLI does not coerce these JSON valu
 New items start unchecked.
 
 ```console
-wekan checklist-item create --board board-id --card card-id --checklist checklist-id --title Verify
-wekan checklist-item create --board board-id --card card-id --checklist checklist-id --title Verify --sort -1.5
-wekan checklist-item create --board board-id --card card-id --checklist checklist-id --title Verify --sort-json '"4.5"'
+wekan checklist item create --board board-id --card card-id --checklist checklist-id --title Verify
+wekan checklist item create --board board-id --card card-id --checklist checklist-id --title Verify --sort -1.5
+wekan checklist item create --board board-id --card card-id --checklist checklist-id --title Verify --sort-json '"4.5"'
 ```
 
 Item update accepts any subset of title and completion, including no fields.

@@ -135,7 +135,8 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 fn command(family: &str, arguments: &[&str]) -> RootCommand {
-    let mut argv = vec!["wekan", "--server", "https://wekan.example", family];
+    let mut argv = vec!["wekan", "--server", "https://wekan.example"];
+    argv.extend(family.split_whitespace());
     argv.extend_from_slice(arguments);
     Cli::try_parse_from(argv).unwrap().command
 }
@@ -148,10 +149,6 @@ async fn dispatch(
     match command {
         RootCommand::Checklist(args) => {
             super::dispatch(args.command, factory, store, confirmation).await
-        }
-        RootCommand::ChecklistItem(args) => {
-            crate::commands::checklist_items::dispatch(args.command, factory, store, confirmation)
-                .await
         }
         _ => panic!("expected checklist command"),
     }
@@ -240,7 +237,7 @@ async fn item_updates_preserve_wire_types_and_report_ordered_submitted_fields() 
         ];
         args.extend(arguments);
         let result = dispatch(
-            command("checklist-item", &args),
+            command("checklist item", &args),
             &factory(&server),
             &FakeCredentialStore::authenticated(&server),
             &FakeConfirmationProvider::declining(),
@@ -264,7 +261,7 @@ fn deletion(family: &str, yes: bool) -> RootCommand {
         "--card",
         "card-1",
     ];
-    if family == "checklist-item" {
+    if family == "checklist item" {
         args[1] = "item-1";
         args.extend(["--checklist", "checklist-1"]);
     }
@@ -314,7 +311,7 @@ async fn item_creation_keeps_numeric_and_explicit_null_sort_distinct_from_omissi
         ];
         args.extend(flags);
         let CommandSuccess::ChecklistItemCreated(created) = dispatch(
-            command("checklist-item", &args),
+            command("checklist item", &args),
             &factory(&server),
             &FakeCredentialStore::authenticated(&server),
             &FakeConfirmationProvider::declining(),
@@ -374,7 +371,7 @@ async fn checklist_detail_output_maps_all_metadata_and_escapes_nested_terminal_c
 
 #[tokio::test]
 async fn both_detail_commands_preserve_optional_creator_ids_in_human_and_json_output() {
-    for family in ["checklist", "checklist-item"] {
+    for family in ["checklist", "checklist item"] {
         for creator in [None, Some("creator-2\u{1b}")] {
             let server = MockServer::start().await;
             let (id, url, mut response) = if family == "checklist" {
@@ -404,7 +401,7 @@ async fn both_detail_commands_preserve_optional_creator_ids_in_human_and_json_ou
                 .mount(&server)
                 .await;
             let mut args = vec!["get", id, "--board", "board-1", "--card", "card-1"];
-            if family == "checklist-item" {
+            if family == "checklist item" {
                 args.extend(["--checklist", "checklist-1"]);
             }
             let result = dispatch(
@@ -438,7 +435,7 @@ async fn both_detail_commands_preserve_optional_creator_ids_in_human_and_json_ou
 async fn both_deletions_bind_confirmation_to_credentials_and_cancel_without_http() {
     for (family, operation) in [
         ("checklist", DestructiveOperation::ChecklistDelete),
-        ("checklist-item", DestructiveOperation::ChecklistItemDelete),
+        ("checklist item", DestructiveOperation::ChecklistItemDelete),
     ] {
         let server = MockServer::start().await;
         let store = FakeCredentialStore::authenticated(&server);
@@ -455,6 +452,17 @@ async fn both_deletions_bind_confirmation_to_credentials_and_cancel_without_http
             panic!("expected cancellation");
         };
         assert_eq!(result.operation, operation);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            json!({
+                "cancelled": true,
+                "operation": if family == "checklist" {
+                    "checklist_delete"
+                } else {
+                    "checklist_item_delete"
+                },
+            })
+        );
         assert_eq!(store.lock_count.load(Ordering::SeqCst), 1);
         assert!(server.received_requests().await.unwrap().is_empty());
         store.replace_on_next_lock(CredentialRecord::new(
@@ -485,7 +493,7 @@ async fn both_deletions_require_confirmation_or_yes_and_verify_acknowledgements(
             "checklist-1",
         ),
         (
-            "checklist-item",
+            "checklist item",
             "/api/boards/board-1/cards/card-1/checklists/checklist-1/items/item-1",
             "item-1",
         ),
@@ -506,6 +514,10 @@ async fn both_deletions_require_confirmation_or_yes_and_verify_acknowledgements(
             .await
             .unwrap_err();
             assert_eq!(error.code(), ErrorCode::InvalidInput);
+            assert_eq!(
+                error.message(),
+                format!("confirmation is required for {family} delete; rerun with --yes")
+            );
             assert!(server.received_requests().await.unwrap().is_empty());
             Mock::given(method("DELETE"))
                 .and(path(url))
