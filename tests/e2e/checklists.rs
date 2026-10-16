@@ -3,52 +3,10 @@ use wekan_cli::command_result::{ChecklistDetail, ChecklistItemDetail};
 
 use super::support::*;
 
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct DdpChecklist {
-    checklist_id: String,
-    item_id: String,
-    user_id: String,
-}
+#[path = "checklist_creators.rs"]
+mod checklist_creators;
 
-fn create_ui_checklist(card: &str, token: &str, nonce: u128) -> DdpChecklist {
-    let mut child = Command::new("docker")
-        .args([
-            "compose",
-            "exec",
-            "-T",
-            "wekan",
-            "node",
-            "-e",
-            include_str!("checklist_creators.cjs"),
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Docker Compose must be available for DDP checklist fixtures");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(
-            serde_json::to_string(&json!({
-                "card_id":card, "token":token,
-                "checklist_id":format!("uichecklist{nonce}"),
-                "item_id":format!("uiitem{nonce}")
-            }))
-            .unwrap()
-            .as_bytes(),
-        )
-        .unwrap();
-    let output = child.wait_with_output().unwrap();
-    assert!(
-        output.status.success(),
-        "DDP checklist fixture failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    serde_json::from_slice(&output.stdout).expect("DDP fixture must return scoped IDs")
-}
+use checklist_creators::create_ui_checklist;
 
 fn mongo_json(script: &str) -> serde_json::Value {
     let result = Command::new("docker")
@@ -260,7 +218,7 @@ async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
     assert_eq!(detail.show_checklist_at_minicard, None);
 
     // UI collection inserts attach creator IDs that REST must map on reads.
-    let ui = create_ui_checklist(&card.card_id, &token, nonce);
+    let ui = create_ui_checklist(&canonical, &card.card_id, &token, nonce).await;
     let creator = app
         .credential_store()
         .credential

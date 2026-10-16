@@ -206,9 +206,11 @@ operations, exact input forms, defaults and coercion, scoped failures, role
 permissions, partial creation, deletion behavior, and reads after a cross-board
 REST card move with stale board metadata. It also creates checklists
 and items through the UI's DDP collection methods and verifies creator IDs in
-typed REST reads and human/JSON output. The DDP fixture runs with Node.js inside
-the pinned Wekan container; the CLI continues to use REST. Use the same Compose
-project name for the fixtures and the matching server URL:
+typed REST reads and human/JSON output. The DDP fixture runs in Rust and connects
+to the isolated stack's WebSocket endpoint using `WEKAN_CHECKLIST_E2E_URL` (an
+HTTP URL). MongoDB fixtures still use Docker Compose; the CLI continues to use
+REST. Use the same Compose project name for the fixtures and the matching server
+URL:
 
 ```powershell
 $env:WEKAN_PORT = "3103"
