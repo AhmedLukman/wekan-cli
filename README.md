@@ -81,9 +81,9 @@ The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies,
 board integrations, automation rules, and global administrator settings. It
-implements 122 of the 143 operations in the corrected Wekan v11.06 contract,
+implements 132 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
-lookup, all 12 attachment operations, all five dependency operations, and all
+lookup, all 12 attachment transfer operations, all ten native exports, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
 all five board automation rule operations, bulk card creation/deletion/label changes,
 and board label addition. Native board/card/list/swimlane copies, list/swimlane
@@ -117,6 +117,9 @@ and card listings, create-or-update, nullable metadata updates, and confirmed
 removal with explicit acknowledgment output. Attachment transfers support files
 and stdin/stdout; pinned Wekan
 upload/copy/move failures and ignored list selectors remain explicitly documented.
+`board export`, `card export`, and `attachment export` deliver native artifacts
+to protected file destinations or validated raw stdout. Formats, selection controls,
+authentication, and pinned server failures are described in [exports](docs/exports.md).
 Operations without a dedicated command remain available through the same-origin
 `wekan api request` escape hatch.
 
@@ -127,6 +130,7 @@ Detailed behavior is documented in:
 - [Authentication](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/auth.md)
 - [Checklists and checklist items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/checklists.md)
 - [Custom fields and dropdown items](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/custom-fields.md)
+- [Native board, card, and attachment exports](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/exports.md)
 - [Attachments and file transfers](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/attachments.md)
 - [Card dependencies](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/dependencies.md)
 - [Board automation rules](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/rules.md)

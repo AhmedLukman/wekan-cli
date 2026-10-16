@@ -167,7 +167,7 @@ fn coverage_rows_list_every_parser_option_and_count_implemented_operations() {
             .lines()
             .filter(|line| line.starts_with("| ") && line.ends_with("| ✓ |"))
             .count(),
-        122
+        132
     );
 }
 

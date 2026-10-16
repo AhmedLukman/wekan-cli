@@ -160,3 +160,6 @@ fn nested_item_commands_accept_global_options_at_every_level() {
         }
     }
 }
+
+#[path = "cli/exports.rs"]
+mod exports;

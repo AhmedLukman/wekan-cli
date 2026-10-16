@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `board export`, `card export`, and `attachment export` for all ten native export
+  operations, with format, scope, section, locale, and explicit authentication
+  controls. Pinned ZIP and Excel/PDF failures remain explicit errors.
+- Export files use protected atomic destinations or validated raw stdout, with
+  disk staging, strict JSON decoding, and no aggregate 64 MiB export limit.
+  Native board JSON includes import history and its source metadata.
+
+### Fixed
+
+- Board JSON exports accept watched cards and subtasks, preserving watcher IDs
+  and empty watcher arrays after unwatching.
+- Board JSON exports accept UI-created checklists and preserve their optional
+  creator IDs.
+- Trello board exports preserve null card label IDs instead of failing with a
+  protocol error.
+
 ## [0.17.0] - 2026-10-16
 
 ### Changed

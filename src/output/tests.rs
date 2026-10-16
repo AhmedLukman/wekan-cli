@@ -1106,3 +1106,66 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &updated).contains("title"));
     assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
 }
+
+#[tokio::test]
+async fn staged_export_cleanup_and_saved_file_diagnostics_survive_output_errors() {
+    use crate::{
+        client::exports::{ExportFormat, ExportMetadata, ExportTarget},
+        command_result::{ExportSuccess, StagedExport},
+    };
+    struct Fails;
+    impl std::io::Write for Fails {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("broken pipe"))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::Error::other("broken pipe"))
+        }
+    }
+    let make = || {
+        ExportSuccess::new(
+            ExportTarget::Board {
+                board_id: "b".into(),
+            },
+            ExportFormat::Json,
+            "export.json".into(),
+            ExportMetadata {
+                bytes_written: 2,
+                http_status: 200,
+                content_type: Some("application/json".into()),
+            },
+        )
+    };
+    let mut saved = make();
+    saved.file_saved = true;
+    let error = super::write_success(
+        OutputFormat::Json,
+        CommandSuccess::Exported(saved),
+        &mut Fails,
+        &mut Vec::new(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error.details().file_saved, Some(true));
+    assert_eq!(error.details().destination.as_deref(), Some("export.json"));
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    std::io::Write::write_all(&mut file, b"{}").unwrap();
+    let path = file.path().to_owned();
+    let mut raw = make();
+    raw.staged = Some(StagedExport(file));
+    raw.destination = "-".into();
+    super::write_success(
+        OutputFormat::Raw,
+        CommandSuccess::Exported(raw),
+        &mut Fails,
+        &mut Vec::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(!path.exists());
+    let mut human = make();
+    human.destination = "unsafe\u{1b}]52;c;payload\u{7}".into();
+    assert!(
+        !render_success(OutputFormat::Human, &CommandSuccess::Exported(human)).contains('\u{1b}')
+    );
+}

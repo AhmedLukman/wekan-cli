@@ -367,3 +367,27 @@ docker compose down --volumes
 
 Keep the same Compose project environment for fixture operations. This lifecycle
 and the administrator-settings regression each have an isolated CI matrix entry.
+
+## Native export lifecycle
+
+The dedicated suite covers all ten native operations and every board format,
+scoped/card/attachment output, field and locale controls, public/private access,
+strict decoding, and pinned ZIP and binary-error behavior. XLSX entries are
+opened and CRC-checked; PDF structure and native JSON/CSV contents are inspected.
+Filesystem attachment fixtures use the same Compose project as the server.
+Native CSV, Trello, and Wekan imports also verify export of their persisted
+import history, including optional source IDs and URLs.
+UI/DDP and REST-created checklists are independently read from persisted state
+and exported to verify creator ID preservation and omission.
+Native DDP watch/unwatch updates verify omitted, populated, and empty watcher
+arrays on cards and subtasks against independently read persisted state.
+The suite is included in the isolated-stack CI matrix.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-export-tests"
+$env:WEKAN_PORT = "3120"
+docker compose up -d --wait
+$env:WEKAN_EXPORT_E2E_URL = "http://localhost:3120"
+cargo test --locked --test e2e exports::complete_export_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```

@@ -7,6 +7,7 @@ use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
 mod copy;
+mod export;
 mod reads;
 pub use copy::{CardCopyPosition, CopyCardRequest};
 pub use reads::SwimlaneCardSummary;

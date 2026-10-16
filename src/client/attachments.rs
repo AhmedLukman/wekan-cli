@@ -501,3 +501,24 @@ impl WekanClient {
         Ok(response)
     }
 }
+
+impl WekanClient {
+    pub async fn export_attachment(
+        &self,
+        board: &str,
+        attachment: &str,
+        options: super::exports::ExportOptions<'_>,
+        file: &mut std::fs::File,
+    ) -> Result<super::exports::ExportMetadata, super::exports::ExportError> {
+        if options.format != super::exports::ExportFormat::Json {
+            return Err(super::exports::protocol("attachment exports require json").into());
+        }
+        self.export_resource(
+            &[board, "attachments", attachment, "export"],
+            options,
+            file,
+            true,
+        )
+        .await
+    }
+}

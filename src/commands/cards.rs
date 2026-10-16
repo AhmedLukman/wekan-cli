@@ -4,6 +4,7 @@ mod copy;
 mod count;
 mod create;
 mod delete;
+mod export;
 mod find_by_custom_field;
 mod get;
 mod labels;
@@ -34,6 +35,8 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    /// Export a native artifact to a file or validated raw stdout.
+    Export(export::ExportArgs),
     /// Count active cards on a board or in a list.
     Count(count::CountArgs),
     /// Copy a card using Wekan's native copy operation.
@@ -79,6 +82,7 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::Export(args) => export::execute(args, client_factory, credential_store).await,
         CardCommand::Count(args) => count::execute(args, client_factory, credential_store).await,
         CardCommand::Copy(args) => copy::execute(args, client_factory, credential_store).await,
         CardCommand::Bulk(args) => {

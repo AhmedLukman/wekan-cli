@@ -13,6 +13,7 @@ pub(crate) mod credential_ops;
 pub mod custom_field_items;
 pub mod custom_fields;
 pub mod dependencies;
+pub(crate) mod exports;
 pub mod integrations;
 pub mod lists;
 pub mod profile;
@@ -75,13 +76,55 @@ pub enum RootCommand {
 impl RootCommand {
     pub fn supports_raw_output(&self) -> bool {
         matches!(self, Self::Api(_))
+            || self.export_delivery().is_some_and(|d| d.is_stdout())
             || matches!(self, Self::Attachment(args) if args.command.download_destination().is_some_and(|d| d.is_stdout()))
     }
 
+    pub(crate) fn export_delivery(&self) -> Option<&exports::DeliveryArgs> {
+        match self {
+            Self::Board(a) => {
+                if let boards::BoardCommand::Export(e) = &a.command {
+                    Some(&e.delivery)
+                } else {
+                    None
+                }
+            }
+            Self::Card(a) => {
+                if let cards::CardCommand::Export(e) = &a.command {
+                    Some(&e.delivery)
+                } else {
+                    None
+                }
+            }
+            Self::Attachment(a) => {
+                if let attachments::AttachmentCommand::Export(e) = &a.command {
+                    Some(&e.delivery)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+    pub(crate) fn validate_export_input(&self) -> Result<(), crate::error::AppError> {
+        if let Self::Board(a) = self {
+            if let boards::BoardCommand::Export(e) = &a.command {
+                e.validate()?;
+            }
+        }
+        if let Some(delivery) = self.export_delivery() {
+            delivery.validate()?;
+        }
+        Ok(())
+    }
     pub fn validate_output(
         &self,
         format: crate::output::OutputFormat,
     ) -> Result<(), crate::error::AppError> {
+        self.validate_export_input()?;
+        if let Some(delivery) = self.export_delivery() {
+            delivery.validate_output(format)?;
+        }
         if let Self::Attachment(args) = self {
             args.command.validate_input()?;
             if let Some(destination) = args.command.download_destination() {
@@ -90,7 +133,7 @@ impl RootCommand {
         }
         if format == crate::output::OutputFormat::Raw && !self.supports_raw_output() {
             return Err(crate::error::AppError::invalid_input(
-                "--output raw requires api request or an attachment download with --destination -",
+                "--output raw requires api request, an export, or an attachment download with --destination -",
             ));
         }
         Ok(())

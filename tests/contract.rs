@@ -120,3 +120,6 @@ mod admin_people_credentials;
 
 #[path = "support/admin_settings.rs"]
 mod admin_fixtures;
+
+#[path = "contract/exports.rs"]
+mod exports;

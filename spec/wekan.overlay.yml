@@ -24682,14 +24682,18 @@ actions:
       x-wekan-v11.06-defects:
         - read-only-members-can-mutate-checklists
         - direct-item-mutations-bypass-activity-hooks
-  - target: '$.definitions.ChecklistDetail.properties'
+  - target: '$.definitions["Checklists", "ChecklistDetail"].properties'
     description: >-
       Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
       models/checklists.js 260-265 assigns doc.userId from the insertion hook's
       user identity. server/models/checklists.js 216-244 returns the complete
       document. tests/e2e/checklists.rs creates records using the UI's DDP
       collection insert and verifies creator IDs through typed REST reads;
-      REST-created comparison records omit the field.
+      REST-created comparison records omit the field. models/exporter.js 646
+      streams complete checklist documents in board JSON exports.
+      tests/e2e/exports.rs independently verifies stored UI/DDP and REST
+      checklists and preserves the creator field's presence or omission through
+      production export decoding.
     update:
       userId:
         type: string
@@ -25403,3 +25407,395 @@ actions:
         description: >-
           Optional creator user ID assigned by the insertion hook. Authenticated
           UI/DDP creation supplies the creator identity; REST creation omits it.
+
+  - target: $.definitions.ExportActivity.properties
+    description: 'Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f: models/activities.js (schemaless collection),
+      server/models/{boards,cards,cardComments,checklists,checklistItems,customFields}.js and models/cards.js activity
+      producers. Exported built-in keys are explicit projections, with boardId removed. tests/e2e/exports.rs verifies
+      native activity/rule exports, sparse records, and rejection of unmapped payload properties. The source remains
+      schemaless: additionalProperties stays true in the API contract; typed CLI projections reject unmapped properties.'
+    update:
+      _id:
+        type: string
+      userId:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      modifiedAt:
+        type: string
+        format: date-time
+      activityType:
+        type: string
+      cardId:
+        type: string
+      listId:
+        type: string
+      swimlaneId:
+        type: string
+      memberId:
+        type: string
+      type:
+        type: string
+        x-nullable: true
+      title:
+        type: string
+        x-nullable: true
+      activityTypeId:
+        type: string
+        x-nullable: true
+      assigneeId:
+        type: string
+        x-nullable: true
+      attachmentId:
+        type: string
+        x-nullable: true
+      attachmentName:
+        type: string
+        x-nullable: true
+      boardName:
+        type: string
+        x-nullable: true
+      oldBoardName:
+        type: string
+        x-nullable: true
+      cardTitle:
+        type: string
+        x-nullable: true
+      checklistId:
+        type: string
+        x-nullable: true
+      checklistItemId:
+        type: string
+        x-nullable: true
+      checklistItemName:
+        type: string
+        x-nullable: true
+      checklistName:
+        type: string
+        x-nullable: true
+      commentId:
+        type: string
+        x-nullable: true
+      commentText:
+        type: string
+        x-nullable: true
+      customFieldId:
+        type: string
+        x-nullable: true
+      labelId:
+        type: string
+        x-nullable: true
+      listName:
+        type: string
+        x-nullable: true
+      oldBoardId:
+        type: string
+        x-nullable: true
+      oldListId:
+        type: string
+        x-nullable: true
+      oldSwimlaneId:
+        type: string
+        x-nullable: true
+      swimlaneName:
+        type: string
+        x-nullable: true
+      timeKey:
+        type: string
+        x-nullable: true
+      timeValue:
+        type: string
+        x-nullable: true
+      timeOldValue:
+        type: string
+        x-nullable: true
+      username:
+        type: string
+        x-nullable: true
+      value:
+        $ref: '#/definitions/CardCustomFieldValue'
+      oldValue:
+        $ref: '#/definitions/CardCustomFieldValue'
+      customFieldValue:
+        $ref: '#/definitions/CardCustomFieldValue'
+      source:
+        $ref: '#/definitions/ExportActivitySource'
+
+  - target: $.definitions
+    description: >-
+      Verified Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f:
+      models/csvCreator.js 227-237, jiraCreator.js 103-109, kanboardCreator.js
+      115-121, trelloCreator.js 287-304, and wekanCreator.js 402-413 create
+      importBoard activity source objects. models/exporter.js 628-633 preserves
+      them in native JSON exports. tests/e2e/exports.rs imports CSV, Trello, and
+      native Wekan boards through the real DDP importer and exports them through
+      production strict decoding. Ordinary activities omit source; system is
+      always present on import sources. Native Wekan exports use _id, so their
+      reimport omits source.id (the importer reads id). Only Trello sources carry
+      url, and omit it when no HTTP(S) URL was supplied.
+    update:
+      ExportActivitySource:
+        type: object
+        additionalProperties: false
+        required:
+          - system
+        properties:
+          id:
+            type: string
+            description: Source board ID; omitted when the imported document has no id.
+          system:
+            type: string
+            description: Importer's source system, such as CSV/TSV, Trello, or Wekan.
+          url:
+            type: string
+            description: Trello source URL; omitted for other importers or absent HTTP(S) URLs.
+
+  - target: $.definitions.ExportTrigger.properties
+    description: 'Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f: models/{triggers,actions}.js, client/components/rules/{triggers,actions},
+      models/exporter.js 651-656, and the existing typed rule payload audit. Exported built-in keys are explicit projections,
+      with boardId removed. tests/e2e/exports.rs verifies native activity/rule exports, sparse records, and rejection
+      of unmapped payload properties. The source remains schemaless: additionalProperties stays true in the API contract;
+      typed CLI projections reject unmapped properties.'
+    update:
+      _id:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+      userId:
+        type: string
+        x-nullable: true
+      activityType:
+        type: string
+        x-nullable: true
+      desc:
+        type: string
+        x-nullable: true
+      description:
+        type: string
+        x-nullable: true
+      username:
+        type: string
+        x-nullable: true
+      listName:
+        type: string
+        x-nullable: true
+      oldListName:
+        type: string
+        x-nullable: true
+      swimlaneName:
+        type: string
+        x-nullable: true
+      cardTitle:
+        type: string
+        x-nullable: true
+      checklistName:
+        type: string
+        x-nullable: true
+      checklistItemName:
+        type: string
+        x-nullable: true
+      labelId:
+        type: string
+        x-nullable: true
+      attachmentName:
+        type: string
+        x-nullable: true
+      scheduleKind:
+        type: string
+        x-nullable: true
+      scheduleType:
+        type: string
+        x-nullable: true
+      atTime:
+        type: string
+        x-nullable: true
+      weekday:
+        x-oneOf:
+        - type: string
+        - type: number
+        x-nullable: true
+      dayOfMonth:
+        x-oneOf:
+        - type: string
+        - type: number
+        x-nullable: true
+      onDate:
+        type: string
+        x-nullable: true
+      dueCondition:
+        type: string
+        x-nullable: true
+      days:
+        x-oneOf:
+        - type: string
+        - type: number
+        x-nullable: true
+      lastRunKey:
+        type: string
+        x-nullable: true
+      lastRunAt:
+        type: string
+        format: date-time
+        x-nullable: true
+      buttonType:
+        type: string
+        x-nullable: true
+      buttonLabel:
+        type: string
+        x-nullable: true
+      modifiedAt:
+        type: string
+        format: date-time
+        x-nullable: true
+
+  - target: $.definitions.ExportAction.properties
+    description: 'Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f: models/{triggers,actions}.js, client/components/rules/{triggers,actions},
+      models/exporter.js 651-656, and the existing typed rule payload audit. Exported built-in keys are explicit projections,
+      with boardId removed. tests/e2e/exports.rs verifies native activity/rule exports, sparse records, and rejection
+      of unmapped payload properties. The source remains schemaless: additionalProperties stays true in the API contract;
+      typed CLI projections reject unmapped properties.'
+    update:
+      _id:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      modifiedAt:
+        type: string
+        format: date-time
+      userId:
+        type: string
+        x-nullable: true
+      actionType:
+        type: string
+        x-nullable: true
+      desc:
+        type: string
+        x-nullable: true
+      description:
+        type: string
+        x-nullable: true
+      listName:
+        type: string
+        x-nullable: true
+      swimlaneName:
+        type: string
+        x-nullable: true
+      cardName:
+        type: string
+        x-nullable: true
+      fromListName:
+        type: string
+        x-nullable: true
+      checklistName:
+        type: string
+        x-nullable: true
+      checkItemName:
+        type: string
+        x-nullable: true
+      checklistItems:
+        type: string
+        x-nullable: true
+      dateField:
+        type: string
+        x-nullable: true
+      unit:
+        type: string
+        x-nullable: true
+      emailTo:
+        type: string
+        x-nullable: true
+      emailSubject:
+        type: string
+        x-nullable: true
+      emailMsg:
+        type: string
+        x-nullable: true
+      selectedColor:
+        type: string
+        x-nullable: true
+      labelId:
+        type: string
+        x-nullable: true
+      username:
+        type: string
+        x-nullable: true
+      sortField:
+        type: string
+        x-nullable: true
+      days:
+        x-oneOf:
+        - type: string
+        - type: number
+        x-nullable: true
+      updatedAt:
+        type: string
+        format: date-time
+        x-nullable: true
+
+  - target: '$.paths["/api/boards/{board}/lists/{list}/cards/{card}/exportExcel"].get'
+    description: >-
+      Verified Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/exportExcelCard.js 110-122 and server/authentication.js checkUserId.
+      tests/e2e/exports.rs confirms a normal board member receives HTTP 403 with
+      Bearer authentication and a valid XLSX with explicit authToken authentication;
+      the board/card PDF routes accept the same member's Bearer credential.
+    update:
+      description: >-
+        Export the scoped card to XLSX. Public boards require no credential.
+        Private boards accept a permitted user's authToken query parameter;
+        Bearer authentication requires a global administrator in v11.06.
+        Recognized field selections omitting board-info fail with HTTP 500
+        because the renderer dereferences missing list/swimlane documents.
+
+  - target: '$.paths["/api/boards/{board}/export/csv"].get'
+    description: >-
+      Verified Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/export.js 588-608 reloads Bearer callers with isAdmin: true before
+      exporter.canExport checks board visibility (models/exporter.js 872-875).
+      tests/e2e/exports.rs confirms a normal board member receives HTTP 403 for
+      both CSV and TSV with Bearer authentication and succeeds with the same
+      credential supplied explicitly as authToken. The public branch requires
+      no credential and ignores fields (models/export.js 537-561).
+    update:
+      description: >-
+        Export the board as CSV or TSV. Public boards require no credential
+        and ignore fields. Private boards accept a permitted user's authToken
+        query parameter; Bearer authentication requires a global administrator
+        in v11.06 and still enforces board visibility. This administrator filter
+        is an upstream defect; the CLI preserves the native HTTP 403 failure.
+
+  - target: $.definitions.TrelloExport.properties.cards.items.properties.idLabels.items
+    description: >-
+      Verified Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/lib/externalExporters.js 33-42 and 108-117 forwards card labelIds
+      unchanged into Trello idLabels. server/models/cards.js preserves null
+      elements supplied by the card update endpoint. tests/e2e/exports.rs
+      updates labels through the typed CLI, independently reads persisted
+      state, and verifies null preservation and clearing in native Trello exports.
+    update:
+      x-nullable: true
+
+  - target: '$.definitions["Cards", "ExportCard"].properties'
+    description: >-
+      Verified Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      models/watchable.js 7-16, 29-35, and 103 attaches optional string-array
+      watchers to Cards. Watching adds a user ID; unwatching retains an empty
+      array; untouched cards omit the field. models/exporter.js 611-616 and
+      648-649 preserves it in cards and subtaskItems. tests/e2e/exports.rs
+      performs native DDP watch/unwatch updates on a card and its subtask,
+      independently reads persisted state, and verifies all three states
+      through production strict export decoding.
+    update:
+      watchers:
+        type: array
+        items:
+          type: string
+        description: >-
+          User IDs watching this card. Omitted before any watch operation;
+          an empty array remains after the last watcher is removed.

@@ -213,7 +213,7 @@ pub(super) fn decode_success<T: DeserializeOwned>(
     decode_value(value, operation, true)
 }
 
-async fn read_limited_body(
+pub(super) async fn read_limited_body(
     mut response: reqwest::Response,
     retry_after_seconds: Option<u64>,
     limit: usize,
@@ -250,6 +250,20 @@ async fn read_limited_body(
         body.extend_from_slice(&chunk);
     }
     Ok(body)
+}
+
+pub(super) fn require_success_status(
+    status: StatusCode,
+    body: Vec<u8>,
+    retry_after_seconds: Option<u64>,
+) -> Result<(), ClientError> {
+    ResponseBody {
+        status,
+        body,
+        retry_after_seconds,
+    }
+    .require_status(StatusCode::OK)
+    .map(|_| ())
 }
 
 #[cfg(test)]

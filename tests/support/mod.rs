@@ -1,4 +1,5 @@
 pub(crate) mod attachment_fixtures;
+pub(crate) mod ddp;
 
 pub(crate) use std::{
     env, fs,

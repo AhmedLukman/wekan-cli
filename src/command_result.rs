@@ -12,6 +12,9 @@ mod comments;
 mod custom_field_items;
 mod custom_fields;
 mod dependencies;
+mod exports;
+pub(crate) use exports::StagedExport;
+pub use exports::{ExportResource, ExportSuccess};
 mod integrations;
 mod rules;
 pub use rules::*;
@@ -111,6 +114,7 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    Exported(ExportSuccess),
     AdminDomains(AdminDomainCollectionSuccess),
     AdminOrganizations(AdminOrganizationCollectionSuccess),
     AdminTeams(AdminTeamCollectionSuccess),

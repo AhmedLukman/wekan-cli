@@ -45,3 +45,6 @@ mod rules;
 mod admin_people;
 #[path = "e2e/admin_settings.rs"]
 mod admin_settings;
+
+#[path = "e2e/exports.rs"]
+mod exports;

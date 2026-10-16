@@ -95,6 +95,21 @@ server's response without an authoritative readback. Optional output fields use
 null when absent; response DTOs reject explicit null where the corrected contract
 permits only omission. Scoped listings expose `requested_scope` and `effective_scope`.
 
+## Export results
+
+`board export`, `card export`, and `attachment export` use explicit destinations
+and the shared [export contract](exports.md). File success metadata includes
+resource/scoped IDs, format, destination, byte count, file-saved state, actual HTTP
+status, and content type. Raw stdout requires `--destination -` and is emitted
+only after the complete staged response validates; it contains original bytes.
+JSON exports use strict mapped response objects, including nested activity and
+rule data. They are not covered by the raw API's unmapped-field exception.
+No aggregate 64 MiB export limit applies. Staging requires disk space for the
+whole artifact, and JSON validation retains only the current record/string.
+HTTP-200 native text failures are exit-5 protocol errors retaining status 200.
+If completion reporting fails after saving, details retain `file_saved: true`
+and `destination`.
+
 ## Raw API success
 
 `api request` preserves arbitrary response data without typed Wekan decoding.

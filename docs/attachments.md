@@ -106,5 +106,7 @@ Uploads, copy, move, background changes, and local `--overwrite` do not require
 an additional confirmation. Mutations are never automatically retried. Transport,
 protocol, and ambiguous server failures retain the existing outcome diagnostics.
 
-Legacy board-attachment listing, attachment JSON export, and administrator storage
-settings are outside this family.
+`attachment export` writes native attachment JSON, including base64 data, through
+the shared [export interface](exports.md). A missing attachment exports `{}`.
+Legacy board-attachment listing and administrator storage settings use separate
+operations.

@@ -9,6 +9,7 @@ use super::{ClientError, WekanClient, transport::decode_success};
 pub mod card_settings;
 mod copy;
 pub mod domains;
+mod export;
 pub use copy::CopyBoardRequest;
 pub mod labels;
 pub mod members;

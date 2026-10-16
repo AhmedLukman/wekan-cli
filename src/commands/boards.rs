@@ -4,6 +4,7 @@ mod count;
 mod create;
 mod delete;
 mod domains;
+mod export;
 mod get;
 mod labels;
 mod list;
@@ -28,6 +29,8 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// Export a native artifact to a file or validated raw stdout.
+    Export(Box<export::ExportArgs>),
     /// Read or update card display controls and aging thresholds.
     CardSettings(card_settings::CardSettingsArgs),
     /// List or request changes to email-domain sharing.
@@ -64,6 +67,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Export(args) => {
+            export::execute(*args, client_factory, credential_store).await
+        }
         BoardCommand::CardSettings(args) => {
             card_settings::dispatch(args.command, client_factory, credential_store).await
         }

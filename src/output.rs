@@ -52,7 +52,11 @@ use users::{
     render_user_detail, render_user_list, render_user_login_change, render_user_ownership,
 };
 
-use std::{ffi::OsString, io::Write, process::ExitCode};
+use std::{
+    ffi::OsString,
+    io::{Read, Write},
+    process::ExitCode,
+};
 
 use clap::ValueEnum;
 use serde::Serialize;
@@ -119,6 +123,8 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::Exported(data)) => formatting::render_object(data),
+        (OutputFormat::Json, CommandSuccess::Exported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AdminDomains(data)) => {
             formatting::render_object(data)
         }
@@ -609,10 +615,32 @@ pub async fn write_success(
             return Ok(ExitCode::SUCCESS);
         }
     }
+    if format == OutputFormat::Raw {
+        if let CommandSuccess::Exported(data) = &success {
+            let staged = data.staged.as_ref().ok_or_else(|| {
+                AppError::invalid_input("raw export output requires --destination -")
+            })?;
+            let mut file = staged.0.reopen().map_err(export_read_error)?;
+            let mut buffer = [0; 64 * 1024];
+            loop {
+                let read = file.read(&mut buffer).map_err(export_read_error)?;
+                if read == 0 {
+                    break;
+                }
+                stdout
+                    .write_all(&buffer[..read])
+                    .map_err(output_write_error)?;
+            }
+            stdout.flush().map_err(output_write_error)?;
+            return Ok(ExitCode::SUCCESS);
+        }
+    }
     let rendered = render_success(format, &success);
     if !rendered.is_empty() {
         let written = writeln!(stdout, "{rendered}").and_then(|()| {
-            if matches!(&success, CommandSuccess::AttachmentDownloaded(data) if data.file_saved) {
+            if matches!(&success, CommandSuccess::AttachmentDownloaded(data) if data.file_saved)
+                || matches!(&success, CommandSuccess::Exported(data) if data.file_saved)
+            {
                 stdout.flush()
             } else {
                 Ok(())
@@ -620,6 +648,15 @@ pub async fn write_success(
         });
         written.map_err(|e| {
             let error = output_write_error(e);
+            if let CommandSuccess::Exported(data) = &success {
+                if data.file_saved {
+                    return error.with_details(crate::error::ErrorDetails {
+                        file_saved: Some(true),
+                        destination: Some(data.destination.clone()),
+                        ..crate::error::ErrorDetails::default()
+                    });
+                }
+            }
             if let CommandSuccess::AttachmentDownloaded(data) = &success {
                 if data.file_saved {
                     return error.with_details(crate::error::ErrorDetails {
@@ -633,6 +670,16 @@ pub async fn write_success(
         })?;
     }
     Ok(ExitCode::SUCCESS)
+}
+fn export_read_error(error: std::io::Error) -> AppError {
+    AppError::new(
+        ErrorCode::FileIoError,
+        format!(
+            "could not read the staged export file: {}",
+            crate::input::escape_terminal_text(&error.to_string())
+        ),
+        StableExitCode::Transport,
+    )
 }
 pub(crate) fn output_write_error(error: std::io::Error) -> AppError {
     AppError::new(

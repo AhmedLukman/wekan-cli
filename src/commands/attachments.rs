@@ -1,5 +1,6 @@
 mod delete;
 mod download;
+mod export;
 mod get;
 mod list;
 #[cfg(test)]
@@ -21,6 +22,8 @@ pub struct AttachmentArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum AttachmentCommand {
+    /// Export a native artifact to a file or validated raw stdout.
+    Export(export::ExportArgs),
     /// List attachments. Wekan v11.06 ignores deeper selectors and returns all board attachments.
     List(list::ListArgs),
     /// Read attachment metadata and versions.
@@ -70,6 +73,7 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        AttachmentCommand::Export(args) => export::execute(args, factory, store).await,
         AttachmentCommand::List(a) => list::execute(a, factory, store).await,
         AttachmentCommand::Get(a) => get::execute(a, factory, store).await,
         AttachmentCommand::Upload(a) => upload::execute(a, factory, store).await,

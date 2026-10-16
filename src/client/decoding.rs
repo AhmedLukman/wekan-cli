@@ -98,7 +98,7 @@ pub(super) fn decode_value<T: DeserializeOwned>(
         .map_err(|error| decoding_error(error, operation, success_status_received))
 }
 
-fn decoding_error(
+pub(super) fn decoding_error(
     error: serde_path_to_error::Error<serde_json::Error>,
     operation: &str,
     success_status_received: bool,

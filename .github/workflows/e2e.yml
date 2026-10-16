@@ -123,6 +123,10 @@ jobs:
             key: custom-fields
             variable: WEKAN_CUSTOM_FIELD_E2E_URL
             test: custom_fields::complete_custom_field_lifecycle_matches_wekan_v11_06
+          - name: Exports
+            key: exports
+            variable: WEKAN_EXPORT_E2E_URL
+            test: exports::complete_export_lifecycle_matches_wekan_v11_06
           - name: Attachments
             key: attachments
             variable: WEKAN_ATTACHMENT_E2E_URL
