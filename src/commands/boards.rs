@@ -6,6 +6,8 @@ mod delete;
 mod domains;
 mod export;
 mod get;
+mod import;
+mod import_zip;
 mod labels;
 mod list;
 mod members;
@@ -29,6 +31,10 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// Import an export document into a new board.
+    Import(import::ImportArgs),
+    /// Import a native ZIP archive into an existing board.
+    ImportZip(import_zip::ImportZipArgs),
     /// Export a native artifact to a file or validated raw stdout.
     Export(Box<export::ExportArgs>),
     /// Read or update card display controls and aging thresholds.
@@ -67,6 +73,10 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Import(args) => import::execute(args, client_factory, credential_store).await,
+        BoardCommand::ImportZip(args) => {
+            import_zip::execute(args, client_factory, credential_store).await
+        }
         BoardCommand::Export(args) => {
             export::execute(*args, client_factory, credential_store).await
         }

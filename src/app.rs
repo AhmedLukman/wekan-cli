@@ -119,7 +119,7 @@ where
                 &self.confirmation,
             );
         }
-        command.validate_export_input()?;
+        command.validate_input()?;
         let policy = match &command {
             RootCommand::Auth(args) => args.command.missing_profile_resolution(),
             _ => crate::config::MissingProfileResolution::Reject,

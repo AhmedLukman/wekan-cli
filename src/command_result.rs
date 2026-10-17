@@ -15,7 +15,9 @@ mod dependencies;
 mod exports;
 pub(crate) use exports::StagedExport;
 pub use exports::{ExportResource, ExportSuccess};
+mod imports;
 mod integrations;
+pub use imports::*;
 mod rules;
 pub use rules::*;
 mod lists;
@@ -114,6 +116,9 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BoardImported(BoardImportSuccess),
+    ZipImported(ZipImportSuccess),
+    IcsImported(IcsImportSuccess),
     Exported(ExportSuccess),
     AdminDomains(AdminDomainCollectionSuccess),
     AdminOrganizations(AdminOrganizationCollectionSuccess),

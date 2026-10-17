@@ -123,3 +123,5 @@ mod admin_fixtures;
 
 #[path = "contract/exports.rs"]
 mod exports;
+#[path = "contract/imports.rs"]
+mod imports;

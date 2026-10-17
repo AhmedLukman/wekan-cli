@@ -48,3 +48,5 @@ mod admin_settings;
 
 #[path = "e2e/exports.rs"]
 mod exports;
+#[path = "e2e/imports.rs"]
+mod imports;

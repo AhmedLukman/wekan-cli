@@ -7,6 +7,7 @@ mod delete;
 mod export;
 mod find_by_custom_field;
 mod get;
+mod import_ics;
 mod labels;
 mod list;
 mod membership;
@@ -35,6 +36,8 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    /// Import iCalendar events as cards into a board list and swimlane.
+    ImportIcs(import_ics::ImportIcsArgs),
     /// Export a native artifact to a file or validated raw stdout.
     Export(export::ExportArgs),
     /// Count active cards on a board or in a list.
@@ -82,6 +85,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::ImportIcs(args) => {
+            import_ics::execute(args, client_factory, credential_store).await
+        }
         CardCommand::Export(args) => export::execute(args, client_factory, credential_store).await,
         CardCommand::Count(args) => count::execute(args, client_factory, credential_store).await,
         CardCommand::Copy(args) => copy::execute(args, client_factory, credential_store).await,

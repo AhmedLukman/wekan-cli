@@ -7,7 +7,9 @@ pub use self::confirmation::{
     SystemConfirmationProvider, confirm_or_skip, escape_terminal_text,
 };
 
-pub(crate) use self::binary::{BinaryInputError, acquire_binary_file};
+pub(crate) use self::binary::{
+    BinaryInputError, BinaryStreamInput, acquire_binary_file, acquire_binary_stream,
+};
 pub(crate) use self::payload::{PayloadBody, PayloadSource};
 
 #[cfg(test)]

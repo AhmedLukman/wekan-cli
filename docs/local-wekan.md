@@ -391,3 +391,22 @@ $env:WEKAN_EXPORT_E2E_URL = "http://localhost:3120"
 cargo test --locked --test e2e exports::complete_export_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
+
+## Import lifecycle
+
+The import suite exercises all four REST operations and every explicit source
+against an isolated Wekan v11.06 stack. It verifies source document wrapping,
+CSV/XLSX input, member mapping, duplicate imports, ZIP scopes and field selection,
+and ICS event contents/dates against independently queried persisted records.
+It also records native HTTP-200 errors, permission/missing-target failures, and
+the ZIP attachment hang with partial writes and fixture-owned temporary-file
+cleanup. It is included in the isolated-stack CI matrix.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-import-tests"
+$env:WEKAN_PORT = "3121"
+docker compose up -d --wait
+$env:WEKAN_IMPORT_E2E_URL = "http://localhost:3121"
+cargo test --locked --test e2e imports::complete_import_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```

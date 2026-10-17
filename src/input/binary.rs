@@ -1,7 +1,7 @@
 use std::{io, path::Path};
 
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 #[derive(Debug, Error)]
 pub(crate) enum BinaryInputError {
@@ -15,6 +15,71 @@ pub(crate) enum BinaryInputError {
     NotRegularFile,
     #[error("binary input exceeds the configured byte limit")]
     TooLarge,
+}
+
+pub(crate) struct BinaryStreamInput {
+    pub reader: Box<dyn AsyncRead + Send + Unpin>,
+    pub length: u64,
+    // Retain staged stdin until the command finishes using its stream.
+    _staged: Option<tempfile::NamedTempFile>,
+}
+
+fn stream_io(source: io::Error) -> BinaryInputError {
+    BinaryInputError::Io {
+        operation: "stage or read",
+        source,
+    }
+}
+
+async fn stage_binary_stream(
+    reader: impl AsyncRead + Unpin,
+    limit: u64,
+) -> Result<BinaryStreamInput, BinaryInputError> {
+    let staged = tempfile::NamedTempFile::new().map_err(stream_io)?;
+    let mut file = tokio::fs::File::from_std(staged.reopen().map_err(stream_io)?);
+    let length = tokio::io::copy(&mut reader.take(limit.saturating_add(1)), &mut file)
+        .await
+        .map_err(stream_io)?;
+    if length > limit {
+        return Err(BinaryInputError::TooLarge);
+    }
+    file.flush().await.map_err(stream_io)?;
+    file.rewind().await.map_err(stream_io)?;
+    Ok(BinaryStreamInput {
+        reader: Box::new(file),
+        length,
+        _staged: Some(staged),
+    })
+}
+
+pub(crate) async fn acquire_binary_stream(
+    path: &Path,
+    limit: u64,
+) -> Result<BinaryStreamInput, BinaryInputError> {
+    if path == Path::new("-") {
+        return stage_binary_stream(tokio::io::stdin(), limit).await;
+    }
+    // Check before opening so named pipes do not wait for a writer.
+    if !tokio::fs::metadata(path)
+        .await
+        .map_err(stream_io)?
+        .is_file()
+    {
+        return Err(BinaryInputError::NotRegularFile);
+    }
+    let file = tokio::fs::File::open(path).await.map_err(stream_io)?;
+    let metadata = file.metadata().await.map_err(stream_io)?;
+    if !metadata.is_file() {
+        return Err(BinaryInputError::NotRegularFile);
+    }
+    if metadata.len() > limit {
+        return Err(BinaryInputError::TooLarge);
+    }
+    Ok(BinaryStreamInput {
+        reader: Box::new(file.take(metadata.len())),
+        length: metadata.len(),
+        _staged: None,
+    })
 }
 
 pub(crate) async fn acquire_binary_file(
@@ -84,6 +149,25 @@ pub(super) async fn read_bounded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn staged_stream_preserves_bytes_and_rejects_overflow() {
+        let bytes = b"PK\0\xff\r\n";
+        let mut acquired = stage_binary_stream(&bytes[..], bytes.len() as u64)
+            .await
+            .unwrap();
+        let path = acquired._staged.as_ref().unwrap().path().to_owned();
+        let mut actual = Vec::new();
+        acquired.reader.read_to_end(&mut actual).await.unwrap();
+        assert_eq!(actual, bytes);
+        assert_eq!(acquired.length, bytes.len() as u64);
+        drop(acquired);
+        assert!(!path.exists());
+        assert!(matches!(
+            stage_binary_stream(&bytes[..], 1).await,
+            Err(BinaryInputError::TooLarge)
+        ));
+    }
 
     #[tokio::test]
     async fn binary_reader_preserves_bytes_and_enforces_bound() {

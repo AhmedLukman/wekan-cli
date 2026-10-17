@@ -10,6 +10,7 @@ pub mod card_settings;
 mod copy;
 pub mod domains;
 mod export;
+pub mod import;
 pub use copy::CopyBoardRequest;
 pub mod labels;
 pub mod members;

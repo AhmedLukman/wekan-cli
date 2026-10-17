@@ -9,6 +9,7 @@ mod custom_field_items;
 mod custom_fields;
 mod dependencies;
 mod formatting;
+mod imports;
 mod integrations;
 mod lists;
 mod profiles;
@@ -123,6 +124,12 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::BoardImported(data)) => imports::board(data),
+        (OutputFormat::Json, CommandSuccess::BoardImported(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ZipImported(data)) => imports::zip(data),
+        (OutputFormat::Json, CommandSuccess::ZipImported(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::IcsImported(data)) => imports::ics(data),
+        (OutputFormat::Json, CommandSuccess::IcsImported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::Exported(data)) => formatting::render_object(data),
         (OutputFormat::Json, CommandSuccess::Exported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AdminDomains(data)) => {

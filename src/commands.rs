@@ -14,6 +14,7 @@ pub mod custom_field_items;
 pub mod custom_fields;
 pub mod dependencies;
 pub(crate) mod exports;
+pub(crate) mod imports;
 pub mod integrations;
 pub mod lists;
 pub mod profile;
@@ -106,7 +107,12 @@ impl RootCommand {
             _ => None,
         }
     }
-    pub(crate) fn validate_export_input(&self) -> Result<(), crate::error::AppError> {
+    pub(crate) fn validate_input(&self) -> Result<(), crate::error::AppError> {
+        if let Self::Board(a) = self {
+            if let boards::BoardCommand::Import(args) = &a.command {
+                args.validate()?;
+            }
+        }
         if let Self::Board(a) = self {
             if let boards::BoardCommand::Export(e) = &a.command {
                 e.validate()?;
@@ -121,7 +127,7 @@ impl RootCommand {
         &self,
         format: crate::output::OutputFormat,
     ) -> Result<(), crate::error::AppError> {
-        self.validate_export_input()?;
+        self.validate_input()?;
         if let Some(delivery) = self.export_delivery() {
             delivery.validate_output(format)?;
         }

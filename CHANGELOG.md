@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `board import`, `board import-zip`, and `card import-ics` expose all four native
+  import operations with file/stdin input, member mapping, CSV and XLSX encoding,
+  ZIP scope/section controls, timeout overrides, and typed human/JSON results.
+  Pinned HTTP-200 errors, ignored ZIP checklist scope, and attachment timeouts
+  remain explicit failures or documented server behavior. ICS destination/access
+  rejections report permission errors while retaining native HTTP metadata.
+
 ## [0.18.0] - 2026-10-16
 
 ### Added

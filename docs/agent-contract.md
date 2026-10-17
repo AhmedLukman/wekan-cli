@@ -842,3 +842,15 @@ at every object boundary, invalid known-field types/dates, and unmasked secrets.
 HTTP-200 application errors retain native metadata; failed updates retain
 mutation-outcome uncertainty. See [administrator settings](admin-settings.md)
 for complete input, credential, and replacement semantics.
+
+## Import results
+
+`board import` returns `board_id`, `source` (`native` when --source is omitted),
+and `mutation_confirmed: false`. ZIP results include the destination board,
+requested nullable scope IDs, all six native counters under `counts`, and
+`mutation_confirmed: false`. ICS results include destination board/list/swimlane,
+`created`, `card_ids`, and `mutation_confirmed: false`. These are acknowledgements
+without readback. Only human and JSON output are supported; imports do not prompt.
+Strict response and embedded-error decoding applies, including nested ZIP counts.
+Timeouts and invalid success bodies can follow partial writes; errors preserve
+`outcome_unknown: true` where applicable. See [imports](imports.md).
