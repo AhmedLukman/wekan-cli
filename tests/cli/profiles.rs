@@ -1,11 +1,11 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 use super::support::{TestDirectory, no_target_cli};
 
 #[test]
 fn profile_help_lists_the_complete_command_family() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["profile", "--help"])
         .assert()
         .success()
@@ -20,7 +20,7 @@ fn profile_help_lists_the_complete_command_family() {
 #[test]
 fn profile_commands_persist_and_render_the_local_lifecycle() {
     let directory = TestDirectory::new("lifecycle");
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .env("WEKAN_URL", "ignored")
         .env("WEKAN_PROFILE", "INVALID AND IGNORED")
@@ -40,7 +40,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         ))
         .stdout(predicate::str::contains(r#""active":true"#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args([
             "--output=json",
@@ -54,7 +54,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .success()
         .stdout(predicate::str::contains(r#""active":true"#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "profile", "list"])
         .assert()
@@ -62,14 +62,14 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .stdout(predicate::str::contains(r#""active_profile":"local""#))
         .stdout(predicate::str::contains(r#""profiles":[{"name":"local""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "profile", "show", "work"])
         .assert()
         .success()
         .stdout(predicate::str::contains(r#""active":false"#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args([
             "--output=json",
@@ -81,7 +81,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .assert()
         .success();
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "profile", "remove", "local"])
         .assert()
@@ -89,7 +89,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(r#""code":"profile_in_use""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "profile", "remove", "work"])
         .assert()
@@ -98,7 +98,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
         .stderr(predicate::str::contains(r#""code":"invalid_input""#))
         .stderr(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "profile", "remove", "work", "--yes"])
         .assert()
@@ -110,7 +110,7 @@ fn profile_commands_persist_and_render_the_local_lifecycle() {
 #[test]
 fn profile_names_and_explicit_selectors_use_cli_validation() {
     let directory = TestDirectory::new("validation");
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args([
             "--output=json",
@@ -138,7 +138,7 @@ fn profile_names_and_explicit_selectors_use_cli_validation() {
         .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
         .stderr(predicate::str::contains(r#""profile":"work""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "--profile", "work", "profile", "list"])
         .assert()
@@ -151,7 +151,7 @@ fn profile_names_and_explicit_selectors_use_cli_validation() {
 #[test]
 fn profile_selection_separates_server_identity_from_network_permission() {
     let directory = TestDirectory::new("precedence");
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args([
             "--output=json",
@@ -168,7 +168,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         ("active", "http://localhost:3000", false),
         ("insecure", "http://wekan.example", true),
     ] {
-        let mut command = cargo_bin_cmd!("wekan");
+        let mut command = wekan();
         command
             .env("WEKAN_CONFIG_DIR", &directory.0)
             .args(["profile", "add", name, url]);
@@ -178,7 +178,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         command.assert().success();
     }
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .env("WEKAN_URL", "http://wekan.example")
         .args(["--output=json", "--profile", "insecure", "auth", "status"])
@@ -187,7 +187,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         .stderr(predicate::str::contains(r#""code":"insecure_transport""#))
         .stderr(predicate::str::contains(r#""profile":"insecure""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args([
             "--output=json",
@@ -205,7 +205,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         ))
         .stderr(predicate::str::contains(r#""profile":"insecure""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .env("WEKAN_URL", "not a url")
         .env("WEKAN_PROFILE", "missing")
@@ -215,7 +215,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         .stderr(predicate::str::contains("relative URL without a base"))
         .stderr(predicate::str::contains(r#""profile":"missing""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .env_remove("WEKAN_URL")
         .env("WEKAN_PROFILE", "missing")
@@ -225,7 +225,7 @@ fn profile_selection_separates_server_identity_from_network_permission() {
         .stderr(predicate::str::contains(r#""code":"profile_not_found""#))
         .stderr(predicate::str::contains(r#""profile":"missing""#));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .env_remove("WEKAN_URL")
         .env_remove("WEKAN_PROFILE")

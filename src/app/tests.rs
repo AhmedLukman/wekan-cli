@@ -244,6 +244,12 @@ fn test_directory(label: &str) -> std::path::PathBuf {
     directory
 }
 
+// Target precedence is covered in config tests. Transaction tests pin both
+// selectors so a developer's environment cannot change the account under test.
+fn default_selection(server: String) -> ServerSelection {
+    ServerSelection::new(Some(server), Some("default".to_owned()), false)
+}
+
 fn login_command() -> RootCommand {
     RootCommand::Auth(AuthArgs {
         command: AuthCommand::Login(LoginArgs {
@@ -399,7 +405,7 @@ async fn successful_login_initializes_and_activates_the_first_default_profile() 
     let profile_store = FileProfileStore::at(directory.clone());
     let credentials = RecordingCredentialStore::default();
     let app = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         profile_store.clone(),
@@ -512,7 +518,7 @@ async fn rejected_malformed_and_transport_failures_do_not_create_profiles() {
         let profile_store = FileProfileStore::at(directory.clone());
         let credentials = RecordingCredentialStore::default();
         let app = App::with_profile_store(
-            ServerSelection::new(Some(server_url), None, false),
+            default_selection(server_url),
             credentials.clone(),
             FixedSecretInput::default(),
             profile_store.clone(),
@@ -539,7 +545,7 @@ async fn credential_save_failure_retains_the_new_profile_and_reports_partial_sta
     let credentials = RecordingCredentialStore::default();
     credentials.state.fail_create.store(true, Ordering::SeqCst);
     let app = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         profile_store.clone(),
@@ -571,7 +577,7 @@ async fn late_credential_conflict_never_replaces_the_entry_and_reports_remote_su
         .late_conflict
         .store(true, Ordering::SeqCst);
     let app = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         profile_store.clone(),
@@ -605,7 +611,7 @@ async fn profile_save_failure_prevents_credential_storage() {
     mount_auth_success(&server, "/users/login").await;
     let credentials = RecordingCredentialStore::default();
     let app = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         FailingProfileStore {
@@ -627,7 +633,7 @@ async fn profile_finalization_failure_reports_the_installed_profile_state() {
     mount_auth_success(&server, "/users/login").await;
     let credentials = RecordingCredentialStore::default();
     let app = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         FailingProfileStore {
@@ -665,13 +671,13 @@ async fn simultaneous_missing_profile_logins_create_one_profile_and_one_credenti
     let profile_store = FileProfileStore::at(directory.clone());
     let credentials = RecordingCredentialStore::default();
     let first = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         profile_store.clone(),
     );
     let second = App::with_profile_store(
-        ServerSelection::new(Some(server.uri()), None, false),
+        default_selection(server.uri()),
         credentials.clone(),
         FixedSecretInput::default(),
         profile_store.clone(),
@@ -723,6 +729,7 @@ async fn named_auth_holds_the_profile_lease_for_the_complete_transaction() {
     let (release_sender, release_receiver) = mpsc::channel();
     let app = App::with_profile_store(
         ServerSelection {
+            explicit_server: Some("https://wekan.example/".to_owned()),
             explicit_profile: Some("work".to_owned()),
             ..ServerSelection::default()
         },

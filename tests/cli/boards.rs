@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn board_help_lists_the_core_lifecycle() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "--help"])
         .assert()
         .success()
@@ -15,7 +15,7 @@ fn board_help_lists_the_core_lifecycle() {
         .stdout(predicate::str::contains("delete"))
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "create", "--help"])
         .assert()
         .success()
@@ -30,13 +30,13 @@ fn board_help_lists_the_core_lifecycle() {
 
 #[test]
 fn only_board_delete_accepts_yes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "delete", "board-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "get", "board-1", "--yes"])
         .assert()
         .failure()

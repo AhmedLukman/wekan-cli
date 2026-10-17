@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn help_is_text_on_stdout() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .arg("--help")
         .assert()
         .success()
@@ -53,7 +53,7 @@ fn yes_is_command_local_to_destructive_commands() {
             "--yes",
         ],
     ] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(arguments)
             .assert()
             .code(2)
@@ -61,7 +61,7 @@ fn yes_is_command_local_to_destructive_commands() {
             .stderr(predicate::str::contains("unexpected argument '--yes'"));
     }
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["profile", "remove", "--help"])
         .assert()
         .success()

@@ -1,4 +1,4 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use clap::Parser;
 use wekan_cli::cli::Cli;
 use wekan_cli::commands::{
@@ -100,7 +100,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         ),
         ("custom-field item", vec!["create", "update", "delete"]),
     ] {
-        let output = cargo_bin_cmd!("wekan")
+        let output = wekan()
             .args(family.split_whitespace().chain(["--help"]))
             .output()
             .unwrap();
@@ -110,7 +110,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         for verb in verbs {
             assert!(help.contains(verb));
         }
-        let output = cargo_bin_cmd!("wekan")
+        let output = wekan()
             .args(family.split_whitespace().chain(["delete", "--help"]))
             .output()
             .unwrap();
@@ -267,7 +267,7 @@ fn dot_only_dropdown_ids_are_rejected_before_credentials_or_http() {
         "\u{feff}..\u{feff}",
     ] {
         for verb in ["update", "delete"] {
-            let output = cargo_bin_cmd!("wekan")
+            let output = wekan()
                 .args([
                     "--output",
                     "json",
@@ -359,7 +359,7 @@ fn dot_only_dropdown_ids_are_rejected_before_credentials_or_http() {
 #[test]
 fn lookup_rejects_unrepresentable_values_before_target_or_credential_resolution() {
     for value in ["", ".", ".."] {
-        let output = cargo_bin_cmd!("wekan")
+        let output = wekan()
             .args([
                 "--output",
                 "json",

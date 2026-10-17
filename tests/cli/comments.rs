@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["comment", "--help"])
         .assert()
         .success()
@@ -14,7 +14,7 @@ fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
         .stdout(predicate::str::contains("update").not())
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "comment", "create", "--board", "board-1", "--card", "card-1", "--help",
         ])
@@ -25,7 +25,7 @@ fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
 
 #[test]
 fn only_comment_delete_accepts_yes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "comment",
             "delete",
@@ -40,7 +40,7 @@ fn only_comment_delete_accepts_yes() {
         .success()
         .stdout(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "comment",
             "get",

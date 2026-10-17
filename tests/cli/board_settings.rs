@@ -1,15 +1,15 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn board_settings_help_exposes_the_complete_typed_interface() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("card-settings"))
         .stdout(predicate::str::contains("domain"));
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "card-settings", "update", "--help"])
         .assert()
         .success()
@@ -20,7 +20,7 @@ fn board_settings_help_exposes_the_complete_typed_interface() {
         .stdout(predicate::str::contains("--profile"))
         .stdout(predicate::str::contains("--output"))
         .stdout(predicate::str::contains("--allow-insecure-http"));
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["board", "domain", "--help"])
         .assert()
         .success()
@@ -55,7 +55,7 @@ fn invalid_settings_fail_before_configuration_or_network_access() {
             "board", "domain", "remove", "x.test", "--board", "b", "--yes",
         ],
     ] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(args)
             .assert()
             .failure()

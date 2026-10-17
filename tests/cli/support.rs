@@ -1,4 +1,39 @@
+use std::ops::{Deref, DerefMut};
+
 use assert_cmd::cargo::cargo_bin_cmd;
+
+/// Keep the isolated default configuration alive for the entire subprocess.
+pub(crate) struct TestCommand {
+    command: assert_cmd::Command,
+    _directory: tempfile::TempDir,
+}
+
+impl Deref for TestCommand {
+    type Target = assert_cmd::Command;
+
+    fn deref(&self) -> &Self::Target {
+        &self.command
+    }
+}
+
+impl DerefMut for TestCommand {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.command
+    }
+}
+
+pub(crate) fn wekan() -> TestCommand {
+    let directory = tempfile::tempdir().unwrap();
+    let mut command = cargo_bin_cmd!("wekan");
+    command
+        .env("WEKAN_CONFIG_DIR", directory.path())
+        .env_remove("WEKAN_URL")
+        .env_remove("WEKAN_PROFILE");
+    TestCommand {
+        command,
+        _directory: directory,
+    }
+}
 
 pub(crate) struct TestDirectory(pub(crate) std::path::PathBuf);
 
@@ -22,18 +57,14 @@ impl Drop for TestDirectory {
     }
 }
 
-pub(crate) fn no_target_cli(directory: &TestDirectory) -> assert_cmd::Command {
-    let mut command = cargo_bin_cmd!("wekan");
-    command
-        .env("WEKAN_CONFIG_DIR", &directory.0)
-        .env_remove("WEKAN_URL")
-        .env_remove("WEKAN_PROFILE");
+pub(crate) fn no_target_cli(directory: &TestDirectory) -> TestCommand {
+    let mut command = wekan();
+    command.env("WEKAN_CONFIG_DIR", &directory.0);
     command
 }
 
 pub(crate) fn add_profile(directory: &TestDirectory, name: &str, server: &str) {
-    cargo_bin_cmd!("wekan")
-        .env("WEKAN_CONFIG_DIR", &directory.0)
+    no_target_cli(directory)
         .args(["profile", "add", name, server])
         .assert()
         .success();

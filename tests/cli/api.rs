@@ -1,11 +1,11 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 use super::support::{TestDirectory, no_target_cli};
 
 #[test]
 fn api_help_documents_the_complete_raw_request_surface() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["api", "request", "--help"])
         .assert()
         .success()
@@ -26,7 +26,7 @@ fn api_help_documents_the_complete_raw_request_surface() {
 #[test]
 fn raw_api_rejects_reflection_and_tunneling_methods_during_parsing() {
     for method in ["TRACE", "track", "CONNECT"] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(["api", "request", method, "/api/items"])
             .assert()
             .code(2)
@@ -69,7 +69,7 @@ fn api_parser_rejects_conflicting_body_and_auth_sources() {
             "--auth-token-query",
         ],
     ] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(arguments)
             .assert()
             .code(2)

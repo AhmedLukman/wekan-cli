@@ -1,11 +1,11 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 use super::support::{TestDirectory, add_profile, no_target_cli};
 
 #[test]
 fn login_help_documents_secret_input_modes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["auth", "login", "--help"])
         .assert()
         .success()
@@ -18,7 +18,7 @@ fn login_help_documents_secret_input_modes() {
 
 #[test]
 fn auth_help_lists_the_status_command() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["auth", "--help"])
         .assert()
         .success()
@@ -31,7 +31,7 @@ fn auth_help_lists_the_status_command() {
 
 #[test]
 fn auth_help_lists_logout_and_logout_help_documents_scopes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["auth", "--help"])
         .assert()
         .success()
@@ -41,7 +41,7 @@ fn auth_help_lists_logout_and_logout_help_documents_scopes() {
         ))
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["auth", "logout", "--help"])
         .assert()
         .success()
@@ -53,7 +53,7 @@ fn auth_help_lists_logout_and_logout_help_documents_scopes() {
 
 #[test]
 fn logout_scopes_conflict_using_the_json_parse_error_contract() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "--output=json",
             "--server",
@@ -108,7 +108,7 @@ fn missing_profile_local_only_with_server_reaches_confirmation_without_creating_
 fn json_logout_requires_yes_before_vault_access() {
     let directory = TestDirectory::new("json-logout-confirmation");
     add_profile(&directory, "default", "https://wekan.example");
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["--output=json", "auth", "logout", "--local-only"])
         .assert()
@@ -122,7 +122,7 @@ fn json_logout_requires_yes_before_vault_access() {
 fn non_terminal_human_logout_requires_yes_before_vault_access() {
     let directory = TestDirectory::new("human-logout-confirmation");
     add_profile(&directory, "default", "https://wekan.example");
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_CONFIG_DIR", &directory.0)
         .args(["auth", "logout", "--local-only"])
         .assert()
@@ -134,7 +134,7 @@ fn non_terminal_human_logout_requires_yes_before_vault_access() {
 
 #[test]
 fn status_rejects_command_specific_arguments() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["--output=json", "auth", "status", "unexpected"])
         .assert()
         .code(2)
@@ -157,7 +157,7 @@ fn missing_status_profile_is_reported_before_vault_access() {
 
 #[test]
 fn login_identity_conflicts_use_the_json_parse_error_contract() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "--output=json",
             "auth",
@@ -175,7 +175,7 @@ fn login_identity_conflicts_use_the_json_parse_error_contract() {
 
 #[test]
 fn login_code_stdin_requires_password_stdin() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "--output=json",
             "auth",
@@ -212,7 +212,7 @@ fn missing_login_profile_without_a_server_is_reported_before_stdin_is_read() {
 
 #[test]
 fn json_parse_errors_use_stderr_and_exit_two() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "--output",
             "json",
@@ -250,7 +250,7 @@ fn missing_registration_profile_without_a_server_is_reported() {
 
 #[test]
 fn command_line_server_overrides_the_environment() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_URL", "https://from-environment.example")
         .args([
             "--output=json",
@@ -271,7 +271,7 @@ fn command_line_server_overrides_the_environment() {
 
 #[test]
 fn environment_supplies_the_server_when_the_flag_is_absent() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .env("WEKAN_URL", "not a url")
         .args([
             "--output=json",

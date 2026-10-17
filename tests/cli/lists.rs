@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn list_help_exposes_crud_transfers_and_full_update_fields() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["list", "--help"])
         .assert()
         .success()
@@ -16,7 +16,7 @@ fn list_help_exposes_crud_transfers_and_full_update_fields() {
         .stdout(predicate::str::contains("move"))
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["list", "update", "--board", "board-1", "list-1", "--help"])
         .assert()
         .success()
@@ -30,13 +30,13 @@ fn list_help_exposes_crud_transfers_and_full_update_fields() {
 
 #[test]
 fn only_list_delete_accepts_yes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["list", "delete", "--board", "board-1", "list-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["list", "get", "--board", "board-1", "list-1", "--yes"])
         .assert()
         .failure()

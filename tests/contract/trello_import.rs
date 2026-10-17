@@ -275,12 +275,4 @@ fn coverage_row_lists_every_parser_option_and_variant() {
             }
         }
     }
-    assert!(coverage.contains("144 of 144 operations implemented (100%); 0 remaining"));
-    assert_eq!(
-        coverage
-            .lines()
-            .filter(|line| line.starts_with("| ") && line.ends_with("| ✓ |"))
-            .count(),
-        144
-    );
 }

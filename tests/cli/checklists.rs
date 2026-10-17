@@ -1,4 +1,4 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use clap::Parser;
 use predicates::prelude::*;
 use wekan_cli::cli::Cli;
@@ -17,7 +17,7 @@ fn parse(family: &str, args: &[&str]) -> Result<Cli, clap::Error> {
 #[test]
 fn checklist_help_exposes_exactly_the_supported_lifecycle() {
     for family in ["checklist", "checklist item"] {
-        let assertion = cargo_bin_cmd!("wekan")
+        let assertion = wekan()
             .args(family.split_whitespace().chain(["--help"]))
             .assert()
             .success()
@@ -40,7 +40,7 @@ fn checklist_help_exposes_exactly_the_supported_lifecycle() {
         ("checklist item", "create"),
         ("checklist item", "update"),
     ] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(family.split_whitespace().chain([verb, "--help"]))
             .assert()
             .success()

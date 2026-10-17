@@ -14,6 +14,8 @@ mod checklists;
 mod comments;
 #[path = "e2e/compatibility.rs"]
 mod compatibility;
+#[path = "e2e/inventory.rs"]
+mod inventory;
 #[path = "e2e/lists.rs"]
 mod lists;
 #[path = "e2e/public_probes.rs"]

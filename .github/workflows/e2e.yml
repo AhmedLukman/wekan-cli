@@ -79,6 +79,10 @@ jobs:
             key: named-profile
             variable: WEKAN_E2E_URL
             test: auth::named_profile_authentication_flow_matches_wekan_v11_06
+          - name: Native credential-store authentication races
+            key: native-auth
+            variable: WEKAN_OS_E2E_URL
+            test: auth::os_backed_cross_process_auth_mutations_are_serialized_and_hardened
           - name: Users
             key: users
             variable: WEKAN_USER_E2E_URL
@@ -155,6 +159,8 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - name: Verify live-test selections before starting services
+        run: cargo test --locked --test e2e
       - name: Install Linux credential-store service
         run: |
           sudo apt-get update

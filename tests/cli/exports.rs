@@ -9,7 +9,7 @@ mod fixtures;
 #[test]
 fn export_help_and_required_arguments_match_resource_commands() {
     for resource in ["board", "card", "attachment"] {
-        let output = std::process::Command::new(env!("CARGO_BIN_EXE_wekan"))
+        let output = crate::support::wekan()
             .args([resource, "export", "--help"])
             .output()
             .unwrap();

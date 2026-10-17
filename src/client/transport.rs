@@ -7,6 +7,10 @@ use super::{
     decoding::{decode_value, parse_json},
 };
 
+#[cfg(test)]
+#[path = "transport/tests.rs"]
+mod streaming_tests;
+
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 
 #[derive(Default, Deserialize)]

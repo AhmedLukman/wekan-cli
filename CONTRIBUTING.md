@@ -47,10 +47,21 @@ cargo test --all-targets --all-features
 
 If `Cargo.toml` or `Cargo.lock` changed, also run `cargo deny check`.
 
+CLI subprocess tests use temporary configuration directories and clear inherited
+`WEKAN_URL` and `WEKAN_PROFILE` values. Use the shared helpers in
+`tests/cli/support.rs`; set environment variables explicitly when testing
+precedence. CI runs the suite with deliberately invalid inherited configuration
+to keep this isolation checked on all three platforms.
+
 Live tests are ignored by default. Follow the
 [local Wekan stack guide](docs/local-wekan.md) and use a fresh or dedicated
 Wekan v11.06 instance for tests that mutate data. Never run destructive tests
 against a real instance.
+
+The default E2E test run checks the workflow matrix against the compiled binary's
+ignored test inventory without contacting Wekan. Add or rename the matching
+`.github/workflows/e2e.yml` entry whenever a live test changes. Missing, stale,
+and duplicate selections fail before CI starts services.
 
 ## API changes
 
@@ -76,6 +87,13 @@ openapi overlay validate spec/wekan.overlay.yml
 openapi overlay apply --schema spec/wekan.yml --overlay spec/wekan.overlay.yml --out spec/wekan.corrected.yml
 openapi swagger validate spec/wekan.corrected.yml
 ```
+
+Set `WEKAN_CORRECTED_SPEC` to the freshly generated specification's path, then
+run `cargo test --locked --test contract -- --include-ignored`. This compares
+every documented method, path, and operation ID against the generated contract.
+The default test suite also checks coverage totals, CLI command paths,
+positional arguments, option names, and value placeholders against Clap. CI
+performs both checks as part of API contract validation.
 
 Optionally generate the corrected human-readable reference with Redocly:
 

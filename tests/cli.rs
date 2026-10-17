@@ -54,7 +54,7 @@ mod admin_settings;
 
 #[test]
 fn item_command_help_exposes_the_nested_lifecycles() {
-    use assert_cmd::cargo::cargo_bin_cmd;
+    use crate::support::wekan;
     use clap::CommandFactory;
     use predicates::prelude::*;
     use wekan_cli::cli::Cli;
@@ -85,13 +85,13 @@ fn item_command_help_exposes_the_nested_lifecycles() {
             .collect();
         verbs.sort_unstable();
         assert_eq!(verbs, expected);
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args([family, "--help"])
             .assert()
             .success()
             .stdout(predicate::str::contains("  item "))
             .stderr(predicate::str::is_empty());
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args([family, "item", "--help"])
             .assert()
             .success()
@@ -104,14 +104,14 @@ fn item_command_help_exposes_the_nested_lifecycles() {
 
 #[test]
 fn old_root_item_spellings_are_invalid_commands() {
-    use assert_cmd::cargo::cargo_bin_cmd;
+    use crate::support::wekan;
     use clap::Parser;
     use wekan_cli::cli::Cli;
 
     for old in ["checklist-item", "custom-field-item"] {
         let error = Cli::try_parse_from(["wekan", old, "--help"]).unwrap_err();
         assert_eq!(error.kind(), clap::error::ErrorKind::InvalidSubcommand);
-        let output = cargo_bin_cmd!("wekan")
+        let output = wekan()
             .args(["--output", "json", old, "--help"])
             .output()
             .unwrap();

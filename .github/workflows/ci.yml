@@ -29,6 +29,11 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
+    # CLI subprocesses must override configuration and remove inherited targets.
+    env:
+      WEKAN_CONFIG_DIR: inherited-relative-directory
+      WEKAN_PROFILE: inherited-profile-must-not-be-used
+      WEKAN_URL: invalid-inherited-server-url
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +114,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
       - name: Install Speakeasy OpenAPI CLI 1.24.1
         shell: bash
         run: |
@@ -127,6 +134,10 @@ jobs:
           openapi overlay validate spec/wekan.overlay.yml
           openapi overlay apply --schema spec/wekan.yml --overlay spec/wekan.overlay.yml --out "$RUNNER_TEMP/wekan.corrected.yml"
           openapi swagger validate "$RUNNER_TEMP/wekan.corrected.yml"
+      - name: Check operation inventory and CLI coverage
+        env:
+          WEKAN_CORRECTED_SPEC: ${{ runner.temp }}/wekan.corrected.yml
+        run: cargo test --locked --test contract -- --include-ignored
       - name: Generate corrected HTML reference
         shell: bash
         run: |

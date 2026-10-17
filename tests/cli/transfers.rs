@@ -1,4 +1,4 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
@@ -47,7 +47,7 @@ fn copy_move_and_read_help_expose_complete_interfaces() {
         ("card", "list", vec!["--board", "--list", "--swimlane"]),
         ("card", "get", vec!["--board", "--list"]),
     ] {
-        let output = cargo_bin_cmd!("wekan")
+        let output = wekan()
             .args([family, action, "--help"])
             .assert()
             .success()
@@ -116,7 +116,7 @@ fn transfer_and_card_read_invalid_inputs_fail_before_target_resolution() {
         vec!["card", "get", "."],
         vec!["list", "move", "l", "--board", " "],
     ] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(args)
             .assert()
             .code(2)

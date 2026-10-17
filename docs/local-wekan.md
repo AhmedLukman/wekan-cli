@@ -112,6 +112,25 @@ $env:WEKAN_MEMBERSHIP_E2E_URL = "http://localhost:3101"
 cargo test --locked --test e2e memberships::complete_membership_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 ```
 
+## Native credential-store authentication races
+
+This suite runs production CLI subprocesses against a dedicated stack and the
+native credential store. It checks concurrent registration, login, logout,
+credential replacement, and secret handling. CI includes it in its own matrix
+entry. The default `cargo test --locked --test e2e` run only validates that the
+matrix selects every compiled live test exactly once; it does not start a stack
+or execute ignored tests.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-native-auth-tests"
+$env:WEKAN_PORT = "3130"
+docker compose up -d --wait
+$env:WEKAN_OS_E2E_URL = "http://localhost:3130"
+cargo test --locked --test e2e auth::os_backed_cross_process_auth_mutations_are_serialized_and_hardened -- --ignored --exact --nocapture
+
+docker compose down --volumes
+```
+
 ## Copy, move, and remaining card reads
 
 The dedicated lifecycle test covers all ten operations, nested copies,

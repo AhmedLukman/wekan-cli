@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn swimlane_help_exposes_crud_transfers_and_create_sort() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["swimlane", "--help"])
         .assert()
         .success()
@@ -17,14 +17,14 @@ fn swimlane_help_exposes_crud_transfers_and_create_sort() {
         .stdout(predicate::str::contains("archive").not())
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["swimlane", "create", "--board", "board-1", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--title <TITLE>"))
         .stdout(predicate::str::contains("--sort <SORT>"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["swimlane", "update", "--board", "board-1", "swimlane-1"])
         .assert()
         .failure()
@@ -34,7 +34,7 @@ fn swimlane_help_exposes_crud_transfers_and_create_sort() {
 
 #[test]
 fn only_swimlane_delete_accepts_yes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "swimlane",
             "delete",
@@ -47,7 +47,7 @@ fn only_swimlane_delete_accepts_yes() {
         .success()
         .stdout(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "swimlane",
             "get",

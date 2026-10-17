@@ -1,9 +1,9 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
 fn user_help_lists_the_complete_command_family() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["user", "--help"])
         .assert()
         .success()
@@ -22,7 +22,7 @@ fn user_help_lists_the_complete_command_family() {
 
 #[test]
 fn user_create_help_keeps_passwords_out_of_arguments() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["user", "create", "--help"])
         .assert()
         .success()
@@ -36,13 +36,13 @@ fn user_create_help_keeps_passwords_out_of_arguments() {
 #[test]
 fn only_destructive_user_actions_accept_yes() {
     for action in ["take-ownership", "disable-login", "delete"] {
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(["user", action, "user-1", "--help"])
             .assert()
             .success()
             .stdout(predicate::str::contains("--yes"));
     }
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["user", "enable-login", "user-1", "--yes"])
         .assert()
         .failure()
@@ -92,7 +92,7 @@ fn token_commands_have_explicit_modes_and_inherit_global_options() {
         assert_eq!(cli.profile_name.as_deref(), Some("team"));
         assert!(cli.allow_insecure_http);
     }
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["user", "token", "delete", "--help"])
         .assert()
         .success()

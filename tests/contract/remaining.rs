@@ -76,21 +76,6 @@ fn remaining_coverage_rows_match_the_parser() {
             }
         }
     }
-    assert_eq!(
-        coverage
-            .lines()
-            .filter(|line| line.starts_with("| ") && line.ends_with("| ✓ |"))
-            .count(),
-        144
-    );
-    assert!(coverage.contains("144 of 144 operations implemented (100%); 0 remaining"));
-    let trello_import = coverage
-        .lines()
-        .find(|line| line.contains("| `import_trello` |"))
-        .unwrap();
-    assert!(trello_import.contains("| `POST` | `/import-trello` |"));
-    assert!(trello_import.contains("wekan board import-trello"));
-    assert!(trello_import.ends_with("| ✓ |"));
 }
 
 #[tokio::test]

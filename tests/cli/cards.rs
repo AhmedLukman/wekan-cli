@@ -1,4 +1,4 @@
-use assert_cmd::cargo::cargo_bin_cmd;
+use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
@@ -15,7 +15,7 @@ fn scoped_card_syntax_requires_named_parents_and_help_is_readable() {
             .code(2)
             .stdout(predicate::str::is_empty());
     }
-    let output = cargo_bin_cmd!("wekan")
+    let output = wekan()
         .args(["card", "update", "--help"])
         .assert()
         .success()
@@ -43,7 +43,7 @@ fn scoped_card_syntax_requires_named_parents_and_help_is_readable() {
 
 #[test]
 fn card_help_exposes_core_crud_archive_restore_and_supported_fields() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args(["card", "--help"])
         .assert()
         .success()
@@ -58,7 +58,7 @@ fn card_help_exposes_core_crud_archive_restore_and_supported_fields() {
         .stdout(predicate::str::contains("comment").not())
         .stderr(predicate::str::is_empty());
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "card", "create", "--board", "board-1", "--list", "list-1", "--help",
         ])
@@ -70,7 +70,7 @@ fn card_help_exposes_core_crud_archive_restore_and_supported_fields() {
         .stdout(predicate::str::contains("--assignee <ASSIGNEES>"))
         .stdout(predicate::str::contains("--due-at <DUE_AT>"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "card", "update", "--board", "board-1", "--list", "list-1", "card-1", "--help",
         ])
@@ -111,7 +111,7 @@ fn archive_restore_require_scoped_identifiers_and_expose_global_help() {
                 .code(2)
                 .stdout(predicate::str::is_empty());
         }
-        cargo_bin_cmd!("wekan")
+        wekan()
             .args(["card", action, "--help"])
             .assert()
             .success()
@@ -131,7 +131,7 @@ fn archive_restore_require_scoped_identifiers_and_expose_global_help() {
 
 #[test]
 fn only_card_delete_accepts_yes() {
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "card", "delete", "--board", "board-1", "--list", "list-1", "card-1", "--help",
         ])
@@ -139,7 +139,7 @@ fn only_card_delete_accepts_yes() {
         .success()
         .stdout(predicate::str::contains("--yes"));
 
-    cargo_bin_cmd!("wekan")
+    wekan()
         .args([
             "card", "get", "--board", "board-1", "--list", "list-1", "card-1", "--yes",
         ])
