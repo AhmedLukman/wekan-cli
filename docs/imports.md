@@ -5,6 +5,56 @@ files or `-` for stdin, require stored credentials, and run directly without a
 confirmation prompt. Use `--output json` for stable machine-readable results.
 They do not retry requests: repeated imports create additional resources.
 
+## Trello HTTP import
+
+```console
+wekan board import-trello trello.json --format json --members-mapping-file members.json
+wekan board import-trello boards.zip --format zip
+cat trello.json | wekan --output json board import-trello - --format json --auth x-auth-token
+```
+
+This command calls `POST /import-trello`, creating new boards. It accepts an
+unwrapped Trello JSON board object or a raw Trello attachment ZIP; `--format
+<json|zip>` is required and filenames do not select formats. Existing
+`board import --source trello` and `board import-zip` use different endpoints.
+
+JSON is wrapped in `board` without source-field filtering. Optional
+`--members-mapping <JSON>` or `--members-mapping-file <PATH>` supplies a JSON
+object mapping Trello member IDs to Wekan user IDs. These forms conflict; the
+mapping file must be regular and cannot be `-`. Mapping is JSON-only. Wekan can
+use its saved Trello API credentials to retrieve assets during JSON imports;
+the CLI does not download or replace assets.
+
+`--auth <bearer|x-auth-token|meteor-cookie|wekan-cookie>` defaults to Bearer.
+All four forms use the selected profile's stored login token. Cookie modes send
+`meteor_login_token` or `wekan_login_token`; no token is supplied as a command
+argument or query parameter. There is no authentication fallback.
+
+Results contain `format`, `board_ids`, and `mutation_confirmed: false`. ZIP
+results also contain `errors`, including an empty array for full success. Each
+failure contains `board` and `error`; failed scalar board names retain their
+string, number, or boolean type. Composite or null names, missing required
+values, and unknown response fields fail with `protocol_error`.
+
+**Any ZIP board failure returns `batch_incomplete` (exit 5)** even though Wekan
+returns HTTP 200. All returned IDs and failures remain available in
+`error.details.trello_import_result` and human error output. Failed imports can
+leave additional boards whose IDs were not returned, including JSON failures
+with HTTP 400. Errors after submission preserve uncertain outcomes and
+`retry_safe: false`. Inspect saved state before another import; no rollback or
+automatic retry occurs. Acknowledgements do not perform readback.
+
+ZIP attachment files must match Wekan's native board-name folder or filename
+prefix rules; the root-file fallback applies only to a single-board ZIP.
+
+JSON inputs, member maps, and the final wrapped JSON request have a 50 MiB limit.
+Trello ZIP uploads have a 200 MiB compressed client limit. ZIP stdin is staged on
+disk, then streamed with a known length. Wekan applies its own 5000-file, 1 GiB
+declared uncompressed total, 100 MiB per declared file, and path checks. The CLI
+passes the archive intact for native validation. `--timeout` accepts positive
+integer seconds and defaults to 30. Only human/JSON output is supported, and
+there is no `--yes` option.
+
 ## New boards
 
 ```console
@@ -100,7 +150,7 @@ card IDs. All import results describe server acknowledgements without readback.
 JSON, CSV, XLSX, ICS, and member mapping inputs each have a 50 MiB acquisition
 limit. The final serialized JSON request also has a 50 MiB limit, including
 wrapping, escaping, member mapping, and base64 expansion. Consequently the
-largest accepted XLSX is smaller than 50 MiB. ZIP input has a 5 GiB client limit;
+largest accepted XLSX is smaller than 50 MiB. Native `board import-zip` input has a 5 GiB client limit;
 the server may impose a lower configured limit. Invalid local input fails with
 `invalid_input` (exit 2); acquisition/staging I/O errors use `file_io_error`
 (exit 4). Regular files and stdin are supported; directories and named pipes

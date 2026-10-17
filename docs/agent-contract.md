@@ -872,6 +872,17 @@ for complete input, credential, and replacement semantics.
 
 ## Import results
 
+`board import-trello` returns `format`, `board_ids`, and
+`mutation_confirmed: false`. JSON omits `errors`; ZIP includes an array of
+strictly decoded `{board, error}` objects. Failed board names retain their
+string/number/boolean type; composite or null names are protocol errors.
+Any nonempty ZIP error array returns `batch_incomplete` (exit 5), with all
+returned outcomes under `error.details.trello_import_result`, HTTP 200
+metadata, `outcome_unknown: true`, and `retry_safe: false`. Failed boards may
+leave resources whose IDs are absent from the response. Human errors display
+both returned board IDs and failed boards. Post-submission failures, including
+native HTTP 400, preserve uncertain mutation outcomes. No retry occurs.
+
 `board import` returns `board_id`, `source` (`native` when --source is omitted),
 and `mutation_confirmed: false`. ZIP results include the destination board,
 requested nullable scope IDs, all six native counters under `counts`, and

@@ -81,15 +81,16 @@ fn remaining_coverage_rows_match_the_parser() {
             .lines()
             .filter(|line| line.starts_with("| ") && line.ends_with("| ✓ |"))
             .count(),
-        143
+        144
     );
-    assert!(coverage.contains("143 of 144 operations implemented (99.31%); 1 remaining"));
+    assert!(coverage.contains("144 of 144 operations implemented (100%); 0 remaining"));
     let trello_import = coverage
         .lines()
         .find(|line| line.contains("| `import_trello` |"))
         .unwrap();
     assert!(trello_import.contains("| `POST` | `/import-trello` |"));
-    assert!(trello_import.ends_with("| Not implemented. | ✗ |"));
+    assert!(trello_import.contains("wekan board import-trello"));
+    assert!(trello_import.ends_with("| ✓ |"));
 }
 
 #[tokio::test]

@@ -12,6 +12,7 @@ mod copy;
 pub mod domains;
 mod export;
 pub mod import;
+pub mod trello_import;
 pub use copy::CopyBoardRequest;
 pub mod labels;
 pub mod members;

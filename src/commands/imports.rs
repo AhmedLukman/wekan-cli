@@ -64,3 +64,14 @@ pub(crate) async fn acquire_zip(path: &Path) -> Result<BinaryStreamInput, AppErr
             )
         })
 }
+
+pub(crate) async fn acquire_trello_zip(path: &Path) -> Result<BinaryStreamInput, AppError> {
+    acquire_binary_stream(path, 200 * 1024 * 1024)
+        .await
+        .map_err(|error| {
+            map_input_error(
+                error,
+                "Trello ZIP input exceeds the 200 MiB client limit; no request was sent",
+            )
+        })
+}

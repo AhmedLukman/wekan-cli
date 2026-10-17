@@ -24,6 +24,8 @@ mod remaining;
 mod support;
 #[path = "cli/swimlanes.rs"]
 mod swimlanes;
+#[path = "cli/trello_import.rs"]
+mod trello_import;
 #[path = "cli/users.rs"]
 mod users;
 

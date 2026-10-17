@@ -78,6 +78,8 @@ impl ErrorCode {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub trello_import_result: Option<crate::command_result::TrelloImportResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub batch_result: Option<crate::command_result::CardBatchResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invalid_label_ids: Option<Vec<String>>,

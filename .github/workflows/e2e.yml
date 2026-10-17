@@ -139,6 +139,10 @@ jobs:
             key: imports
             variable: WEKAN_IMPORT_E2E_URL
             test: imports::complete_import_lifecycle_matches_wekan_v11_06
+          - name: Trello HTTP imports
+            key: trello-import
+            variable: WEKAN_TRELLO_IMPORT_E2E_URL
+            test: trello_import::complete_trello_import_lifecycle_matches_wekan_v11_06
           - name: Attachments
             key: attachments
             variable: WEKAN_ATTACHMENT_E2E_URL

@@ -115,6 +115,9 @@ impl RootCommand {
             if let boards::BoardCommand::Import(args) = &a.command {
                 args.validate()?;
             }
+            if let boards::BoardCommand::ImportTrello(args) = &a.command {
+                args.validate()?;
+            }
         }
         if let Self::Board(a) = self {
             if let boards::BoardCommand::Export(e) = &a.command {

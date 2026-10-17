@@ -140,6 +140,8 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::BoardAttachments(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardImported(data)) => imports::board(data),
         (OutputFormat::Json, CommandSuccess::BoardImported(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::TrelloImported(data)) => imports::trello(data),
+        (OutputFormat::Json, CommandSuccess::TrelloImported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ZipImported(data)) => imports::zip(data),
         (OutputFormat::Json, CommandSuccess::ZipImported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::IcsImported(data)) => imports::ics(data),
@@ -734,6 +736,10 @@ pub fn render_error(format: OutputFormat, error: &AppError) -> String {
             if let Some(batch) = &error.details().batch_result {
                 rendered.push('\n');
                 rendered.push_str(&cards::render_batch(batch));
+            }
+            if let Some(result) = &error.details().trello_import_result {
+                rendered.push('\n');
+                rendered.push_str(&imports::trello(result));
             }
             if let Some(ids) = &error.details().invalid_label_ids {
                 rendered.push_str(&format!(

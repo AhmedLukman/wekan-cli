@@ -1,6 +1,15 @@
 use crate::client::boards::import::ZipImportCounts;
 use serde::Serialize;
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct TrelloImportResult {
+    pub format: crate::client::boards::trello_import::TrelloImportFormat,
+    pub board_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<crate::client::boards::trello_import::TrelloImportBoardError>>,
+    pub mutation_confirmed: bool,
+}
+
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct BoardImportSuccess {
     pub board_id: String,

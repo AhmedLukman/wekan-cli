@@ -8,6 +8,7 @@ mod domains;
 mod export;
 mod get;
 mod import;
+mod import_trello;
 mod import_zip;
 mod labels;
 mod list;
@@ -36,6 +37,8 @@ pub enum BoardCommand {
     Attachment(attachments::AttachmentArgs),
     /// Import an export document into a new board.
     Import(import::ImportArgs),
+    /// Import Trello JSON or ZIP into new boards using /import-trello.
+    ImportTrello(import_trello::ImportTrelloArgs),
     /// Import a native ZIP archive into an existing board.
     ImportZip(import_zip::ImportZipArgs),
     /// Export a native artifact to a file or validated raw stdout.
@@ -80,6 +83,9 @@ pub(crate) async fn dispatch(
             attachments::dispatch(args.command, client_factory, credential_store).await
         }
         BoardCommand::Import(args) => import::execute(args, client_factory, credential_store).await,
+        BoardCommand::ImportTrello(args) => {
+            import_trello::execute(args, client_factory, credential_store).await
+        }
         BoardCommand::ImportZip(args) => {
             import_zip::execute(args, client_factory, credential_store).await
         }

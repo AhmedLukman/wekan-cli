@@ -1,6 +1,26 @@
 use super::formatting::escape_terminal_controls as escape;
 use crate::command_result::{BoardImportSuccess, IcsImportSuccess, ZipImportSuccess};
 
+pub(super) fn trello(data: &crate::command_result::TrelloImportResult) -> String {
+    let mut output = format!(
+        "Trello import acknowledged.\nBoard IDs: {}\nMutation unconfirmed; no readback performed.",
+        escape(&data.board_ids.join(", "))
+    );
+    if let Some(errors) = &data.errors {
+        output.push_str(&format!("\nFailed boards: {}", errors.len()));
+        for error in errors {
+            let name = match &error.board {
+                crate::client::boards::trello_import::TrelloImportBoardName::String(name) => {
+                    name.clone()
+                }
+                other => serde_json::to_string(other).expect("scalar names are serializable"),
+            };
+            output.push_str(&format!("\n{}: {}", escape(&name), escape(&error.error)));
+        }
+    }
+    output
+}
+
 pub(super) fn board(data: &BoardImportSuccess) -> String {
     format!(
         "Board import acknowledged: {} (source: {}).\nMutation unconfirmed; no readback performed.",

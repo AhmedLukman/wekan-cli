@@ -430,6 +430,23 @@ cargo test --locked --test e2e imports::complete_import_lifecycle_matches_wekan_
 docker compose down --volumes
 ```
 
+## Trello HTTP import lifecycle
+
+The dedicated Trello HTTP import suite uses another fresh isolated stack:
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-trello-tests"
+$env:WEKAN_PORT = "3127"
+docker compose up -d --wait
+$env:WEKAN_TRELLO_IMPORT_E2E_URL = "http://localhost:3127"
+cargo test --locked --test e2e trello_import::complete_trello_import_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```
+
+It verifies JSON member mapping, all four login-token authentication forms,
+multi-board ZIP and attachment behavior, partial/all-board failures, and
+independent persisted-state readback. The CI matrix runs it in its own stack.
+
 ## Public probes and legacy attachment links
 
 The public-probe suite verifies schema-upgrade JSON output, all three anonymous

@@ -54,3 +54,5 @@ mod admin_settings;
 mod exports;
 #[path = "e2e/imports.rs"]
 mod imports;
+#[path = "e2e/trello_import.rs"]
+mod trello_import;

@@ -12,7 +12,7 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 143 of 144 operations implemented (99.31%); 1 remaining.
+**Coverage:** 144 of 144 operations implemented (100%); 0 remaining.
 
 The inventory includes application REST operations outside `/api`, including
 `POST /import-trello` (#144). Prometheus metrics, direct file-serving URLs,
@@ -122,8 +122,10 @@ all support positive integer --timeout overrides (30 seconds by default).
 
 The separate Trello HTTP import operation #144 accepts a JSON board with optional
 member mapping or a raw ZIP archive, authenticates with a login token, and returns
-created board IDs plus per-board errors for ZIP imports. It has no dedicated CLI
-command yet; the existing import commands use different endpoints.
+created board IDs plus per-board errors for ZIP imports. `board import-trello`
+implements both representations and all four native authentication forms.
+ZIP board failures return `batch_incomplete` (exit 5), preserving returned IDs
+and errors; earlier writes can remain. See [Trello HTTP imports](imports.md#trello-http-import).
 
 ## Status rules
 
@@ -334,4 +336,4 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 141 | Authentication | `OPTIONS` | `/users/login` | `options_login` | Authentication preflight with an empty response. | `wekan auth preflight login [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
 | 142 | Authentication | `OPTIONS` | `/users/register` | `options_register` | Authentication preflight with an empty response. | `wekan auth preflight register [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
 | 143 | Authentication | `OPTIONS` | `/users/logout` | `options_logout` | Authentication preflight with an empty response. | `wekan auth preflight logout [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
-| 144 | Boards | `POST` | `/import-trello` | `import_trello` | Import a Trello JSON board or ZIP archive; JSON returns board IDs, while ZIP also returns per-board errors. Accepts Bearer, X-Auth-Token, or login-cookie authentication. | Not implemented. | ✗ |
+| 144 | Boards | `POST` | `/import-trello` | `import_trello` | Import a Trello JSON board or ZIP archive; JSON returns board IDs, while ZIP also returns per-board errors. Accepts Bearer, X-Auth-Token, or login-cookie authentication. | `wekan board import-trello <FILE\|-> --format <json\|zip> [--members-mapping <JSON> \| --members-mapping-file <PATH>] [--auth <bearer\|x-auth-token\|meteor-cookie\|wekan-cookie>] [--timeout <SECONDS>] [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Format required; mapping is JSON-only, mapping forms conflict, and the mapping file must be regular. Options do not repeat. Defaults: Bearer, 30 seconds. ZIP failures return exit 5 with all outcomes. | ✓ |

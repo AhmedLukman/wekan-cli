@@ -36,7 +36,10 @@ actions:
       server/routes/importTrelloZip.js 133-174 accepts {board,membersMapping}
       for JSON; 178-271 parses ZIPs and returns {boardIds,errors}. The source
       reports failed ZIP entries' original board.name without validating its
-      type first. TrelloCreator delegates source-specific document validation.
+      type first. TrelloCreator.create does not invoke its check method before
+      creating resources. tests/e2e/trello_import.rs verifies member mapping,
+      all four authentication forms, multi-board ZIP attachment bytes, scalar
+      and compound failed names, and unreported boards after later failures.
       Isolated pinned-image live probes on 2026-10-17 verified successful JSON
       and ZIP imports, errors absent for JSON and empty for successful ZIP,
       and mixed ZIP success/failure with a numeric failed board name.
@@ -119,7 +122,10 @@ actions:
             imports each recognized Trello board and returns {boardIds,errors}.
             ZIP board failures are collected without rolling back earlier boards
             and still return HTTP 200. JSON failures return HTTP 400; earlier
-            writes are not rolled back. ZIP member mapping is not supported.
+            writes are not rolled back. A failed board can remain persisted
+            without its ID appearing in boardIds; the error names that board
+            but does not identify the created resources (W11-060).
+            ZIP member mapping is not supported.
             ZIP limits are 200 MiB compressed, 1 GiB declared uncompressed,
             5000 files, and 100 MiB per declared file; unsafe archive paths are
             rejected. Global JSON parsing has a 50 MiB limit and malformed or
@@ -127,6 +133,8 @@ actions:
             a Bearer token, X-Auth-Token, or login cookie; query tokens are not
             read. This route is outside the WITH_API gate and is distinct from
             /api/boards/import/trello and /api/import/zip.
+          x-wekan-v11.06-defect:
+            - trello-import-failure-leaves-unreported-boards
           tags:
             - Boards
           consumes:

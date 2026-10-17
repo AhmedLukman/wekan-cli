@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `board import-trello` imports Trello JSON boards and ZIP archives through the
+  native HTTP importer, completing all 144 audited Wekan v11.06 REST operations.
+  Supports file/stdin input, JSON member mapping, all four native authentication
+  forms, and timeout controls. ZIP failures return exit 5 with every returned
+  board ID and error; partial writes remain explicit and unconfirmed.
+
 ## [0.21.0] - 2026-10-17
 
 ### Added
