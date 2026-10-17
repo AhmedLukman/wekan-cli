@@ -83,7 +83,13 @@ fn remaining_coverage_rows_match_the_parser() {
             .count(),
         143
     );
-    assert!(coverage.contains("143 of 143 operations implemented (100%); 0 remaining"));
+    assert!(coverage.contains("143 of 144 operations implemented (99.31%); 1 remaining"));
+    let trello_import = coverage
+        .lines()
+        .find(|line| line.contains("| `import_trello` |"))
+        .unwrap();
+    assert!(trello_import.contains("| `POST` | `/import-trello` |"));
+    assert!(trello_import.ends_with("| Not implemented. | ✗ |"));
 }
 
 #[tokio::test]

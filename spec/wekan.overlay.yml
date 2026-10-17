@@ -7,6 +7,177 @@ extends: ./wekan.yml
 # Keep only correction deltas here; never copy the complete upstream snapshot.
 # Every action cites matching-version implementation or test evidence.
 actions:
+  - target: $.securityDefinitions
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/routes/importTrelloZip.js 39-64 accepts Bearer, X-Auth-Token,
+      meteor_login_token, or wekan_login_token; unlike the global API parser,
+      this route does not read access_token/authToken query parameters.
+      The isolated pinned-image live probes on 2026-10-17 verified all four
+      authentication forms with authenticated invalid-JSON-object requests.
+    update:
+      TrelloImportXAuthToken:
+        type: apiKey
+        in: header
+        name: X-Auth-Token
+        description: Login token alternative for POST /import-trello.
+      TrelloImportLoginCookie:
+        type: apiKey
+        in: header
+        name: Cookie
+        description: >-
+          Login token cookie for POST /import-trello, sent as
+          meteor_login_token=<token> or wekan_login_token=<token>.
+          Bearer authentication takes precedence, then X-Auth-Token,
+          then meteor_login_token, then wekan_login_token.
+  - target: $.definitions
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/routes/importTrelloZip.js 133-174 accepts {board,membersMapping}
+      for JSON; 178-271 parses ZIPs and returns {boardIds,errors}. The source
+      reports failed ZIP entries' original board.name without validating its
+      type first. TrelloCreator delegates source-specific document validation.
+      Isolated pinned-image live probes on 2026-10-17 verified successful JSON
+      and ZIP imports, errors absent for JSON and empty for successful ZIP,
+      and mixed ZIP success/failure with a numeric failed board name.
+    update:
+      TrelloHttpImportJsonRequest:
+        type: object
+        additionalProperties: true
+        required:
+          - board
+        properties:
+          board:
+            type: object
+            additionalProperties: true
+            description: Trello board export consumed by TrelloCreator.
+          membersMapping:
+            type: object
+            additionalProperties:
+              type: string
+            description: Optional mapping from Trello member IDs to Wekan user IDs; defaults to {}.
+      TrelloHttpImportRequest:
+        description: >-
+          Select the representation by Content-Type: application/json uses
+          {board,membersMapping}; application/zip sends raw archive bytes.
+          The route treats every non-JSON content type as a ZIP stream.
+          Swagger 2.0 represents these media-dependent alternatives with x-oneOf.
+        x-oneOf:
+          - $ref: '#/definitions/TrelloHttpImportJsonRequest'
+          - type: string
+            format: binary
+      TrelloHttpImportResult:
+        type: object
+        additionalProperties: false
+        required:
+          - boardIds
+        properties:
+          boardIds:
+            type: array
+            items:
+              type: string
+            description: IDs of successfully created boards; may be empty.
+          errors:
+            type: array
+            description: Present only for ZIP imports, including an empty array when all boards succeed.
+            items:
+              type: object
+              additionalProperties: false
+              required:
+                - board
+                - error
+              properties:
+                board:
+                  description: Original failed ZIP board.name value; not type-validated before error reporting.
+                error:
+                  type: string
+      TrelloHttpImportError:
+        type: object
+        additionalProperties: false
+        required:
+          - error
+        properties:
+          error:
+            type: string
+  - target: $.paths
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/imports.js 312 imports server/routes/importTrelloZip.js. Its
+      275-343 handler registers POST /import-trello outside /api, checks the
+      method and login token, and selects JSON or raw ZIP handling. Live
+      unauthenticated probes against the exact pinned Compose image on
+      2026-10-17 returned GET 405 and POST 401; schema status reported v11.06.0.
+      Subsequent isolated live probes verified JSON/ZIP 200 responses,
+      missing-board and empty-ZIP 400 JSON errors, and malformed-JSON 400 HTML.
+    update:
+      /import-trello:
+        post:
+          operationId: import_trello
+          summary: Import Trello boards from a JSON document or ZIP archive.
+          description: >-
+            JSON accepts {board,membersMapping} and returns {boardIds}; ZIP
+            imports each recognized Trello board and returns {boardIds,errors}.
+            ZIP board failures are collected without rolling back earlier boards
+            and still return HTTP 200. JSON failures return HTTP 400; earlier
+            writes are not rolled back. ZIP member mapping is not supported.
+            ZIP limits are 200 MiB compressed, 1 GiB declared uncompressed,
+            5000 files, and 100 MiB per declared file; unsafe archive paths are
+            rejected. Global JSON parsing has a 50 MiB limit and malformed or
+            oversized JSON produces middleware HTML errors. Authentication uses
+            a Bearer token, X-Auth-Token, or login cookie; query tokens are not
+            read. This route is outside the WITH_API gate and is distinct from
+            /api/boards/import/trello and /api/import/zip.
+          tags:
+            - Boards
+          consumes:
+            - application/json
+            - application/zip
+            - application/octet-stream
+          produces:
+            - application/json
+            - text/html
+          security:
+            - UserSecurity: []
+            - TrelloImportXAuthToken: []
+            - TrelloImportLoginCookie: []
+          parameters:
+            - name: importDocument
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/TrelloHttpImportRequest'
+          responses:
+            '200':
+              description: >-
+                JSON returns boardIds without errors. ZIP returns boardIds and
+                errors, including partial or complete per-board import failure.
+              schema:
+                $ref: '#/definitions/TrelloHttpImportResult'
+            '400':
+              description: >-
+                JSON import or ZIP parsing/validation/read failure, as JSON
+                {error}; malformed JSON instead produces a middleware HTML error.
+              schema:
+                x-oneOf:
+                  - $ref: '#/definitions/TrelloHttpImportError'
+                  - type: string
+            '401':
+              description: Missing or invalid login token.
+              schema:
+                $ref: '#/definitions/TrelloHttpImportError'
+            '405':
+              description: 'Non-POST requests return {error: method-not-allowed}.'
+              schema:
+                $ref: '#/definitions/TrelloHttpImportError'
+            '413':
+              description: >-
+                Compressed ZIP upload exceeds 200 MiB, returning JSON {error}
+                before destroying the request. Oversized JSON instead produces
+                a middleware HTML error at the 50 MiB parser limit.
+              schema:
+                x-oneOf:
+                  - $ref: '#/definitions/TrelloHttpImportError'
+                  - type: string
   - target: '$.paths["/api/boards/{board}/integrations"].post'
     description: >-
       Wekan v11.06 models/integrations.js and server/models/integrations.js;

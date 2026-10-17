@@ -12,9 +12,14 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 143 of 143 operations implemented (100%); 0 remaining.
+**Coverage:** 143 of 144 operations implemented (99.31%); 1 remaining.
 
-The final five operations expose legacy board attachment links, public startup
+The inventory includes application REST operations outside `/api`, including
+`POST /import-trello` (#144). Prometheus metrics, direct file-serving URLs,
+browser routes, identity-provider callbacks, DDP, and framework-generated
+HEAD/OPTIONS behavior are outside these operation totals.
+
+Operations #139–143 expose legacy board attachment links, public startup
 schema status, and anonymous authentication preflights. Public probes accept an
 explicit server without creating a profile or accessing credentials. See
 [system status](system.md), [authentication](auth.md#preflight), and
@@ -109,11 +114,16 @@ optional `source.id`, and optional Trello `source.url`, with strict nested decod
 Card and subtask records preserve optional `watchers` user ID arrays, including
 empty arrays left after unwatching.
 
-All four native import operations (#98, #122, #130–131) are implemented through
+Four native import operations (#98, #122, #130–131) are implemented through
 `board import`, `board import-zip`, and `card import-ics`. See [imports](imports.md)
 for file/stdin formats, member mapping, byte limits, typed acknowledgements, and
 pinned partial-write behavior. Imports execute directly without confirmation;
 all support positive integer --timeout overrides (30 seconds by default).
+
+The separate Trello HTTP import operation #144 accepts a JSON board with optional
+member mapping or a raw ZIP archive, authenticates with a login token, and returns
+created board IDs plus per-board errors for ZIP imports. It has no dedicated CLI
+command yet; the existing import commands use different endpoints.
 
 ## Status rules
 
@@ -324,3 +334,4 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 141 | Authentication | `OPTIONS` | `/users/login` | `options_login` | Authentication preflight with an empty response. | `wekan auth preflight login [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
 | 142 | Authentication | `OPTIONS` | `/users/register` | `options_register` | Authentication preflight with an empty response. | `wekan auth preflight register [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
 | 143 | Authentication | `OPTIONS` | `/users/logout` | `options_logout` | Authentication preflight with an empty response. | `wekan auth preflight logout [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
+| 144 | Boards | `POST` | `/import-trello` | `import_trello` | Import a Trello JSON board or ZIP archive; JSON returns board IDs, while ZIP also returns per-board errors. Accepts Bearer, X-Auth-Token, or login-cookie authentication. | Not implemented. | ✗ |
