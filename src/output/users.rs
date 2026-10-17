@@ -6,6 +6,29 @@ use crate::command_result::{
     UserListSuccess, UserLoginChangeSuccess, UserOwnershipSuccess,
 };
 
+pub(super) fn render_token_created(data: &crate::command_result::UserTokenCreateSuccess) -> String {
+    use secrecy::ExposeSecret;
+    format!(
+        "User ID: {}\nAuth token: {}\nCreation requested: {}\nMutation confirmed: {}",
+        escape_terminal_controls(&data.user_id),
+        escape_terminal_controls(data.auth_token().expose_secret()),
+        data.creation_requested,
+        data.mutation_confirmed
+    )
+}
+
+pub(super) fn render_token_deleted(data: &crate::command_result::UserTokenDeleteSuccess) -> String {
+    format!(
+        "User ID: {}\nScope: {}\nMessage: {}\nDeletion requested: true\nMutation confirmed: false",
+        escape_terminal_controls(&data.user_id),
+        match data.scope {
+            crate::command_result::UserTokenDeleteScope::Single => "single",
+            crate::command_result::UserTokenDeleteScope::All => "all",
+        },
+        escape_terminal_controls(&data.message)
+    )
+}
+
 pub(super) fn render_user_detail(data: &UserDetail) -> String {
     let mut lines = vec![format!(
         "User ID: {}",

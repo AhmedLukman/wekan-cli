@@ -1,10 +1,12 @@
 mod profile;
+mod tokens;
 use super::UserBoardSummary;
 pub use profile::{
     UserProfileDetail, UserProfileNotificationDetail, UserProfileStarredPageDetail,
     UserWorkspaceNodeDetail,
 };
 use serde::Serialize;
+pub use tokens::{UserTokenCreateSuccess, UserTokenDeleteScope, UserTokenDeleteSuccess};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserDetail {

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `user token create` and `user token delete` expose both native API token
+  operations, with secret delivery and explicit unconfirmed status on creation,
+  stdin input for single-token deletion, explicit delete-all confirmation, and
+  human/JSON output. Wekan
+  v11.06's unconfirmed single-token matching and missing-user issuance behavior
+  are preserved and documented. Self-targeted delete-all rejects changed
+  credentials and serializes concurrent local logout/login through its request.
+
 ## [0.19.0] - 2026-10-17
 
 ### Added

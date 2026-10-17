@@ -24,6 +24,7 @@ mod lists;
 mod profiles;
 mod swimlanes;
 mod users;
+pub use users::{UserTokenCreateSuccess, UserTokenDeleteScope, UserTokenDeleteSuccess};
 
 pub use api::{
     ApiResponseSuccess, RawApiResponseData, RawResponseBody, RawResponseHeader, RawValueEncoding,
@@ -199,6 +200,8 @@ pub enum CommandSuccess {
     UserOwnershipTaken(UserOwnershipSuccess),
     UserLoginChanged(UserLoginChangeSuccess),
     UserDeleted(UserDeleteSuccess),
+    UserTokenCreated(UserTokenCreateSuccess),
+    UserTokenDeleted(UserTokenDeleteSuccess),
     BoardList(BoardListSuccess),
     BoardCount(BoardCountSuccess),
     BoardShown(Box<BoardDetail>),
@@ -275,6 +278,7 @@ pub enum DestructiveOperation {
     UserTakeOwnership,
     UserDisableLogin,
     UserDelete,
+    UserTokenDelete,
     BoardDelete,
     ListDelete,
     CardDelete,
@@ -302,6 +306,7 @@ impl DestructiveOperation {
             Self::UserTakeOwnership => "user take-ownership",
             Self::UserDisableLogin => "user disable-login",
             Self::UserDelete => "user delete",
+            Self::UserTokenDelete => "user token delete",
             Self::BoardDelete => "board delete",
             Self::ListDelete => "list delete",
             Self::CardDelete => "card delete",

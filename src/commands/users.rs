@@ -8,6 +8,7 @@ mod enable_login;
 mod get;
 mod list;
 mod take_ownership;
+mod token;
 mod update;
 
 #[cfg(test)]
@@ -37,6 +38,8 @@ pub struct UserArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum UserCommand {
+    /// Create or revoke user API tokens (site admin only).
+    Token(token::TokenArgs),
     /// Show the currently authenticated Wekan user.
     Current(current::CurrentArgs),
 
@@ -79,6 +82,16 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        UserCommand::Token(args) => {
+            token::dispatch(
+                args.command,
+                client_factory,
+                credential_store,
+                secret_input,
+                confirmation,
+            )
+            .await
+        }
         UserCommand::Current(args) => {
             current::execute(args, client_factory, credential_store).await
         }

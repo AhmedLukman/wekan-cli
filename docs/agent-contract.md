@@ -46,8 +46,17 @@ Raw API output continues to preserve the upstream response without typed decodin
 
 ## Destructive confirmation
 
+`user token create` deliberately includes the issued `auth_token` secret in
+successful JSON/human output. It returns no expiry and writes no local credential.
+Its `creation_requested` is true and `mutation_confirmed` is false because Wekan
+does not await token insertion, including when the target user does not exist.
+`user token delete` redacts the supplied target token and authentication token
+from its server message and error details. Its `scope` is `single` or `all`;
+`deletion_requested` is true and `mutation_confirmed` is false. Debug output
+redacts issued and supplied token material.
+
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, `board delete`, `list delete`, `card delete`, `card bulk delete`,
+`user disable-login`, `user delete`, `user token delete` in both modes, `board delete`, `list delete`, `card delete`, `card bulk delete`,
 `comment delete`, `checklist delete`, `checklist item delete`, `attachment delete`, and `swimlane delete`
 require interactive confirmation or
 `--yes`. Where a command performs target or removability preflight, it runs first and errors retain
@@ -78,7 +87,7 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 ```
 
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
-`user_disable_login`, `user_delete`, `board_delete`, `list_delete`, `card_delete`, `card_bulk_delete`,
+`user_disable_login`, `user_delete`, `user_token_delete`, `board_delete`, `list_delete`, `card_delete`, `card_bulk_delete`,
 `comment_delete`, `checklist_delete`, `checklist_item_delete`, `attachment_delete`, `swimlane_delete`,
 or `api_request`. Human output is
 `Cancelled; no changes made.`

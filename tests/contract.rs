@@ -17,6 +17,8 @@ mod requests;
 mod responses;
 #[path = "contract/transfers.rs"]
 mod transfers;
+#[path = "contract/user_tokens.rs"]
+mod user_tokens;
 
 fn register_request() -> RegisterRequest {
     RegisterRequest {

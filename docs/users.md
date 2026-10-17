@@ -1,7 +1,7 @@
 # Users
 
-The `wekan user` family covers the complete Wekan v11.06 `/api/user` and
-`/api/users` REST slice: eight operations across five paths. Every command
+The `wekan user` family covers the complete Wekan v11.06 `/api/user`,
+`/api/users`, and API token REST slice: ten operations across seven paths. Every command
 requires an existing profile and a stored credential whose expiry is still in the future.
 
 ```text
@@ -16,6 +16,8 @@ wekan user take-ownership <USER_ID> [--yes]
 wekan user disable-login <USER_ID> [--yes]
 wekan user enable-login <USER_ID>
 wekan user delete <USER_ID> [--yes]
+wekan user token create <USER_ID>
+wekan user token delete <USER_ID> (--token-stdin | --all) [--yes]
 ```
 
 `current` calls `GET /api/user`. Its exact allowlist is `_id`, `username`,
@@ -36,8 +38,8 @@ enables due-date filtering; a reversed valid range returns an empty array. Missi
 invalid authentication is an HTTP 401 response on this route, unlike the
 HTTP-200 embedded authentication error returned by `GET /api/user`.
 
-`list`, `get`, `update`, `create`, `take-ownership`, `disable-login`, `enable-login`, and
-`delete` require a Wekan site administrator. `get` accepts a user ID or
+`list`, `get`, `update`, `create`, `take-ownership`, `disable-login`, `enable-login`,
+`delete`, and both `token` commands require a Wekan site administrator. `get` accepts a user ID or
 username. `boards` requires either the selected user's own credential or a site
 administrator and returns active, non-archived, non-internal board ID/title
 summaries. The authenticated-self form is also exposed as `wekan board list`.
@@ -109,6 +111,62 @@ a mismatching replacement is never deleted. If Wekan deletes the current user
 but local credential removal fails, the structured error reports
 `user_deleted: true` and `credential_stored: true` so automation can distinguish
 that partial result from a failure before the HTTP request.
+
+## API tokens
+
+`user token create <USER_ID>` sends one bodyless `POST /api/createtoken/{user}`.
+It returns `user_id`, `auth_token`, `creation_requested: true`, and
+`mutation_confirmed: false` in the standard success envelope. Human output also
+prints the secret and unconfirmed status. Wekan does not await token insertion;
+the response does not confirm that a session was stored. There is no returned
+expiry, token listing, token import, or automatic credential storage. The request uses the selected
+profile's existing credential; the target must be a user ID, not a username.
+
+`user token delete <USER_ID>` requires exactly one of `--token-stdin` or `--all`.
+Single-token input is UTF-8 through EOF, with one final LF or CRLF removed;
+other whitespace is preserved. Empty input fails before HTTP. There is no
+token argument or environment-variable input. Both deletion modes require
+confirmation or `--yes`; JSON and piped invocations require `--yes`.
+
+Deletion sends one JSON `POST /api/deletetoken`: `{userId, token}` for a supplied
+token or `{userId}` for all tokens. Results contain `user_id`, `scope` (`single`
+or `all`), `message`, `deletion_requested: true`, and `mutation_confirmed: false`.
+The server's message can contain the target secret; the CLI redacts both that
+secret and its authentication credential in the message and in error details.
+Debug output never reveals tokens. Human rendering escapes terminal controls.
+
+Wekan v11.06 has two verified limitations:
+
+- **Single-token deletion acknowledges raw tokens without revoking them.** Its
+  Accounts implementation compares the supplied string with stored `hashedToken`
+  or legacy `token` fields without hashing it. A supplied stored hash matches;
+  the CLI forwards input unchanged and never computes or substitutes a hash.
+  Nonexistent tokens and users also receive unconfirmed acknowledgements.
+- **Creation for a nonexistent user returns an unusable token.** The response
+  does not prove that the user exists or that a session was persisted.
+
+Delete-all revokes every existing session for the selected user, including the
+caller's own session when targeting itself. Live readback confirms the saved
+token field is removed; ordinary password login can create a new session afterward.
+These commands retain profiles and local vault entries. To remove a credential
+that was revoked remotely, run `wekan auth logout --local-only --yes`, then log in.
+Self-targeted delete-all holds the selected credential's mutation lock through
+confirmation and HTTP. A replaced, removed, or expired credential stops the
+request before HTTP; concurrent local logout/login waits until the request ends.
+
+Examples (PowerShell):
+
+```powershell
+# This success output contains the issued secret.
+$issued = wekan --output json user token create $userId | ConvertFrom-Json
+$issued.data.auth_token
+
+# Native single-token request: a raw issued token does not match in v11.06.
+$issued.data.auth_token | wekan user token delete $userId --token-stdin --yes
+
+# Revoke all existing sessions for the target user.
+wekan user token delete $userId --all --yes
+```
 
 ## Output and errors
 

@@ -81,7 +81,7 @@ The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies,
 board integrations, automation rules, and global administrator settings. It
-implements 136 of the 143 operations in the corrected Wekan v11.06 contract,
+implements 138 of the 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment transfer operations, all ten native exports, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
@@ -94,6 +94,13 @@ and `card assignee` commands support focused lists and individual changes;
 board members also support named roles and individual permission flags.
 `rule` commands manage board automation with typed JSON definitions, scheduled
 and button payloads, and strict human/JSON output; see [rules](docs/rules.md).
+
+`user token create <USER_ID>` issues a token and prints its secret in successful
+human/JSON output. `user token delete <USER_ID> (--token-stdin | --all) [--yes]`
+requests revocation without changing local credentials. Both require site
+administration. Wekan v11.06 matches stored hashes rather than raw issued tokens
+for single-token deletion; acknowledgements do not confirm revocation. See
+[user API tokens](docs/users.md#api-tokens) for native behavior and examples.
 
 `admin settings get/update` and `admin attachment-settings get/update` configure
 global REST settings and attachment storage through typed flags or JSON file/stdin

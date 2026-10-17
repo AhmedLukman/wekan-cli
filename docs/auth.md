@@ -102,6 +102,16 @@ from arguments, environment variables and output.
 
 ## Authentication status
 
+Site administrators can issue and revoke API tokens with
+[`user token create/delete`](users.md#api-tokens). Creation explicitly prints
+the issued secret; it does not replace the selected profile's credential.
+Creation reports `creation_requested: true` and `mutation_confirmed: false`;
+the returned secret does not confirm that Wekan stored a session.
+Remote token deletion retains local vault entries. After a stored token is
+revoked, remove it with `wekan auth logout --local-only --yes` before logging
+in again. The create-token endpoint returns no expiry, and token import is
+not supported.
+
 `auth status` reads the credential stored for the resolved target. It
 does not accept command-specific arguments, prompt for secrets, or mutate the
 credential store.

@@ -415,6 +415,14 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Json, CommandSuccess::UserLoginChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::UserDeleted(data)) => render_user_deleted(data),
         (OutputFormat::Json, CommandSuccess::UserDeleted(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserTokenCreated(data)) => {
+            users::render_token_created(data)
+        }
+        (OutputFormat::Json, CommandSuccess::UserTokenCreated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::UserTokenDeleted(data)) => {
+            users::render_token_deleted(data)
+        }
+        (OutputFormat::Json, CommandSuccess::UserTokenDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardList(data)) => render_board_list(data),
         (OutputFormat::Json, CommandSuccess::BoardList(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardCount(data)) => render_board_count(data),

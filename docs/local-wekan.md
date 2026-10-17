@@ -185,6 +185,25 @@ Use the matching Compose project and URL; this suite mutates the isolated stack.
 It is included in the Wekan E2E workflow matrix. Remove that disposable stack
 and its volumes when finished with `docker compose down --volumes`.
 
+## User API token lifecycle
+
+Run the token suite on a fresh isolated stack. It exercises production CLI
+parsing, stdin, native credential storage, strict response decoding, human/JSON
+output, issued-token authentication, raw/hash matching, missing users/tokens,
+admin denials, delete-all, self-revocation, and subsequent password login.
+MongoDB readbacks expose only token counts and field types.
+
+```powershell
+$env:WEKAN_PORT = "3183"
+$env:COMPOSE_PROJECT_NAME = "wekan-token-tests"
+docker compose up -d --wait
+$env:WEKAN_TOKEN_E2E_URL = "http://localhost:3183"
+cargo test --locked --test e2e user_tokens::complete_user_token_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+```
+
+The suite is included in the E2E workflow matrix and cleans up its local vault
+entries. Remove the disposable stack with `docker compose down --volumes`.
+
 ## Troubleshooting
 
 Inspect the state and logs for all three services:

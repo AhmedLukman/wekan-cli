@@ -3,6 +3,9 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
+#[path = "token/tests.rs"]
+mod token_tests;
+
 use clap::Parser;
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
@@ -33,6 +36,7 @@ struct FakeCredentialStore {
     record: Mutex<Option<CredentialRecord>>,
     replacement_on_lock: Mutex<Option<CredentialRecord>>,
     lock_count: AtomicUsize,
+    mutation_active: AtomicBool,
     fail_delete: AtomicBool,
 }
 
@@ -47,6 +51,7 @@ impl FakeCredentialStore {
             ))),
             replacement_on_lock: Mutex::new(None),
             lock_count: AtomicUsize::new(0),
+            mutation_active: AtomicBool::new(false),
             fail_delete: AtomicBool::new(false),
         }
     }
@@ -112,6 +117,7 @@ impl CredentialStore for FakeCredentialStore {
         _target: &CredentialTarget,
     ) -> Result<Box<dyn CredentialMutation + Send + '_>, CredentialError> {
         self.lock_count.fetch_add(1, Ordering::SeqCst);
+        assert!(!self.mutation_active.swap(true, Ordering::AcqRel));
         if let Some(replacement) = self.replacement_on_lock.lock().unwrap().take() {
             *self.record.lock().unwrap() = Some(replacement);
         }
@@ -121,6 +127,12 @@ impl CredentialStore for FakeCredentialStore {
 
 struct FakeCredentialMutation<'a> {
     store: &'a FakeCredentialStore,
+}
+
+impl Drop for FakeCredentialMutation<'_> {
+    fn drop(&mut self) {
+        self.store.mutation_active.store(false, Ordering::Release);
+    }
 }
 
 impl CredentialMutation for FakeCredentialMutation<'_> {

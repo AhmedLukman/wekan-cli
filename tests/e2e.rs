@@ -22,6 +22,8 @@ mod support;
 mod swimlanes;
 #[path = "e2e/transfers.rs"]
 mod transfers;
+#[path = "e2e/user_tokens.rs"]
+mod user_tokens;
 #[path = "e2e/users.rs"]
 mod users;
 

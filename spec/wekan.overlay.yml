@@ -25799,3 +25799,68 @@ actions:
         description: >-
           User IDs watching this card. Omitted before any watch operation;
           an empty array remains after the last watcher is removed.
+
+  - target: '$.paths["/api/createtoken/{user}"].post'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/users.js 2272-2288 calls Accounts._insertLoginToken without
+      awaiting its result or checking the matched user. The digest-pinned
+      image's accounts-base.js 1333-1334 hashes tokens before insertion.
+      tests/e2e/user_tokens.rs verifies valid issuance, unusable tokens for a
+      missing user (W11-059), and HTTP-200 embedded admin denials on 2026-10-17.
+    update:
+      description: >-
+        Site-administrator authentication is required. This bodyless request
+        returns the requested user ID and a raw login token, without an expiry.
+        The response does not establish that the user exists or that token
+        insertion completed: a nonexistent user receives an unusable token.
+        Caught authentication failures are serialized with HTTP 200.
+
+  - target: '$.definitions.CreateTokenResponse.properties.authToken'
+    description: >-
+      Raw token.token from server/models/users.js 2280-2286, verified through
+      production creation and Bearer authentication in tests/e2e/user_tokens.rs.
+    update:
+      description: Raw issued login secret; no expiration timestamp is returned.
+
+  - target: '$.paths["/api/deletetoken"].post'
+    description: >-
+      Wekan v11.06 server/models/users.js 2291-2318 passes the supplied token
+      unchanged to Accounts.destroyToken and acknowledges without awaiting
+      the result or checking a match. In the immutable compose.yaml image,
+      /build/programs/server/packages/accounts-base.js 1038-1051 compares this
+      value directly to hashedToken or legacy token fields. Live production
+      tests/e2e/user_tokens.rs on 2026-10-17 verify raw-token no-op versus
+      explicit stored-hash revocation (W11-058), missing-token/user no-ops,
+      delete-all revocation, and subsequent password login.
+    update:
+      description: >-
+        Site-administrator authentication is required; caught failures use
+        HTTP 200. With userId and a truthy token, request removal by the
+        supplied stored hash or legacy token value. A raw token returned by
+        createtoken does not match the stored hashedToken in v11.06. With
+        userId alone, remove every existing login token; live database
+        readback shows the token field is omitted after schema cleaning.
+        Success messages do not confirm a match and may include the supplied
+        secret. Missing userId returns an informational message without action.
+
+  - target: '$.definitions.DeleteTokenRequest.properties.token'
+    description: >-
+      server/models/users.js 2300-2302 and digest-pinned accounts-base.js
+      1038-1051; raw and explicit-hash matching verified by the token lifecycle.
+    update:
+      description: >-
+        Forwarded unchanged to Accounts.destroyToken, which compares against
+        stored hashedToken or legacy token fields without hashing. A truthy
+        value selects single-token deletion when userId is also present;
+        omission or an empty string selects all-token deletion with userId.
+
+  - target: '$.paths["/api/deletetoken"].post.responses["200"].schema.properties.message'
+    description: >-
+      Wekan v11.06 server/models/users.js 2296-2314 acknowledges requests
+      even when no token or user matches; production live tests verify the
+      echoed secret and unchanged state after raw-token and missing-token input.
+    update:
+      description: >-
+        Informational acknowledgement, not proof of revocation. The single-token
+        branch echoes the supplied token; callers should redact this secret.
