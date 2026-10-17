@@ -124,6 +124,20 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::AuthPreflight(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AuthPreflight(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SchemaUpgradeStatus(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::SchemaUpgradeStatus(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::BoardAttachments(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardAttachments(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardImported(data)) => imports::board(data),
         (OutputFormat::Json, CommandSuccess::BoardImported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ZipImported(data)) => imports::zip(data),

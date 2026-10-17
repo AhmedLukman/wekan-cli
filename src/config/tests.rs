@@ -45,6 +45,66 @@ fn profiles() -> StaticProfileStore {
     StaticProfileStore(document)
 }
 
+#[test]
+fn anonymous_resolution_preserves_precedence_and_never_locks_for_mutation() {
+    let store = StaticProfileStore(ProfileDocument::default());
+    for explicit in [false, true] {
+        let target = resolve(
+            ServerSelection::new(
+                explicit.then(|| "https://explicit.example/".into()),
+                Some("probe".into()),
+                false,
+            ),
+            &store,
+            Some("https://environment.example/"),
+            None,
+            MissingProfileResolution::AnonymousRequest,
+        )
+        .unwrap();
+        assert_eq!(target.profile(), "probe");
+        assert_eq!(
+            target.client_factory().server_identity().as_str(),
+            if explicit {
+                "https://explicit.example/"
+            } else {
+                "https://environment.example/"
+            }
+        );
+        assert!(!target.profile_created());
+        assert!(!target.profile_active());
+    }
+    let error = resolve(
+        ServerSelection::default(),
+        &store,
+        None,
+        None,
+        MissingProfileResolution::AnonymousRequest,
+    )
+    .err()
+    .unwrap();
+    assert_eq!(error.code(), ErrorCode::ProfileNotFound);
+    let existing = profiles();
+    let target = resolve(
+        ServerSelection::default(),
+        &existing,
+        None,
+        Some("environment"),
+        MissingProfileResolution::AnonymousRequest,
+    )
+    .unwrap();
+    assert_eq!(target.profile(), "environment");
+    let error = resolve(
+        ServerSelection::new(Some("https://wrong.example".into()), None, false),
+        &existing,
+        None,
+        None,
+        MissingProfileResolution::AnonymousRequest,
+    )
+    .err()
+    .unwrap();
+    assert_eq!(error.code(), ErrorCode::ProfileServerMismatch);
+}
+
 fn resolve<'a>(
     selection: ServerSelection,
     profile_store: &'a dyn ProfileStore,

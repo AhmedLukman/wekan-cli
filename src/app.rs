@@ -122,11 +122,15 @@ where
         command.validate_input()?;
         let policy = match &command {
             RootCommand::Auth(args) => args.command.missing_profile_resolution(),
+            RootCommand::System(_) => crate::config::MissingProfileResolution::AnonymousRequest,
             _ => crate::config::MissingProfileResolution::Reject,
         };
         let mut target = self.target_resolver.resolve(&self.profile_store, policy)?;
         let profile = target.profile().to_owned();
         let result = match command {
+            RootCommand::System(args) => {
+                commands::system::dispatch(args.command, target.client_factory()).await
+            }
             RootCommand::Admin(args) => {
                 commands::admin::dispatch(
                     args.command,

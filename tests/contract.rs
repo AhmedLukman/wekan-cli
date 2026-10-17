@@ -11,6 +11,8 @@ use wiremock::MockServer;
 mod bulk_cards;
 #[path = "contract/checklists.rs"]
 mod checklists;
+#[path = "contract/remaining.rs"]
+mod remaining;
 #[path = "contract/requests.rs"]
 mod requests;
 #[path = "contract/responses.rs"]

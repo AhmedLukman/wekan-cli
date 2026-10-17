@@ -1,7 +1,9 @@
 # Attachments and file transfers
 
-The `attachment` family covers all twelve operations tagged Attachments in the
-corrected Wekan v11.06 contract. Commands require a selected profile and a stored,
+The `attachment` family covers twelve metadata and transfer operations in the
+corrected Wekan v11.06 contract. The separate
+[`board attachment list`](boards.md#attachment-links) command exposes the legacy
+board link projection, including backgrounds. Commands require a selected profile and a stored,
 unexpired credential. Global options are `--profile`, `--server`, `--output`,
 `--allow-insecure-http`, and `--help` (`-h`). Human output is the default.
 

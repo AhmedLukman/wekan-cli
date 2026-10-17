@@ -1,5 +1,12 @@
 use serde::Serialize;
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct AuthPreflightSuccess {
+    pub server: String,
+    pub endpoint: crate::client::auth::AuthEndpoint,
+    pub http_status: u16,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LogoutScope {

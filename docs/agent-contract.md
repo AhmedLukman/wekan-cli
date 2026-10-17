@@ -162,6 +162,24 @@ same-origin raw API route. CLI-generated errors and debug output never include
 its completed token-bearing URL. Upstream response headers and bodies remain
 exact untrusted server data and can echo the URL or token.
 
+## Public probes and board attachment links
+
+`auth preflight <login|register|logout>` success data contains `server`,
+`endpoint` (`login`, `register`, or `logout`), and `http_status: 200`. It
+acknowledges a zero-byte HTTP 200 OPTIONS response; a nonempty successful body
+is `protocol_error` with exit 4.
+
+`system schema-upgrade-status` returns the complete typed state in the success
+envelope, using snake_case fields and a step-name-ordered `steps` object. Failed
+steps are reported as data and do not make a successful read exit nonzero.
+See [system status](system.md) for nullable fields and step statuses.
+
+Both public probes resolve a supplied server before a profile exists, without
+creating profile metadata or accessing credentials. They support human/JSON
+output. `board attachment list --board <ID>` requires stored authentication;
+its data is `{board_id, count, attachments}` with the native legacy links and
+nullable parent selectors. See [board attachment links](boards.md#attachment-links).
+
 ## Authentication success
 
 Registration and login use the same secret-free data shape:

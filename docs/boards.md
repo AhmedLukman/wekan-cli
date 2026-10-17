@@ -219,3 +219,35 @@ protocol error.
 
 All five commands support the global `--server`, `--profile`, `--output`
 (`human` or `json`), `--allow-insecure-http`, and `--help` options.
+
+## Attachment links
+
+```console
+wekan board attachment list --board BOARD_ID
+wekan --output json board attachment list --board BOARD_ID
+```
+
+This command calls `GET /api/boards/{boardId}/attachments` with the selected
+profile's stored credential. It returns the native legacy link projection,
+including board backgrounds. The required `--board` ID must be nonblank and
+cannot be `.` or `..`; it is encoded as one path segment.
+
+Success data contains `board_id`, a derived `count`, and `attachments`. Each
+entry maps `attachment_id`, `attachment_name`, `attachment_type`, `url`,
+`url_download`, `board_id`, `swimlane_id`, `list_id`, and `card_id`. Optional
+properties omitted by Wekan appear as null in CLI output; board backgrounds
+omit swimlane/list/card selectors. Native URLs are preserved unchanged and are
+not fetched. Both human and JSON output include all mapped fields; human output
+escapes terminal controls. Unknown properties and invalid known fields fail
+strict decoding.
+
+Wekan requires an authenticated board member with the permissions accepted by
+its `checkBoardAccess` helper, or a site administrator. Nonmembers and workers
+receive HTTP 403; absent/invalid authentication receives HTTP 401, and a missing
+board receives HTTP 404. The pinned route sends these errors as HTML; normal CLI
+error mapping retains their HTTP status.
+
+Supported global options are `--server <URL>`, `--profile <NAME>`,
+`--output human|json`, `--allow-insecure-http`, and `--help`. Flags do not repeat.
+For modern size/storage metadata and transfers, use the
+[attachment family](attachments.md).

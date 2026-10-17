@@ -20,6 +20,7 @@ pub mod lists;
 pub mod profile;
 pub mod rules;
 pub mod swimlanes;
+pub mod system;
 mod transfer;
 pub mod users;
 
@@ -30,6 +31,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Inspect public Wekan system status.
+    System(system::SystemArgs),
     /// Report domains and configure global settings, organizations, and teams.
     Admin(Box<admin::AdminArgs>),
     /// Inspect and manage board automation rules.

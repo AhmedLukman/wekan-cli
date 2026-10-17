@@ -1,3 +1,4 @@
+mod attachments;
 mod card_settings;
 mod copy;
 mod count;
@@ -31,6 +32,8 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// List attachment links using Wekan's legacy board projection.
+    Attachment(attachments::AttachmentArgs),
     /// Import an export document into a new board.
     Import(import::ImportArgs),
     /// Import a native ZIP archive into an existing board.
@@ -73,6 +76,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::Attachment(args) => {
+            attachments::dispatch(args.command, client_factory, credential_store).await
+        }
         BoardCommand::Import(args) => import::execute(args, client_factory, credential_store).await,
         BoardCommand::ImportZip(args) => {
             import_zip::execute(args, client_factory, credential_store).await

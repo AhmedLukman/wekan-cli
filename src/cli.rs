@@ -11,7 +11,7 @@ use crate::{commands::RootCommand, output::OutputFormat};
     after_help = "Examples:\n  wekan profile add local http://localhost:3000 --use\n  wekan auth login --username alice\n  wekan --output json board list\n  wekan card get card-id --board board-id --list list-id"
 )]
 pub struct Cli {
-    /// Wekan server base URL. Initializes or verifies the selected profile, or identifies an orphaned credential for local-only logout.
+    /// Wekan server base URL. Initializes or verifies a profile; public system/preflight probes and local-only logout also accept a missing profile.
     #[arg(long, global = true, help_heading = "Global options")]
     pub server: Option<String>,
 

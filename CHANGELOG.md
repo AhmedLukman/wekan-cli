@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Complete all 143 Wekan v11.06 API operations with `board attachment list`
+  for legacy attachment links, `system schema-upgrade-status` for typed startup
+  migration progress, and `auth preflight <login|register|logout>` for anonymous
+  OPTIONS checks. Public probes accept an explicit server before a profile or
+  login exists, without creating a profile or accessing stored credentials.
+
 ## [0.20.0] - 2026-10-17
 
 ### Added

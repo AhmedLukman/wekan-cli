@@ -18,6 +18,8 @@ mod lists;
 mod output;
 #[path = "cli/profiles.rs"]
 mod profiles;
+#[path = "cli/remaining.rs"]
+mod remaining;
 #[path = "cli/support.rs"]
 mod support;
 #[path = "cli/swimlanes.rs"]

@@ -20,6 +20,7 @@ pub(crate) enum MissingProfileResolution {
     Reject,
     Initialize,
     LocalCredentialCleanup,
+    AnonymousRequest,
 }
 
 impl MissingProfileResolution {
@@ -159,11 +160,12 @@ impl TargetResolver {
 
         match missing_profile_resolution {
             MissingProfileResolution::Reject => return Err(profile_not_found(&name)),
-            MissingProfileResolution::LocalCredentialCleanup => {
+            MissingProfileResolution::LocalCredentialCleanup
+            | MissingProfileResolution::AnonymousRequest => {
                 let server = ServerUrl::parse(&server)
                     .map_err(AppError::from)
                     .map_err(|error| with_target_context(error, &name))?;
-                return Ok(ResolvedTarget::missing_profile_cleanup(
+                return Ok(ResolvedTarget::missing_profile_target(
                     server,
                     name,
                     credential_namespace,
@@ -319,7 +321,7 @@ impl<'a> ResolvedTarget<'a> {
         )
     }
 
-    fn missing_profile_cleanup(
+    fn missing_profile_target(
         server: ServerUrl,
         profile: String,
         credential_namespace: String,

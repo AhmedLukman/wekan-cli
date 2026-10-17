@@ -30,7 +30,8 @@ pub use api::{
     ApiResponseSuccess, RawApiResponseData, RawResponseBody, RawResponseHeader, RawValueEncoding,
 };
 pub use auth::{
-    AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess, LogoutScope, LogoutSuccess,
+    AuthPreflightSuccess, AuthStatusEmail, AuthStatusSuccess, AuthStatusUser, AuthSuccess,
+    LogoutScope, LogoutSuccess,
 };
 pub use board_settings::*;
 pub use boards::{
@@ -117,6 +118,9 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    AuthPreflight(AuthPreflightSuccess),
+    SchemaUpgradeStatus(crate::client::system::SchemaUpgradeState),
+    BoardAttachments(attachments::BoardAttachmentCollectionSuccess),
     BoardImported(BoardImportSuccess),
     ZipImported(ZipImportSuccess),
     IcsImported(IcsImportSuccess),

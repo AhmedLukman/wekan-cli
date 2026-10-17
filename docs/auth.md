@@ -1,7 +1,7 @@
 # Authentication
 
 The implemented authentication surface supports registration, login, logout,
-and live authentication status:
+live authentication status, and anonymous preflight checks:
 
 ```text
 wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
@@ -18,6 +18,9 @@ wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecur
 
 wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
       auth logout [--all | --local-only] [--yes]
+
+wekan [--server <URL>] [--profile <NAME>] [--output human|json] [--allow-insecure-http]
+      auth preflight <login|register|logout>
 ```
 
 ## Server selection
@@ -33,6 +36,9 @@ must canonicalize to the same value. A mismatch returns
 `profile_not_found`, except that login and registration may initialize it when
 a URL is supplied and `auth logout --local-only` may remove its orphaned vault
 entry with a supplied URL. Local-only recovery never recreates profile metadata.
+Anonymous `auth preflight` also accepts a missing profile with a supplied URL,
+without creating profile metadata or accessing credentials.
+
 Initialization happens only after Wekan returns a complete, valid session. See
 [Server profiles and configuration](config.md) for profile lifecycle and storage
 behavior.
@@ -64,6 +70,19 @@ network request.
 Loopback HTTP bypasses configured system and environment proxies so plaintext
 authentication secrets cannot leave the local machine through a proxy. HTTPS
 and explicitly permitted remote HTTP use the system proxy policy.
+
+## Preflight
+
+`auth preflight login`, `auth preflight register`, and `auth preflight logout`
+send a single anonymous OPTIONS request to the corresponding `/users/` route.
+They require HTTP 200 with a zero-byte body; a nonempty successful response is
+`protocol_error` (exit 4). Missing Content-Type is accepted, matching v11.06.
+Other statuses retain the usual HTTP error mapping. Redirects are rejected.
+
+Successful human/JSON output contains `server`, `endpoint` (`login`, `register`,
+or `logout`), and `http_status: 200`. This acknowledges the OPTIONS response;
+it does not validate a login session or registration permissions. These commands
+accept no credentials, request bodies, confirmation flags, or raw output.
 
 ## Identity and secret input
 

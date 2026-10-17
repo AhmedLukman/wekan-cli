@@ -27,6 +27,110 @@ async fn run(
     app.execute(cli.command).await
 }
 
+async fn verify_legacy_attachment_permissions(
+    owner: &App<CapturingStore, FixedPassword, FileProfileStore>,
+    server: &str,
+    board: &str,
+    nonce: u128,
+) {
+    let http = reqwest::Client::new();
+    let endpoint = format!(
+        "{}/api/boards/{board}/attachments",
+        server.trim_end_matches('/')
+    );
+    for token in [None, Some("invalid-attachment-token")] {
+        let request = http.get(&endpoint);
+        let request = if let Some(token) = token {
+            request.bearer_auth(token)
+        } else {
+            request
+        };
+        let response = request.send().await.unwrap();
+        assert_eq!(response.status().as_u16(), 401);
+        assert!(
+            response.headers()["content-type"]
+                .to_str()
+                .unwrap()
+                .starts_with("text/html")
+        );
+    }
+    let missing = execute_live_board(
+        owner,
+        server,
+        &["attachment", "list", "--board", "nonexistent"],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
+    let directory = TestDirectory::new("legacy-attachment-member");
+    let member = App::with_profile_store(
+        ServerSelection::new(Some(server.to_owned()), Some("default".into()), false),
+        CapturingStore::default(),
+        FixedPassword(SecretString::from(format!("Legacy-{nonce}!"))),
+        FileProfileStore::at(directory.path().to_owned()),
+    );
+    let username = format!("legacy_attachment_{nonce}");
+    let CommandSuccess::Registration(user) = member
+        .execute(
+            Cli::try_parse_from([
+                "wekan",
+                "auth",
+                "register",
+                "--username",
+                &username,
+                "--password-stdin",
+            ])
+            .unwrap()
+            .command,
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("member registration")
+    };
+    for role in [None, Some("normal"), Some("worker")] {
+        if let Some(role) = role {
+            execute_live_board(
+                owner,
+                server,
+                &[
+                    "member",
+                    if role == "normal" { "add" } else { "update" },
+                    &user.user_id,
+                    "--board",
+                    board,
+                    "--role",
+                    role,
+                ],
+            )
+            .await
+            .unwrap();
+            if role == "normal" {
+                wait_for_live_board_membership(&member, server, board).await;
+            }
+        }
+        let result =
+            execute_live_board(&member, server, &["attachment", "list", "--board", board]).await;
+        if role == Some("normal") {
+            let CommandSuccess::BoardAttachments(data) = result.unwrap() else {
+                panic!("member listing")
+            };
+            assert_eq!(data.count, 2);
+        } else {
+            let error = result.unwrap_err();
+            assert_eq!(error.code(), ErrorCode::PermissionDenied);
+            assert_eq!(error.details().http_status, Some(403));
+        }
+    }
+    fixture_command(
+        "mongodb",
+        "mongosh",
+        "db.getSiblingDB('wekan').users.deleteOne({_id:p.user_id}); print('{}');",
+        &json!({"user_id":user.user_id}),
+    );
+}
+
 #[tokio::test]
 #[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_ATTACHMENT_E2E_URL"]
 async fn complete_attachment_flow_matches_wekan_v11_06() {
@@ -73,6 +177,17 @@ async fn complete_attachment_flow_matches_wekan_v11_06() {
     else {
         panic!("board")
     };
+    let CommandSuccess::BoardAttachments(empty) = execute_live_board(
+        &app,
+        &server,
+        &["attachment", "list", "--board", &board.board_id],
+    )
+    .await
+    .unwrap() else {
+        panic!("legacy empty listing")
+    };
+    assert_eq!(empty.count, 0);
+    assert!(empty.attachments.is_empty());
     let CommandSuccess::ListCreated(list) = execute_live_list(
         &app,
         &server,
@@ -195,6 +310,46 @@ async fn complete_attachment_flow_matches_wekan_v11_06() {
         assert_eq!(stdout, bytes);
         assert!(stderr.is_empty());
     }
+    let legacy_result = execute_live_board(
+        &app,
+        &server,
+        &["attachment", "list", "--board", &board.board_id],
+    )
+    .await
+    .unwrap();
+    let CommandSuccess::BoardAttachments(links) = &legacy_result else {
+        panic!("legacy attachment links")
+    };
+    assert_eq!(links.count, 2);
+    assert_eq!(links.board_id, board.board_id);
+    for (id, background) in [(&fs_id, false), (&grid_id, true)] {
+        let link = links
+            .attachments
+            .iter()
+            .find(|link| link.attachment_id == *id)
+            .unwrap();
+        assert_eq!(link.attachment_name, "fixture.bin");
+        assert_eq!(link.attachment_type, "application/octet-stream");
+        assert_eq!(link.board_id, board.board_id);
+        assert!(link.url.is_some());
+        assert!(link.url_download.is_some());
+        if background {
+            assert!(link.swimlane_id.is_none() && link.list_id.is_none() && link.card_id.is_none());
+        } else {
+            assert_eq!(
+                link.swimlane_id.as_deref(),
+                Some(board.default_swimlane_id.as_str())
+            );
+            assert_eq!(link.list_id.as_deref(), Some(list.list_id.as_str()));
+            assert_eq!(link.card_id.as_deref(), Some(card.card_id.as_str()));
+        }
+    }
+    for format in [OutputFormat::Human, OutputFormat::Json] {
+        let rendered = wekan_cli::output::render_success(format, &legacy_result);
+        assert!(rendered.contains("fixture.bin"));
+        assert!(rendered.contains("url_download"));
+    }
+    verify_legacy_attachment_permissions(&app, &server, &board.board_id, nonce).await;
     for flags in [
         vec![],
         vec!["--swimlane-id", "nonexistent"],

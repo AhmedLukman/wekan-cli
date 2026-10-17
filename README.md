@@ -81,7 +81,7 @@ The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies,
 board integrations, automation rules, and global administrator settings. It
-implements 138 of the 143 operations in the corrected Wekan v11.06 contract,
+implements all 143 operations in the corrected Wekan v11.06 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment transfer operations, all ten native exports, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
@@ -127,8 +127,12 @@ upload/copy/move failures and ignored list selectors remain explicitly documente
 `board export`, `card export`, and `attachment export` deliver native artifacts
 to protected file destinations or validated raw stdout. Formats, selection controls,
 authentication, and pinned server failures are described in [exports](docs/exports.md).
-Operations without a dedicated command remain available through the same-origin
-`wekan api request` escape hatch.
+`board attachment list --board <ID>` returns native legacy attachment links,
+including board backgrounds. `system schema-upgrade-status` reports public
+startup migration progress, and `auth preflight <login|register|logout>` probes
+the three anonymous OPTIONS endpoints. Public probes accept `--server` or
+`WEKAN_URL` before a profile or login exists. See [system status](docs/system.md).
+The same-origin `wekan api request` escape hatch remains available for raw requests.
 
 `board import`, `board import-zip`, and `card import-ics` cover all four native
 import operations, accepting files or stdin with source selection, member maps,

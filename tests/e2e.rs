@@ -16,6 +16,8 @@ mod comments;
 mod compatibility;
 #[path = "e2e/lists.rs"]
 mod lists;
+#[path = "e2e/public_probes.rs"]
+mod public_probes;
 #[path = "support/mod.rs"]
 mod support;
 #[path = "e2e/swimlanes.rs"]

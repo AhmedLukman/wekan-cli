@@ -68,6 +68,13 @@ profiles remain inactive; selecting one for authentication does not activate it.
 Profile-management commands reject explicit `--server` and `--profile`
 selectors and ignore `WEKAN_URL` and `WEKAN_PROFILE`.
 
+`system schema-upgrade-status` and `auth preflight <login|register|logout>` are
+public probes. They follow the same selection precedence and existing-profile
+server checks, but allow a missing profile when `--server` or `WEKAN_URL` supplies
+the URL. They do not create profiles, change the active selection, access the
+credential vault, or prompt. Without a saved or supplied server they return
+`profile_not_found`.
+
 Server URLs are canonicalized with a trailing slash and must use HTTP or HTTPS,
 include a host, and contain no username, password, query, or fragment. This
 canonical identity validation is independent of permission to contact the

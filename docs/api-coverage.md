@@ -12,7 +12,13 @@ Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,
 including the stale source board returned after a REST card move; requests use
 the card's current board selector.
 
-**Coverage:** 138 of 143 operations implemented (96.5%); 5 remaining.
+**Coverage:** 143 of 143 operations implemented (100%); 0 remaining.
+
+The final five operations expose legacy board attachment links, public startup
+schema status, and anonymous authentication preflights. Public probes accept an
+explicit server without creating a profile or accessing credentials. See
+[system status](system.md), [authentication](auth.md#preflight), and
+[board attachment links](boards.md#attachment-links).
 
 User token operations #96–97 support admin issuance and single/all-token deletion.
 Creation prints the issued secret and reports `creation_requested: true` with
@@ -313,8 +319,8 @@ forms conflict. Only deletion accepts `--yes`. See [attachment behavior](attachm
 | 136 | Boards | `GET` | `/api/boards/{boardId}/domains` | `get_board_domains` | List email domains a board is shared with. | `wekan board domain list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Requires site administration; includes inactive domain records. | ✓ |
 | 137 | Boards | `POST` | `/api/boards/{boardId}/domains` | `add_board_domain` | Share a board with an email domain. | `wekan board domain add <DOMAIN> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>Domain sent unchanged. Pinned valid writes return HTTP 200 not-authorized without changing sharing. | ✓ |
 | 138 | Boards | `DELETE` | `/api/boards/{boardId}/domains/{domain}` | `delete_board_domain` | Stop sharing a board with an email domain. | `wekan board domain remove <DOMAIN> --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <FORMAT>] [--allow-insecure-http] [--help]`<br>No confirmation; domain encoded as one path segment; empty/dot-only values rejected. Pinned valid writes return HTTP 200 not-authorized without changing sharing. | ✓ |
-| 139 | Boards | `GET` | `/api/boards/{boardId}/attachments` | `get_board_attachments` | List board attachment links using the legacy response shape. | — | ✗ |
-| 140 | System | `GET` | `/schema-upgrade-status` | `get_schema_upgrade_status` | Get live startup schema-upgrade status. | — | ✗ |
-| 141 | Authentication | `OPTIONS` | `/users/login` | `options_login` | Authentication preflight with an empty response. | — | ✗ |
-| 142 | Authentication | `OPTIONS` | `/users/register` | `options_register` | Authentication preflight with an empty response. | — | ✗ |
-| 143 | Authentication | `OPTIONS` | `/users/logout` | `options_logout` | Authentication preflight with an empty response. | — | ✗ |
+| 139 | Boards | `GET` | `/api/boards/{boardId}/attachments` | `get_board_attachments` | List board attachment links using the legacy response shape. | `wekan board attachment list --board <BOARD_ID> [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Board ID required; flags do not repeat. Uses stored authentication; includes backgrounds and preserves absent parent selectors. | ✓ |
+| 140 | System | `GET` | `/schema-upgrade-status` | `get_schema_upgrade_status` | Get live startup schema-upgrade status. | `wekan system schema-upgrade-status [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous request always sends json=1. No credential access or profile creation; flags do not repeat. A successfully read state may contain failed steps. | ✓ |
+| 141 | Authentication | `OPTIONS` | `/users/login` | `options_login` | Authentication preflight with an empty response. | `wekan auth preflight login [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
+| 142 | Authentication | `OPTIONS` | `/users/register` | `options_register` | Authentication preflight with an empty response. | `wekan auth preflight register [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |
+| 143 | Authentication | `OPTIONS` | `/users/logout` | `options_logout` | Authentication preflight with an empty response. | `wekan auth preflight logout [--server <URL>] [--profile <PROFILE>] [--output <human\|json>] [--allow-insecure-http] [--help]`<br>Anonymous; requires empty HTTP 200; flags do not repeat. | ✓ |

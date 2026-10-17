@@ -25864,3 +25864,41 @@ actions:
       description: >-
         Informational acknowledgement, not proof of revocation. The single-token
         branch echoes the supplied token; callers should redact this secret.
+
+  - target: '$.paths["/api/boards/{boardId}/attachments"].get.responses["401"].schema'
+    description: Replace the stale JSON error schema; this route has no JSON error handler.
+    remove: true
+  - target: '$.paths["/api/boards/{boardId}/attachments"].get.responses["403"].schema'
+    description: Replace the stale JSON error schema; this route has no JSON error handler.
+    remove: true
+  - target: '$.paths["/api/boards/{boardId}/attachments"].get'
+    description: >-
+      Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      server/models/boards.js legacy attachments route and server/authentication.js
+      checkBoardAccess/checkBoardExists. The 2026-10-17 attachments::complete_attachment_flow_matches_wekan_v11_06
+      live test verifies empty/populated arrays, filesystem/GridFS/background
+      projections and omitted parent selectors, HTTP 401 for absent/invalid auth,
+      HTTP 403 for nonmembers/workers, normal-member success, and HTTP 404 for a
+      missing board. Thrown permission/resource errors use Connect's HTML handler.
+    update:
+      description: >-
+        Returns the native legacy link projection for all attachments on a board,
+        including backgrounds. Requires authentication and the permissions checked
+        by checkBoardAccess: an active member without no-comments, comment-only,
+        or worker flags, or a site administrator. Background records omit
+        swimlaneId/listId/cardId. Route errors use HTML rather than JSON.
+      responses:
+        '401':
+          description: Missing or invalid authentication; HTTP 401 HTML.
+          schema:
+            type: string
+        '403':
+          description: >-
+            Board access denied by checkBoardAccess; HTTP 403 HTML. WITH_API=false
+            instead returns the existing middleware text/plain error.
+          schema:
+            type: string
+        '404':
+          description: Authenticated request for a missing board; HTTP 404 HTML.
+          schema:
+            type: string

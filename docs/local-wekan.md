@@ -429,3 +429,22 @@ $env:WEKAN_IMPORT_E2E_URL = "http://localhost:3121"
 cargo test --locked --test e2e imports::complete_import_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
+
+## Public probes and legacy attachment links
+
+The public-probe suite verifies schema-upgrade JSON output, all three anonymous
+authentication OPTIONS routes, and operation without a saved profile or login.
+The attachment lifecycle also covers empty/populated legacy board link lists,
+filesystem/GridFS fixtures, background selector omission, normal-member access,
+and native authentication, permission, and missing-board errors.
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "wekan-coverage-tests"
+$env:WEKAN_PORT = "3122"
+docker compose up -d --wait
+$env:WEKAN_PUBLIC_PROBE_E2E_URL = "http://localhost:3122"
+cargo test --locked --test e2e public_probes::public_probes_match_wekan_v11_06 -- --ignored --exact --nocapture
+$env:WEKAN_ATTACHMENT_E2E_URL = "http://localhost:3122"
+cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+docker compose down --volumes
+```

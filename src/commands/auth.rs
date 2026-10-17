@@ -1,5 +1,6 @@
 pub mod login;
 pub mod logout;
+mod preflight;
 pub mod register;
 pub mod status;
 
@@ -30,6 +31,8 @@ pub struct AuthArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
+    /// Check an authentication endpoint's empty OPTIONS response anonymously.
+    Preflight(preflight::PreflightArgs),
     /// Log in to Wekan and securely store the returned token.
     Login(login::LoginArgs),
 
@@ -46,6 +49,7 @@ pub enum AuthCommand {
 impl AuthCommand {
     pub(crate) const fn missing_profile_resolution(&self) -> MissingProfileResolution {
         match self {
+            Self::Preflight(_) => MissingProfileResolution::AnonymousRequest,
             Self::Login(_) | Self::Register(_) => MissingProfileResolution::Initialize,
             Self::Logout(args) if args.local_only => {
                 MissingProfileResolution::LocalCredentialCleanup
@@ -63,6 +67,7 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        AuthCommand::Preflight(args) => preflight::execute(args, target.client_factory()).await,
         AuthCommand::Login(args) => {
             login::execute(args, target, credential_store, secret_input).await
         }

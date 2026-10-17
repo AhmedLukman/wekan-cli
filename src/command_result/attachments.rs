@@ -1,6 +1,13 @@
 use crate::client::attachments::AttachmentMetadata;
 use serde::Serialize;
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct BoardAttachmentCollectionSuccess {
+    pub board_id: String,
+    pub count: usize,
+    pub attachments: Vec<crate::client::boards::attachments::BoardAttachment>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AttachmentScope {

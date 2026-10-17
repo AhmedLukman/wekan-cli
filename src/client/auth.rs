@@ -6,6 +6,24 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthEndpoint {
+    Login,
+    Register,
+    Logout,
+}
+
+impl AuthEndpoint {
+    pub const fn path(self) -> &'static str {
+        match self {
+            Self::Login => "users/login",
+            Self::Register => "users/register",
+            Self::Logout => "users/logout",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct RegisterRequest {
     pub username: Option<String>,
@@ -87,6 +105,27 @@ struct LogoutResponse {
 }
 
 impl WekanClient {
+    pub async fn auth_preflight(&self, endpoint: AuthEndpoint) -> Result<(), ClientError> {
+        let endpoint = self
+            .server()
+            .join(endpoint.path())
+            .map_err(|_| ClientError::Protocol {
+                diagnostic: None,
+                message: "could not build the authentication preflight endpoint".into(),
+                success_status_received: false,
+            })?;
+        let body = self
+            .execute_success_request(self.http.request(reqwest::Method::OPTIONS, endpoint))
+            .await?;
+        if !body.is_empty() {
+            return Err(ClientError::Protocol {
+                diagnostic: None,
+                message: "the authentication preflight response must have an empty body".into(),
+                success_status_received: true,
+            });
+        }
+        Ok(())
+    }
     pub async fn register(&self, request: &RegisterRequest) -> Result<AuthSession, ClientError> {
         let body = RegisterRequestBody {
             username: request.username.as_deref(),
