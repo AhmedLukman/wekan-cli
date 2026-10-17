@@ -14,9 +14,8 @@ impl Target<'_> {
         let mut argv = vec!["wekan", "--server", self.server, "--output", "json"];
         argv.extend_from_slice(args);
         argv.extend(["--board", self.board]);
-        self.app
-            .execute(Cli::try_parse_from(argv).unwrap().command)
-            .await
+        // Keep root dispatch off the stack across the nested field/item helpers.
+        Box::pin(self.app.execute(Cli::try_parse_from(argv).unwrap().command)).await
     }
     async fn field(&self, args: &[&str]) -> Result<CommandSuccess, AppError> {
         let mut argv = vec!["custom-field"];
