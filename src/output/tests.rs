@@ -557,7 +557,8 @@ fn user_lists_and_cards_have_stable_empty_and_escaped_output() {
 #[test]
 fn user_creation_and_mutation_results_are_stable() {
     let created = CommandSuccess::UserCreated(UserCreateSuccess {
-        created: true,
+        creation_requested: true,
+        mutation_confirmed: false,
         username: "bob".to_owned(),
         email: "bob@example.com".to_owned(),
         user_id: None,
@@ -565,7 +566,9 @@ fn user_creation_and_mutation_results_are_stable() {
     });
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &created)).unwrap();
-    assert_eq!(json["data"]["created"], true);
+    assert_eq!(json["data"]["creation_requested"], true);
+    assert_eq!(json["data"]["mutation_confirmed"], false);
+    assert!(json["data"].get("created").is_none());
     assert_eq!(json["data"]["user_id"], serde_json::Value::Null);
     assert_eq!(
         json["data"]["warning"],
@@ -727,6 +730,7 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &collection).contains(r"Todo\nnext"));
 
     let shown = CommandSuccess::ListShown(ListDetail {
+        watchers: None,
         list_id: "list-1".to_owned(),
         title: "Todo\u{1b}]52;c;x\u{7}".to_owned(),
         starred: Some(true),
@@ -819,6 +823,7 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(collection_human.contains("user-1"));
 
     let card = crate::command_result::CardDetail {
+        watchers: None,
         card_id: "card-1".to_owned(),
         title: Some("Todo\u{001b}]52;c;x\u{0007}".to_owned()),
         archived: false,

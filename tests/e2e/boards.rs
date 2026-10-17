@@ -71,7 +71,8 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     .expect("the administrator must be able to create a second board owner") else {
         panic!("expected create-user output")
     };
-    assert!(created.created);
+    assert!(created.creation_requested);
+    assert!(!created.mutation_confirmed);
     let owner_id = wait_for_live_user(&app, &server, &owner_username).await;
     let owner_directory = TestDirectory::new("complete-board-lifecycle-owner");
     let owner_app = App::with_profile_store(

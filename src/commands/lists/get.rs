@@ -51,6 +51,7 @@ fn list_detail(list: ListDocument) -> ListDetail {
     ListDetail {
         list_id: list.list_id,
         title: list.title,
+        watchers: list.watchers,
         starred: list.starred,
         archived: list.archived,
         archived_at: list.archived_at,

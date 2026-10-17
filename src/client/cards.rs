@@ -204,6 +204,8 @@ pub struct CardDocument {
     #[serde(rename(deserialize = "_id", serialize = "card_id"))]
     pub card_id: String,
     pub title: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_watchers")]
+    pub watchers: Option<Vec<String>>,
     pub archived: bool,
     pub archived_at: Option<String>,
     pub deleted_at: Option<String>,
@@ -733,6 +735,12 @@ fn protocol_error(message: String) -> ClientError {
         message,
         success_status_received: true,
     }
+}
+
+fn deserialize_watchers<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<Vec<String>>, D::Error> {
+    Vec::<String>::deserialize(d).map(Some)
 }
 
 #[cfg(test)]

@@ -1,7 +1,6 @@
+use super::admin_fixtures as fixtures;
 use super::support::*;
 use serde_json::{Value, json};
-#[path = "../support/admin_settings.rs"]
-mod fixtures;
 type LiveApp = App<CapturingStore, FixedPassword, FileProfileStore>;
 
 async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Result<Value, AppError> {

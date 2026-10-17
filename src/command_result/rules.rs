@@ -6,6 +6,8 @@ pub struct RuleTriggerDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub activity_type: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<Option<String>>,
@@ -56,6 +58,7 @@ impl From<crate::client::rules::RuleTrigger> for RuleTriggerDetail {
     fn from(d: crate::client::rules::RuleTrigger) -> Self {
         Self {
             activity_type: d.activity_type,
+            description: d.description,
             user_id: d.user_id,
             username: d.username,
             list_name: d.list_name,

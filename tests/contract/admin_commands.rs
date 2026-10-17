@@ -378,7 +378,7 @@ async fn json_files_are_strict_and_fail_before_network_requests() {
         ("settings", "[]"),
         ("settings", "{broken-secret"),
         ("settings", "{\"productName\":true}"),
-        ("settings", "{\"productName\":null}"),
+        ("settings", "{\"defaultAuthenticationMethod\":null}"),
         (
             "settings",
             "{\"productName\":\"one\",\"productName\":\"two\"}",

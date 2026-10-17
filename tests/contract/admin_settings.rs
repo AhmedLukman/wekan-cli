@@ -83,9 +83,11 @@ async fn every_response_object_rejects_unknown_fields_and_known_fields_reject_wr
             json!(false)
         };
         cases.push(("/api/settings", bad));
-        let mut bad = global.clone();
-        bad[*wire] = Value::Null;
-        cases.push(("/api/settings", bad));
+        if *wire == "defaultAuthenticationMethod" {
+            let mut bad = global.clone();
+            bad[*wire] = Value::Null;
+            cases.push(("/api/settings", bad));
+        }
     }
     let mut bad = global;
     bad["future"] = json!("secret-value");

@@ -10,7 +10,7 @@ wekan user cards [--due] [--from <DATE>] [--to <DATE>]
 wekan user list
 wekan user get <USER>
 wekan user update <USER_ID>
-wekan user create --username <NAME> --email <EMAIL> [--password-stdin | --password-raw-stdin | --password-digest-stdin]
+wekan user create [--username <NAME>] [--email <EMAIL>] [--password-stdin | --password-raw-stdin | --password-digest-stdin]
 wekan user boards <USER_ID>
 wekan user take-ownership <USER_ID> [--yes]
 wekan user disable-login <USER_ID> [--yes]
@@ -60,15 +60,21 @@ line breaks. `--password-digest-stdin` reads a JSON object with a 64-character
 `digest` and `algorithm: "sha-256"` through EOF. These three stdin modes conflict;
 passwords and digests are never command-line values.
 
-Wekan v11.06 creates the account but returns `_id: {}` because its handler
-serializes an unawaited `Accounts.createUser` Promise. The CLI does not perform
-an ambiguous username lookup afterward. It reports:
+Supply at least one nonempty `--username` or `--email`. Both may be supplied;
+an omitted complement is sent as an explicit empty string, as required by the
+pinned route for username-only and email-only accounts.
+
+Wekan v11.06 returns `_id: {}` because its handler serializes an unawaited
+`Accounts.createUser` Promise. This is an unconfirmed acknowledgement: a duplicate
+request returns the same body without creating another account. The CLI reports
+the requested identities and does not perform a follow-up lookup or retry:
 
 ```json
 {
   "ok": true,
   "data": {
-    "created": true,
+    "creation_requested": true,
+    "mutation_confirmed": false,
     "username": "bob",
     "email": "bob@example.com",
     "user_id": null,

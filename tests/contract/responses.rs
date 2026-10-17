@@ -488,9 +488,8 @@ async fn comment_missing_and_mutation_id_response_shapes_are_strict() {
         client
             .comment("board-1", "card-1", "missing", &user_token())
             .await,
-        Err(ClientError::EmbeddedServer {
-            wekan_status_code: 404,
-            ..
+        Err(ClientError::EmptyNotFound {
+            http_status: reqwest::StatusCode::OK
         })
     ));
     assert!(matches!(

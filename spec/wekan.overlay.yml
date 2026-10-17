@@ -4447,8 +4447,9 @@ actions:
       pinned v11.06 container.
     update:
       description: >-
-        User is created, but v11.06 returns `_id: {}` because the handler
-        serializes the unawaited Accounts.createUser Promise. Upstream defect.
+        Unconfirmed acknowledgement: v11.06 returns `_id: {}` because the handler
+        serializes the unawaited Accounts.createUser Promise. Successful and
+        duplicate requests can return the same body; creation is unconfirmed.
       schema: {$ref: '#/definitions/CreateUserV1106Response'}
       x-wekan-v11.06-defect: unawaited-accounts-create-user
 
@@ -26081,3 +26082,2089 @@ actions:
           description: Authenticated request for a missing board; HTTP 404 HTML.
           schema:
             type: string
+
+# Native v11.06 compatibility audit corrections (D02–D17), verified 2026-10-17.
+  - target: $["paths"]["/users/login"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/admin/attachment-settings"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/admin/orgs/{org}/features"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/admin/teams/{team}/features"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/{card}/checklists"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/{card}/checklists/{checklist}/items"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/{card}/comments"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/{card}/dependencies"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/{card}/dependencies/{target}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/bulk"]["delete"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/cards/labels"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/custom-fields/{customField}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/custom-fields/{customField}/dropdown-items"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/custom-fields/{customField}/dropdown-items/{dropdownItem}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/integrations"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/integrations/{int}/activities"]["delete"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/integrations/{int}/activities"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/cards"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}/copy"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}/customFields/{customField}"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/copy"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/move"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/members/{user}/add"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/members/{user}/remove"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/rules/{rule}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/swimlanes"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/swimlanes/{swimlane}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/swimlanes/{swimlane}/copy"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{board}/swimlanes/{swimlane}/move"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/deletetoken"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/settings"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/users"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/users/{user}"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/cardSettings"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/swimlanes/{swimlaneId}/lists/{listId}/ics"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/title"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/labels"]["put"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/copy"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/boards/{boardId}/members/{memberId}"]["post"]
+    description: 'D02: native URL-encoded handler effects and independent readback verified; 2026-10-17
+      compatibility audit, matching-version route/model implementation.'
+    update:
+      consumes:
+      - application/x-www-form-urlencoded
+  - target: $["paths"]["/api/attachment/upload"]["post"]
+    description: 'D03: v11.06 attachment handlers JSON.parse the raw body for opaque media. Upload/copy
+      insertAsync failures remain upstream defects; 2026-10-17 compatibility audit, matching-version
+      route/model implementation.'
+    update:
+      consumes:
+      - text/plain
+      - application/octet-stream
+  - target: $["paths"]["/api/attachment/upload-background"]["post"]
+    description: 'D03: v11.06 attachment handlers JSON.parse the raw body for opaque media. Upload/copy
+      insertAsync failures remain upstream defects; 2026-10-17 compatibility audit, matching-version
+      route/model implementation.'
+    update:
+      consumes:
+      - text/plain
+      - application/octet-stream
+  - target: $["paths"]["/api/attachment/copy"]["post"]
+    description: 'D03: v11.06 attachment handlers JSON.parse the raw body for opaque media. Upload/copy
+      insertAsync failures remain upstream defects; 2026-10-17 compatibility audit, matching-version
+      route/model implementation.'
+    update:
+      consumes:
+      - text/plain
+      - application/octet-stream
+  - target: $["paths"]["/api/attachment/move"]["post"]
+    description: 'D03: v11.06 attachment handlers JSON.parse the raw body for opaque media. Upload/copy
+      insertAsync failures remain upstream defects; 2026-10-17 compatibility audit, matching-version
+      route/model implementation.'
+    update:
+      consumes:
+      - text/plain
+      - application/octet-stream
+  - target: $["paths"]["/api/attachment/move"]["post"]["responses"]
+    description: 'D03: native raw-body move error probes; server/api/attachments.js.'
+    update:
+      '500':
+        description: Opaque text/plain null or malformed JSON reaches the move handler and returns
+          HTTP 500 JSON. Canonical malformed application/json instead fails in middleware with HTTP
+          400 HTML.
+        schema:
+          type: object
+          additionalProperties: false
+          required:
+          - success
+          - error
+          properties:
+            success:
+              type: boolean
+              enum:
+              - false
+            error:
+              type: string
+  - target: $["definitions"]["Integration"]["properties"]["title"]
+    description: 'D04: server/models/integrations.js assigns supplied null; models/integrations.js
+      optional fields preserve it. REST reads omit token; persisted null token verified privately
+      in Mongo.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["IntegrationUpdateRequest"]["properties"]["title"]
+    description: 'D04: server/models/integrations.js assigns supplied null; models/integrations.js
+      optional fields preserve it. REST reads omit token; persisted null token verified privately
+      in Mongo.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["IntegrationUpdateRequest"]["properties"]["token"]
+    description: 'D04: server/models/integrations.js assigns supplied null; models/integrations.js
+      optional fields preserve it. REST reads omit token; persisted null token verified privately
+      in Mongo.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["IntegrationUpdateRequest"]["properties"]["enabled"]
+    remove: true
+  - target: $["definitions"]["IntegrationUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      enabled:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning converts true/false strings and numeric 0/1/2 to booleans.
+  - target: $["definitions"]["ChecklistItemCreateRequest"]["properties"]["sort"]
+    remove: true
+  - target: $["definitions"]["ChecklistItemCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      sort:
+        x-nullable: true
+        description: 'Number-coerced sort: true=1, false/[]=0, [4]=4. Omitted/nonfinite input (including
+          {}) appends after the maximum. Explicit null/empty text coerces to 0.'
+        x-oneOf:
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+          items: {}
+        - type: object
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["ListCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["ListCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["SwimlaneCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["SwimlaneCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["SwimlaneUpdateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["SwimlaneUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["BoardTitleRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["BoardTitleRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Numbers and booleans are cleaned to text. Board-title acknowledgements echo the
+          original input; persisted titles are strings. Card create retains its existing omission/null
+          defaults.
+  - target: $["definitions"]["BoardTitleResponse"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["BoardTitleResponse"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Numbers and booleans are cleaned to text. Board-title acknowledgements echo the
+          original input; persisted titles are strings. Card create retains its existing omission/null
+          defaults.
+  - target: $["definitions"]["CardCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["CardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardCreateRequest"]["properties"]["description"]
+    remove: true
+  - target: $["definitions"]["CardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      description:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        description: Wekan truncates this value to the first 1000 JavaScript UTF-16 code units. Truthy
+          numbers and booleans are cleaned to text; falsy values are ignored by the route.
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["description"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      description:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Truthy numbers and booleans are cleaned to text; falsy values are ignored by
+          the route.
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["requestedBy"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      requestedBy:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Truthy numbers and booleans are cleaned to text; falsy values are ignored by
+          the route.
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["assignedBy"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      assignedBy:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Truthy numbers and booleans are cleaned to text; falsy values are ignored by
+          the route.
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["sort"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      sort:
+        description: Truthy numeric text is cleaned to a number; numeric zero is ignored by the route.
+        x-oneOf:
+        - type: number
+        - type: string
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["spentTime"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      spentTime:
+        description: Truthy numeric text is cleaned to a number; numeric zero is ignored by the route.
+        x-oneOf:
+        - type: number
+        - type: string
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["archive"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      archive:
+        description: String(value).toLowerCase() === "true" sets true; other supplied values set false.
+          archive is scoped by board/card, independent of URL list; dueComplete uses board/list/card.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        - type: array
+          items: {}
+        - type: object
+        x-nullable: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["dueComplete"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      dueComplete:
+        description: String(value).toLowerCase() === "true" sets true; other supplied values set false.
+          This write uses the original board/list/card scope. A list or board move earlier in the
+          same request can therefore prevent it from persisting despite an HTTP 200 acknowledgement.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        - type: array
+          items: {}
+        - type: object
+        x-nullable: true
+  - target: $["definitions"]["ListUpdateRequest"]["properties"]["starred"]
+    remove: true
+  - target: $["definitions"]["ListUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      starred:
+        x-nullable: true
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts booleans, true/false text and numbers (0=false, 4=true).
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]["value"]
+    remove: true
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      value:
+        x-oneOf:
+        - type: number
+        - type: string
+        description: Numeric text is cleaned to a number.
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]["enabled"]
+    remove: true
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      enabled:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning converts true/false text and numeric values to booleans.
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]["soft"]
+    remove: true
+  - target: $["definitions"]["ListWipLimitRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      soft:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning converts true/false text and numeric values to booleans.
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]["isNoComments"]
+    remove: true
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isNoComments:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]["isCommentOnly"]
+    remove: true
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isCommentOnly:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]["isWorker"]
+    remove: true
+  - target: $["definitions"]["BoardCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isWorker:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isAdmin"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isAdmin:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isAdmin"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isAdmin:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isNoComments"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isNoComments:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isNoComments"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isNoComments:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isNoComments"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isCommentOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isCommentOnly:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isCommentOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isCommentOnly:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isCommentOnly"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isWorker"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isWorker:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isWorker"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isWorker:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isWorker"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isNormalAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isNormalAssignedOnly:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isNormalAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isNormalAssignedOnly:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isNormalAssignedOnly"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isCommentAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isCommentAssignedOnly:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isCommentAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isCommentAssignedOnly:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isCommentAssignedOnly"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isReadOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isReadOnly:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isReadOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isReadOnly:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isReadOnly"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]["isReadAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberAddRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isReadAssignedOnly:
+        description: Member-add compares String(value).toLowerCase() with true; [true] therefore sets
+          true. Named roles override flags.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: array
+          items: {}
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]["isReadAssignedOnly"]
+    remove: true
+  - target: $["definitions"]["BoardMemberPermissionRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isReadAssignedOnly:
+        description: Member-update schema cleaning accepts numeric 0/1/4 as booleans. Optional flags
+          preserve explicit null; isAdmin cannot be null. Self-update preserves the caller admin flag.
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        x-nullable: true
+  - target: $["definitions"]["BoardMember"]["properties"]["isReadAssignedOnly"]
+    description: 'D06: seven optional permission flags persist null; isAdmin remains required/nonnullable.
+      Native POST followed by board GET verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RuleCreateRequest"]["properties"]["trigger"]["properties"]
+    description: 'D07: models/triggers.js:17-20; native create/get preserved description. Open native
+      rule schemas still permit schemaless extras; typed CLI responses reject unmapped fields.'
+    update:
+      description:
+        type: string
+        x-nullable: true
+        description: Built-in trigger description written by Triggers.rename.
+  - target: $["definitions"]["RuleUpdateRequest"]["properties"]["trigger"]["properties"]
+    description: 'D07: models/triggers.js:17-20; native create/get preserved description. Open native
+      rule schemas still permit schemaless extras; typed CLI responses reject unmapped fields.'
+    update:
+      description:
+        type: string
+        x-nullable: true
+        description: Built-in trigger description written by Triggers.rename.
+  - target: $["definitions"]["RuleResponse"]["properties"]["trigger"]["properties"]
+    description: 'D07: models/triggers.js:17-20; native create/get preserved description. Open native
+      rule schemas still permit schemaless extras; typed CLI responses reject unmapped fields.'
+    update:
+      description:
+        type: string
+        x-nullable: true
+        description: Built-in trigger description written by Triggers.rename.
+  - target: $["paths"]["/api/users"]["post"]["responses"]["200"]
+    description: 'D08: server/models/users.js Accounts.createUser is unawaited; duplicate POST plus
+      independent user count verified.'
+    update:
+      description: 'Unconfirmed acknowledgement: v11.06 serializes an unawaited Accounts.createUser
+        Promise as {_id:{}}. The same HTTP 200 body occurs for duplicate requests that create no user.
+        It confirms neither creation nor an ID.'
+  - target: $["definitions"]["CreateUserV1106Response"]
+    description: 'D08: native successful and duplicate creation return the same body.'
+    update:
+      description: Unconfirmed serialized Promise acknowledgement, including unsuccessful asynchronous
+        creation. No user ID or creation confirmation is provided.
+  - target: $["definitions"]["UpdateUserActionRequest"]["required"]
+    remove: true
+  - target: $["definitions"]["UpdateUserActionRequest"]["properties"]["action"]
+    remove: true
+  - target: $["definitions"]["UpdateUserActionRequest"]["properties"]
+    description: 'D09: server/models/users.js:2066-2098; no-action and nonmatching values return unchanged
+      sanitized users in native probes.'
+    update:
+      action:
+        description: takeOwnership, disableLogin and enableLogin execute actions. Omitted, unknown-string,
+          numeric, null and object values are acknowledged no-ops.
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: object
+          additionalProperties: true
+        x-nullable: true
+  - target: $["paths"]["/api/users/{user}"]["put"]["responses"]["200"]
+    description: 'D09: sendJsonResult(undefined), server/apiMiddleware.js:119-127; native missing-target
+      zero-byte response verified.'
+    update:
+      description: Sanitized user/action result, including unchanged users for absent or unrecognized
+        actions. A missing target returns HTTP 200 with zero bytes and no Content-Type.
+      x-wekan-empty-body: true
+  - target: $["paths"]["/api/boards/{board}/lists/{list}/copy"]["post"]
+    description: 'D10: models/lists.js:312, server/models/lists.js:922, models/cards.js:980; native
+      omitted/explicit destination probes and container error verified.'
+    update:
+      description: >-
+        Copy a list and its selected cards. Without toSwimlaneId, copying cards
+        from the source list's own swimlane can fail with HTML HTTP 500 (Swimlane
+        ID is required). Empty/no-matching-card cases can differ; explicit
+        destination swimlanes succeed. Earlier writes may remain.
+  - target: $["definitions"]["ChecklistCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["ChecklistCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        description: Numbers and booleans become text. Checklist create defaults an omitted/empty
+          title; explicit null rejects.
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["ChecklistItemCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["ChecklistItemCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Numbers and booleans become text. Checklist create defaults an omitted/empty
+          title; explicit null rejects.
+  - target: $["definitions"]["ChecklistItemUpdateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["ChecklistItemUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Numbers and booleans become text. Checklist create defaults an omitted/empty
+          title; explicit null rejects.
+  - target: $["definitions"]["ChecklistCreateRequest"]["properties"]["items"]
+    remove: true
+  - target: $["definitions"]["ChecklistCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      items:
+        x-nullable: true
+        description: String or array titles create items; null/missing/falsy 0/false creates an empty
+          collection. Other scalar/array forms still undergo model validation.
+        x-oneOf:
+        - type: string
+        - type: array
+          items:
+            type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["ChecklistItemUpdateRequest"]["properties"]["isFinished"]
+    remove: true
+  - target: $["definitions"]["ChecklistItemUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      isFinished:
+        description: 'Numbers clean to Boolean: 0=false, 1/2=true. Null/array/object completion values
+          fail with HTTP 500.'
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]["name"]
+    remove: true
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      name:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]["showOnCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showOnCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]["automaticallyOnCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      automaticallyOnCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]["showLabelOnMiniCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showLabelOnMiniCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]["showSumAtTopOfList"]
+    remove: true
+  - target: $["definitions"]["CustomFieldCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showSumAtTopOfList:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["name"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      name:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["showOnCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showOnCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["automaticallyOnCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      automaticallyOnCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["showLabelOnMiniCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showLabelOnMiniCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["showSumAtTopOfList"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      showSumAtTopOfList:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]["alwaysOnCard"]
+    remove: true
+  - target: $["definitions"]["CustomFieldUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      alwaysOnCard:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        description: Schema cleaning accepts true/false text and numeric 1/0.
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]["type"]
+    remove: true
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]
+    description: 'D12: native POST and changed-value PUT plus independent GET; models/cards.js dependency
+      normalization.'
+    update:
+      type:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+          enum:
+          - related-to
+          - blocks
+          - is-blocked-by
+          - fixes
+          - is-fixed-by
+          - ''
+        - type: boolean
+          enum:
+          - false
+        description: Falsy false normalizes to related-to. Truthy relation strings must be supported
+          native relation names.
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]["color"]
+    remove: true
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      color:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        description: Numeric 2 becomes text; existing falsey/default semantics remain.
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]["icon"]
+    remove: true
+  - target: $["definitions"]["DependencyCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      icon:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: boolean
+        description: Boolean true becomes text; existing falsey/default semantics remain.
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]["type"]
+    remove: true
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]
+    description: 'D12: native POST and changed-value PUT plus independent GET; models/cards.js dependency
+      normalization.'
+    update:
+      type:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+          enum:
+          - related-to
+          - blocks
+          - is-blocked-by
+          - fixes
+          - is-fixed-by
+          - ''
+        - type: boolean
+          enum:
+          - false
+        description: Falsy false normalizes to related-to. Truthy relation strings must be supported
+          native relation names.
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]["color"]
+    remove: true
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      color:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        description: Numeric 2 becomes text; existing falsey/default semantics remain.
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]["icon"]
+    remove: true
+  - target: $["definitions"]["DependencyUpdateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      icon:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: boolean
+        description: Boolean true becomes text; existing falsey/default semantics remain.
+  - target: $["definitions"]["RuleCreateRequest"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["RuleCreateRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        description: Truthy numeric/Boolean titles become text; null/0/false defaults to API rule.
+          Arrays/objects reject.
+        x-nullable: true
+  - target: $["definitions"]["CardVoteRequest"]["properties"]["question"]
+    remove: true
+  - target: $["definitions"]["CardVoteRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      question:
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardVoteRequest"]["properties"]["public"]
+    remove: true
+  - target: $["definitions"]["CardVoteRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      public:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["CardVoteRequest"]["properties"]["allowNonBoardMembers"]
+    remove: true
+  - target: $["definitions"]["CardVoteRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      allowNonBoardMembers:
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["CardVoteRequest"]["properties"]["end"]
+    remove: true
+  - target: $["definitions"]["CardVoteRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      end:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        description: Numbers are epoch milliseconds; 4 persists as 1970-01-01T00:00:00.004Z.
+  - target: $["definitions"]["CardPokerRequest"]["properties"]["end"]
+    remove: true
+  - target: $["definitions"]["CardPokerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      end:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        description: Numbers are epoch milliseconds; 4 persists as 1970-01-01T00:00:00.004Z.
+  - target: $["definitions"]["CardPokerRequest"]["properties"]["question"]
+    remove: true
+  - target: $["definitions"]["CardPokerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      question:
+        x-nullable: true
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["CardPokerRequest"]["properties"]["allowNonBoardMembers"]
+    remove: true
+  - target: $["definitions"]["CardPokerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      allowNonBoardMembers:
+        x-nullable: true
+        x-oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+  - target: $["definitions"]["CardPokerRequest"]["properties"]["estimation"]
+    remove: true
+  - target: $["definitions"]["CardPokerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      estimation:
+        x-nullable: true
+        x-oneOf:
+        - type: number
+        - type: string
+  - target: $["definitions"]["CardsPoker"]["properties"]["question"]
+    description: 'D13: models/cards.js optional poker fields retain explicit null; native update/detail
+      read verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsPoker"]["properties"]["allowNonBoardMembers"]
+    description: 'D13: models/cards.js optional poker fields retain explicit null; native update/detail
+      read verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsPoker"]["properties"]["estimation"]
+    description: 'D13: models/cards.js optional poker fields retain explicit null; native update/detail
+      read verified.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["icon"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsStickers"]["properties"]["icon"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["name"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsStickers"]["properties"]["name"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["highlight"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsStickers"]["properties"]["highlight"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["position"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardsStickers"]["properties"]["position"]
+    description: 'D13: all four optional sticker fields preserve explicit null in native PUT and GET.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["icon"]
+    remove: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      icon:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardStickerRequest"]["properties"]["position"]
+    remove: true
+  - target: $["definitions"]["CardStickerRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      position:
+        x-nullable: true
+        x-oneOf:
+        - type: number
+        - type: string
+  - target: $["definitions"]["CardLocationRequest"]["properties"]["name"]
+    remove: true
+  - target: $["definitions"]["CardLocationRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      name:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardLocationRequest"]["properties"]["address"]
+    remove: true
+  - target: $["definitions"]["CardLocationRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      address:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardLocationRequest"]["properties"]["latitude"]
+    remove: true
+  - target: $["definitions"]["CardLocationRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      latitude:
+        x-nullable: true
+        x-oneOf:
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+          items: {}
+        description: 'Number-coerced coordinates: []=0 and [4]=4. Objects reject; other values still
+          undergo numeric validation.'
+  - target: $["definitions"]["CardLocationRequest"]["properties"]["longitude"]
+    remove: true
+  - target: $["definitions"]["CardLocationRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      longitude:
+        x-nullable: true
+        x-oneOf:
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+          items: {}
+        description: 'Number-coerced coordinates: []=0 and [4]=4. Objects reject; other values still
+          undergo numeric validation.'
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]["labelIds"]
+    remove: true
+  - target: $["definitions"]["CardUpdateRequest"]["properties"]
+    description: 'D13: numeric/Boolean array members persist as their text forms; native PUT followed
+      by GET verified.'
+    update:
+      labelIds:
+        x-oneOf:
+        - type: string
+        - type: array
+          items:
+            x-oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            x-nullable: true
+        description: A nonempty string becomes a singleton label array. Empty string is ignored by
+          the truthiness guard; [] clears.
+  - target: $["definitions"]["CardCopyRequest"]["properties"]["position"]
+    remove: true
+  - target: $["definitions"]["CardCopyRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      position:
+        x-nullable: true
+        description: Card copy uses Number conversion (null=0), unlike list/swimlane helpers that
+          skip null. Coercible Boolean/array/object positions affect ordering; resulting sort values
+          depend on neighboring cards.
+        x-oneOf:
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+          items: {}
+        - type: object
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]["items"]["properties"]["title"]
+    remove: true
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]["items"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      title:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]["items"]["properties"]["description"]
+    remove: true
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]["items"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      description:
+        x-nullable: true
+        x-oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]["items"]
+    remove: true
+  - target: $["definitions"]["CardsBulkCreateRequest"]["properties"]["cards"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      items:
+        x-oneOf:
+        - type: object
+          properties:
+            title:
+              x-nullable: true
+              x-oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+            description:
+              x-nullable: true
+              x-oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+            parentId:
+              type: string
+            swimlaneId:
+              type: string
+            members:
+              $ref: '#/definitions/CardMemberInput'
+            assignees:
+              $ref: '#/definitions/CardMemberInput'
+        - type: number
+        - type: string
+        - type: array
+          items: {}
+        description: Nonobject null/number/string/array entries default to blank cards when a top-level
+          swimlane is supplied. Object entries consume the documented fields. Missing effective swimlane
+          fails with HTML 500; earlier writes may remain.
+        x-nullable: true
+  - target: $["definitions"]["CardIdsRequest"]["properties"]["cardIds"]["items"]
+    remove: true
+  - target: $["definitions"]["CardIdsRequest"]["properties"]["cardIds"]
+    description: 'D14: mixed native IDs with valid-card effect/readback verified.'
+    update:
+      items:
+        description: IDs are used as supplied. Native missing-ID results echo values unchanged, including
+          numbers, null and objects.
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["cardIds"]["items"]
+    remove: true
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["cardIds"]
+    description: 'D14: mixed native IDs with valid-card effect/readback verified.'
+    update:
+      items:
+        description: IDs are used as supplied. Native missing-ID results echo values unchanged, including
+          numbers, null and objects.
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["addLabelIds"]["items"]
+    remove: true
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["addLabelIds"]
+    description: 'D14: invalidLabelIds echoes numeric/null labels unchanged, rather than stringifying.'
+    update:
+      items: {}
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["removeLabelIds"]["items"]
+    remove: true
+  - target: $["definitions"]["CardLabelsBulkRequest"]["properties"]["removeLabelIds"]
+    description: 'D14: invalidLabelIds echoes numeric/null labels unchanged, rather than stringifying.'
+    update:
+      items: {}
+  - target: $["definitions"]["CardLabelError"]["properties"]["invalidLabelIds"]["items"]
+    remove: true
+  - target: $["definitions"]["CardLabelError"]["properties"]["invalidLabelIds"]
+    description: 'D14: native HTTP 400 invalidLabelIds contains supplied null and number values.'
+    update:
+      items: {}
+  - target: $["paths"]["/api/boards/{board}/cards/bulk"]["delete"]["responses"]["200"]["schema"]["properties"]["notFound"]["items"]
+    remove: true
+  - target: $["paths"]["/api/boards/{board}/cards/bulk"]["delete"]["responses"]["200"]["schema"]["properties"]["notFound"]
+    description: 'D14: native notFound echoes original JSON values, including numeric 4, null and
+      {}. Valid card deletion independently confirmed.'
+    update:
+      items: {}
+  - target: $["paths"]["/api/boards/{board}/cards/labels"]["post"]["responses"]["200"]["schema"]["properties"]["notFound"]["items"]
+    remove: true
+  - target: $["paths"]["/api/boards/{board}/cards/labels"]["post"]["responses"]["200"]["schema"]["properties"]["notFound"]
+    description: 'D14: native notFound echoes original JSON values, including numeric 4, null and
+      {}. Valid card deletion independently confirmed.'
+    update:
+      items: {}
+  - target: $["definitions"]["RestSettings"]["properties"]["disableRegistration"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["disableForgotPassword"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["productName"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["displayAuthenticationMethod"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["spinnerName"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["hideLogo"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["hideCardCounterList"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["hideBoardMemberList"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customLoginLogoImageUrl"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customLoginLogoLinkUrl"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customHelpLinkUrl"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["textBelowCustomLoginLogo"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["automaticLinkedUrlSchemes"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customTopLeftCornerLogoImageUrl"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customTopLeftCornerLogoLinkUrl"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customTopLeftCornerLogoHeight"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["oidcBtnText"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["mailDomainName"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["legalNotice"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customHeadEnabled"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customHeadMetaTags"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customHeadLinkTags"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customManifestEnabled"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customManifestContent"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customAssetLinksEnabled"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["customAssetLinksContent"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["accessibilityPageEnabled"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["accessibilityTitle"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["accessibilityContent"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["supportPopupText"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["supportPageEnabled"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["supportPagePublic"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["supportTitle"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]["RestSettings"]["properties"]["supportPageText"]
+    description: 'D15: models/settings.js optional whitelist fields retain null. One 34-null PUT preserving
+      required defaultAuthenticationMethod=password and independent GET verified; required method
+      null rejects atomically.'
+    update:
+      x-nullable: true
+  - target: $["definitions"]
+    description: 'D15: request-only coercions and ignored unknown properties; the RestSettings response
+      remains closed and typed.'
+    update:
+      RestSettingsUpdate:
+        type: object
+        description: >-
+          Global settings update from Wekan v11.06 server/models/settings.js
+          lines 529-570. Only the whitelisted fields below change persisted
+          settings. Unknown-only/mailServer bodies are acknowledged and ignored;
+          SMTP configuration is not supported over REST.
+        properties:
+          disableRegistration:
+            type: boolean
+            x-nullable: true
+          disableForgotPassword:
+            x-nullable: true
+            x-oneOf:
+            - type: boolean
+            - type: string
+          productName:
+            x-nullable: true
+            x-oneOf:
+            - type: string
+            - type: number
+          displayAuthenticationMethod:
+            type: boolean
+            x-nullable: true
+          defaultAuthenticationMethod:
+            type: string
+          spinnerName:
+            type: string
+            x-nullable: true
+          hideLogo:
+            type: boolean
+            x-nullable: true
+          hideCardCounterList:
+            type: boolean
+            x-nullable: true
+          hideBoardMemberList:
+            type: boolean
+            x-nullable: true
+          customLoginLogoImageUrl:
+            type: string
+            x-nullable: true
+          customLoginLogoLinkUrl:
+            type: string
+            x-nullable: true
+          customHelpLinkUrl:
+            type: string
+            x-nullable: true
+          textBelowCustomLoginLogo:
+            type: string
+            x-nullable: true
+          automaticLinkedUrlSchemes:
+            type: string
+            x-nullable: true
+          customTopLeftCornerLogoImageUrl:
+            type: string
+            x-nullable: true
+          customTopLeftCornerLogoLinkUrl:
+            type: string
+            x-nullable: true
+          customTopLeftCornerLogoHeight:
+            type: string
+            x-nullable: true
+          oidcBtnText:
+            type: string
+            x-nullable: true
+          mailDomainName:
+            type: string
+            x-nullable: true
+          legalNotice:
+            type: string
+            x-nullable: true
+          customHeadEnabled:
+            type: boolean
+            x-nullable: true
+          customHeadMetaTags:
+            type: string
+            x-nullable: true
+          customHeadLinkTags:
+            type: string
+            x-nullable: true
+          customManifestEnabled:
+            type: boolean
+            x-nullable: true
+          customManifestContent:
+            type: string
+            x-nullable: true
+          customAssetLinksEnabled:
+            type: boolean
+            x-nullable: true
+          customAssetLinksContent:
+            type: string
+            x-nullable: true
+          accessibilityPageEnabled:
+            type: boolean
+            x-nullable: true
+          accessibilityTitle:
+            type: string
+            x-nullable: true
+          accessibilityContent:
+            type: string
+            x-nullable: true
+          supportPopupText:
+            type: string
+            x-nullable: true
+          supportPageEnabled:
+            type: boolean
+            x-nullable: true
+          supportPagePublic:
+            type: boolean
+            x-nullable: true
+          supportTitle:
+            type: string
+            x-nullable: true
+          supportPageText:
+            type: string
+            x-nullable: true
+        additionalProperties: true
+  - target: $["paths"]["/api/settings"]["put"]["parameters"]
+    remove: true
+  - target: $["paths"]["/api/settings"]["put"]
+    description: 'D15: native settings whitelist ignores unlisted fields and preserves optional nulls;
+      models/settings.js and server/models/settings.js:529-570.'
+    update:
+      parameters:
+      - name: settings
+        in: body
+        description: Partial allowlisted settings object; omitted fields are unchanged.
+        required: false
+        schema:
+          $ref: '#/definitions/RestSettingsUpdate'
+  - target: $["paths"]["/api/admin/orgs/{org}/features"]["put"]["parameters"]
+    remove: true
+  - target: $["paths"]["/api/admin/orgs/{org}/features"]["put"]
+    description: 'D16: no-body/no-Content-Type native updates return full unchanged organization/team
+      documents. Empty and ignored-only objects also succeed.'
+    update:
+      parameters:
+      - name: org
+        in: path
+        type: string
+        required: true
+      - name: features
+        in: body
+        required: false
+        schema:
+          $ref: '#/definitions/OrgFeatureRequest'
+  - target: $["paths"]["/api/admin/teams/{team}/features"]["put"]["parameters"]
+    remove: true
+  - target: $["paths"]["/api/admin/teams/{team}/features"]["put"]
+    description: 'D16: no-body/no-Content-Type native updates return full unchanged organization/team
+      documents. Empty and ignored-only objects also succeed.'
+    update:
+      parameters:
+      - name: team
+        in: path
+        type: string
+        required: true
+      - name: features
+        in: body
+        required: false
+        schema:
+          $ref: '#/definitions/TeamFeatureRequest'
+  - target: $["definitions"]["DeleteTokenRequest"]["properties"]["token"]
+    remove: true
+  - target: $["definitions"]["DeleteTokenRequest"]["properties"]
+    description: Verified v11.06 native coercion and persisted readback; 2026-10-17 compatibility
+      audit, matching-version route/model implementation.
+    update:
+      token:
+        description: Numeric token 123 is acknowledged for a nonexistent user; effective revocation
+          for this input is unconfirmed. Do not infer token validity from this no-op branch.
+        x-oneOf:
+        - type: string
+        - type: number
+  - target: $["definitions"]
+    description: 'D17: v11.06 Match.Error serialization verified for numeric userId in delete-token
+      and JSON [] in attachment settings; no extrapolation to other operations.'
+    update:
+      SanitizedMatchError:
+        type: object
+        additionalProperties: false
+        required:
+        - isClientSafe
+        - error
+        - reason
+        - message
+        - errorType
+        properties:
+          isClientSafe:
+            type: boolean
+          error:
+            type: number
+          reason:
+            type: string
+          message:
+            type: string
+          errorType:
+            type: string
+      NativeMatchError:
+        type: object
+        additionalProperties: false
+        required:
+        - message
+        - path
+        - sanitizedError
+        - errorType
+        properties:
+          message:
+            type: string
+          path:
+            type: string
+          sanitizedError:
+            $ref: '#/definitions/SanitizedMatchError'
+          errorType:
+            type: string
+            enum:
+            - Match.Error
+  - target: $["paths"]["/api/deletetoken"]["post"]["responses"]["200"]["x-wekan-alternate-error-schema"]
+    remove: true
+  - target: $["paths"]["/api/deletetoken"]["post"]["responses"]["200"]
+    description: 'D17: observed HTTP 200 Match.Error lacks top-level error/statusCode and contains
+      path plus nested sanitizedError.'
+    update:
+      x-wekan-alternate-error-schema:
+        x-oneOf:
+        - $ref: '#/definitions/UserErrorResponse'
+        - $ref: '#/definitions/NativeMatchError'
+  - target: $["paths"]["/api/admin/attachment-settings"]["put"]["responses"]["200"]["x-wekan-alternate-error-schema"]
+    remove: true
+  - target: $["paths"]["/api/admin/attachment-settings"]["put"]["responses"]["200"]
+    description: 'D17: observed HTTP 200 Match.Error lacks top-level error/statusCode and contains
+      path plus nested sanitizedError.'
+    update:
+      x-wekan-alternate-error-schema:
+        x-oneOf:
+        - $ref: '#/definitions/AdminApplicationError'
+        - $ref: '#/definitions/NativeMatchError'

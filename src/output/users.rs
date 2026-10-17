@@ -127,7 +127,7 @@ pub(super) fn render_user_cards(data: &UserCardsSuccess) -> String {
 
 pub(super) fn render_user_created(data: &UserCreateSuccess) -> String {
     let mut lines = vec![format!(
-        "Created user {} ({})",
+        "Requested user creation for {} ({}) — unconfirmed",
         escape_terminal_controls(&data.username),
         escape_terminal_controls(&data.email)
     )];
@@ -138,7 +138,7 @@ pub(super) fn render_user_created(data: &UserCreateSuccess) -> String {
     }
     if data.warning.is_some() {
         lines.push(
-            "Warning [user_id_unavailable_in_wekan_v11_06]: Wekan created the user but did not return its ID."
+            "Warning [user_id_unavailable_in_wekan_v11_06]: Wekan acknowledged the request without confirming creation or returning an ID."
                 .to_owned(),
         );
     }

@@ -167,7 +167,7 @@ async fn documents_reject_missing_required_fields_and_wrong_known_types() {
         assert!(invoke(&client(&server), 1).await.is_err(), "{field}");
     }
     for (field, value) in [
-        ("title", Value::Null),
+        ("title", json!(false)),
         ("activities", json!([{"unmapped":true}])),
         ("createdAt", json!("not-a-date")),
         ("modifiedAt", json!("2026-02-30T00:00:00Z")),
@@ -188,7 +188,7 @@ async fn documents_reject_missing_required_fields_and_wrong_known_types() {
 }
 
 #[tokio::test]
-async fn optional_title_is_accepted_only_as_a_string_and_dates_are_preserved() {
+async fn optional_title_and_dates_are_preserved() {
     let server = MockServer::start().await;
     let mut response = document();
     response["title"] = json!(" Hook ");
@@ -203,6 +203,22 @@ async fn optional_title_is_accepted_only_as_a_string_and_dates_are_preserved() {
         .unwrap();
     assert_eq!(document.title.as_deref(), Some(" Hook "));
     assert_eq!(document.created_at, "2026-10-14T00:00:00.000Z");
+    server.reset().await;
+    let mut response = self::document();
+    response["title"] = Value::Null;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(response))
+        .mount(&server)
+        .await;
+    assert_eq!(
+        client(&server)
+            .integration("b", "i", &SecretString::from("token".to_owned()))
+            .await
+            .unwrap()
+            .unwrap()
+            .title,
+        None
+    );
 }
 
 #[tokio::test]

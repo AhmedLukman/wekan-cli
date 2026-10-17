@@ -26,6 +26,7 @@ pub struct ListWipLimitDetail {
 pub struct ListDetail {
     pub list_id: String,
     pub title: String,
+    pub watchers: Option<Vec<String>>,
     pub starred: Option<bool>,
     pub archived: bool,
     pub archived_at: Option<String>,

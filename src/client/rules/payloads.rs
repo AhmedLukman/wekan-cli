@@ -36,6 +36,12 @@ pub struct RuleTrigger {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "present_nullable"
     )]
+    pub description: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
     pub user_id: Option<Option<String>>,
     #[serde(
         default,
@@ -299,6 +305,12 @@ pub struct RuleTriggerInput {
         deserialize_with = "present_nullable"
     )]
     pub activity_type: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub description: Option<Option<String>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

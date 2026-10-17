@@ -412,7 +412,9 @@ async fn get_maps_empty_success_to_not_found_and_rejects_protocol_drift() {
     .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
     assert_eq!(missing.details().http_status, Some(200));
-    assert_eq!(missing.details().wekan_status_code, Some(404));
+    assert_eq!(missing.details().wekan_status_code, None);
+    assert_eq!(missing.details().server_error, None);
+    assert_eq!(missing.details().server_reason, None);
 
     for comment_id in ["future", "wrong-scope"] {
         let error = dispatch(

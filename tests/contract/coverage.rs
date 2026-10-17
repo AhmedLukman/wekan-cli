@@ -20,20 +20,15 @@ struct Row {
     implemented: bool,
 }
 
-// Pipes in inline code and escaped pipes belong to a cell, not the table.
+// GFM requires pipes to be escaped, including inside inline code.
 fn cells(line: &str) -> Vec<&str> {
     let mut start = 0;
-    let mut code = false;
     let mut escaped = false;
     let mut result = Vec::new();
     for (index, character) in line.char_indices() {
-        if !escaped {
-            if character == '`' {
-                code = !code;
-            } else if character == '|' && !code {
-                result.push(line[start..index].trim());
-                start = index + 1;
-            }
+        if !escaped && character == '|' {
+            result.push(line[start..index].trim());
+            start = index + 1;
         }
         escaped = character == '\\' && !escaped;
     }
@@ -285,6 +280,11 @@ fn every_documented_command_matches_the_parser_and_totals() {
     let mut root = Cli::command();
     root.build();
     check_commands(&rows(COVERAGE).unwrap(), &root).unwrap();
+}
+
+#[test]
+fn coverage_rejects_unescaped_gfm_pipes_inside_inline_code() {
+    assert!(rows(&COVERAGE.replacen(r"\|", "|", 1)).is_err());
 }
 
 #[test]

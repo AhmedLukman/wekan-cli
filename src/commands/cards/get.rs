@@ -78,6 +78,7 @@ pub(super) fn card_detail(card: CardDocument) -> CardDetail {
     CardDetail {
         card_id: card.card_id,
         title: card.title,
+        watchers: card.watchers,
         archived: card.archived,
         archived_at: card.archived_at,
         deleted_at: card.deleted_at,

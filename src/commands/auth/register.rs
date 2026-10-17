@@ -90,6 +90,8 @@ pub(crate) async fn execute(
 
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
     match error {
+        error @ ClientError::EmptyNotFound { .. } =>
+            crate::commands::client_error::map_client_error(error, redactor, "registration", true),
         ClientError::Build(_) => AppError::new(
             ErrorCode::InternalError,
             "the HTTP client could not be initialized",

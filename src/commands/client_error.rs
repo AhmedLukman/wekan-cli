@@ -94,6 +94,12 @@ fn map_client_error_with_optional_not_found(
     not_found_message: Option<&str>,
 ) -> AppError {
     let (code, message, exit_code, mut details) = match error {
+        ClientError::EmptyNotFound { http_status } => (
+            ErrorCode::NotFound,
+            status_error_message(ErrorCode::NotFound, operation, not_found_message),
+            StableExitCode::Server,
+            response_error_details(http_status, None),
+        ),
         ClientError::Build(_) => (
             ErrorCode::InternalError,
             format!("the {operation} HTTP client could not be initialized"),

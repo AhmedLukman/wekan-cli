@@ -14,6 +14,8 @@ mod checklists;
 mod comments;
 #[path = "e2e/compatibility.rs"]
 mod compatibility;
+#[path = "e2e/compatibility_audit.rs"]
+mod compatibility_audit;
 #[path = "e2e/inventory.rs"]
 mod inventory;
 #[path = "e2e/lists.rs"]
@@ -47,6 +49,8 @@ mod memberships;
 #[path = "e2e/rules.rs"]
 mod rules;
 
+#[path = "support/admin_settings.rs"]
+mod admin_fixtures;
 #[path = "e2e/admin_people.rs"]
 mod admin_people;
 #[path = "e2e/admin_settings.rs"]

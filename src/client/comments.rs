@@ -93,11 +93,8 @@ impl WekanClient {
             )
             .await?;
         if body.is_empty() {
-            return Err(ClientError::EmbeddedServer {
+            return Err(ClientError::EmptyNotFound {
                 http_status: StatusCode::OK,
-                wekan_status_code: StatusCode::NOT_FOUND.as_u16(),
-                server_error: Some("comment-not-found".to_owned()),
-                server_reason: Some("Comment not found".to_owned()),
             });
         }
         let comment = validate_comment_document(decode_success(&body, "comment", true)?)?;

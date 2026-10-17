@@ -59,7 +59,7 @@ use `wekan api request` for arbitrary custom payloads.
 
 | Payload | Supported camelCase properties |
 | --- | --- |
-| Trigger matching | `activityType`, `userId`, `username`, `listName`, `oldListName`, `swimlaneName`, `cardTitle`, `checklistName`, `checklistItemName`, `labelId`, `attachmentName`, `desc` |
+| Trigger matching | `description`, `activityType`, `userId`, `username`, `listName`, `oldListName`, `swimlaneName`, `cardTitle`, `checklistName`, `checklistItemName`, `labelId`, `attachmentName`, `desc` |
 | Trigger schedules | `scheduleKind`, `scheduleType`, `atTime`, `weekday`, `dayOfMonth`, `onDate`, `dueCondition`, `days`, `lastRunKey`, `lastRunAt` |
 | Trigger buttons | `buttonType`, `buttonLabel` |
 | Action | `actionType`, `listName`, `swimlaneName`, `cardName`, `fromListName`, `checklistName`, `checkItemName`, `checklistItems`, `dateField`, `unit`, `emailTo`, `emailSubject`, `emailMsg`, `selectedColor`, `labelId`, `username`, `sortField`, `desc`, `days` |

@@ -87,7 +87,8 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         .expect("site admin must be able to create temporary users") else {
             panic!("expected create-user output")
         };
-        assert!(created.created);
+        assert!(created.creation_requested);
+        assert!(!created.mutation_confirmed);
         assert_eq!(created.user_id, None);
         assert_eq!(
             created.warning,

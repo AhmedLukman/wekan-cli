@@ -28,8 +28,11 @@ within the setting's range. Other than MIME types, setting flags cannot repeat.
 
 JSON uses the camelCase keys in the tables below. It rejects unknown fields,
 read-only IDs/timestamps/actor metadata, credential `Set` markers, wrong types,
-null inputs, and empty top-level updates before sending a request. Explicit
-nested objects, including empty objects, retain native Wekan semantics.
+empty top-level updates, and invalid null inputs before sending a request.
+Global JSON updates accept explicit null for all 34 optional whitelisted fields;
+`defaultAuthenticationMethod` must remain a string. Omission leaves a field unchanged,
+while null is sent and persisted. Attachment settings retain their existing null
+rules. Explicit nested objects, including empty objects, retain native semantics.
 
 All four commands accept `--server <URL>`, `--profile <PROFILE>`,
 `--output human|json`, `--allow-insecure-http`, and `--help`.

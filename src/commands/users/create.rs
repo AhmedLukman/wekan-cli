@@ -12,16 +12,16 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{map_client_error, non_empty};
+use super::map_client_error;
 
 #[derive(Debug, Args)]
 pub struct CreateArgs {
     /// Username for the new account.
-    #[arg(long, value_parser = non_empty)]
+    #[arg(long, default_value = "")]
     pub username: String,
 
     /// Email address for the new account.
-    #[arg(long, value_parser = non_empty)]
+    #[arg(long, default_value = "")]
     pub email: String,
 
     /// Read one password line from standard input instead of prompting twice.
@@ -43,6 +43,11 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
     secret_input: &dyn SecretInputProvider,
 ) -> Result<CommandSuccess, AppError> {
+    if args.username.is_empty() && args.email.is_empty() {
+        return Err(AppError::invalid_input(
+            "provide a nonempty --username or --email; no request was sent",
+        ));
+    }
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
     let password = if args.password_digest_stdin {
         UserPassword::from_digest_json(&secret_input.read_raw_secret()?).map_err(|error| {
@@ -74,7 +79,8 @@ pub(super) async fn execute(
         .await
         .map_err(|error| map_client_error(error, &redactor, "user creation", true))?;
     Ok(CommandSuccess::UserCreated(UserCreateSuccess {
-        created: true,
+        creation_requested: true,
+        mutation_confirmed: false,
         username: args.username,
         email: args.email,
         user_id: None,

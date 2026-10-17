@@ -244,7 +244,7 @@ fn parser_exposes_every_user_operation_and_validates_inputs() {
 
     assert!(Cli::try_parse_from(["wekan", "user", "get", ""]).is_err());
     assert!(Cli::try_parse_from(["wekan", "user", "cards", "--from", "2026-08-28"]).is_ok());
-    assert!(Cli::try_parse_from(["wekan", "user", "create", "--username", "alice",]).is_err());
+    assert!(Cli::try_parse_from(["wekan", "user", "create", "--username", "alice",]).is_ok());
     assert!(Cli::try_parse_from(["wekan", "user", "enable-login", "user-1", "--yes"]).is_err());
 }
 
@@ -354,7 +354,8 @@ async fn create_reads_the_shared_account_password_and_reports_the_v11_defect() {
     let CommandSuccess::UserCreated(created) = success else {
         panic!("expected user creation")
     };
-    assert!(created.created);
+    assert!(created.creation_requested);
+    assert!(!created.mutation_confirmed);
     assert_eq!(created.user_id, None);
     assert_eq!(
         created.warning,

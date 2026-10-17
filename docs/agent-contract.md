@@ -291,13 +291,15 @@ List results are nested under their resource name: `{"users": [...]}` for
 `{"user_id": "...", "boards": [...]}` for `user boards`. A list entry's
 `username` is nullable because Wekan permits email-only accounts.
 
-Wekan v11.06's create-user response cannot provide the created ID:
+Wekan v11.06's asynchronous create-user acknowledgement confirms neither
+creation nor an ID. Duplicate requests can return the same successful body:
 
 ```json
 {
   "ok": true,
   "data": {
-    "created": true,
+    "creation_requested": true,
+    "mutation_confirmed": false,
     "username": "bob",
     "email": "bob@example.com",
     "user_id": null,

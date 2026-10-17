@@ -136,6 +136,7 @@ pub struct CardDetailPoker {
 pub struct CardDetail {
     pub card_id: String,
     pub title: Option<String>,
+    pub watchers: Option<Vec<String>>,
     pub archived: bool,
     pub archived_at: Option<String>,
     pub deleted_at: Option<String>,

@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forms, and timeout controls. ZIP failures return exit 5 with every returned
   board ID and error; partial writes remain explicit and unconfirmed.
 
+### Fixed
+
+- Full card and list reads now preserve optional watcher IDs, including empty
+  arrays left after unwatching, instead of failing strict response decoding.
+- Integration reads accept null titles, and global settings reads and JSON updates
+  support explicit null for the 34 optional REST settings.
+- Rule create/update/get/list map the built-in trigger `description` field.
+- **Breaking:** `user create` accepts username-only or email-only accounts and
+  reports `creation_requested: true` with `mutation_confirmed: false` instead of
+  claiming that Wekan's asynchronous acknowledgement confirms creation.
+- Missing-comment errors retain the actual HTTP 200 status without inventing
+  an embedded Wekan 404 or server error text.
+- Correct the API reference's accepted media types, input coercions, nullability,
+  no-op responses and conditional failures, and repair escaped coverage-table cells.
+
 ## [0.21.0] - 2026-10-17
 
 ### Added

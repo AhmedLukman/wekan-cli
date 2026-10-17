@@ -12,7 +12,6 @@ pub struct IntegrationDocument {
     #[serde(rename = "_id")]
     pub integration_id: String,
     pub enabled: bool,
-    #[serde(default, deserialize_with = "optional_title")]
     pub title: Option<String>,
     #[serde(rename = "type")]
     pub integration_type: String,
@@ -22,10 +21,6 @@ pub struct IntegrationDocument {
     pub created_at: String,
     pub modified_at: String,
     pub user_id: String,
-}
-
-fn optional_title<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
-    String::deserialize(d).map(Some)
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]

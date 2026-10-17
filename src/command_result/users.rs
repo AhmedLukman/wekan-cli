@@ -108,7 +108,8 @@ pub enum UserCreateWarning {
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct UserCreateSuccess {
-    pub created: bool,
+    pub creation_requested: bool,
+    pub mutation_confirmed: bool,
     pub username: String,
     pub email: String,
     pub user_id: Option<String>,

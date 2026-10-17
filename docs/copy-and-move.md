@@ -50,6 +50,10 @@ Wekan v11.06 reuses an active destination list with the same title when copying
 a list. A same-board list copy can therefore return the source ID and duplicate
 its cards into that same list. List copying selects source cards using the
 source list's stored swimlane; it does not aggregate cards from every swimlane.
+When selected cards need a destination swimlane, omitting `--target-swimlane-id`
+can return HTML HTTP 500 (`Swimlane ID is required`). Empty or no-matching-card
+copies can behave differently. Explicit destination swimlanes avoid that specific
+failure; the CLI sends the requested selectors without adding a destination.
 
 Same-board list moves reposition the existing list and can change its stored
 swimlane ID. Cross-board list moves retain the source list, ignore position,

@@ -316,7 +316,9 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     .expect_err("a missing comment must use the stable not-found error");
     assert_eq!(missing.code(), ErrorCode::NotFound);
     assert_eq!(missing.details().http_status, Some(200));
-    assert_eq!(missing.details().wekan_status_code, Some(404));
+    assert_eq!(missing.details().wekan_status_code, None);
+    assert_eq!(missing.details().server_error, None);
+    assert_eq!(missing.details().server_reason, None);
 
     let nonexistent_card_id = format!("missing-card-{nonce}");
     let CommandSuccess::CommentCollection(empty) = execute_live_comment(
