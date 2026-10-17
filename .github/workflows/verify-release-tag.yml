@@ -1,13 +1,14 @@
-name: Verify release tag
+name: Verify release candidate
 
 on:
   workflow_call:
     inputs:
       plan:
-        required: true
+        required: false
         type: string
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -27,3 +28,27 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match required tag v$version" >&2
             exit 1
           fi
+      - name: Require successful CI and Wekan E2E for the release commit
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in ci.yml e2e.yml; do
+            latest="$(gh api --method GET \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              -f head_sha="$GITHUB_SHA" -f per_page=100 |
+              jq --arg sha "$GITHUB_SHA" --arg repository "$GITHUB_REPOSITORY" '
+                [.workflow_runs[] | select(
+                  .head_sha == $sha and .head_repository.full_name == $repository and
+                  (.event == "push" or .event == "workflow_dispatch")
+                )] | max_by(.id)')"
+            if ! jq --exit-status '.status == "completed" and .conclusion == "success"' <<< "$latest" > /dev/null; then
+              echo "$workflow has not passed for $GITHUB_SHA; run it on the release commit before publishing." >&2
+              jq '{status, conclusion, html_url}' <<< "$latest" >&2
+              exit 1
+            fi
+            echo "Verified $workflow for $GITHUB_SHA"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}

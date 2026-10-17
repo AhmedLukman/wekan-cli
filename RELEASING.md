@@ -5,6 +5,15 @@ effectively permanent: a published version cannot be overwritten or deleted.
 Do not run the publication or tag commands until the release commit has been
 reviewed and every gate below is green.
 
+Both GitHub release assets and crates.io publication require successful `CI`
+and `Wekan E2E` workflow runs for the exact tagged commit. The gate accepts
+push and manual runs from this repository and checks the newest eligible run
+of each workflow. Missing, unfinished, failed, cancelled, or skipped runs block
+publication, even if an earlier run passed. Run a missing workflow manually on
+the candidate branch, wait for both workflows to pass, then rerun the blocked
+publication workflow without moving the tag. This also applies to release
+commits whose changes do not trigger the path-filtered E2E workflow.
+
 ## v0.1.0 stop boundary
 
 Release preparation stops before `cargo publish`, creation or pushing of the

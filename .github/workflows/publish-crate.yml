@@ -49,9 +49,18 @@ jobs:
               ;;
           esac
 
+  checks:
+    name: Verify release candidate
+    needs: inspect
+    if: needs.inspect.outputs.publish == 'true'
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/verify-release-tag.yml
+
   publish:
     name: Publish to crates.io
-    needs: inspect
+    needs: [inspect, checks]
     if: needs.inspect.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     environment: crates-io

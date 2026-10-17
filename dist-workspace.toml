@@ -4,8 +4,9 @@ members = ["cargo:."]
 [dist]
 cargo-dist-version = "0.32.0"
 ci = "github"
-# This phase makes tag validation a direct dependency of release publication.
+# This phase verifies the tag and successful CI/E2E runs before publication.
 global-artifacts-jobs = ["./verify-release-tag"]
+github-custom-job-permissions = { "verify-release-tag" = { actions = "read", contents = "read" } }
 installers = ["shell", "powershell"]
 targets = [
     "aarch64-apple-darwin",
