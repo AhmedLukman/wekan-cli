@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Breaking:** User-profile dialog preferences now expose typed `board_id`,
+  `swimlane_id`, `list_id`, and nullable `card_id` values under dynamic board IDs.
+  Typed user/auth responses reject unmapped dialog properties, missing required
+  IDs, invalid ID types, and nonnumeric list constraints.
 - Human/JSON `api request` output write and flush failures after HTTP success
   retain the known status and unconfirmed mutation/retry-safety metadata, so
   automation can avoid repeating a mutation whose output could not be delivered.

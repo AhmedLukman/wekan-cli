@@ -5,6 +5,165 @@ use serde_json::{Value, json};
 
 type LiveApp = App<CapturingStore, FixedPassword, FileProfileStore>;
 
+async fn profile_preferences(
+    app: &LiveApp,
+    server: &str,
+    token: &str,
+    user: &str,
+    scope: (&str, &str, &str, &str),
+) {
+    let (board, lane, list, card) = scope;
+    let mut session = ddp::Session::login(server, token).await;
+    let fields = [
+        ("moveAndCopyDialog", "move_and_copy_dialog"),
+        ("moveChecklistDialog", "move_checklist_dialog"),
+        ("copyChecklistDialog", "copy_checklist_dialog"),
+    ];
+    // Exercise actual UI persistence shapes: absent, null and selected card IDs.
+    for (card_selection, constraint) in [
+        (None, -1.0),
+        (Some(Value::Null), 0.0),
+        (Some(json!(card)), 550.5),
+    ] {
+        let mut options = json!({"boardId":board,"swimlaneId":lane,"listId":list});
+        if let Some(value) = &card_selection {
+            options["cardId"] = value.clone();
+        }
+        let mut values = json!({});
+        for (wire, _) in fields {
+            values[format!("profile.{wire}")] =
+                json!({board:options,"another-source-board":options});
+        }
+        assert_eq!(
+            session
+                .call("/users/update", json!([{"_id":user},{"$set":values}]))
+                .await,
+            json!(1)
+        );
+        // This native v11.06 method checks Number and writes listConstraints.
+        session
+            .call(
+                "applyListWidthToStorage",
+                json!([board, list, 400, constraint]),
+            )
+            .await;
+        let canonical = ServerUrl::parse(server).unwrap().as_str().to_owned();
+        let http = reqwest::Client::new();
+        let mut persisted = false;
+        for _ in 0..40 {
+            let raw = live_api_json(&http, &canonical, token, Method::GET, "api/user", None).await;
+            if raw["profile"]["listConstraints"][board][list].as_f64() == Some(constraint) {
+                for (wire, _) in fields {
+                    assert_eq!(raw["profile"][wire][board], options);
+                }
+                persisted = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        assert!(
+            persisted,
+            "native list-constraint write did not become visible"
+        );
+        for args in [
+            vec!["user", "current"],
+            vec!["user", "get", user],
+            vec!["user", "update", user],
+        ] {
+            let data = run(app, server, &args).await;
+            for (_, output) in fields {
+                assert_eq!(
+                    data["profile"][output][board],
+                    json!({
+                        "board_id":board,"swimlane_id":lane,"list_id":list,"card_id":card_selection.clone().unwrap_or(Value::Null)
+                    })
+                );
+                assert_eq!(data["profile"][output].as_object().unwrap().len(), 2);
+            }
+            assert_eq!(
+                data["profile"]["list_constraints"][board][list].as_f64(),
+                Some(constraint)
+            );
+        }
+        run(app, server, &["auth", "status"]).await;
+    }
+    for (wire, _) in fields {
+        for invalid in [
+            json!({"boardId":board,"swimlaneId":lane,"listId":list,"future":true}),
+            json!({"boardId":true,"swimlaneId":lane,"listId":list}),
+        ] {
+            let path = format!("profile.{wire}");
+            session
+                .call(
+                    "/users/update",
+                    json!([{"_id":user},{"$set":{path.clone():{board:invalid}}}]),
+                )
+                .await;
+            assert_profile_protocol_errors(app, server, user, &format!("/profile/{wire}/{board}/"))
+                .await;
+            session
+                .call("/users/update", json!([{"_id":user},{"$set":{path:{}}}]))
+                .await;
+        }
+    }
+    for invalid in [json!("unlimited"), json!({"future":550}), Value::Null] {
+        session
+            .call(
+                "/users/update",
+                json!([{"_id":user},{"$set":{"profile.listConstraints":{board:{list:invalid}}}}]),
+            )
+            .await;
+        assert_profile_protocol_errors(
+            app,
+            server,
+            user,
+            &format!("/profile/listConstraints/{board}/{list}"),
+        )
+        .await;
+    }
+    session.call("/users/update", json!([{"_id":user},{"$set":{
+        "profile.moveAndCopyDialog":{},"profile.moveChecklistDialog":{},"profile.copyChecklistDialog":{},"profile.listConstraints":{}
+    }}])).await;
+    let empty = run(app, server, &["user", "current"]).await;
+    for (_, field) in fields {
+        assert_eq!(empty["profile"][field], json!({}));
+    }
+    session.call("/users/update", json!([{"_id":user},{"$unset":{
+        "profile.moveAndCopyDialog":"","profile.moveChecklistDialog":"","profile.copyChecklistDialog":""
+    }}])).await;
+    let absent = run(app, server, &["user", "current"]).await;
+    for (_, field) in fields {
+        assert_eq!(absent["profile"][field], Value::Null);
+    }
+    session.close().await;
+}
+
+async fn assert_profile_protocol_errors(app: &LiveApp, server: &str, user: &str, path: &str) {
+    for args in [
+        vec!["user", "current"],
+        vec!["user", "get", user],
+        vec!["user", "update", user],
+        vec!["auth", "status"],
+    ] {
+        let mut argv = vec!["wekan", "--server", server, "--output", "json"];
+        argv.extend(args);
+        let error = Box::pin(app.execute(Cli::try_parse_from(argv).unwrap().command))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::ProtocolError);
+        assert_eq!(error.details().http_status, Some(200));
+        assert!(
+            error
+                .details()
+                .response_path
+                .as_deref()
+                .unwrap()
+                .starts_with(path),
+            "{error:?}"
+        );
+    }
+}
+
 async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Value {
     let mut argv = vec!["wekan", "--server", server, "--output", "json"];
     argv.extend_from_slice(args);
@@ -411,4 +570,12 @@ async fn audit_regressions_match_wekan_v11_06() {
         assert_eq!(result["sanitizedError"]["error"], 400);
         assert!(result.get("error").is_none());
     }
+    Box::pin(profile_preferences(
+        &app,
+        &server,
+        &token,
+        user,
+        (board, lane, list, card),
+    ))
+    .await;
 }

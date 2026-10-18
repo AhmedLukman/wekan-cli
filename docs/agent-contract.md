@@ -293,6 +293,15 @@ For example, a local-only deletion is:
 
 ## User success
 
+User-profile dialog maps preserve their dynamic source-board keys and expose
+`board_id`, `swimlane_id`, and `list_id` as required strings; `card_id` is a
+string or null. Missing card selections serialize as null. Empty strings are
+retained. All dialog objects reject unknown properties and invalid field types.
+`list_constraints` is a dynamic board-ID/list-ID dictionary of numbers, with
+no added integer or positive-range requirement. These strict profile checks
+also apply to `auth status`, which decodes the complete user response before
+selecting its smaller authentication output.
+
 `user current`, `user get`, and no-action `user update` return the same typed, resource-focused user
 shape. Optional scalar values are JSON `null`; top-level collection fields are
 arrays. Optional arrays and maps inside `profile`, including workspace node

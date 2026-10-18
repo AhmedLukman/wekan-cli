@@ -2,8 +2,8 @@ mod profile;
 mod tokens;
 use super::UserBoardSummary;
 pub use profile::{
-    UserProfileDetail, UserProfileNotificationDetail, UserProfileStarredPageDetail,
-    UserWorkspaceNodeDetail,
+    UserDialogOptionsDetail, UserProfileDetail, UserProfileNotificationDetail,
+    UserProfileStarredPageDetail, UserWorkspaceNodeDetail,
 };
 use serde::Serialize;
 pub use tokens::{UserTokenCreateSuccess, UserTokenDeleteScope, UserTokenDeleteSuccess};

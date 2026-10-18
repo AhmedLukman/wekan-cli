@@ -449,18 +449,23 @@ fn renders_the_stable_json_error_envelope() {
 fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
     let profile_map = serde_json::json!({
         "object\u{1b}]52;c;clipboard\u{7}": {
-            "array\r\n": [{
-                "string\t": "value\u{1b}[2J",
-                "null\u{7}": null,
-                "boolean\r": true,
-                "number\u{85}": 42,
-                "ordinary": "Café"
-            }]
+            "board_id": "value\u{1b}[2J",
+            "swimlane_id": "lane\r\n",
+            "list_id": "Café",
+            "card_id": null
         }
     });
     let success = CommandSuccess::UserCurrent(UserDetail {
         profile: Box::new(crate::command_result::UserProfileDetail {
-            move_and_copy_dialog: Some(serde_json::from_value(profile_map.clone()).unwrap()),
+            move_and_copy_dialog: Some(std::collections::BTreeMap::from([(
+                "object\u{1b}]52;c;clipboard\u{7}".to_owned(),
+                crate::command_result::UserDialogOptionsDetail {
+                    board_id: "value\u{1b}[2J".to_owned(),
+                    swimlane_id: "lane\r\n".to_owned(),
+                    list_id: "Café".to_owned(),
+                    card_id: None,
+                },
+            )])),
             ..Default::default()
         }),
         created_through_api: None,
@@ -504,12 +509,10 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
     assert!(human.contains(r"alice\u{1b}]52;c;clipboard\u{7}"));
     for escaped in [
         r"object\u{1b}]52;c;clipboard\u{7}:",
-        r"array\r\n: [1]",
-        r"string\t: value\u{1b}[2J",
-        r"null\u{7}: null",
-        r"boolean\r: true",
-        r"number\u{85}: 42",
-        "ordinary: Café",
+        r"board_id: value\u{1b}[2J",
+        r"swimlane_id: lane\r\n",
+        "card_id: null",
+        "list_id: Café",
     ] {
         assert!(
             human.contains(escaped),

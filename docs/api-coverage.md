@@ -6,6 +6,10 @@ User response decoding accepts notifications with absent, null, or populated rea
 timestamps, including `wekan auth status` and `wekan user current` (`GET /api/user`).
 Workspace nodes map `id`, `name`, `icon`, and recursive `children`; unmapped
 fields on a node or any child produce `protocol_error` in typed user responses.
+Dialog preferences retain dynamic source-board keys with typed board/swimlane/list
+IDs and nullable card IDs; list constraints retain dynamic board/list keys with
+numeric values. User detail/current/update responses and authentication decoding
+reject unknown dialog properties and invalid nested types (operations #101, #105, #106).
 Checklist and item detail reads map optional creator `userId` to `user_id`,
 including records created by Wekan's UI through DDP. These commands use REST.
 Detail operations #15 and #18 preserve denormalized `boardId` as `board_id`,

@@ -1,5 +1,14 @@
 # Users
 
+Profile dialog preferences (`move_and_copy_dialog`, `move_checklist_dialog`, and
+`copy_checklist_dialog`) are dictionaries keyed by the source board ID. Each
+value has required string `board_id`, `swimlane_id`, and `list_id` fields, plus
+nullable `card_id` (null when absent). Empty selection strings are preserved.
+Unknown nested fields and invalid types produce `protocol_error`, including
+when the profile is decoded for `auth status`. `list_constraints` retains
+dynamic board/list IDs with numeric values; fractions, zero, and negative
+numbers are preserved without applying anonymous-browser storage limits.
+
 The `wekan user` family covers the complete Wekan v11.06 `/api/user`,
 `/api/users`, and API token REST slice: ten operations across seven paths. Every command
 requires an existing profile and a stored credential whose expiry is still in the future.

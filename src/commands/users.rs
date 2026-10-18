@@ -19,9 +19,9 @@ use clap::{Args, Subcommand};
 use crate::{
     client::{UserRecord, WekanClientFactory},
     command_result::{
-        CommandSuccess, UserBoardMembership, UserDetail, UserEmail, UserOrganization,
-        UserProfileDetail, UserProfileNotificationDetail, UserProfileStarredPageDetail,
-        UserSessionData, UserTeam, UserWorkspaceNodeDetail,
+        CommandSuccess, UserBoardMembership, UserDetail, UserDialogOptionsDetail, UserEmail,
+        UserOrganization, UserProfileDetail, UserProfileNotificationDetail,
+        UserProfileStarredPageDetail, UserSessionData, UserTeam, UserWorkspaceNodeDetail,
     },
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
@@ -199,6 +199,25 @@ fn user_workspace_node(node: crate::client::UserWorkspaceNode) -> UserWorkspaceN
     }
 }
 
+fn user_dialog_options(
+    dialogs: std::collections::BTreeMap<String, crate::client::UserDialogOptions>,
+) -> std::collections::BTreeMap<String, UserDialogOptionsDetail> {
+    dialogs
+        .into_iter()
+        .map(|(board, options)| {
+            (
+                board,
+                UserDialogOptionsDetail {
+                    board_id: options.board_id,
+                    swimlane_id: options.swimlane_id,
+                    list_id: options.list_id,
+                    card_id: options.card_id,
+                },
+            )
+        })
+        .collect()
+}
+
 fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
     UserProfileDetail {
         full_name: profile.fullname,
@@ -232,9 +251,9 @@ fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
         invited_boards: profile.invited_boards,
         language: profile.language,
         map_provider: profile.map_provider,
-        move_and_copy_dialog: profile.move_and_copy_dialog,
-        move_checklist_dialog: profile.move_checklist_dialog,
-        copy_checklist_dialog: profile.copy_checklist_dialog,
+        move_and_copy_dialog: profile.move_and_copy_dialog.map(user_dialog_options),
+        move_checklist_dialog: profile.move_checklist_dialog.map(user_dialog_options),
+        copy_checklist_dialog: profile.copy_checklist_dialog.map(user_dialog_options),
         notifications: profile.notifications.map(|items| {
             items
                 .into_iter()

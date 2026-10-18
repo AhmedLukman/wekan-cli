@@ -25,6 +25,8 @@ mod responses;
 mod transfers;
 #[path = "contract/trello_import.rs"]
 mod trello_import;
+#[path = "contract/user_profile.rs"]
+mod user_profile;
 #[path = "contract/user_tokens.rs"]
 mod user_tokens;
 

@@ -85,8 +85,8 @@ pub use swimlanes::{
 };
 pub use users::{
     CreateUserRequest, CreateUserResult, CurrentUser, CurrentUserBoard, CurrentUserEmail,
-    CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery, UserEmail,
-    UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam, UserWorkspaceNode,
+    CurrentUserProfile, UserAction, UserActionResult, UserCard, UserCardQuery, UserDialogOptions,
+    UserEmail, UserOrganization, UserProfile, UserRecord, UserSummary, UserTeam, UserWorkspaceNode,
 };
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);

@@ -419,6 +419,10 @@ async fn user_detail_preserves_profile_settings_and_metadata() {
             "sessionData":{"totalHits":12}, "importUsernames":["imported"],
             "profile":{"dateFormat":"DD/MM/YYYY", "cardZoom":1.5, "keyboardShortcuts":false,
                 "listWidths":{"board-1":{"list-1":320}}, "notifications":[{"activity":"activity-1","read":null}],
+                "listConstraints":{"board-1":{"list-1":550.5}},
+                "moveAndCopyDialog":{"board-1":{"boardId":"board-2","swimlaneId":"lane","listId":"list","cardId":null}},
+                "moveChecklistDialog":{"board-1":{"boardId":"board-2","swimlaneId":"lane","listId":"list","cardId":"card"}},
+                "copyChecklistDialog":{"board-2":{"boardId":"board-1","swimlaneId":"lane","listId":"list"}},
                 "starredPages":[{"url":"/board-1","title":"Board"}],
                 "boardWorkspacesTree":[{"id":"root","name":"Delivery","children":[
                     {"id":"child","name":"Nested","icon":"folder","children":[]}, {}
@@ -441,6 +445,30 @@ async fn user_detail_preserves_profile_settings_and_metadata() {
     assert_eq!(value["profile"]["card_zoom"], 1.5);
     assert_eq!(value["profile"]["keyboard_shortcuts"], false);
     assert_eq!(value["profile"]["list_widths"]["board-1"]["list-1"], 320);
+    assert_eq!(
+        value["profile"]["list_constraints"]["board-1"]["list-1"],
+        550.5
+    );
+    for (field, key, board, card) in [
+        (
+            "move_and_copy_dialog",
+            "board-1",
+            "board-2",
+            serde_json::Value::Null,
+        ),
+        ("move_checklist_dialog", "board-1", "board-2", json!("card")),
+        (
+            "copy_checklist_dialog",
+            "board-2",
+            "board-1",
+            serde_json::Value::Null,
+        ),
+    ] {
+        assert_eq!(
+            value["profile"][field][key],
+            json!({"board_id":board,"swimlane_id":"lane","list_id":"list","card_id":card})
+        );
+    }
     assert_eq!(
         value["profile"]["notifications"][0]["activity"],
         "activity-1"

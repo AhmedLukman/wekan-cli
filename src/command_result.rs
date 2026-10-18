@@ -93,10 +93,10 @@ pub use swimlanes::{
 };
 pub use users::{
     UserBoardMembership, UserBoardsSuccess, UserCard, UserCardsSuccess, UserCreateSuccess,
-    UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail, UserListSuccess, UserLoginAction,
-    UserLoginChangeSuccess, UserOrganization, UserOwnershipSuccess, UserProfileDetail,
-    UserProfileNotificationDetail, UserProfileStarredPageDetail, UserSessionData, UserSummary,
-    UserTeam, UserWorkspaceNodeDetail,
+    UserCreateWarning, UserDeleteSuccess, UserDetail, UserDialogOptionsDetail, UserEmail,
+    UserListSuccess, UserLoginAction, UserLoginChangeSuccess, UserOrganization,
+    UserOwnershipSuccess, UserProfileDetail, UserProfileNotificationDetail,
+    UserProfileStarredPageDetail, UserSessionData, UserSummary, UserTeam, UserWorkspaceNodeDetail,
 };
 
 use serde::Serialize;

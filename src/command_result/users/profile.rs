@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{Number, Value};
+use serde_json::Number;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
@@ -33,9 +33,9 @@ pub struct UserProfileDetail {
     pub invited_boards: Option<Vec<Option<String>>>,
     pub language: Option<String>,
     pub map_provider: Option<String>,
-    pub move_and_copy_dialog: Option<BTreeMap<String, Value>>,
-    pub move_checklist_dialog: Option<BTreeMap<String, Value>>,
-    pub copy_checklist_dialog: Option<BTreeMap<String, Value>>,
+    pub move_and_copy_dialog: Option<BTreeMap<String, UserDialogOptionsDetail>>,
+    pub move_checklist_dialog: Option<BTreeMap<String, UserDialogOptionsDetail>>,
+    pub copy_checklist_dialog: Option<BTreeMap<String, UserDialogOptionsDetail>>,
     pub notifications: Option<Vec<UserProfileNotificationDetail>>,
     pub rescue_card_description: Option<bool>,
     pub show_cards_count_at: Option<Number>,
@@ -53,7 +53,7 @@ pub struct UserProfileDetail {
     pub board_templates_swimlane_id: Option<String>,
     pub sidebar_width: Option<Number>,
     pub list_widths: Option<BTreeMap<String, BTreeMap<String, Number>>>,
-    pub list_constraints: Option<BTreeMap<String, BTreeMap<String, Value>>>,
+    pub list_constraints: Option<BTreeMap<String, BTreeMap<String, Number>>>,
     pub auto_width_boards: Option<BTreeMap<String, bool>>,
     pub board_sort_index: Option<BTreeMap<String, Number>>,
     pub fixed_list_width_boards: Option<BTreeMap<String, bool>>,
@@ -68,6 +68,14 @@ pub struct UserProfileDetail {
     pub date_format: Option<String>,
     pub mobile_mode: Option<bool>,
     pub card_zoom: Option<Number>,
+}
+
+#[derive(Clone, Debug, Serialize, Eq, PartialEq)]
+pub struct UserDialogOptionsDetail {
+    pub board_id: String,
+    pub swimlane_id: String,
+    pub list_id: String,
+    pub card_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]

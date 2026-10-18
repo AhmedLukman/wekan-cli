@@ -4161,23 +4161,42 @@ actions:
       models/users.js lines 554-561.
     update: {additionalProperties: {type: string}}
 
+  - target: '$.definitions'
+    description: >-
+      Map built-in dialog values from Wekan v11.06 commit bee4e71d86d0ef2669f9a389d77aba03fdb8103f,
+      client/components/cards/cardDetails.js lines 1981-1999 and checklists.js lines 444-458.
+      The board, swimlane and list selections are strings; cardId is a string or null
+      when the card selector is empty. Dialog maps retain dynamic source-board keys.
+      The model uses blackbox storage; these properties describe the built-in UI shape,
+      verified by the profile-preference cases in the live compatibility audit.
+    update:
+      UserDialogOptions:
+        type: object
+        additionalProperties: false
+        required: [boardId, swimlaneId, listId]
+        properties:
+          boardId: {type: string}
+          swimlaneId: {type: string}
+          listId: {type: string}
+          cardId: {type: string, x-nullable: true}
+
   - target: '$.definitions.UsersProfile.properties.moveAndCopyDialog'
     description: >-
-      Mark the deliberately black-box dialog map declared by Wekan v11.06
-      models/users.js lines 590-597.
-    update: {additionalProperties: true}
+      Map the source-board-ID to built-in dialog-value dictionary persisted by
+      models/users.js lines 2125-2129 and the card dialog writers cited above.
+    update: {additionalProperties: {$ref: '#/definitions/UserDialogOptions'}}
 
   - target: '$.definitions.UsersProfile.properties.moveChecklistDialog'
     description: >-
-      Mark the deliberately black-box dialog map declared by Wekan v11.06
-      models/users.js lines 598-605.
-    update: {additionalProperties: true}
+      Map the source-board-ID to built-in dialog-value dictionary persisted by
+      Wekan v11.06 models/users.js lines 2131-2135 and checklists.js.
+    update: {additionalProperties: {$ref: '#/definitions/UserDialogOptions'}}
 
   - target: '$.definitions.UsersProfile.properties.copyChecklistDialog'
     description: >-
-      Mark the deliberately black-box dialog map declared by Wekan v11.06
-      models/users.js lines 606-613.
-    update: {additionalProperties: true}
+      Map the source-board-ID to built-in dialog-value dictionary persisted by
+      Wekan v11.06 models/users.js lines 2137-2141 and checklists.js.
+    update: {additionalProperties: {$ref: '#/definitions/UserDialogOptions'}}
 
   - target: '$.definitions.UsersProfile.properties.listWidths'
     description: >-
@@ -4190,12 +4209,16 @@ actions:
 
   - target: '$.definitions.UsersProfile.properties.listConstraints'
     description: >-
-      Mark the nested black-box constraint map declared by Wekan v11.06
-      models/users.js lines 795-803 and written at lines 2364-2369.
+      Map numeric per-board/per-list width constraints. Wekan v11.06
+      server/models/users.js applyListWidthToStorage (lines 971-979) checks
+      constraint with Number; models/users.js getListConstraint defaults to 550
+      and setListConstraint persists the number. The schema itself is blackbox;
+      do not add the anonymous localStorage validator's range to REST responses.
+      Live compatibility tests verify fractions, zero and negative values.
     update:
       additionalProperties:
         type: object
-        additionalProperties: true
+        additionalProperties: {type: number}
 
   - target: '$.definitions.UsersProfile.properties.autoWidthBoards'
     description: >-

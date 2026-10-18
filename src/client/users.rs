@@ -5,7 +5,7 @@ pub mod tokens;
 use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value};
+use serde_json::Number;
 
 use super::{ClientError, WekanClient, boards::BoardSummary, transport::decode_success};
 
@@ -112,9 +112,9 @@ pub struct UserProfile {
     pub invited_boards: Option<Vec<Option<String>>>,
     pub language: Option<String>,
     pub map_provider: Option<String>,
-    pub move_and_copy_dialog: Option<BTreeMap<String, Value>>,
-    pub move_checklist_dialog: Option<BTreeMap<String, Value>>,
-    pub copy_checklist_dialog: Option<BTreeMap<String, Value>>,
+    pub move_and_copy_dialog: Option<BTreeMap<String, UserDialogOptions>>,
+    pub move_checklist_dialog: Option<BTreeMap<String, UserDialogOptions>>,
+    pub copy_checklist_dialog: Option<BTreeMap<String, UserDialogOptions>>,
     pub notifications: Option<Vec<UserProfileNotification>>,
     pub rescue_card_description: Option<bool>,
     pub show_cards_count_at: Option<Number>,
@@ -132,7 +132,7 @@ pub struct UserProfile {
     pub board_templates_swimlane_id: Option<String>,
     pub sidebar_width: Option<Number>,
     pub list_widths: Option<BTreeMap<String, BTreeMap<String, Number>>>,
-    pub list_constraints: Option<BTreeMap<String, BTreeMap<String, Value>>>,
+    pub list_constraints: Option<BTreeMap<String, BTreeMap<String, Number>>>,
     pub auto_width_boards: Option<BTreeMap<String, bool>>,
     pub board_sort_index: Option<BTreeMap<String, Number>>,
     pub fixed_list_width_boards: Option<BTreeMap<String, bool>>,
@@ -147,6 +147,15 @@ pub struct UserProfile {
     pub date_format: Option<String>,
     pub mobile_mode: Option<bool>,
     pub card_zoom: Option<Number>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct UserDialogOptions {
+    pub board_id: String,
+    pub swimlane_id: String,
+    pub list_id: String,
+    pub card_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -582,9 +591,11 @@ mod strict_response_tests {
                 "fullname": "Alice",
                 "collapsedWorkspaces": {"workspace-1": true},
                 "boardWorkspaceAssignments": {"board-1": "workspace-1"},
-                "moveAndCopyDialog": {"boardId": "board-1"},
+                "moveAndCopyDialog": {"board-1": {
+                    "boardId":"board-2", "swimlaneId":"lane-1", "listId":"list-1", "cardId":null
+                }},
                 "listWidths": {"board-1": {"list-1": 320}},
-                "listConstraints": {"board-1": {"list-1": "unlimited"}}
+                "listConstraints": {"board-1": {"list-1": 550}}
             }
         }))
         .unwrap();
