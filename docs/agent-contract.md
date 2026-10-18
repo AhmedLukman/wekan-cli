@@ -3,6 +3,10 @@
 Use `--output json` for deterministic machine-readable output. Every envelope
 is one JSON object followed by a newline.
 
+The [command reference](command-contract.md) collects the complete command
+inventory and the current distinctions between null, omission, and empty
+collections.
+
 ## Streams
 
 - Successful command envelopes are written to stdout and stderr is empty.
@@ -21,9 +25,14 @@ is one JSON object followed by a newline.
 - Interactive confirmation prompts are written to stderr. JSON output never
   prompts; destructive automation must pass command-local `--yes`.
 
+Stream guarantees assume working output destinations. A write or flush failure
+can leave partial or even complete success bytes on stdout and returns exit 4;
+an error envelope is delivered on stderr only if that stream remains writable.
+Require a successful process status before accepting a complete success result.
+
 ## Response decoding diagnostics
 
-Strict response-decoding failures retain the `protocol_error` code and exit
+Strict response-decoding failures use the `protocol_error` code and exit
 status 4. Their error details also include:
 
 - `response_path`: a JSON Pointer-style location such as `/wipLimit/enabled`
@@ -58,8 +67,12 @@ from its server message and error details. Its `scope` is `single` or `all`;
 redacts issued and supplied token material.
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
-`user disable-login`, `user delete`, `user token delete` in both modes, `board delete`, `list delete`, `card delete`, `card bulk delete`,
-`comment delete`, `checklist delete`, `checklist item delete`, `attachment delete`, and `swimlane delete`
+`user disable-login`, `user delete`, `user token delete` in both modes,
+`board delete`, `list delete`, `card delete`, `card bulk delete`,
+`comment delete`, `checklist delete`, `checklist item delete`, `attachment delete`,
+`swimlane delete`, `custom-field delete`, `custom-field item delete`,
+`dependency delete`, `integration delete`, `rule delete`,
+`admin org features update-all`, and `admin team features update-all`
 require interactive confirmation or
 `--yes`. Where a command performs target or removability preflight, it runs first and errors retain
 their documented codes. Otherwise, non-terminal and JSON invocations without
@@ -91,7 +104,9 @@ Declining an interactive prompt is an exit-0 no-op. Its structured result is:
 `operation` is `auth_logout`, `profile_remove`, `user_take_ownership`,
 `user_disable_login`, `user_delete`, `user_token_delete`, `board_delete`, `list_delete`, `card_delete`, `card_bulk_delete`,
 `comment_delete`, `checklist_delete`, `checklist_item_delete`, `attachment_delete`, `swimlane_delete`,
-or `api_request`. Human output is
+`custom_field_delete`, `custom_field_item_delete`, `dependency_delete`,
+`integration_delete`, `rule_delete`, `admin_organization_features_update_all`,
+`admin_team_features_update_all`, or `api_request`. Human output is
 `Cancelled; no changes made.`
 
 ## Attachment results
@@ -279,7 +294,9 @@ For example, a local-only deletion is:
 ## User success
 
 `user current`, `user get`, and no-action `user update` return the same typed, resource-focused user
-shape. Optional scalar values are JSON `null`; collection fields are arrays.
+shape. Optional scalar values are JSON `null`; top-level collection fields are
+arrays. Optional arrays and maps inside `profile`, including workspace node
+`children`, use `null` when absent.
 The exact scalar allowlist is `user_id`, `username`, `full_name`, `emails`,
 `is_admin`, `login_disabled`, `authentication_method`, `created_at`,
 `modified_at`, and `last_connection_date`, plus typed organization, team, and
@@ -358,7 +375,9 @@ collection and does not label it as active-only.
 `list get` returns the complete typed Wekan v11.06 list document. `_id` is
 `list_id`, `_updatedAt` is `position_updated_at`, and `type` is `list_type`.
 Optional scalar fields are present as their value or JSON `null`, and the WIP
-object is fully typed. The list type remains a string so values accepted by
+object is fully typed. `watchers` is `null` when absent and an array when
+present, including `[]` after the last watcher is removed.
+The list type remains a string so values accepted by
 Wekan are preserved. An empty color string is Wekan's valid persisted
 unset-color state and is preserved. Unknown top-level or WIP fields, invalid
 timestamps, nonempty colors, widths, and required empty identifiers cause
@@ -389,7 +408,8 @@ instead of null for list counts. HTTP-200 serialized server errors remain errors
 
 `card get` returns the complete typed Wekan v11.06 card document. `_id` becomes
 `card_id`, `type` becomes `card_type`, and every field uses snake case.
-Omitted collections are empty arrays and omitted optional scalars are JSON
+Omitted collections are empty arrays except `watchers`, which is `null` when
+absent and preserves a present empty array. Omitted optional scalars are JSON
 `null`. Custom-field values are the verified string, number, boolean, string
 array with optional null members, or null union. Unknown top-level or nested
 fields, invalid timestamps,
@@ -682,32 +702,36 @@ The relevant details for an unusable current-token HTTP 200 are:
 Messages are intended for humans. Automation must branch on `error.code` and
 the process exit status. Stable error codes are:
 
-- `invalid_input`
-- `configuration_error`
-- `insecure_transport`
-- `profile_not_found`
-- `profile_already_exists`
-- `profile_server_mismatch`
-- `profile_in_use`
-- `profile_has_credential`
-- `transport_error`
-- `unexpected_redirect`
-- `protocol_error`
-- `api_response_too_large`
-- `login_rejected`
-- `login_rate_limited`
-- `credential_not_found`
-- `credential_expired`
-- `credential_already_exists`
-- `authentication_rejected`
-- `permission_denied`
-- `not_found`
-- `registration_rejected`
-- `registration_disabled`
-- `server_error`
-- `credential_store_unavailable`
-- `credential_store_failed`
-- `internal_error`
+| Code | Exit status |
+| --- | --- |
+| `invalid_input` | 2 |
+| `configuration_error` | 3 |
+| `insecure_transport` | 3 |
+| `profile_not_found` | 3 |
+| `profile_already_exists` | 3 |
+| `profile_server_mismatch` | 3 |
+| `profile_in_use` | 3 |
+| `profile_has_credential` | 3 |
+| `transport_error` | 4 |
+| `unexpected_redirect` | 4 |
+| `protocol_error` | 4 for protocol/response validation failures; 5 for a decoded HTTP-200 Wekan error without `statusCode`, or a native export text failure |
+| `api_response_too_large` | 4 |
+| `file_io_error` | 4 |
+| `login_rejected` | 5 |
+| `login_rate_limited` | 5 |
+| `credential_not_found` | 5 when initially absent; 6 when a prepared mutation's credential disappears before execution |
+| `credential_expired` | 5 |
+| `credential_already_exists` | 3 |
+| `authentication_rejected` | 5 |
+| `permission_denied` | 5 |
+| `not_found` | 5 |
+| `registration_rejected` | 5 |
+| `registration_disabled` | 5 |
+| `server_error` | 5 |
+| `batch_incomplete` | 5 |
+| `credential_store_unavailable` | 6 |
+| `credential_store_failed` | 6 |
+| `internal_error` | 1 for unexpected internal failures, including initialization; 4 for output delivery |
 
 Passwords, two-factor codes, and managed tokens are redacted from all
 CLI-generated fields. Exact raw API response headers and bodies are upstream
@@ -726,9 +750,9 @@ and exit status 6.
 | `1` | Unexpected internal failure |
 | `2` | CLI usage, missing/ambiguous identity, empty secret, or registration password mismatch |
 | `3` | Missing or invalid server/profile configuration, profile conflicts, or insecure transport refusal |
-| `4` | Transport, redirect, protocol, or local response-output failure, including `api_response_too_large` |
-| `5` | Unauthenticated state, authentication rejection, or another Wekan application/server rejection |
-| `6` | Credential store unavailable or failed, including a created account or session whose token could not be stored |
+| `4` | Transport, redirect, protocol/response validation, file I/O, or local response-output failure, including `api_response_too_large` |
+| `5` | Unauthenticated state, authentication rejection, Wekan application/server rejection (including native protocol errors), or a partial batch/import result |
+| `6` | Credential store unavailable or failed, a prepared mutation's credential changed/disappeared, or a created account/session whose token could not be stored |
 
 When a non-success error response body is empty or is not JSON, its HTTP status
 still determines the error classification and exit status. A syntactically

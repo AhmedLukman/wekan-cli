@@ -20,6 +20,8 @@ mod output;
 mod profiles;
 #[path = "cli/remaining.rs"]
 mod remaining;
+#[path = "cli/stability.rs"]
+mod stability;
 #[path = "cli/support.rs"]
 mod support;
 #[path = "cli/swimlanes.rs"]

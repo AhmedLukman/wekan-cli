@@ -61,7 +61,27 @@ pub(super) async fn write_response(
             super::OutputFormat::Json => super::render_json_success(&data),
             super::OutputFormat::Raw => unreachable!(),
         };
-        writeln!(stdout, "{rendered}").map_err(super::output_write_error)?;
+        writeln!(stdout, "{rendered}")
+            .and_then(|()| stdout.flush())
+            .map_err(|error| {
+                let error = super::output_write_error(error);
+                let message = if unsafe_method {
+                    format!(
+                        "{error}. Wekan already returned HTTP success; do not retry this mutation."
+                    )
+                } else {
+                    error.message().to_owned()
+                };
+                AppError::new(error.code(), message, error.exit_code()).with_details(ErrorDetails {
+                    profile: Some(profile),
+                    http_status: Some(status.as_u16()),
+                    http_success: Some(true),
+                    retry_safe: unsafe_method.then_some(false),
+                    mutation_attempted: unsafe_method.then_some(true),
+                    mutation_confirmed: unsafe_method.then_some(false),
+                    ..ErrorDetails::default()
+                })
+            })?;
         return Ok(ExitCode::SUCCESS);
     }
 

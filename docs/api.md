@@ -106,8 +106,11 @@ fails before the body is complete; these incomplete responses also set
 `outcome_unknown: true` for unsafe methods. For every unsafe method,
 `mutation_attempted: true` and `mutation_confirmed: false` make the absence of
 an authoritative readback explicit. `retry_safe: false` warns that the request
-must not be repeated merely because structured rendering failed. Raw mode is
-valid only for this command: it
+must not be repeated merely because structured rendering failed. A local write
+or flush failure after HTTP success returns `internal_error` with exit 4,
+retaining `profile`, `http_status`, and `http_success: true`. Unsafe requests
+also retain `mutation_attempted: true`, `mutation_confirmed: false`, and
+`retry_safe: false`. Raw API mode
 streams an HTTP 2xx body exactly to stdout, or a
 non-2xx body exactly to stderr, without adding a newline, headers, or status
 text. The exit status still reports success or failure. A mid-stream failure

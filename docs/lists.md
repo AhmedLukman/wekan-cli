@@ -49,7 +49,8 @@ has the shape:
 particular, Wekan's `_updatedAt` field becomes `position_updated_at` and its
 `type` field becomes `list_type`. Responses are strict: an unmodeled field at
 the list or nested WIP level is a protocol error rather than silently discarded
-data.
+data. `watchers` is `null` when absent and preserves an array when present,
+including `[]` after the last watcher is removed.
 
 An update reports its accepted fields in the fixed order `title`, `color`,
 `starred`, `wip_limit`, regardless of option order. For example:

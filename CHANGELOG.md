@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Human/JSON `api request` output write and flush failures after HTTP success
+  retain the known status and unconfirmed mutation/retry-safety metadata, so
+  automation can avoid repeating a mutation whose output could not be delivered.
 - Parser errors honor output-format overrides on nested commands and do not
   treat positional values after `--` as output options.
 - Full card and list reads now preserve optional watcher IDs, including empty

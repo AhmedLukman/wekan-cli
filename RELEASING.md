@@ -49,9 +49,14 @@ dist plan --tag v0.1.0
 ```
 
 Validate and regenerate the corrected API contract as described in
-`AGENTS.md`. The regenerated YAML and HTML must be byte-identical to the
-tracked files. The release-preparation pull request must also have green CI,
-all five dist artifact builds, and all nine containerized Wekan tests.
+`AGENTS.md`. Only the upstream YAML and correction overlay are tracked;
+corrected YAML and HTML are ignored generated outputs. Run the ignored
+`coverage::generated_contract_matches_documented_operations` contract test
+with `WEKAN_CORRECTED_SPEC` pointing to the freshly generated YAML. The
+release-preparation pull request must also have green CI, all five dist
+artifact builds, and every live suite selected by the E2E matrix (currently
+29). Ordinary `cargo test` skips the live suites; it does not verify Wekan
+compatibility. The compiled E2E inventory test guards the matrix selections.
 
 ## 2. Run the native Windows credential-vault test
 

@@ -20,6 +20,11 @@ coercions, nullability and no-op/error branches. Typed command inputs use the
 explicit parser syntax below; `wekan api request` preserves arbitrary native
 payloads and responses.
 
+The raw escape hatch's human/JSON output failures after HTTP success retain
+the known HTTP status. Unsafe methods also report unconfirmed mutation and
+`retry_safe: false` context; see [raw API output](api.md#response-output). This does not
+change endpoint selection or the operation totals.
+
 Full card reads (#31, #63, #95) and list detail (#58) map optional `watchers`
 arrays, preserving absent (`null` in CLI output) versus empty (`[]`) values.
 Administrative user creation (#104) accepts either identity and sends an empty

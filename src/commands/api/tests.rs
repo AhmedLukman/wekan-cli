@@ -768,6 +768,78 @@ async fn raw_output_write_failures_use_the_transport_exit_status() {
 }
 
 #[tokio::test]
+async fn structured_output_failures_retain_http_and_mutation_retry_context() {
+    struct FailedOutput {
+        fail_on_flush: bool,
+    }
+    impl std::io::Write for FailedOutput {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.fail_on_flush {
+                Ok(bytes.len())
+            } else {
+                Err(std::io::ErrorKind::BrokenPipe.into())
+            }
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+    }
+
+    let server = MockServer::start().await;
+    for verb in ["GET", "POST"] {
+        Mock::given(method(verb))
+            .and(path("/api/output-failure"))
+            .respond_with(
+                ResponseTemplate::new(201).set_body_json(serde_json::json!({"id": "new"})),
+            )
+            .expect(4)
+            .mount(&server)
+            .await;
+    }
+    let store = FakeCredentialStore::absent();
+    for verb in ["POST", "GET"] {
+        for format in [OutputFormat::Json, OutputFormat::Human] {
+            for fail_on_flush in [false, true] {
+                let mut arguments = vec!["request", verb, "/api/output-failure", "--no-auth"];
+                if verb == "POST" {
+                    arguments.push("--yes");
+                }
+                let response = execute(command(&arguments), &factory(&server), &store)
+                    .await
+                    .unwrap();
+                let mut stdout = FailedOutput { fail_on_flush };
+                let mut stderr = Vec::new();
+                let error = write_success(format, response, &mut stdout, &mut stderr)
+                    .await
+                    .unwrap_err();
+                assert_eq!(error.code(), ErrorCode::InternalError);
+                assert_eq!(error.exit_code(), StableExitCode::Transport);
+                assert_eq!(error.details().http_status, Some(201));
+                assert_eq!(error.details().http_success, Some(true));
+                assert_eq!(error.details().profile.as_deref(), Some("default"));
+                let unsafe_method = verb == "POST";
+                assert_eq!(error.details().retry_safe, unsafe_method.then_some(false));
+                assert_eq!(
+                    error.details().mutation_attempted,
+                    unsafe_method.then_some(true)
+                );
+                assert_eq!(
+                    error.details().mutation_confirmed,
+                    unsafe_method.then_some(false)
+                );
+                assert_eq!(error.details().outcome_unknown, None);
+                assert_eq!(error.message().contains("do not retry"), unsafe_method);
+                assert!(stderr.is_empty());
+                let rendered: serde_json::Value =
+                    serde_json::from_str(&crate::output::render_error(OutputFormat::Json, &error))
+                        .unwrap();
+                assert_eq!(rendered["error"]["details"]["http_status"], 201);
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn json_output_preserves_unmodeled_response_fields_and_non_success_bodies() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

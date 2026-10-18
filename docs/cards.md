@@ -206,7 +206,8 @@ states cause `protocol_error` with `outcome_unknown: true`.
 
 These objects appear under the usual `{"ok":true,"data":...}` envelope.
 `card get` returns the complete supported Wekan v11.06 card document in snake
-case. Omitted collections become arrays and omitted optional scalars become
+case. Omitted collections become arrays except `watchers`, which is `null`
+when absent and preserves `[]` when present and empty. Omitted optional scalars become
 JSON `null`. The card, custom-field, sticker, location, dependency, vote, and
 poker objects are strict; unknown fields are protocol errors. Known IDs,
 timestamps, colors, card types, sticker highlights, nested values, and required

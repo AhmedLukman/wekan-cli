@@ -157,6 +157,7 @@ Detailed behavior is documented in:
 - [Administrator domains and feature controls](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/admin.md)
 - [Raw API requests](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api.md)
 - [Agent output and error contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/agent-contract.md)
+- [Command behavior and complete inventory](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/command-contract.md)
 - [API-to-CLI coverage](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/api-coverage.md)
 - [Local Wekan development stack](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/local-wekan.md)
 
