@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Parser errors honor output-format overrides on nested commands and do not
+  treat positional values after `--` as output options.
 - Full card and list reads now preserve optional watcher IDs, including empty
   arrays left after unwatching, instead of failing strict response decoding.
 - Integration reads accept null titles, and global settings reads and JSON updates

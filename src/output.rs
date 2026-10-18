@@ -83,23 +83,52 @@ pub enum OutputFormat {
 
 impl OutputFormat {
     pub fn detect_from_args(args: &[OsString]) -> Self {
-        let mut iter = args.iter().filter_map(|arg| arg.to_str());
-        while let Some(arg) = iter.next() {
+        let mut format = Self::Human;
+        let mut command = crate::command();
+        command.build();
+        let mut current = &command;
+        let mut iter = args.iter().skip(1).peekable();
+        while let Some(argument) = iter.next() {
+            let Some(arg) = argument.to_str() else {
+                continue;
+            };
+            if arg == "--" {
+                break;
+            }
             if arg == "--output" {
-                return match iter.next() {
+                format = match iter.next().and_then(|value| value.to_str()) {
                     Some("json") => Self::Json,
                     Some("raw") => Self::Raw,
                     _ => Self::Human,
                 };
-            }
-            if arg == "--output=json" {
-                return Self::Json;
-            }
-            if arg == "--output=raw" {
-                return Self::Raw;
+            } else if let Some(value) = arg.strip_prefix("--output=") {
+                format = match value {
+                    "json" => Self::Json,
+                    "raw" => Self::Raw,
+                    _ => Self::Human,
+                };
+            } else if let Some(subcommand) = current.find_subcommand(arg) {
+                current = subcommand;
+            } else if let Some(option) = arg.strip_prefix("--").and_then(|name| {
+                current
+                    .get_arguments()
+                    .find(|option| option.get_long() == Some(name))
+            }) {
+                // Hyphen-prefixed values (for example user cards --from) are
+                // data even when they happen to look like an output option.
+                if option
+                    .get_num_args()
+                    .is_some_and(|arity| arity.takes_values())
+                    && iter.peek().is_some_and(|value| {
+                        option.is_allow_hyphen_values_set()
+                            || !value.to_string_lossy().starts_with('-')
+                    })
+                {
+                    iter.next();
+                }
             }
         }
-        Self::Human
+        format
     }
 }
 

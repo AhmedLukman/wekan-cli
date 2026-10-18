@@ -32,8 +32,6 @@ use crate::{
 /// return the stable process exit code.
 pub async fn run() -> ExitCode {
     let args: Vec<OsString> = env::args_os().collect();
-    let requested_output = OutputFormat::detect_from_args(&args);
-
     let cli = match Cli::try_parse_from(&args) {
         Ok(cli) => cli,
         Err(error)
@@ -47,6 +45,7 @@ pub async fn run() -> ExitCode {
             return ExitCode::from(code as u8);
         }
         Err(error) => {
+            let requested_output = OutputFormat::detect_from_args(&args);
             let app_error = AppError::invalid_input(error.to_string());
             eprintln!("{}", render_error(requested_output, &app_error));
             return app_error.exit_code().into();

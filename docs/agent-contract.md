@@ -9,6 +9,8 @@ is one JSON object followed by a newline.
 - Error envelopes are written to stderr and stdout is empty.
 - `--help` and `--version` remain human-readable text on stdout.
 - Human-mode errors are written to stderr.
+- Parser errors honor the last `--output` option before the `--` positional
+  separator, including overrides on nested commands.
 - `api request --output raw`: a 2xx response body is written
   byte-for-byte to stdout; a non-2xx body is written byte-for-byte to stderr.
   Raw output adds no newline or envelope.
