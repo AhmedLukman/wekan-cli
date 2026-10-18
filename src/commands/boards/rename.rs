@@ -37,10 +37,10 @@ pub(super) async fn execute(
         .client()
         .rename_board(&args.board_id, &args.title, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board rename", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "board rename"))?;
     if renamed.board_id != args.board_id || renamed.title != args.title {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different board ID or title than requested",

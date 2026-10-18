@@ -8,7 +8,7 @@ use crate::{
     command_result::*,
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_client_error, map_partial_mutation_client_error_with_not_found},
+        client_error::{map_client_error, map_client_error_with_not_found},
     },
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
@@ -554,7 +554,6 @@ pub(crate) async fn execute(
                         e,
                         &Redactor::with_secret(context.record().token()),
                         "admin attachment-settings get",
-                        false,
                     )
                 })?;
             Ok(CommandSuccess::AttachmentSettings(Box::new(
@@ -580,7 +579,7 @@ pub(crate) async fn execute(
                 .update_attachment_settings(prepared, context.record().token())
                 .await
                 .map_err(|e| {
-                    map_partial_mutation_client_error_with_not_found(
+                    map_client_error_with_not_found(
                         e,
                         &redactor,
                         "admin attachment-settings update",

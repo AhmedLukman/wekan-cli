@@ -54,7 +54,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "comment creation", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "comment creation"))?;
     Ok(CommandSuccess::CommentCreated(CommentCreateSuccess {
         board_id: args.board_id,
         card_id: args.card_id,

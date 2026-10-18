@@ -680,9 +680,11 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     .await
     .expect_err("Wekan v11.06 must expose its ignored spentTime zero behavior");
     assert_eq!(ignored_zero_spent_time.code(), ErrorCode::NotFound);
-    assert_eq!(
-        ignored_zero_spent_time.details().outcome_unknown,
-        Some(true)
+    assert!(
+        serde_json::to_value(ignored_zero_spent_time.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
     );
     let CommandSuccess::CardShown(after_ignored_zero) = execute_live_card(
         &app,
@@ -936,7 +938,7 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     .expect("hard card deletion must succeed") else {
         panic!("expected card deletion output")
     };
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, CardDeleteMode::Hard);
     let missing = execute_live_card(
         &app,

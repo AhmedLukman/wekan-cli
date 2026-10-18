@@ -71,8 +71,8 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     .expect("the administrator must be able to create a second board owner") else {
         panic!("expected create-user output")
     };
-    assert!(created.creation_requested);
-    assert!(!created.mutation_confirmed);
+
+    assert_eq!(created.username, owner_username);
     let owner_id = wait_for_live_user(&app, &server, &owner_username).await;
     let owner_directory = TestDirectory::new("complete-board-lifecycle-owner");
     let owner_app = App::with_profile_store(
@@ -426,5 +426,10 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
         missing_board.details().server_reason.as_deref(),
         Some("Board not found")
     );
-    assert_eq!(missing_board.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(missing_board.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

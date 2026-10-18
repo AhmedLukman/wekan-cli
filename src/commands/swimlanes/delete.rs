@@ -88,10 +88,10 @@ pub(super) async fn execute(
         .await;
     drop(credential_mutation);
     let deleted =
-        deletion.map_err(|error| map_client_error(error, &redactor, "swimlane deletion", true))?;
+        deletion.map_err(|error| map_client_error(error, &redactor, "swimlane deletion"))?;
     if deleted.swimlane_id != args.swimlane_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different deleted swimlane ID than requested",
@@ -102,7 +102,7 @@ pub(super) async fn execute(
     Ok(CommandSuccess::SwimlaneDeleted(SwimlaneDeleteSuccess {
         board_id: args.board_id,
         swimlane_id: deleted.swimlane_id,
-        deleted: true,
+        deletion_requested: true,
         delete_mode: SwimlaneDeleteMode::Hard,
     }))
 }

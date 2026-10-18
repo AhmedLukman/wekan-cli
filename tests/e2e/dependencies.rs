@@ -263,7 +263,7 @@ async fn complete_dependency_lifecycle_matches_wekan_v11_06() {
             .await
             .unwrap();
         assert_eq!(updated["submitted_fields"], json!(["type"]));
-        assert_eq!(updated["mutation_confirmed"], false);
+        assert!(updated.get("mutation_confirmed").is_none());
         assert_eq!(scope.edges().await[0]["dependency_type"], relation);
     }
     for args in [
@@ -404,13 +404,13 @@ async fn complete_dependency_lifecycle_matches_wekan_v11_06() {
         .dependency(&["update", "missing-edge", "--color", "red"])
         .await
         .unwrap();
-    assert_eq!(update["mutation_confirmed"], false);
+    assert!(update.get("mutation_confirmed").is_none());
     let deleted = scope
         .dependency(&["delete", "missing-edge", "--yes"])
         .await
         .unwrap();
-    assert_eq!(deleted["deletion_requested"], true);
-    assert_eq!(deleted["mutation_confirmed"], false);
+    assert!(deleted.get("deletion_requested").is_none());
+    assert!(deleted.get("mutation_confirmed").is_none());
     assert_eq!(scope.edges().await.len(), 1);
 
     // Raw requests record the pinned invalid-type behavior and alias support.

@@ -137,8 +137,8 @@ The dedicated lifecycle test covers all ten operations, nested copies,
 position inputs, archived-card lookup, permissions, and partial move defects.
 Independent list-move fixtures distinguish new destinations with matching or
 nonmatching source swimlane filters from existing same-title destinations that
-bypass that filter. Copy results assert unconfirmed metadata even when the
-returned board/card exists and its attachments are omitted.
+bypass that filter. Copy results verify completed-action output and returned
+IDs even when Wekan omits copied attachments.
 It independently checks every sibling's persisted sort value and polls the
 asynchronous extra-default-lane insertion before verifying swimlane ordering.
 Run it against an isolated stack and set `COMPOSE_PROJECT_NAME` to that stack
@@ -268,7 +268,7 @@ inputs and cleaned responses, string lookup, role
 gates, no-op acknowledgments, shared deletion, and partial-update failures.
 Fixtures use only the isolated project's data; typed response decoding remains
 strict. The suite is registered in the E2E workflow matrix.
-Regression cases verify unconfirmed deletion output for real, repeated, missing,
+Regression cases verify deletion output for real, repeated, missing,
 and wrong-board targets, preserved HTTP 200 metadata on missing reads, and query
 encoding near dot segments. Dot-only lookup inputs are rejected locally.
 Dropdown regression cases verify Wekan's acceptance and trimming of supplied

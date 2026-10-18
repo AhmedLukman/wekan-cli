@@ -26,6 +26,6 @@ pub(super) async fn execute(
         .client()
         .update_user_without_action(&args.user_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user update", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "user update"))?;
     Ok(CommandSuccess::UserUpdated(user_detail(user)))
 }

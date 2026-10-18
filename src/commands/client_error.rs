@@ -7,13 +7,6 @@ use crate::{
     redaction::Redactor,
 };
 
-#[derive(Clone, Copy)]
-enum MutationOutcomePolicy {
-    ReadOnly,
-    Standard,
-    PartialEffectsPossible,
-}
-
 pub(crate) fn protocol_diagnostic_details(
     success_status_received: bool,
     diagnostic: Option<crate::client::ResponseDiagnostic>,
@@ -31,14 +24,8 @@ pub(crate) fn map_client_error(
     error: ClientError,
     redactor: &Redactor<'_>,
     operation: &str,
-    mutation: bool,
 ) -> AppError {
-    let mutation_policy = if mutation {
-        MutationOutcomePolicy::Standard
-    } else {
-        MutationOutcomePolicy::ReadOnly
-    };
-    map_client_error_with_optional_not_found(error, redactor, operation, mutation_policy, None)
+    map_client_error_with_optional_not_found(error, redactor, operation, None)
 }
 
 pub(crate) fn map_client_error_with_not_found(
@@ -47,53 +34,16 @@ pub(crate) fn map_client_error_with_not_found(
     operation: &str,
     not_found_message: &str,
 ) -> AppError {
-    map_client_error_with_optional_not_found(
-        error,
-        redactor,
-        operation,
-        MutationOutcomePolicy::ReadOnly,
-        Some(not_found_message),
-    )
-}
-
-pub(crate) fn map_mutation_client_error_with_not_found(
-    error: ClientError,
-    redactor: &Redactor<'_>,
-    operation: &str,
-    not_found_message: &str,
-) -> AppError {
-    map_client_error_with_optional_not_found(
-        error,
-        redactor,
-        operation,
-        MutationOutcomePolicy::Standard,
-        Some(not_found_message),
-    )
-}
-
-pub(crate) fn map_partial_mutation_client_error_with_not_found(
-    error: ClientError,
-    redactor: &Redactor<'_>,
-    operation: &str,
-    not_found_message: &str,
-) -> AppError {
-    map_client_error_with_optional_not_found(
-        error,
-        redactor,
-        operation,
-        MutationOutcomePolicy::PartialEffectsPossible,
-        Some(not_found_message),
-    )
+    map_client_error_with_optional_not_found(error, redactor, operation, Some(not_found_message))
 }
 
 fn map_client_error_with_optional_not_found(
     error: ClientError,
     redactor: &Redactor<'_>,
     operation: &str,
-    mutation_policy: MutationOutcomePolicy,
     not_found_message: Option<&str>,
 ) -> AppError {
-    let (code, message, exit_code, mut details) = match error {
+    let (code, message, exit_code, details) = match error {
         ClientError::EmptyNotFound { http_status } => (
             ErrorCode::NotFound,
             status_error_message(ErrorCode::NotFound, operation, not_found_message),
@@ -232,9 +182,6 @@ fn map_client_error_with_optional_not_found(
         }
     };
 
-    if mutation_outcome_is_unknown(mutation_policy, code, &details) {
-        details.outcome_unknown = Some(true);
-    }
     AppError::new(code, redactor.redact(&message), exit_code).with_details(details)
 }
 
@@ -287,37 +234,6 @@ fn status_error_message(
             .expect("not-found mapping requires a dedicated message")
             .to_owned(),
         _ => format!("Wekan rejected the {operation} request"),
-    }
-}
-
-fn mutation_outcome_is_unknown(
-    policy: MutationOutcomePolicy,
-    code: ErrorCode,
-    details: &ErrorDetails,
-) -> bool {
-    match policy {
-        MutationOutcomePolicy::ReadOnly => false,
-        MutationOutcomePolicy::Standard => match code {
-            ErrorCode::AuthenticationRejected
-            | ErrorCode::PermissionDenied
-            | ErrorCode::NotFound => false,
-            ErrorCode::ServerError => details
-                .wekan_status_code
-                .or(details.http_status)
-                .is_none_or(|status| status >= StatusCode::INTERNAL_SERVER_ERROR.as_u16()),
-            ErrorCode::TransportError
-            | ErrorCode::UnexpectedRedirect
-            | ErrorCode::ProtocolError => true,
-            _ => false,
-        },
-        MutationOutcomePolicy::PartialEffectsPossible => {
-            // Authentication and client construction fail before Wekan can run
-            // the handler; every later failure can follow an earlier field write.
-            !matches!(
-                code,
-                ErrorCode::AuthenticationRejected | ErrorCode::InternalError
-            )
-        }
     }
 }
 

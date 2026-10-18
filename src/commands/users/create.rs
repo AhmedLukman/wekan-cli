@@ -5,7 +5,7 @@ use crate::{
         CreateUserRequest, WekanClientFactory,
         users::{PasswordDigestError, UserPassword},
     },
-    command_result::{CommandSuccess, UserCreateSuccess, UserCreateWarning},
+    command_result::{CommandSuccess, UserCreateSuccess},
     commands::authenticated::AuthenticatedContext,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
@@ -77,13 +77,10 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user creation", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "user creation"))?;
     Ok(CommandSuccess::UserCreated(UserCreateSuccess {
-        creation_requested: true,
-        mutation_confirmed: false,
         username: args.username,
         email: args.email,
         user_id: None,
-        warning: Some(UserCreateWarning::UserIdUnavailableInWekanV1106),
     }))
 }

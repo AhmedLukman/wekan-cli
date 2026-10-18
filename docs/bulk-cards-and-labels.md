@@ -34,7 +34,7 @@ Author attribution always uses the authenticated session.
 
 Each card needs an effective swimlane. Wekan v11.06 responds with HTTP 500 if
 one is absent, potentially after earlier cards were created. The CLI preserves
-that failure with `outcome_unknown: true`; inspect stored cards before retrying.
+that failure and its HTTP status; inspect stored cards before retrying.
 No remote validation or repair precedes the request.
 
 ## Discover and add labels

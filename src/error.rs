@@ -104,8 +104,6 @@ pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mutation_attempted: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mutation_confirmed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub wekan_status_code: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server_error: Option<String>,
@@ -124,17 +122,13 @@ pub struct ErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub two_factor_required: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub outcome_unknown: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_seconds: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_expires: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logout_scope: Option<LogoutScope>,
-    // Outer `None` omits this field for unrelated errors; inner `None` renders
-    // JSON null when a logout outcome is genuinely unknown.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub remote_logout_completed: Option<Option<bool>>,
+    pub remote_logout_completed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub credential_stored: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

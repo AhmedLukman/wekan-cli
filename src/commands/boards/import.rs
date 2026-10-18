@@ -7,7 +7,7 @@ use crate::{
     command_result::{BoardImportSuccess, CommandSuccess},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found,
+        client_error::map_client_error_with_not_found,
         imports::{self, ImportInput},
     },
     credentials::CredentialStore,
@@ -151,7 +151,7 @@ pub(crate) async fn execute(
         .import_board(source, body, context.record().token(), args.input.timeout)
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &Redactor::with_secret(context.record().token()),
                 "board import",
@@ -161,6 +161,5 @@ pub(crate) async fn execute(
     Ok(CommandSuccess::BoardImported(BoardImportSuccess {
         board_id: response.board_id,
         source: source.map_or("native", ImportSource::as_str).into(),
-        mutation_confirmed: false,
     }))
 }

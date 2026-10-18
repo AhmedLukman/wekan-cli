@@ -83,18 +83,11 @@ fn mongo(script: &str) -> Value {
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
-fn assert_deletion_acknowledged(
-    result: &CommandSuccess,
-    board: &str,
-    field: &str,
-    item: Option<&str>,
-) {
+fn assert_deletion_result(result: &CommandSuccess, board: &str, field: &str, item: Option<&str>) {
     let rendered = wekan_cli::output::render_success(OutputFormat::Json, result);
     let mut expected = json!({
         "board_id": board,
         "custom_field_id": field,
-        "deletion_requested": true,
-        "mutation_confirmed": false,
         "delete_mode": "hard",
     });
     if let Some(item) = item {
@@ -566,7 +559,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             .item(dropdown, &["delete", &items[1].item_id, "--yes"])
             .await
             .unwrap();
-        assert_deletion_acknowledged(&result, target.board, dropdown, Some(&items[1].item_id));
+        assert_deletion_result(&result, target.board, dropdown, Some(&items[1].item_id));
     }
     assert_eq!(
         target
@@ -823,7 +816,12 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .await
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     // A later invalid settings update can fail after the earlier name update landed.
     let error = target
         .field(&[
@@ -837,7 +835,12 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .await
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(target.detail(text).await.name, "Partial saved");
     assert_missing_definition_metadata(&target.field(&["get", "missing"]).await.unwrap_err());
     target
@@ -845,7 +848,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .await
         .unwrap();
     let result = target.field(&["delete", "missing", "--yes"]).await.unwrap();
-    assert_deletion_acknowledged(&result, target.board, "missing", None);
+    assert_deletion_result(&result, target.board, "missing", None);
     target
         .item("missing", &["create", "--item", "Ignored"])
         .await
@@ -858,7 +861,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .item("missing", &["delete", "missing", "--yes"])
         .await
         .unwrap();
-    assert_deletion_acknowledged(&result, target.board, "missing", Some("missing"));
+    assert_deletion_result(&result, target.board, "missing", Some("missing"));
     let wrong = Target {
         board: "missing-board",
         ..target
@@ -1051,7 +1054,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .field(&["delete", text, "--yes"])
         .await
         .unwrap();
-    assert_deletion_acknowledged(&result, second_target.board, text, None);
+    assert_deletion_result(&result, second_target.board, text, None);
     assert_eq!(target.detail(text).await.name, "Partial saved");
     target
         .item(
@@ -1071,7 +1074,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .item(dropdown, &["delete", &kept_item.item_id, "--yes"])
         .await
         .unwrap();
-    assert_deletion_acknowledged(
+    assert_deletion_result(
         &result,
         second_target.board,
         dropdown,
@@ -1100,9 +1103,10 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .field(&["delete", text, "--yes"])
         .await
         .unwrap();
-    assert_deletion_acknowledged(&result, second_target.board, text, None);
+    assert_deletion_result(&result, second_target.board, text, None);
     assert!(
-        wekan_cli::output::render_success(OutputFormat::Human, &result).contains("acknowledged")
+        wekan_cli::output::render_success(OutputFormat::Human, &result)
+            .starts_with("Custom-field deletion request accepted for ")
     );
     assert_missing_definition_metadata(&target.field(&["get", text]).await.unwrap_err());
     assert!(

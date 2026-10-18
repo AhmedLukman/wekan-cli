@@ -5,8 +5,7 @@ use crate::{
         BoardMemberUpdateSuccess, BoardSummary, CommandSuccess, MembershipAction,
     },
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::{map_client_error_with_not_found, map_mutation_client_error_with_not_found},
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
         custom_fields::non_empty,
     },
     credentials::CredentialStore,
@@ -51,9 +50,7 @@ pub struct MutationTarget {
 }
 
 #[derive(Debug, Args)]
-#[command(
-    after_help = "The response acknowledges the request without confirming a membership change. A named role wins over individual flags."
-)]
+#[command(after_help = "A named role wins over individual flags.")]
 pub struct AddArgs {
     #[command(flatten)]
     target: MutationTarget,
@@ -184,7 +181,7 @@ pub(super) async fn dispatch(
                 )
                 .await
                 .map_err(|error| {
-                    map_mutation_client_error_with_not_found(
+                    map_client_error_with_not_found(
                         error,
                         &redactor,
                         "board member update",
@@ -222,7 +219,7 @@ pub(super) async fn dispatch(
                 _ => unreachable!("list and update are handled above"),
             };
             let boards = response.map_err(|error| {
-                map_mutation_client_error_with_not_found(
+                map_client_error_with_not_found(
                     error,
                     &redactor,
                     "board membership mutation",
@@ -241,7 +238,6 @@ pub(super) async fn dispatch(
                             title: board.title,
                         })
                         .collect(),
-                    mutation_confirmed: false,
                 },
             ))
         }

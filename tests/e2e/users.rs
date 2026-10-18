@@ -87,13 +87,8 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         .expect("site admin must be able to create temporary users") else {
             panic!("expected create-user output")
         };
-        assert!(created.creation_requested);
-        assert!(!created.mutation_confirmed);
+
         assert_eq!(created.user_id, None);
-        assert_eq!(
-            created.warning,
-            Some(wekan_cli::command_result::UserCreateWarning::UserIdUnavailableInWekanV1106)
-        );
     }
 
     let owner_id = wait_for_live_user(&admin_app, &server, &owner_username).await;
@@ -415,7 +410,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         else {
             panic!("expected user-delete output")
         };
-        assert!(deleted.deleted);
+        assert!(deleted.deletion_requested);
         assert!(!deleted.deleted_current_user);
         wait_for_live_user_absent(&admin_app, &server, user_id).await;
     }
@@ -467,7 +462,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
     else {
         panic!("expected self-delete output")
     };
-    assert!(self_deleted.deleted);
+    assert!(self_deleted.deletion_requested);
     assert!(self_deleted.deleted_current_user);
     assert!(self_deleted.local_credential_removed);
     assert!(!self_deleted.credential_stored);

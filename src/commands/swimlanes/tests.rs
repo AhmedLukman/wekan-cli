@@ -448,7 +448,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     .unwrap() else {
         panic!("expected swimlane deletion")
     };
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, SwimlaneDeleteMode::Hard);
 
     Mock::given(method("DELETE"))
@@ -466,7 +466,12 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     .await
     .unwrap_err();
     assert_eq!(mismatch.code(), ErrorCode::ProtocolError);
-    assert_eq!(mismatch.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(mismatch.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let requests_before_replacement = server.received_requests().await.unwrap().len();
     let replacement = CredentialRecord::new(
@@ -546,7 +551,12 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     .await
     .unwrap_err();
     assert_eq!(not_found.code(), ErrorCode::NotFound);
-    assert_eq!(not_found.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(not_found.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let malformed = dispatch(
         swimlane_command(&["create", "--board", "board-1", "--title", "Delivery"]),
@@ -557,7 +567,12 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     .await
     .unwrap_err();
     assert_eq!(malformed.code(), ErrorCode::ProtocolError);
-    assert_eq!(malformed.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(malformed.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let mismatch = dispatch(
         swimlane_command(&[
@@ -575,5 +590,10 @@ async fn update_maps_not_found_and_mutation_protocol_failures_are_ambiguous() {
     .await
     .unwrap_err();
     assert_eq!(mismatch.code(), ErrorCode::ProtocolError);
-    assert_eq!(mismatch.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(mismatch.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

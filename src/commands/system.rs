@@ -29,9 +29,7 @@ pub(crate) async fn dispatch(
                 .map_err(AppError::from)?
                 .schema_upgrade_status()
                 .await
-                .map_err(|e| {
-                    map_client_error(e, &Redactor::default(), "schema-upgrade status", false)
-                })?;
+                .map_err(|e| map_client_error(e, &Redactor::default(), "schema-upgrade status"))?;
             Ok(CommandSuccess::SchemaUpgradeStatus(state))
         }
     }

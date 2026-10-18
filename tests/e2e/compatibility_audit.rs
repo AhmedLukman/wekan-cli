@@ -466,8 +466,8 @@ async fn audit_regressions_match_wekan_v11_06() {
         ],
     )
     .await;
-    assert_eq!(created["creation_requested"], true);
-    assert_eq!(created["mutation_confirmed"], false);
+    assert!(created.get("creation_requested").is_none());
+    assert!(created.get("mutation_confirmed").is_none());
     assert!(created.get("created").is_none());
     wait_for_live_user(&app, &server, &username).await;
     let before = run(&app, &server, &["user", "list"]).await;
@@ -483,7 +483,7 @@ async fn audit_regressions_match_wekan_v11_06() {
         ],
     )
     .await;
-    assert_eq!(duplicate["mutation_confirmed"], false);
+    assert!(duplicate.get("mutation_confirmed").is_none());
     assert_eq!(
         run(&app, &server, &["user", "list"]).await["users"],
         before["users"]

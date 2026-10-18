@@ -3,7 +3,7 @@ use crate::{
     command_result::{CommandSuccess, ZipImportSuccess},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found,
+        client_error::map_client_error_with_not_found,
         exports,
         imports::{self, ImportInput},
     },
@@ -64,7 +64,7 @@ pub(crate) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &Redactor::with_secret(context.record().token()),
                 "ZIP import",
@@ -78,6 +78,5 @@ pub(crate) async fn execute(
         card_id: target.card_id,
         checklist_id: target.checklist_id,
         counts: response.counts,
-        mutation_confirmed: false,
     }))
 }

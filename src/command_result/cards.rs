@@ -267,7 +267,7 @@ pub struct CardDeleteSuccess {
     pub board_id: String,
     pub list_id: String,
     pub card_id: String,
-    pub deleted: bool,
+    pub deletion_requested: bool,
     pub delete_mode: CardDeleteMode,
 }
 
@@ -304,8 +304,6 @@ pub struct CardCopySuccess {
     pub target_list_id: String,
     pub target_swimlane_id: String,
     pub card_id: String,
-    /// The returned ID does not confirm completion of unawaited copy effects.
-    pub mutation_confirmed: bool,
 }
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct CardCountSuccess {

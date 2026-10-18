@@ -13,7 +13,6 @@ pub struct BoardMemberMutationSuccess {
     pub user_id: String,
     pub action: super::MembershipAction,
     pub boards: Vec<BoardSummary>,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -260,6 +259,4 @@ pub struct BoardLabelAdded {
 pub struct BoardCopySuccess {
     pub source_board_id: String,
     pub board_id: String,
-    /// The returned ID does not confirm completion of unawaited copy effects.
-    pub mutation_confirmed: bool,
 }

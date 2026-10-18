@@ -35,7 +35,6 @@ pub(super) async fn execute(
                         e,
                         &Redactor::with_secret(context.record().token()),
                         "admin domain list",
-                        false,
                     )
                 })?;
             Ok(CommandSuccess::AdminDomains(AdminDomainCollectionSuccess {

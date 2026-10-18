@@ -30,7 +30,7 @@ pub(super) async fn execute(
         .client()
         .board_lists(&args.board_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board list collection", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "board list collection"))?;
     Ok(CommandSuccess::ListCollection(ListCollectionSuccess {
         board_id: args.board_id,
         lists: lists

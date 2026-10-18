@@ -5,8 +5,8 @@ use crate::{
     },
     command_result::{BulkCardCreateItem, BulkCardCreateResult, CardBatchResult, CommandSuccess},
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found, custom_fields::non_empty,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
+        custom_fields::non_empty,
     },
     credentials::CredentialStore,
     error::{AppError, ErrorCode},
@@ -93,7 +93,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &redactor,
                 "bulk card creation",

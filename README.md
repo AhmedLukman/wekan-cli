@@ -99,7 +99,7 @@ and button payloads, and strict human/JSON output; see [rules](docs/rules.md).
 human/JSON output. `user token delete <USER_ID> (--token-stdin | --all) [--yes]`
 requests revocation without changing local credentials. Both require site
 administration. Wekan v11.06 matches stored hashes rather than raw issued tokens
-for single-token deletion; acknowledgements do not confirm revocation. See
+for single-token deletion. See
 [user API tokens](docs/users.md#api-tokens) for native behavior and examples.
 
 `admin settings get/update` and `admin attachment-settings get/update` configure
@@ -113,7 +113,7 @@ confirmed `features update-all` commands complete all 11 administrator operation
 See [administrator commands](docs/admin.md).
 
 `integration` commands manage board webhooks and their activity subscriptions,
-including token input through stdin and explicit unconfirmed mutation output;
+including token input through stdin and typed mutation results;
 see [integrations](docs/integrations.md).
 `board card-settings get/update` exposes card display controls and aging thresholds;
 `board domain list/add/remove` exposes native sharing endpoints. Domain listing
@@ -121,7 +121,7 @@ requires a site administrator; valid sharing writes preserve Wekan v11.06's
 `not-authorized` failure. See [board settings and sharing](docs/boards.md#card-settings-and-aging).
 Dependency commands support board
 and card listings, create-or-update, nullable metadata updates, and confirmed
-removal with explicit acknowledgment output. Attachment transfers support files
+removal with typed output. Attachment transfers support files
 and stdin/stdout; pinned Wekan
 upload/copy/move failures and ignored list selectors remain explicitly documented.
 `board export`, `card export`, and `attachment export` deliver native artifacts

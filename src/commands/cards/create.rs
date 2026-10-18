@@ -4,7 +4,7 @@ use crate::{
     client::{CreateCardRequest, WekanClientFactory},
     command_result::{CardCreateSuccess, CommandSuccess},
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -113,7 +113,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &redactor,
                 "card creation",

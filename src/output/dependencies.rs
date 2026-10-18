@@ -43,7 +43,7 @@ pub(super) fn board_collection(data: &BoardDependencyCollectionSuccess) -> Strin
 
 pub(super) fn created(data: &DependencyCreateSuccess) -> String {
     format!(
-        "Wekan acknowledged dependency creation or update from card {} to card {} on board {}.\nType: {}\nColor: {}\nIcon: {}",
+        "Created or updated dependency from card {} to card {} on board {}.\nType: {}\nColor: {}\nIcon: {}",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.target_card_id),
         escape_terminal_controls(&data.board_id),
@@ -55,7 +55,7 @@ pub(super) fn created(data: &DependencyCreateSuccess) -> String {
 
 pub(super) fn updated(data: &DependencyUpdateSuccess) -> String {
     format!(
-        "Wekan acknowledged dependency update from card {} to card {} on board {}; a matched change is unconfirmed.",
+        "Dependency update request accepted from card {} to card {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.target_card_id),
         escape_terminal_controls(&data.board_id)
@@ -64,7 +64,7 @@ pub(super) fn updated(data: &DependencyUpdateSuccess) -> String {
 
 pub(super) fn deleted(data: &DependencyDeleteSuccess) -> String {
     format!(
-        "Wekan acknowledged dependency removal from card {} to card {} on board {}; a matched change is unconfirmed.",
+        "Dependency deletion request accepted from card {} to card {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.target_card_id),
         escape_terminal_controls(&data.board_id)

@@ -29,7 +29,7 @@ pub(super) async fn execute(
         .client()
         .user_boards(&args.user_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user board list", false))?
+        .map_err(|error| map_client_error(error, &redactor, "user board list"))?
         .into_iter()
         .map(|board| UserBoardSummary {
             board_id: board.board_id,

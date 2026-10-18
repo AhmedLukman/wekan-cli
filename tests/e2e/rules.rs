@@ -199,7 +199,7 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
         updated["submitted_fields"],
         json!(["title", "trigger", "action"])
     );
-    assert_eq!(updated["mutation_confirmed"], false);
+    assert!(updated.get("mutation_confirmed").is_none());
     let detail = get(&app, &server, board, rule).await;
     assert_eq!(detail["trigger"]["activity_type"], "moveCard");
     assert_eq!(detail["trigger"]["old_list_name"], "Doing");

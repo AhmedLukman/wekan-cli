@@ -195,7 +195,7 @@ fn delete_completed_logout_credential(
             .with_details(ErrorDetails {
                 http_status,
                 logout_scope: Some(scope),
-                remote_logout_completed: Some(Some(true)),
+                remote_logout_completed: Some(true),
                 ..ErrorDetails::default()
             })
         })
@@ -214,7 +214,7 @@ fn execute_local_only(
         )
         .with_details(ErrorDetails {
             logout_scope: Some(LogoutScope::LocalOnly),
-            remote_logout_completed: Some(Some(false)),
+            remote_logout_completed: Some(false),
             ..ErrorDetails::default()
         })
     })?;
@@ -264,7 +264,7 @@ fn credential_not_found(scope: LogoutScope) -> AppError {
 fn no_remote_mutation_details(scope: LogoutScope, credential_stored: Option<bool>) -> ErrorDetails {
     ErrorDetails {
         logout_scope: Some(scope),
-        remote_logout_completed: Some(Some(false)),
+        remote_logout_completed: Some(false),
         credential_stored,
         local_credential_removed: Some(false),
         ..ErrorDetails::default()
@@ -273,8 +273,9 @@ fn no_remote_mutation_details(scope: LogoutScope, credential_stored: Option<bool
 
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutScope) -> AppError {
     match error {
-        error @ ClientError::EmptyNotFound { .. } =>
-            crate::commands::client_error::map_client_error(error, redactor, "logout", true),
+        error @ ClientError::EmptyNotFound { .. } => {
+            crate::commands::client_error::map_client_error(error, redactor, "logout")
+        }
         ClientError::Build(_) => AppError::new(
             ErrorCode::InternalError,
             "the HTTP client could not be initialized",
@@ -284,28 +285,26 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
         ClientError::Transport(error) => AppError::new(
             ErrorCode::TransportError,
             redactor.redact(&format!(
-                "the logout request could not be completed: {error}; its remote outcome may be unknown"
+                "the logout request could not be completed: {error}"
             )),
             StableExitCode::Transport,
         )
         .with_details(ErrorDetails {
             logout_scope: Some(scope),
-            remote_logout_completed: Some(None),
-            outcome_unknown: Some(true),
+
             credential_stored: Some(true),
             local_credential_removed: Some(false),
             ..ErrorDetails::default()
         }),
         ClientError::UnexpectedRedirect { status } => AppError::new(
             ErrorCode::UnexpectedRedirect,
-            "the Wekan server returned a redirect; logout requests are not replayed and the remote outcome may be unknown",
+            "the Wekan server returned a redirect; logout requests are not replayed",
             StableExitCode::Transport,
         )
         .with_details(ErrorDetails {
             http_status: Some(status.as_u16()),
             logout_scope: Some(scope),
-            remote_logout_completed: Some(None),
-            outcome_unknown: Some(true),
+
             credential_stored: Some(true),
             local_credential_removed: Some(false),
             ..ErrorDetails::default()
@@ -335,14 +334,15 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
             message,
             success_status_received,
         } => {
-            let mut details = protocol_diagnostic_details(success_status_received, diagnostic, redactor);
+            let mut details =
+                protocol_diagnostic_details(success_status_received, diagnostic, redactor);
             details.logout_scope = Some(scope);
-            details.remote_logout_completed = Some(if success_status_received {
+            details.remote_logout_completed = if success_status_received {
                 None
             } else {
                 Some(false)
-            });
-            details.outcome_unknown = success_status_received.then_some(true);
+            };
+
             details.credential_stored = Some(true);
             details.local_credential_removed = Some(false);
             AppError::new(
@@ -370,13 +370,12 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
                 redactor,
             );
             details.logout_scope = Some(scope);
-            details.remote_logout_completed = Some(None);
-            details.outcome_unknown = Some(true);
+
             details.credential_stored = Some(true);
             details.local_credential_removed = Some(false);
             AppError::new(
                 ErrorCode::ProtocolError,
-                "Wekan returned an embedded logout error without statusCode; the remote outcome may be unknown and the stored credential was preserved",
+                "Wekan returned an embedded logout error without statusCode",
                 StableExitCode::Server,
             )
             .with_details(details)
@@ -396,12 +395,12 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
                 redactor,
             );
             details.logout_scope = Some(scope);
-            details.outcome_unknown = status.is_server_error().then_some(true);
-            details.remote_logout_completed = Some(if status.is_server_error() {
+
+            details.remote_logout_completed = if status.is_server_error() {
                 None
             } else {
                 Some(false)
-            });
+            };
             details.credential_stored = Some(true);
             details.local_credential_removed = Some(false);
             AppError::new(
@@ -413,7 +412,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
                 if authentication_rejected {
                     "the stored credential was rejected by Wekan and was preserved locally"
                 } else if status.is_server_error() {
-                    "the Wekan server returned an unexpected logout error; the remote outcome may be unknown and the stored credential was preserved"
+                    "the Wekan server returned an unexpected logout error"
                 } else {
                     "the Wekan server rejected logout and the stored credential was preserved"
                 },
@@ -435,7 +434,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutSc
                 redactor,
             );
             details.logout_scope = Some(scope);
-            details.remote_logout_completed = Some(Some(false));
+            details.remote_logout_completed = Some(false);
             details.credential_stored = Some(true);
             details.local_credential_removed = Some(false);
             AppError::new(
@@ -459,19 +458,17 @@ fn response_body_error(
     details.credential_stored = Some(true);
     details.local_credential_removed = Some(false);
     if status == StatusCode::OK {
-        details.remote_logout_completed = Some(None);
-        details.outcome_unknown = Some(true);
         return AppError::new(ErrorCode::ProtocolError, message, StableExitCode::Transport)
             .with_details(details);
     }
 
     let authentication_rejected = status == StatusCode::UNAUTHORIZED;
-    details.outcome_unknown = status.is_server_error().then_some(true);
-    details.remote_logout_completed = Some(if status.is_server_error() {
+
+    details.remote_logout_completed = if status.is_server_error() {
         None
     } else {
         Some(false)
-    });
+    };
     AppError::new(
         if authentication_rejected {
             ErrorCode::AuthenticationRejected
@@ -480,8 +477,6 @@ fn response_body_error(
         },
         if authentication_rejected {
             "the stored credential was rejected by Wekan and was preserved locally".to_owned()
-        } else if status.is_server_error() {
-            format!("{message}; the remote outcome may be unknown and the stored credential was preserved")
         } else {
             message
         },

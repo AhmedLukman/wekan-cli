@@ -161,9 +161,9 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
     let first = issue(&member);
     let first_token = first["auth_token"].as_str().unwrap();
     assert_eq!(first["user_id"], member);
-    assert_eq!(first["creation_requested"], true);
-    assert_eq!(first["mutation_confirmed"], false);
-    assert_eq!(first.as_object().unwrap().len(), 4);
+    assert!(first.get("creation_requested").is_none());
+    assert!(first.get("mutation_confirmed").is_none());
+    assert_eq!(first.as_object().unwrap().len(), 2);
     assert!(first.get("token_expires").is_none());
     assert_token_state(&canonical, &member, first_token, true).await;
     let second = issue(&member);
@@ -181,8 +181,8 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
     );
     let data = success(&raw_delete);
     assert_eq!(data["scope"], "single");
-    assert_eq!(data["mutation_confirmed"], false);
-    assert_eq!(data["deletion_requested"], true);
+    assert!(data.get("mutation_confirmed").is_none());
+    assert!(data.get("deletion_requested").is_none());
     assert!(data["message"].as_str().unwrap().contains("[REDACTED]"));
     assert_secret_absent(&raw_delete, first_token);
     assert_secret_absent(&raw_delete, admin_credential.token().expose_secret());
@@ -223,14 +223,14 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
             Some("nonexistent-token\n"),
             "json",
         );
-        assert_eq!(success(&output)["mutation_confirmed"], false);
+        assert!(success(&output).get("mutation_confirmed").is_none());
         assert_secret_absent(&output, "nonexistent-token");
     }
     // W11-059: creation returns an unusable token even for a nonexistent user.
     assert_eq!(saved_tokens("missing-token-user"), json!({"exists":false}));
     let missing = issue("missing-token-user");
-    assert_eq!(missing["creation_requested"], true);
-    assert_eq!(missing["mutation_confirmed"], false);
+    assert!(missing.get("creation_requested").is_none());
+    assert!(missing.get("mutation_confirmed").is_none());
     assert_token_state(
         &canonical,
         "missing-token-user",
@@ -253,7 +253,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         None,
         "json",
     );
-    assert_eq!(success(&missing_all)["mutation_confirmed"], false);
+    assert!(success(&missing_all).get("mutation_confirmed").is_none());
 
     for args in [
         vec!["user", "token", "create", &member],
@@ -376,7 +376,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         None,
         "json",
     );
-    assert_eq!(success(&self_all)["mutation_confirmed"], false);
+    assert!(success(&self_all).get("mutation_confirmed").is_none());
     assert_token_state(
         &canonical,
         &admin,

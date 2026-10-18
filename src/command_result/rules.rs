@@ -196,7 +196,6 @@ pub struct RuleUpdateSuccess {
     pub board_id: String,
     pub rule_id: String,
     pub submitted_fields: Vec<RuleSubmittedField>,
-    pub mutation_confirmed: bool,
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RuleDeleteSuccess {

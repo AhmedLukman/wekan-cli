@@ -96,23 +96,22 @@ Successful commands use `{ "ok": true, "data": ... }`. Representative data:
 
 ```json
 {"board_id":"b","members":[{"user_id":"u","is_admin":false,"is_active":false,"is_no_comments":false,"is_comment_only":false,"is_worker":false,"is_normal_assigned_only":false,"is_comment_assigned_only":false,"is_read_only":true,"is_read_assigned_only":false}]}
-{"board_id":"b","user_id":"u","action":"add","boards":[{"board_id":"b","title":"Planning"}],"mutation_confirmed":false}
+{"board_id":"b","user_id":"u","action":"add","boards":[{"board_id":"b","title":"Planning"}]}
 {"board_id":"b","user_id":"u","affected_documents":1,"submitted_fields":["role"]}
 {"board_id":"b","list_id":"l","card_id":"c","members":["u"]}
 {"board_id":"b","list_id":"l","card_id":"c","assignees":["u"]}
 {"board_id":"b","list_id":"l","card_id":"c","user_id":"u","kind":"member","action":"add","members":["u"],"assignees":[]}
 ```
 
-Board add/remove return summaries even for no-ops, including sole-admin removal;
-`mutation_confirmed` is always false. Permission updates report Wekan's
+Board add/remove return summaries even for no-ops, including sole-admin removal.
+Permission updates report Wekan's
 affected-document count, including zero, and submitted input names in fixed
 order. They do not claim that the requested flags were saved.
 
 Every response object rejects unknown fields. Empty board mutation bodies,
 invalid types, missing required fields, and mismatched card IDs produce
 `protocol_error`. Embedded errors with HTTP 200 retain their Wekan status.
-Ambiguous transport, server, or successful-response failures report
-`outcome_unknown: true`. Mutations are never retried and no preflight or repair
+Transport, server, and response-validation failures report their actual errors. Mutations are never retried and no preflight or repair
 request is sent. Human output escapes terminal controls and includes all mapped
 fields, including nulls and empty arrays.
 
@@ -125,3 +124,5 @@ wekan --output json board member list --board BOARD_ID
 wekan card member add USER_ID --board BOARD_ID --list LIST_ID --card CARD_ID
 wekan card assignee remove USER_ID --board BOARD_ID --list LIST_ID --card CARD_ID
 ```
+
+Board-member add/remove report request acceptance. An active-member addition can preserve permissions and sole-administrator removal can do nothing. Returned card membership snapshots and board permission-update counts retain their existing meaning.

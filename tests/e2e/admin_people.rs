@@ -327,7 +327,12 @@ async fn complete_admin_people_lifecycle_matches_wekan_v11_06() {
         .unwrap_err();
         assert_eq!(missing.code(), ErrorCode::ProtocolError);
         assert_eq!(missing.details().http_status, Some(200));
-        assert_eq!(missing.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(missing.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
 
         // A field outside the finite pinned DTO fails after the native write, without a preflight.
         mongo(&format!(
@@ -356,7 +361,12 @@ async fn complete_admin_people_lifecycle_matches_wekan_v11_06() {
             error.details().response_error,
             Some(wekan_cli::client::ResponseDecodeKind::UnknownField)
         );
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert_eq!(stored(kind, &id)[format!("{kind}SharedTemplates")], false);
         mongo(&format!(
             "d.getCollection({}).updateOne({{_id:{}}},{{$unset:{{futureField:''}}}});print(JSON.stringify({{ok:true}}));",

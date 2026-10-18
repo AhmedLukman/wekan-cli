@@ -44,7 +44,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "current-user cards", false))?
+        .map_err(|error| map_client_error(error, &redactor, "current-user cards"))?
         .into_iter()
         .map(|card| UserCard {
             card_id: card.card_id,

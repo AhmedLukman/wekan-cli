@@ -5,7 +5,7 @@ use crate::{
     },
     command_result::{BulkCardLabelUpdate, BulkCardLabelsResult, CardBatchResult, CommandSuccess},
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::{AppError, ErrorCode, ErrorDetails},
@@ -45,7 +45,7 @@ pub(super) async fn execute(
         .bulk_card_labels(&args.target.board_id, &request, context.record().token())
         .await
         .map_err(|error| match error {
-            BulkLabelsError::Client(error) => map_mutation_client_error_with_not_found(
+            BulkLabelsError::Client(error) => map_client_error_with_not_found(
                 error,
                 &redactor,
                 "bulk card labels",

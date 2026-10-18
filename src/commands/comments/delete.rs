@@ -8,7 +8,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_mutation_client_error_with_not_found, protocol_error_details},
+        client_error::{map_client_error_with_not_found, protocol_error_details},
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -100,7 +100,7 @@ pub(super) async fn execute(
         .await;
     drop(credential_mutation);
     let deleted = deletion.map_err(|error| {
-        map_mutation_client_error_with_not_found(
+        map_client_error_with_not_found(
             error,
             &redactor,
             "comment deletion",
@@ -108,8 +108,8 @@ pub(super) async fn execute(
         )
     })?;
     if deleted.card_id != args.card_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different card ID after comment deletion than requested",

@@ -34,7 +34,7 @@ pub(super) async fn execute(
         .client()
         .card_comments(&args.board_id, &args.card_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "card comment collection", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "card comment collection"))?;
     Ok(CommandSuccess::CommentCollection(
         CommentCollectionSuccess {
             board_id: args.board_id,

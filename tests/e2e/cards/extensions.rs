@@ -241,7 +241,12 @@ pub(super) async fn verify_complete_create_and_update(
     )
     .await
     .expect_err("Wekan must reject an invalid same-board swimlane after the earlier title write");
-    assert_eq!(rejected.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(rejected.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(
         get(app, server, &board.board_id, &list.list_id, card_id)
             .await
@@ -378,7 +383,12 @@ pub(super) async fn verify_complete_create_and_update(
     .await
     .expect_err("moving to a private board requires destination write access");
     assert_eq!(denied.code(), ErrorCode::PermissionDenied);
-    assert_eq!(denied.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(denied.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(
         get(
             app,
@@ -414,7 +424,12 @@ pub(super) async fn verify_complete_create_and_update(
     .await
     .expect_err("Wekan must validate a cross-board destination list");
     assert_eq!(missing_destination.code(), ErrorCode::NotFound);
-    assert_eq!(missing_destination.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(missing_destination.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     update(
         app,
         server,

@@ -3,7 +3,7 @@ use crate::command_result::{BoardImportSuccess, IcsImportSuccess, ZipImportSucce
 
 pub(super) fn trello(data: &crate::command_result::TrelloImportResult) -> String {
     let mut output = format!(
-        "Trello import acknowledged.\nBoard IDs: {}\nMutation unconfirmed; no readback performed.",
+        "Imported Trello boards.\nBoard IDs: {}",
         escape(&data.board_ids.join(", "))
     );
     if let Some(errors) = &data.errors {
@@ -23,7 +23,7 @@ pub(super) fn trello(data: &crate::command_result::TrelloImportResult) -> String
 
 pub(super) fn board(data: &BoardImportSuccess) -> String {
     format!(
-        "Board import acknowledged: {} (source: {}).\nMutation unconfirmed; no readback performed.",
+        "Imported board: {} (source: {}).",
         escape(&data.board_id),
         escape(&data.source)
     )
@@ -32,7 +32,7 @@ pub(super) fn board(data: &BoardImportSuccess) -> String {
 pub(super) fn zip(data: &ZipImportSuccess) -> String {
     let c = &data.counts;
     let mut output = format!(
-        "ZIP import acknowledged into board {}.\nCounts: {} swimlanes, {} lists, {} cards, {} checklists, {} comments, {} attachments.\nMutation unconfirmed; no readback performed.",
+        "Imported ZIP into board {}.\nCounts: {} swimlanes, {} lists, {} cards, {} checklists, {} comments, {} attachments.",
         escape(&data.board_id),
         c.swimlanes,
         c.lists,
@@ -59,7 +59,7 @@ pub(super) fn zip(data: &ZipImportSuccess) -> String {
 
 pub(super) fn ics(data: &IcsImportSuccess) -> String {
     format!(
-        "ICS import acknowledged into board {}, list {}, swimlane {}.\nCreated: {}\nCard IDs: {}\nMutation unconfirmed; no readback performed.",
+        "Imported ICS into board {}, list {}, swimlane {}.\nCreated: {}\nCard IDs: {}",
         escape(&data.board_id),
         escape(&data.list_id),
         escape(&data.swimlane_id),

@@ -73,21 +73,16 @@ Supply at least one nonempty `--username` or `--email`. Both may be supplied;
 an omitted complement is sent as an explicit empty string, as required by the
 pinned route for username-only and email-only accounts.
 
-Wekan v11.06 returns `_id: {}` because its handler serializes an unawaited
-`Accounts.createUser` Promise. This is an unconfirmed acknowledgement: a duplicate
-request returns the same body without creating another account. The CLI reports
-the requested identities and does not perform a follow-up lookup or retry:
+Successful creation reports the supplied username and email. Wekan v11.06
+returns `_id: {}`, so the CLI exposes `user_id: null`:
 
 ```json
 {
   "ok": true,
   "data": {
-    "creation_requested": true,
-    "mutation_confirmed": false,
     "username": "bob",
     "email": "bob@example.com",
-    "user_id": null,
-    "warning": "user_id_unavailable_in_wekan_v11_06"
+    "user_id": null
   }
 }
 ```
@@ -116,7 +111,7 @@ default to no. Non-interactive and JSON invocations must pass command-local
 `--yes`. Declining returns an exit-0 cancellation and sends no mutation request.
 Mutation requests are bounded, never follow redirects, and are never retried.
 Transport failures, redirects, server failures, and unusable successful bodies
-report `outcome_unknown: true` when Wekan may have applied the mutation.
+report their actual error codes and diagnostics.
 
 Deleting the authenticated caller acquires the same profile/server credential
 mutation guards used by authentication mutations and holds them through remote
@@ -130,12 +125,11 @@ that partial result from a failure before the HTTP request.
 ## API tokens
 
 `user token create <USER_ID>` sends one bodyless `POST /api/createtoken/{user}`.
-It returns `user_id`, `auth_token`, `creation_requested: true`, and
-`mutation_confirmed: false` in the standard success envelope. Human output also
-prints the secret and unconfirmed status. Wekan does not await token insertion;
-the response does not confirm that a session was stored. There is no returned
-expiry, token listing, token import, or automatic credential storage. The request uses the selected
-profile's existing credential; the target must be a user ID, not a username.
+It returns `user_id` and `auth_token` in the standard success envelope. Human
+output reports that Wekan returned a token and prints the secret. There is no returned
+expiry, token listing, token import, or automatic credential storage. The request
+uses the selected profile's existing credential; the target must be a user ID,
+not a username.
 
 `user token delete <USER_ID>` requires exactly one of `--token-stdin` or `--all`.
 Single-token input is UTF-8 through EOF, with one final LF or CRLF removed;
@@ -145,7 +139,7 @@ confirmation or `--yes`; JSON and piped invocations require `--yes`.
 
 Deletion sends one JSON `POST /api/deletetoken`: `{userId, token}` for a supplied
 token or `{userId}` for all tokens. Results contain `user_id`, `scope` (`single`
-or `all`), `message`, `deletion_requested: true`, and `mutation_confirmed: false`.
+or `all`), and `message`.
 The server's message can contain the target secret; the CLI redacts both that
 secret and its authentication credential in the message and in error details.
 Debug output never reveals tokens. Human rendering escapes terminal controls.
@@ -156,7 +150,7 @@ Wekan v11.06 has two verified limitations:
   Accounts implementation compares the supplied string with stored `hashedToken`
   or legacy `token` fields without hashing it. A supplied stored hash matches;
   the CLI forwards input unchanged and never computes or substitutes a hash.
-  Nonexistent tokens and users also receive unconfirmed acknowledgements.
+  Nonexistent tokens and users also receive successful responses.
 - **Creation for a nonexistent user returns an unusable token.** The response
   does not prove that the user exists or that a session was persisted.
 
@@ -206,3 +200,5 @@ credential. Invalid or rejected bearer credentials remain
 `statusCode`, the CLI reports `protocol_error` while preserving any safe
 `server_error`, `server_reason`, `server_message`, `server_error_type`, and
 `server_is_client_safe` fields.
+
+Creation and deletion report accepted requests because duplicate creation and missing-user deletion can change no accounts. Token creation reports a returned token; single-token deletion reports acceptance and explains raw-token matching. Login disabling describes the returned flag and the REST-login defect. Delete-all and ownership transfer retain direct success wording. User deletion returns `deletion_requested` instead of `deleted`.

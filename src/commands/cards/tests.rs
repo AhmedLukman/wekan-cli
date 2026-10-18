@@ -194,7 +194,7 @@ async fn membership_commands_render_lists_and_both_mutation_arrays_without_confi
 }
 
 #[tokio::test]
-async fn membership_mutation_protocol_failures_have_unknown_outcomes() {
+async fn membership_mutation_protocol_failures_report_error_details() {
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server);
     for kind in ["member", "assignee"] {
@@ -219,7 +219,12 @@ async fn membership_mutation_protocol_failures_have_unknown_outcomes() {
             .await
             .unwrap_err();
             assert_eq!(error.code(), ErrorCode::ProtocolError);
-            assert_eq!(error.details().outcome_unknown, Some(true));
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
+            );
         }
     }
 }
@@ -290,27 +295,25 @@ async fn archive_restore_dispatch_typed_results_without_confirmation() {
 }
 
 #[tokio::test]
-async fn archive_restore_failures_preserve_status_uncertainty_and_safe_diagnostics() {
+async fn archive_restore_failures_preserve_status_and_safe_diagnostics() {
     for (command, action, archived) in [
         ("archive", "archive", true),
         ("restore", "unarchive", false),
     ] {
-        for (status, body, expected_code, unknown) in [
-            (401, json!(null), ErrorCode::AuthenticationRejected, None),
-            (403, json!(null), ErrorCode::PermissionDenied, None),
-            (404, json!(null), ErrorCode::NotFound, None),
-            (500, json!(null), ErrorCode::ServerError, Some(true)),
+        for (status, body, expected_code) in [
+            (401, json!(null), ErrorCode::AuthenticationRejected),
+            (403, json!(null), ErrorCode::PermissionDenied),
+            (404, json!(null), ErrorCode::NotFound),
+            (500, json!(null), ErrorCode::ServerError),
             (
                 200,
                 json!({"_id":"card-1", "archived":archived, "card-token":"secret-value"}),
                 ErrorCode::ProtocolError,
-                Some(true),
             ),
             (
                 200,
                 json!({"_id":"other", "archived":archived, "archivedAt":"2030-01-02T03:04:05Z"}),
                 ErrorCode::ProtocolError,
-                Some(true),
             ),
         ] {
             let server = MockServer::start().await;
@@ -337,7 +340,12 @@ async fn archive_restore_failures_preserve_status_uncertainty_and_safe_diagnosti
             .unwrap_err();
             assert_eq!(error.code(), expected_code);
             assert_eq!(error.details().http_status, Some(status));
-            assert_eq!(error.details().outcome_unknown, unknown);
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
+            );
             assert!(!format!("{error:?}").contains("card-token"));
             assert!(!format!("{error:?}").contains("secret-value"));
         }
@@ -395,7 +403,7 @@ fn archive_restore_accept_global_options_and_trim_identifiers() {
 }
 
 #[tokio::test]
-async fn archive_restore_transport_failures_report_unknown_outcomes() {
+async fn archive_restore_transport_failures_report_error_details() {
     for command in ["archive", "restore"] {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let server_url = format!("http://{}/", listener.local_addr().unwrap());
@@ -420,7 +428,12 @@ async fn archive_restore_transport_failures_report_unknown_outcomes() {
         .await
         .unwrap_err();
         assert_eq!(error.code(), ErrorCode::TransportError);
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert!(!format!("{error:?}").contains("card-token"));
     }
 }
@@ -1044,9 +1057,11 @@ async fn bulk_labels_map_partial_invalid_and_uncertain_server_failures() {
         .unwrap_err();
         assert_eq!(error.code(), code);
         assert_eq!(error.details().http_status, Some(status));
-        assert_eq!(
-            error.details().outcome_unknown,
-            (status == 500).then_some(true)
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
         );
         if status == 400 {
             assert_eq!(
@@ -1543,7 +1558,12 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     .await
     .unwrap_err();
     assert_eq!(update_missing.code(), ErrorCode::NotFound);
-    assert_eq!(update_missing.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(update_missing.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let mismatch = dispatch(
         card_command(&[
@@ -1556,7 +1576,12 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     .await
     .unwrap_err();
     assert_eq!(mismatch.code(), ErrorCode::ProtocolError);
-    assert_eq!(mismatch.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(mismatch.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -1624,7 +1649,7 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
     .unwrap() else {
         panic!("expected card deletion")
     };
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, CardDeleteMode::Hard);
 
     Mock::given(method("DELETE"))
@@ -1644,7 +1669,12 @@ async fn delete_confirms_guards_credentials_and_verifies_the_returned_id() {
     .await
     .unwrap_err();
     assert_eq!(mismatch.code(), ErrorCode::ProtocolError);
-    assert_eq!(mismatch.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(mismatch.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let replacement = CredentialRecord::new(
         format!("{}/", server.uri()),

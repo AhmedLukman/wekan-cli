@@ -442,7 +442,12 @@ fn login_statuses_map_to_the_stable_error_contract() {
         &redactor,
     );
     assert_eq!(upstream.code(), ErrorCode::ServerError);
-    assert_eq!(upstream.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(upstream.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(upstream.details().retry_after_seconds, None);
 }
 
@@ -533,7 +538,12 @@ fn unreadable_login_responses_preserve_status_and_session_effects() {
         &redactor,
     );
     assert_eq!(upstream.code(), ErrorCode::ServerError);
-    assert_eq!(upstream.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(upstream.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]

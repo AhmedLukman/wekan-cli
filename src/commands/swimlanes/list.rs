@@ -30,7 +30,7 @@ pub(super) async fn execute(
         .client()
         .board_swimlanes(&args.board_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board swimlane collection", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "board swimlane collection"))?;
     Ok(CommandSuccess::SwimlaneCollection(
         SwimlaneCollectionSuccess {
             board_id: args.board_id,

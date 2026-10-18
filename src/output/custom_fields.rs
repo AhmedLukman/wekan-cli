@@ -47,14 +47,14 @@ pub(super) fn created(data: &CustomFieldCreateSuccess) -> String {
 }
 pub(super) fn updated(data: &CustomFieldUpdateSuccess) -> String {
     format!(
-        "Wekan acknowledged update of custom field {} on board {}.",
+        "Custom-field update request accepted for {} on board {}.",
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)
     )
 }
 pub(super) fn deleted(data: &CustomFieldDeleteSuccess) -> String {
     format!(
-        "Wekan acknowledged hard deletion of custom field {} through board {}.",
+        "Custom-field deletion request accepted for {} through board {}.",
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)
     )

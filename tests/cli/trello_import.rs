@@ -216,7 +216,7 @@ async fn executable_imports_preserve_input_and_render_complete_and_partial_outco
             let value: Value = serde_json::from_slice(&output.stdout).unwrap();
             assert_eq!(value["data"]["format"], format);
             assert_eq!(value["data"]["board_ids"], json!(["created"]));
-            assert_eq!(value["data"]["mutation_confirmed"], false);
+            assert!(value["data"].get("mutation_confirmed").is_none());
             assert_eq!(value["data"].get("errors").is_some(), format == "zip");
             server.verify().await;
             server.reset().await;
@@ -252,7 +252,7 @@ async fn executable_imports_preserve_input_and_render_complete_and_partial_outco
                     details["trello_import_result"]["errors"][0]["error"],
                     "failed [REDACTED]\n"
                 );
-                assert_eq!(details["outcome_unknown"], true);
+                assert!(details.get("outcome_unknown").is_none());
                 assert_eq!(details["retry_safe"], false);
             } else {
                 assert!(stderr.contains("Failed boards: 1"));
@@ -296,7 +296,7 @@ async fn executable_imports_preserve_input_and_render_complete_and_partial_outco
         assert!(!stderr.contains(token));
         let value: Value = serde_json::from_str(&stderr).unwrap();
         assert_eq!(value["error"]["code"], code);
-        assert_eq!(value["error"]["details"]["outcome_unknown"], true);
+        assert!(value["error"]["details"].get("outcome_unknown").is_none());
         assert_eq!(value["error"]["details"]["retry_safe"], false);
         server.verify().await;
         server.reset().await;

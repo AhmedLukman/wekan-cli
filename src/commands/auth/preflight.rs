@@ -33,9 +33,7 @@ pub(super) async fn execute(
         .map_err(AppError::from)?
         .auth_preflight(args.endpoint)
         .await
-        .map_err(|e| {
-            map_client_error(e, &Redactor::default(), "authentication preflight", false)
-        })?;
+        .map_err(|e| map_client_error(e, &Redactor::default(), "authentication preflight"))?;
     Ok(CommandSuccess::AuthPreflight(AuthPreflightSuccess {
         server: factory.server_identity().as_str().to_owned(),
         endpoint: args.endpoint,

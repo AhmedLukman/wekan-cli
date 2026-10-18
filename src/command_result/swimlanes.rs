@@ -58,7 +58,7 @@ pub enum SwimlaneDeleteMode {
 pub struct SwimlaneDeleteSuccess {
     pub board_id: String,
     pub swimlane_id: String,
-    pub deleted: bool,
+    pub deletion_requested: bool,
     pub delete_mode: SwimlaneDeleteMode,
 }
 
@@ -69,6 +69,4 @@ pub struct SwimlaneTransferSuccess {
     pub target_board_id: String,
 
     pub returned_swimlane_id: String,
-    /// The returned ID acknowledges the request, without independently confirming its effects.
-    pub mutation_confirmed: bool,
 }

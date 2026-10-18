@@ -3,7 +3,7 @@ use crate::{
     command_result::{CardCopySuccess, CommandSuccess},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found,
+        client_error::map_client_error_with_not_found,
         transfer::{CardPositionArgs, identifier},
     },
     credentials::CredentialStore,
@@ -58,7 +58,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|e| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "card copy",
@@ -77,6 +77,5 @@ pub(super) async fn execute(
         source_list_id: args.list_id,
         source_card_id: args.card_id,
         card_id,
-        mutation_confirmed: false,
     }))
 }

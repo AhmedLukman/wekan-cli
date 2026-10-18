@@ -171,18 +171,25 @@ pub(super) fn render_card_updated(data: &CardUpdateSuccess) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ");
-    format!(
-        "Submitted update for card {} using source list {} on board {}; submitted fields: {}.",
+    let mut rendered = format!(
+        "Card update request accepted for {} using source list {} on board {}; submitted fields: {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id),
         escape_terminal_controls(&fields)
-    )
+    );
+    if data
+        .submitted_fields
+        .contains(&crate::command_result::CardSubmittedField::IsOverTime)
+    {
+        rendered.push_str("\nWekan v11.06 ignores is_over_time=false and writes the wrong field for true; the card's actual overtime state is unchanged.");
+    }
+    rendered
 }
 
 pub(super) fn render_card_deleted(data: &CardDeleteSuccess) -> String {
     format!(
-        "Permanently deleted card {} from list {} on board {}.",
+        "Card deletion request accepted for {} from list {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)

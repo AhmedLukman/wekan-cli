@@ -9,9 +9,6 @@ use crate::{
 use clap::Args;
 
 #[derive(Debug, Args)]
-#[command(
-    after_help = "The returned secret does not confirm that a session was stored. Wekan v11.06 does not await token insertion and returns an unusable token even for a nonexistent user."
-)]
 pub struct CreateArgs {
     /// Wekan user ID for which to issue a token.
     #[arg(value_parser = super::super::non_empty)]
@@ -33,7 +30,6 @@ pub(super) async fn execute(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "token creation",
-                true,
             )
         })?;
     Ok(CommandSuccess::UserTokenCreated(

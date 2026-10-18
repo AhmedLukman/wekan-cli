@@ -34,8 +34,6 @@ pub enum RawResponseBody {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RawApiResponseData {
     pub http_status: u16,
-    pub mutation_attempted: bool,
-    pub mutation_confirmed: bool,
     pub headers: Vec<RawResponseHeader>,
     pub body: RawResponseBody,
 }

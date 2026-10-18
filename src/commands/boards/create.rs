@@ -152,7 +152,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board creation", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "board creation"))?;
     Ok(CommandSuccess::BoardCreated(BoardCreateSuccess {
         board_id: created.board_id,
         default_swimlane_id: created.default_swimlane_id,

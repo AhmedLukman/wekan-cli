@@ -26,6 +26,6 @@ pub(super) async fn execute(
         .client()
         .user(&args.user, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user lookup", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "user lookup"))?;
     Ok(CommandSuccess::UserShown(user_detail(user)))
 }

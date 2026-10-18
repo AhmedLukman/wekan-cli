@@ -3,9 +3,9 @@ use crate::{
         WekanClientFactory,
         attachments::{MAX_FILE_BYTES, UploadAttachmentRequest, UploadBackgroundRequest},
     },
-    command_result::{AttachmentMutationSuccess, CommandSuccess},
+    command_result::CommandSuccess,
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -121,16 +121,14 @@ pub(super) async fn execute(
         .upload_attachment(&request, context.record().token())
         .await
         .map_err(|e| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "attachment upload",
                 "the target board or card was not found",
             )
         })?;
-    Ok(CommandSuccess::AttachmentUploaded(
-        AttachmentMutationSuccess::acknowledged(response),
-    ))
+    Ok(CommandSuccess::AttachmentUploaded(response))
 }
 
 pub(super) async fn background(
@@ -152,14 +150,12 @@ pub(super) async fn background(
         .upload_background(&request, context.record().token())
         .await
         .map_err(|e| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "background upload",
                 "the target board was not found",
             )
         })?;
-    Ok(CommandSuccess::BackgroundUploaded(
-        AttachmentMutationSuccess::acknowledged(response),
-    ))
+    Ok(CommandSuccess::BackgroundUploaded(response))
 }

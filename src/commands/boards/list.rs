@@ -30,7 +30,7 @@ pub(super) async fn execute(
                 .client()
                 .public_boards(context.record().token())
                 .await
-                .map_err(|error| map_client_error(error, &redactor, "public board list", false))?,
+                .map_err(|error| map_client_error(error, &redactor, "public board list"))?,
         )
     } else {
         (
@@ -39,7 +39,7 @@ pub(super) async fn execute(
                 .client()
                 .user_boards(context.record().user_id(), context.record().token())
                 .await
-                .map_err(|error| map_client_error(error, &redactor, "active board list", false))?,
+                .map_err(|error| map_client_error(error, &redactor, "active board list"))?,
         )
     };
     Ok(CommandSuccess::BoardList(BoardListSuccess {

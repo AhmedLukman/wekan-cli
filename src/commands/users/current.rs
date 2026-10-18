@@ -26,7 +26,7 @@ pub(super) async fn execute(
         .client()
         .current_user(context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "current user", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "current user"))?;
     if user.user_id() != context.record().user_id() {
         return Err(AppError::new(
             ErrorCode::CredentialStoreFailed,

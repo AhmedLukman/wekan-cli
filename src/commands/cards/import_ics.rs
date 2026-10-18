@@ -6,7 +6,7 @@ use crate::{
     command_result::{CommandSuccess, IcsImportSuccess},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_mutation_client_error_with_not_found, server_error_details},
+        client_error::{map_client_error_with_not_found, server_error_details},
         exports,
         imports::{self, ImportInput},
     },
@@ -58,7 +58,6 @@ pub(crate) async fn execute(
         list_id: args.list_id,
         created: response.created,
         card_ids: response.card_ids,
-        mutation_confirmed: false,
     }))
 }
 
@@ -87,7 +86,7 @@ fn map_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             redactor,
         ));
     }
-    map_mutation_client_error_with_not_found(
+    map_client_error_with_not_found(
         error,
         redactor,
         "ICS import",

@@ -107,9 +107,8 @@ wrongly scoped rules retain HTTP 500 `not-found`, surfaced as `server_error`
 
 Each command sends one native request. Creation, update, and deletion perform
 sequential server writes. Failures may leave earlier effects, and mutation
-errors preserve `outcome_unknown` under the existing error policy. There is no
-automatic retry, rollback, or readback. An update acknowledgement does not prove
-that referenced trigger/action documents still exist or that all changes matched.
+errors preserve their actual status and diagnostic details. There is no
+automatic retry or rollback.
 
 REST overwrites an action's `boardId` with the selected rule board and strips it
 from reads. Cross-board destination selection in the UI is not reproduced by
@@ -143,7 +142,7 @@ List data contains `board_id` and `rules`. Each rule detail contains `board_id`,
 explicit nulls, and omit fields absent from Wekan. Missing referenced documents
 are represented as null. Creation returns `board_id`, `rule_id`, `trigger_id`,
 and `action_id`. Update returns `board_id`, `rule_id`, `submitted_fields`
-(in title/trigger/action order), and `mutation_confirmed: false`.
+(in title/trigger/action order).
 Deletion returns `board_id`, `rule_id`, and `deleted: true` after the native
 handler completes removal of the rule and its referenced documents.
 

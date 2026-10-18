@@ -99,11 +99,10 @@ pub(super) async fn execute(
         )
         .await;
     drop(credential_mutation);
-    let deleted =
-        deletion.map_err(|error| map_client_error(error, &redactor, "card deletion", true))?;
+    let deleted = deletion.map_err(|error| map_client_error(error, &redactor, "card deletion"))?;
     if deleted.card_id != args.card_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different deleted card ID than requested",
@@ -115,7 +114,7 @@ pub(super) async fn execute(
         board_id: args.board_id,
         list_id: args.list_id,
         card_id: deleted.card_id,
-        deleted: true,
+        deletion_requested: true,
         delete_mode: CardDeleteMode::Hard,
     }))
 }

@@ -8,7 +8,7 @@ use crate::{
     command_result::{CommandSuccess, ListUpdateSuccess, ListUpdatedField},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_mutation_client_error_with_not_found, protocol_error_details},
+        client_error::{map_client_error_with_not_found, protocol_error_details},
     },
     credentials::CredentialStore,
     error::{AppError, ErrorCode},
@@ -102,7 +102,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &redactor,
                 "list update",
@@ -110,8 +110,8 @@ pub(super) async fn execute(
             )
         })?;
     if updated.list_id != args.list_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different updated list ID than requested",

@@ -48,7 +48,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "list creation", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "list creation"))?;
     Ok(CommandSuccess::ListCreated(ListCreateSuccess {
         board_id: args.board_id,
         list_id: created.list_id,

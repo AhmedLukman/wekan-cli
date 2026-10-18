@@ -19,10 +19,7 @@ pub(super) fn created(data: &RuleCreateSuccess) -> String {
     format!("Rule created:\n{}", render_object(data))
 }
 pub(super) fn updated(data: &RuleUpdateSuccess) -> String {
-    format!(
-        "Rule update acknowledged; requested effects are unconfirmed:\n{}",
-        render_object(data)
-    )
+    format!("Rule updated:\n{}", render_object(data))
 }
 pub(super) fn deleted(data: &RuleDeleteSuccess) -> String {
     format!(

@@ -288,18 +288,23 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
                 let mut expected = json!({
                     "board_id": "board-1",
                     "custom_field_id": "field-1",
-                    "deletion_requested": true,
-                    "mutation_confirmed": false,
                     "delete_mode": "hard",
                 });
                 if family == "custom-field item" {
                     expected["item_id"] = json!("item-1");
                 }
-                assert_eq!(data, json!({"ok":true,"data":expected}));
+                assert_eq!(data["ok"], true);
+                assert_eq!(data["data"], expected);
+                assert!(data.get("warnings").is_none());
             } else {
                 let error = result.unwrap_err();
                 assert_eq!(error.code(), ErrorCode::ProtocolError);
-                assert_eq!(error.details().outcome_unknown, Some(true));
+                assert!(
+                    serde_json::to_value(error.details())
+                        .unwrap()
+                        .get("outcome_unknown")
+                        .is_none()
+                );
             }
         }
     }
@@ -330,7 +335,7 @@ async fn empty_definition_response_maps_not_found_without_inventing_server_metad
 }
 
 #[tokio::test]
-async fn commands_preserve_inputs_and_report_submitted_fields_and_unknown_outcomes() {
+async fn commands_preserve_inputs_and_report_submitted_fields_and_error_details() {
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server);
     Mock::given(method("PUT"))
@@ -409,7 +414,12 @@ async fn commands_preserve_inputs_and_report_submitted_fields_and_unknown_outcom
         .await
         .unwrap_err();
         assert_eq!(error.code(), ErrorCode::ProtocolError);
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
     }
     for status in [401, 403, 404, 500] {
         server.reset().await;
@@ -427,9 +437,11 @@ async fn commands_preserve_inputs_and_report_submitted_fields_and_unknown_outcom
         .await
         .unwrap_err();
         assert_eq!(error.details().http_status, Some(status));
-        assert_eq!(
-            error.details().outcome_unknown,
-            if status == 500 { Some(true) } else { None }
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
         );
     }
 }

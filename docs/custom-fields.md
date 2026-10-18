@@ -126,14 +126,14 @@ and full card details in `cards`.
 Response objects reject additional fields, including settings, dropdown items,
 card values, full lookup cards, and mutation acknowledgments. Unmapped fields,
 invalid types, missing required values, invalid dates, and mismatched
-acknowledgment IDs produce explicit protocol errors. Successful mutation
-responses that cannot be mapped report `outcome_unknown: true`.
+acknowledgment IDs produce explicit protocol errors. Mutation responses that
+cannot be mapped also report `protocol_error`.
 
 A missing or wrongly scoped definition returns an empty HTTP 200 body, mapped
 to `not_found`, with `http_status: 200` and no invented Wekan status or error
 fields. Missing, wrongly listed, and archived cards on assignment return
 HTTP 500, preserved as `server_error`. Definition updates can save an earlier
-field before a later validation failure; these errors report an unknown outcome.
+field before a later validation failure; these errors retain the server details.
 
 ## Permissions and deletion
 
@@ -143,12 +143,10 @@ site administrators bypass membership checks. The CLI preserves server gates.
 
 Both deletes require confirmation or command-local `--yes`; JSON and
 non-terminal invocations require `--yes`. Cancellation succeeds with operation
-`custom_field_delete` or `custom_field_item_delete`. Success contains scope IDs,
-`deletion_requested: true`, `mutation_confirmed: false`, and
-`delete_mode: "hard"`. These acknowledge the requested operation without claiming
-that a document or item was removed. No readback is performed. Dropdown deletion
-acknowledges the parent field ID. Updates and item creation likewise can
-acknowledge missing targets without changing anything.
+`custom_field_delete` or `custom_field_item_delete`. Success contains scope IDs
+and `delete_mode: "hard"`. Dropdown deletion returns the parent field ID.
+Missing targets can produce successful no-ops for deletion, updates, and item
+creation in Wekan v11.06.
 
 Deleting a shared definition through one board removes the definition from all
 associated boards and removes its values from their cards. Deleting a dropdown
@@ -158,3 +156,5 @@ this scope and identify the requested board. REST definition updates use direct
 collection writes: `alwaysOnCard: true` does not populate existing cards through
 the UI's normal hooks. The CLI performs no repair, preflight, automatic retry,
 rollback, or hook emulation.
+
+Updates, deletions, and dropdown-item creation report request acceptance because missing targets can produce successful no-ops. Submitted fields identify inputs, not verified stored changes.

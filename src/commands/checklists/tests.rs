@@ -542,7 +542,12 @@ async fn both_deletions_require_confirmation_or_yes_and_verify_acknowledgements(
             } else {
                 let error = result.unwrap_err();
                 assert_eq!(error.code(), ErrorCode::ProtocolError);
-                assert_eq!(error.details().outcome_unknown, Some(true));
+                assert!(
+                    serde_json::to_value(error.details())
+                        .unwrap()
+                        .get("outcome_unknown")
+                        .is_none()
+                );
             }
         }
     }
@@ -550,11 +555,11 @@ async fn both_deletions_require_confirmation_or_yes_and_verify_acknowledgements(
 
 #[tokio::test]
 async fn mutations_keep_pinned_http_failures_and_uncertain_outcomes() {
-    for (status, expected, unknown) in [
-        (401, ErrorCode::AuthenticationRejected, None),
-        (403, ErrorCode::PermissionDenied, None),
-        (404, ErrorCode::NotFound, None),
-        (500, ErrorCode::ServerError, Some(true)),
+    for (status, expected) in [
+        (401, ErrorCode::AuthenticationRejected),
+        (403, ErrorCode::PermissionDenied),
+        (404, ErrorCode::NotFound),
+        (500, ErrorCode::ServerError),
     ] {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -573,7 +578,12 @@ async fn mutations_keep_pinned_http_failures_and_uncertain_outcomes() {
         .await
         .unwrap_err();
         assert_eq!(error.code(), expected);
-        assert_eq!(error.details().outcome_unknown, unknown);
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
     }
     let server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -600,5 +610,10 @@ async fn mutations_keep_pinned_http_failures_and_uncertain_outcomes() {
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

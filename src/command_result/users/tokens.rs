@@ -6,8 +6,6 @@ pub struct UserTokenCreateSuccess {
     pub user_id: String,
     #[serde(serialize_with = "serialize_issued_token")]
     auth_token: SecretString,
-    pub creation_requested: bool,
-    pub mutation_confirmed: bool,
 }
 
 impl UserTokenCreateSuccess {
@@ -15,8 +13,6 @@ impl UserTokenCreateSuccess {
         Self {
             user_id,
             auth_token,
-            creation_requested: true,
-            mutation_confirmed: false,
         }
     }
 
@@ -29,8 +25,6 @@ impl PartialEq for UserTokenCreateSuccess {
     fn eq(&self, other: &Self) -> bool {
         self.user_id == other.user_id
             && self.auth_token.expose_secret() == other.auth_token.expose_secret()
-            && self.creation_requested == other.creation_requested
-            && self.mutation_confirmed == other.mutation_confirmed
     }
 }
 impl Eq for UserTokenCreateSuccess {}
@@ -51,6 +45,4 @@ pub struct UserTokenDeleteSuccess {
     pub user_id: String,
     pub scope: UserTokenDeleteScope,
     pub message: String,
-    pub deletion_requested: bool,
-    pub mutation_confirmed: bool,
 }

@@ -66,7 +66,7 @@ Because those effects are destructive, `swimlane delete` requires interactive
 confirmation or command-local `--yes`.
 
 The endpoint is idempotent: deleting an absent swimlane still returns the
-requested ID. Therefore `deleted: true` and `delete_mode: "hard"` mean Wekan
+requested ID. Therefore `deletion_requested: true` and `delete_mode: "hard"` mean Wekan
 accepted and validated the request, not that a live swimlane necessarily
 existed immediately before the call. A subsequent `swimlane get` normalizes
 Wekan's empty HTTP 200 response to the stable `not_found` error.

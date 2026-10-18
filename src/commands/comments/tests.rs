@@ -553,11 +553,16 @@ async fn delete_maps_a_missing_board_or_comment_to_not_found() {
 
     assert_eq!(error.code(), ErrorCode::NotFound);
     assert_eq!(error.details().http_status, Some(404));
-    assert_eq!(error.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]
-async fn mutation_protocol_failures_report_unknown_outcomes() {
+async fn mutation_protocol_failures_report_error_details() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/boards/board-1/cards/card-1/comments"))
@@ -584,7 +589,12 @@ async fn mutation_protocol_failures_report_unknown_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(malformed.code(), ErrorCode::ProtocolError);
-    assert_eq!(malformed.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(malformed.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let mismatch = dispatch(
         comment_command(&[
@@ -603,5 +613,10 @@ async fn mutation_protocol_failures_report_unknown_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(mismatch.code(), ErrorCode::ProtocolError);
-    assert_eq!(mismatch.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(mismatch.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

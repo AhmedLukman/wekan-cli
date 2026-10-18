@@ -87,7 +87,7 @@ pub(super) async fn execute(
         .client()
         .delete_user(&args.user_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user deletion", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "user deletion"))?;
     if deleted_id != args.user_id {
         return Err(AppError::new(
             ErrorCode::ProtocolError,
@@ -117,7 +117,7 @@ pub(super) async fn execute(
     };
     Ok(CommandSuccess::UserDeleted(UserDeleteSuccess {
         user_id: args.user_id,
-        deleted: true,
+        deletion_requested: true,
         deleted_current_user: is_self,
         credential_stored: if is_self {
             deletion == CredentialDeleteOutcome::Mismatch

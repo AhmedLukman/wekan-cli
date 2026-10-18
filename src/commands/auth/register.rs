@@ -91,7 +91,7 @@ pub(crate) async fn execute(
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
     match error {
         error @ ClientError::EmptyNotFound { .. } =>
-            crate::commands::client_error::map_client_error(error, redactor, "registration", true),
+            crate::commands::client_error::map_client_error(error, redactor, "registration"),
         ClientError::Build(_) => AppError::new(
             ErrorCode::InternalError,
             "the HTTP client could not be initialized",
@@ -99,13 +99,9 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         ),
         ClientError::Transport(_) => AppError::new(
             ErrorCode::TransportError,
-            "the registration request failed; its remote outcome may be unknown, so check the server before retrying",
+            "the registration request failed",
             StableExitCode::Transport,
-        )
-        .with_details(ErrorDetails {
-            outcome_unknown: Some(true),
-            ..ErrorDetails::default()
-        }),
+        ),
         ClientError::UnexpectedRedirect { status } => AppError::new(
             ErrorCode::UnexpectedRedirect,
             "the server redirected registration; configure the canonical Wekan URL because registration requests are never replayed",
@@ -155,7 +151,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             server_error_type,
             server_is_client_safe,
         } => {
-            let mut details = embedded_protocol_error_details(
+            let details = embedded_protocol_error_details(
                 http_status,
                 server_error,
                 server_reason,
@@ -164,10 +160,10 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 server_is_client_safe,
                 redactor,
             );
-            details.outcome_unknown = Some(true);
+
             AppError::new(
                 ErrorCode::ProtocolError,
-                "Wekan returned an embedded registration error without statusCode; the remote outcome may be unknown",
+                "Wekan returned an embedded registration error without statusCode",
                 StableExitCode::Server,
             )
             .with_details(details)
@@ -178,36 +174,28 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             server_reason,
             retry_after_seconds,
         } => {
-            let (code, message, outcome_unknown) = match status.as_u16() {
+            let (code, message) = match status.as_u16() {
                 400 => (
                     ErrorCode::RegistrationRejected,
-                    "Wekan returned a registration error; the remote outcome may be unknown, so check the server before retrying",
-                    Some(true),
+                    "Wekan returned a registration error",
                 ),
                 403 => (
                     ErrorCode::RegistrationDisabled,
                     "registration is disabled on the Wekan server",
-                    None,
-                ),
-                _ if status.is_server_error() => (
-                    ErrorCode::ServerError,
-                    "the Wekan server returned an unexpected error; the remote outcome may be unknown, so check the server before retrying",
-                    Some(true),
                 ),
                 _ => (
                     ErrorCode::ServerError,
                     "the Wekan server returned an unexpected error",
-                    None,
                 ),
             };
-            let mut details = server_error_details(
+            let details = server_error_details(
                 status,
                 server_error,
                 server_reason,
                 retry_after_seconds,
                 redactor,
             );
-            details.outcome_unknown = outcome_unknown;
+
             AppError::new(code, message, StableExitCode::Server).with_details(details)
         }
         ClientError::EmbeddedServer {
@@ -220,17 +208,13 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             "the Wekan server returned an unexpected embedded registration error",
             StableExitCode::Server,
         )
-        .with_details({
-            let mut details = embedded_server_error_details(
+        .with_details(embedded_server_error_details(
                 http_status,
                 wekan_status_code,
                 server_error,
                 server_reason,
                 redactor,
-            );
-            details.outcome_unknown = Some(true);
-            details
-        }),
+            )),
     }
 }
 
@@ -239,7 +223,7 @@ fn response_body_error(
     status: reqwest::StatusCode,
     retry_after_seconds: Option<u64>,
 ) -> AppError {
-    let mut message = message.into();
+    let message = message.into();
     let mut details = response_error_details(status, retry_after_seconds);
     if status == reqwest::StatusCode::OK {
         details.account_created = Some(true);
@@ -247,27 +231,11 @@ fn response_body_error(
             .with_details(details);
     }
 
-    let (code, exit_code, outcome_unknown) = match status.as_u16() {
-        400 => (
-            ErrorCode::RegistrationRejected,
-            StableExitCode::Server,
-            Some(true),
-        ),
-        403 => (
-            ErrorCode::RegistrationDisabled,
-            StableExitCode::Server,
-            None,
-        ),
-        _ if status.is_server_error() => {
-            (ErrorCode::ServerError, StableExitCode::Server, Some(true))
-        }
-        _ => (ErrorCode::ServerError, StableExitCode::Server, None),
+    let (code, exit_code) = match status.as_u16() {
+        400 => (ErrorCode::RegistrationRejected, StableExitCode::Server),
+        403 => (ErrorCode::RegistrationDisabled, StableExitCode::Server),
+        _ => (ErrorCode::ServerError, StableExitCode::Server),
     };
-
-    if outcome_unknown.is_some() {
-        message
-            .push_str("; the remote outcome may be unknown, so check the server before retrying");
-    }
 
     let message = if status == reqwest::StatusCode::FORBIDDEN {
         "registration is disabled on the Wekan server".to_owned()
@@ -275,7 +243,6 @@ fn response_body_error(
         message
     };
 
-    details.outcome_unknown = outcome_unknown;
     AppError::new(code, message, exit_code).with_details(details)
 }
 

@@ -69,8 +69,7 @@ prevents the HTTP request. Declining produces the normal cancellation result.
 JSON uses the common `{"ok":true,"data":...}` envelope. Each successful command
 returns only mapped typed fields. Unknown response properties, invalid types,
 missing required fields, or mismatched acknowledgment IDs produce
-`protocol_error`. A decoding failure after a mutation acknowledgment reports an
-unknown mutation outcome through the shared error contract.
+`protocol_error`. Errors retain the known status and response diagnostics.
 
 - Card listing: `board_id`, `card_id`, and `dependencies`, with each entry's
   `target_card_id`, `dependency_type`, `color`, and `icon`.
@@ -81,14 +80,14 @@ unknown mutation outcome through the shared error contract.
 - Create: `board_id`, `card_id`, `target_card_id`, `dependency_type`, `color`, and
   `icon`, using the server-returned metadata. It does not claim the edge was new.
 - Update: `board_id`, `card_id`, `target_card_id`, `submitted_fields` (in type,
-  color, icon order), and `mutation_confirmed: false`.
-- Delete: `board_id`, `card_id`, `target_card_id`, `deletion_requested: true`, and
-  `mutation_confirmed: false`.
+  color, icon order).
+- Delete: `board_id`, `card_id`, and `target_card_id`.
 
-Human output escapes terminal controls and describes mutation acknowledgments.
-Use a subsequent explicit list command when you need to inspect the result.
+Human output reports the completed action and escapes terminal controls.
 
 The pinned contract and normalization behavior are implemented in
 [`server/models/dependencies.js`](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/server/models/dependencies.js)
 and
 [`models/metadata/dependencies.js`](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/models/metadata/dependencies.js).
+
+Update and deletion report request acceptance because a missing edge is a successful no-op. Creation retains direct create-or-update wording.

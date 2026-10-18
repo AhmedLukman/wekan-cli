@@ -200,4 +200,4 @@ GET can initialize a missing document through the native server path.
 Authentication and application failures may arrive with HTTP 200. Errors retain
 the real HTTP status, embedded Wekan status and error metadata. Unmapped fields,
 invalid types, invalid dates, or unmasked secrets cause protocol errors.
-Failed updates can report `outcome_unknown`; inspect state before retrying.
+Failed updates report server and protocol diagnostics.

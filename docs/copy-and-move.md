@@ -38,13 +38,9 @@ Omitting both flags leaves the server's original copy/move sorting behavior.
 
 JSON uses the standard `{ "ok": true, "data": ... }` envelope. Copy results
 include source identifiers and the returned `board_id` or `card_id`; card copies
-also include resolved requested destination selectors. Both include
-`mutation_confirmed: false` because attachment copies run without being awaited.
-Human output also states that effects are unconfirmed. List and swimlane
-transfers include source and requested destination identifiers, a
-`returned_list_id` or `returned_swimlane_id`, and `mutation_confirmed: false`.
-The returned ID acknowledges the request and does not independently verify its
-effects. Read the relevant resources to inspect resulting state.
+also include resolved destination selectors. List and swimlane transfers include
+source and destination identifiers and a `returned_list_id` or
+`returned_swimlane_id`. Human output reports the completed copy or move.
 
 Wekan v11.06 reuses an active destination list with the same title when copying
 a list. A same-board list copy can therefore return the source ID and duplicate
@@ -76,10 +72,9 @@ A successful swimlane move also starts an unawaited insertion of a default
 swimlane whose ID is `<BOARD_ID>-default`, even when active swimlanes already
 exist. If that ID is absent, the extra lane appears with sort zero and may
 change the board's order after the response. Repeated moves reuse that ID.
-The acknowledgment does not confirm completion of this additional effect.
 
 Copies and moves may fail after partial changes. Errors preserve the server
-status and report `outcome_unknown: true` when effects may have occurred. The
+status and error details. The
 CLI does not retry or repair these requests. Acknowledge the failure and inspect
 source and destination state before deciding on another mutation.
 
@@ -90,3 +85,5 @@ but omit their attachments: the unawaited `copyFile` helper fails with
 copying bytes. The source attachments remain readable. A successful copy result
 therefore does not confirm attachment duplication. This server defect is
 regression-tested without a CLI workaround.
+
+Human copy output states that Wekan v11.06 omits attachments. Cross-board list moves report request acceptance and state that the source list is retained and position ignored; same-board moves retain direct success wording. JSON returns the scoped resource IDs, without a shared warning envelope.

@@ -3,6 +3,12 @@
 Use `--output json` for deterministic machine-readable output. Every envelope
 is one JSON object followed by a newline.
 
+Known Wekan no-op acknowledgements use request-accepted wording rather than
+claiming that a mutation happened. Human messages explain concrete limitations
+where needed. JSON results contain resource data and requested-operation fields,
+without a shared warning envelope. Delayed ownership transfer retains direct
+success wording. Raw API responses preserve native bodies.
+
 The [command reference](command-contract.md) collects the complete command
 inventory and the current distinctions between null, omission, and empty
 collections.
@@ -57,14 +63,11 @@ Raw API output continues to preserve the upstream response without typed decodin
 
 ## Destructive confirmation
 
-`user token create` deliberately includes the issued `auth_token` secret in
-successful JSON/human output. It returns no expiry and writes no local credential.
-Its `creation_requested` is true and `mutation_confirmed` is false because Wekan
-does not await token insertion, including when the target user does not exist.
+`user token create` includes the issued `auth_token` secret in successful
+JSON/human output. It returns no expiry and writes no local credential.
 `user token delete` redacts the supplied target token and authentication token
-from its server message and error details. Its `scope` is `single` or `all`;
-`deletion_requested` is true and `mutation_confirmed` is false. Debug output
-redacts issued and supplied token material.
+from its server message and error details. Its `scope` is `single` or `all`.
+Debug output redacts issued and supplied token material.
 
 `auth logout` in every scope, `profile remove`, `user take-ownership`,
 `user disable-login`, `user delete`, `user token delete` in both modes,
@@ -116,10 +119,10 @@ File open/read/staging/save failures use `file_io_error` and exit status 4.
 If download completion reporting fails after the file was saved, error details
 include `file_saved: true` and `destination`. Invalid transfer option combinations
 use `invalid_input`, exit 2, before profile/credential access or HTTP.
-Attachment mutations return `mutation_confirmed: false`; they acknowledge the
-server's response without an authoritative readback. Optional output fields use
-null when absent; response DTOs reject explicit null where the corrected contract
-permits only omission. Scoped listings expose `requested_scope` and `effective_scope`.
+Attachment mutations return the mapped server response fields. Optional output
+fields use null when absent; response DTOs reject explicit null where the
+corrected contract permits only omission. Scoped listings expose
+`requested_scope` and `effective_scope`.
 
 ## Export results
 
@@ -147,8 +150,6 @@ Human and JSON modes buffer at most 1 MiB; raw mode streams without that limit.
   "ok": true,
   "data": {
     "http_status": 200,
-    "mutation_attempted": false,
-    "mutation_confirmed": false,
     "headers": [
       {"name": "content-type", "encoding": "text", "value": "application/json"}
     ],
@@ -167,12 +168,8 @@ body to stderr and use the mapped nonzero exit status.
 
 A structured response that cannot be read completely includes the known
 `http_status` and `http_success`. An over-limit response additionally returns
-`api_response_too_large` and includes `response_limit_bytes`. For an unsafe
-request, `mutation_attempted` is `true` and `mutation_confirmed` is `false`:
-the CLI performs no authoritative readback, so HTTP success means only that
-Wekan accepted the request. If response streaming fails or a response is too
-large, `outcome_unknown` is also `true` because the complete response was not
-observed; do not retry the mutation automatically.
+`api_response_too_large` and includes `response_limit_bytes`. Unsafe requests
+retain `mutation_attempted: true` and `retry_safe: false` in error details.
 
 `--auth-token-query` is restricted to `GET`, but it can target any valid
 same-origin raw API route. CLI-generated errors and debug output never include
@@ -260,7 +257,6 @@ Logout reports the completed scope and the resulting local credential state:
     "server": "https://wekan.example/",
     "profile": "default",
     "logout_scope": "current_token",
-    "remote_logout_completed": true,
     "credential_stored": false,
     "local_credential_removed": true
   }
@@ -319,19 +315,16 @@ List results are nested under their resource name: `{"users": [...]}` for
 `{"user_id": "...", "boards": [...]}` for `user boards`. A list entry's
 `username` is nullable because Wekan permits email-only accounts.
 
-Wekan v11.06's asynchronous create-user acknowledgement confirms neither
-creation nor an ID. Duplicate requests can return the same successful body:
+User creation returns the supplied identities and a nullable `user_id`
+(Wekan v11.06 returns no usable ID):
 
 ```json
 {
   "ok": true,
   "data": {
-    "creation_requested": true,
-    "mutation_confirmed": false,
     "username": "bob",
     "email": "bob@example.com",
-    "user_id": null,
-    "warning": "user_id_unavailable_in_wekan_v11_06"
+    "user_id": null
   }
 }
 ```
@@ -345,7 +338,7 @@ omits `loginDisabled` from returned user documents, so the CLI outputs
 `login_disabled: null`.
 Ownership transfer returns `from_user_id`, `to_user_id`, and the affected
 `boards` array. Deletion returns
-`user_id`, `deleted`, `deleted_current_user`, `credential_stored`, and
+`user_id`, `deletion_requested`, `deleted_current_user`, `credential_stored`, and
 `local_credential_removed`. The last three fields make self-delete cleanup
 safe for automation.
 
@@ -395,7 +388,7 @@ timestamps, nonempty colors, widths, and required empty identifiers cause
 Creation returns `{"board_id":"...","list_id":"..."}`. Update returns the
 same identifiers plus a canonical-order `updated_fields` array containing any
 of `title`, `color`, `starred`, and `wip_limit`. Delete returns
-`{"board_id":"...","list_id":"...","deleted":true,"delete_mode":"soft"}`.
+`{"board_id":"...","list_id":"...","deletion_requested":true,"delete_mode":"soft"}`.
 The delete result means Wekan accepted and validated the idempotent request; it
 does not prove that the list previously existed or was newly deleted. Declining
 list deletion returns the standard cancellation shape with
@@ -437,13 +430,10 @@ possible values are `title`, `sort`, `parent_id`, `description`, `color`, `label
 `list_id`, `new_board_id`, `new_swimlane_id`, `new_list_id`, `archive`, `vote`,
 `poker`, `custom_fields`, `stickers`, and `locations`. The returned board and list
 IDs identify the request's source scope, including after movement.
-These values report the wire fields sent; they do not claim Wekan persisted
-them. A dispatched card update can persist earlier fields before a later field
-fails, so such failures report `outcome_unknown: true` without claiming which
-fields changed. Delete returns
-`{"board_id":"...","list_id":"...","card_id":"...","deleted":true,"delete_mode":"hard"}`.
-The delete result only means Wekan accepted its hard-idempotent request; it does
-not prove prior existence or removal. Declining card deletion uses the standard
+These values identify the wire fields sent. Wekan can persist earlier fields
+before a later field fails; the CLI reports the returned error. Delete returns
+`{"board_id":"...","list_id":"...","card_id":"...","deletion_requested":true,"delete_mode":"hard"}`.
+Deletion is idempotent. Declining card deletion uses the standard
 cancellation shape with `operation: "card_delete"`.
 
 `card archive` returns
@@ -455,10 +445,9 @@ commands recursively change child cards and run without confirmation.
 
 These dedicated commands require the actual board/list/card scope and expected
 initial archived state. Unknown fields, missing or invalid required values,
-unexpected result states, and mismatched card IDs produce `protocol_error`
-with `outcome_unknown:true`. Wekan v11.06 missing-card, wrong-list, wrong-existing-board,
+unexpected result states, and mismatched card IDs produce `protocol_error`. Wekan v11.06 missing-card, wrong-list, wrong-existing-board,
 and wrong-state failures are HTTP 500 HTML responses; they remain `server_error`
-with `http_status:500` and `outcome_unknown:true`. Missing boards produce
+with `http_status:500`. Missing boards produce
 `not_found` with HTTP 404. HTTP 401/403 retains authentication/permission
 classification. No command preflight, retry, or follow-up request is issued.
 
@@ -468,16 +457,14 @@ classification. No command preflight, retry, or follow-up request is issued.
 returns `source_board_id`, `source_list_id`, `source_card_id`, requested
 `target_board_id`, `target_list_id`, `target_swimlane_id`, and new `card_id`.
 Omitted destination board/list values are resolved to the source selectors.
-Both results include `mutation_confirmed: false`, and human output states that
-effects are unconfirmed: Wekan does not await attachment duplication, which fails
-independently of the returned ID in v11.06.
+Human output reports the completed copy.
 
 List transfers return `source_board_id`, `source_list_id`, `target_board_id`,
-nullable `target_swimlane_id`, `returned_list_id`, and `mutation_confirmed: false`.
+nullable `target_swimlane_id`, and `returned_list_id`.
 Swimlane transfers return `source_board_id`, `source_swimlane_id`,
-`target_board_id`, `returned_swimlane_id`, and `mutation_confirmed: false`.
-List moves can return the source ID while retaining that list. These results
-acknowledge native requests without independently verifying their effects.
+`target_board_id` and `returned_swimlane_id`.
+List moves can return the source ID while retaining that list. Human output
+reports whether the list or swimlane was copied or moved.
 See [copy and move](copy-and-move.md) for defaults, ordering, and pinned defects.
 
 ## Comment success
@@ -496,7 +483,7 @@ Creation returns `{"board_id":"...","card_id":"...","comment_id":"..."}`.
 Delete returns the same identifiers plus `"deleted":true` and
 `"delete_mode":"hard"`. A missing board or comment produces `not_found` and is
 known not to have deleted anything. A malformed successful response or a
-returned card ID that differs from the request reports `outcome_unknown: true`.
+returned card ID that differs from the request reports `protocol_error`.
 Declining comment deletion uses the standard cancellation shape with
 `operation: "comment_delete"`.
 
@@ -531,7 +518,7 @@ update timestamps, sort, color, and height are present as their value or JSON
 
 Creation returns `{"board_id":"...","swimlane_id":"..."}`. Update returns
 the same identifiers plus `"updated_fields":["title"]`. Delete returns
-`{"board_id":"...","swimlane_id":"...","deleted":true,"delete_mode":"hard"}`.
+`{"board_id":"...","swimlane_id":"...","deletion_requested":true,"delete_mode":"hard"}`.
 The delete result means Wekan accepted and validated the idempotent request; it
 does not prove that the swimlane previously existed or was newly deleted.
 Declining swimlane deletion returns the standard cancellation shape with
@@ -608,8 +595,6 @@ data. Removal reports both what was removed and the resulting selection:
 - `retry_safe`: whether retrying after a local output failure is safe; it is
   `false` for an unsafe raw request whose HTTP success was already received;
 - `mutation_attempted`: whether an unsafe raw request received an HTTP response;
-- `mutation_confirmed`: whether the CLI performed an authoritative readback and
-  confirmed the mutation; raw API requests currently report `false`;
 - `wekan_status_code`: application status serialized inside a Wekan response;
 - `server_error`, `server_reason`, and `server_message`: structured Wekan error
   fields;
@@ -620,15 +605,13 @@ data. Removal reports both what was removed and the resulting selection:
 - `session_created`: whether login session creation is known to have occurred;
 - `two_factor_required`: whether Wekan accepted the password but requires a
   two-factor code for login;
-- `outcome_unknown`: whether the server may have processed a failed request;
 - `retry_after_seconds`: a valid integer `Retry-After` value from HTTP 429;
 - `token_expires`: the stored RFC 3339 expiry when a credential is locally
   expired;
 - `logout_scope`: the requested current-token, all-token, or local-only
   operation when relevant;
 - `remote_logout_completed`: `true` after a validated logout response, `false`
-  when remote logout conclusively did not run, or `null` when its outcome cannot
-  be validated;
+  when remote logout did not run; omitted when no completion state is available;
 - `credential_stored`: the known local credential presence at the guarded
   command outcome;
 - `local_credential_removed`: whether this invocation is known to have removed
@@ -643,10 +626,8 @@ data. Removal reports both what was removed and the resulting selection:
 - `response`: the complete status, headers, and tagged body returned by a raw
   API request when structured output could buffer it.
 
-Registration HTTP 400 errors always set `outcome_unknown: true` because Wekan
-`v11.06` can return that status before or after account creation. Authentication
-transport failures and HTTP 5xx responses also set it because an intermediary
-can fail after forwarding the request.
+Registration HTTP 400 errors retain their native status and error metadata.
+Wekan v11.06 can return that status before or after account creation.
 
 An invalid, unreadable, or oversized HTTP 200 registration response sets
 `account_created: true`; the login equivalent sets `session_created: true`.
@@ -687,12 +668,10 @@ overwrite any stored entry, callers must remove an expired or rejected entry
 with `auth logout --local-only` before logging in again.
 
 Normal logout also uses `credential_not_found` when no record can be submitted.
-It preserves the record on every remote error. Transport failures, redirects,
-and 5xx responses set `outcome_unknown: true` and
-`remote_logout_completed: null`; an unusable HTTP 200 sets both
-`remote_logout_completed: null` and `outcome_unknown: true` and remains a
-`protocol_error`. Local-only logout is idempotent for an absent entry and never
-contacts Wekan. Logout mutation requests are never automatically retried.
+It preserves the record on every remote error and reports the actual error code
+and observed HTTP status. Unusable HTTP 200 responses return `protocol_error`.
+Local-only logout is idempotent for an absent entry and never contacts Wekan.
+Logout mutation requests are never automatically retried.
 
 The relevant details for an unusable current-token HTTP 200 are:
 
@@ -700,9 +679,7 @@ The relevant details for an unusable current-token HTTP 200 are:
 {
   "profile": "default",
   "http_status": 200,
-  "outcome_unknown": true,
   "logout_scope": "current_token",
-  "remote_logout_completed": null,
   "credential_stored": true,
   "local_credential_removed": false
 }
@@ -776,8 +753,8 @@ including inactive members and nullable optional permission flags. Card lists
 preserve the selected user-ID array in server order. These reads strictly
 decode the complete board/card document before projecting the membership data.
 
-Board add/remove expose `board_id`, `user_id`, `action`, returned `boards`, and
-`mutation_confirmed: false`. Permission updates expose `board_id`, `user_id`,
+Board add/remove expose `board_id`, `user_id`, `action`, and returned `boards`.
+Permission updates expose `board_id`, `user_id`,
 `affected_documents`, and ordered `submitted_fields`; counts are not saved
 permission values. Card mutations expose `board_id`, `list_id`, `card_id`,
 `user_id`, `kind` (`member` or `assignee`), `action` (`add` or `remove`), and both
@@ -786,8 +763,7 @@ cards, Wekan changes the source card but returns the link's stored arrays;
 those arrays do not confirm the source's saved assignments. Unknown fields,
 invalid response types, empty board mutation bodies, and mismatched card IDs
 fail explicitly.
-Ambiguous mutation errors include `outcome_unknown: true`; no retry or repair
-occurs. Removals require no confirmation and accept no `--yes`.
+Mutation errors retain server and protocol diagnostics; no retry or repair occurs. Removals require no confirmation and accept no `--yes`.
 See [membership commands](memberships.md) for permissions and pinned no-ops.
 
 ## Custom fields
@@ -802,11 +778,10 @@ ordered submitted_fields. Card assignment returns its complete cleaned field
 array; lookup returns full card details plus the exact string query and scope.
 
 All response objects reject unmapped top-level and nested fields. Malformed or
-mismatched mutation acknowledgments report protocol_error with an unknown
-outcome. The two deletion commands require confirmation or --yes; cancellation
+mismatched mutation responses report `protocol_error`. The two deletion commands require confirmation or --yes; cancellation
 operations are custom_field_delete and custom_field_item_delete. Success exposes
-deletion_requested: true and mutation_confirmed: false, including successful
-no-ops; it does not claim completed removal. Shared definition deletion affects
+the scope IDs and `delete_mode: "hard"`, including successful no-ops.
+Shared definition deletion affects
 all associated boards and their card values. Dropdown-item deletion changes the
 shared definition's options for every associated board. Both confirmation
 prompts disclose the full scope and identify the requested board.
@@ -846,9 +821,8 @@ card_id, and error, with the unused outcome represented as null. Deletion expose
 board_id, deleted, and not_found. Label changes expose board_id, updated (objects
 with card_id and label_ids), and not_found. Order and duplicate records are
 preserved. Bulk label_ids arrays preserve nullable elements, including in
-batch_incomplete results. Mutation protocol/transport failures retain
-outcome_unknown: true; a server failure can follow earlier writes. No automatic
-retry or readback occurs.
+batch_incomplete results. Mutation failures retain server and protocol details;
+a server failure can follow earlier writes. No automatic retry occurs.
 
 Invalid added labels preserve HTTP 400 server_error plus invalid_label_ids
 through an endpoint-specific strict decoder. File/stdin read failures use
@@ -877,8 +851,8 @@ and preserve explicit nulls. Unknown fields at the envelope or embedded object
 boundary fail with `protocol_error`; no opaque maps bypass mapping.
 
 Creation returns `board_id`, `rule_id`, `trigger_id`, and `action_id`. Update
-returns `board_id`, `rule_id`, `submitted_fields` (title/trigger/action order),
-and `mutation_confirmed: false`. Deletion returns `board_id`, `rule_id`, and
+returns `board_id`, `rule_id`, and `submitted_fields` (title/trigger/action order).
+Deletion returns `board_id`, `rule_id`, and
 `deleted: true`; cancellation uses operation `rule_delete`.
 
 Create/update require exactly one `--rule`, `--rule-file`, or `--rule-stdin`.
@@ -889,8 +863,8 @@ values must be valid Wekan date-time strings or null; invalid values fail with
 Sparse updates, including `{}`, are passed to native shallow merging.
 Only deletion accepts `--yes`.
 Missing rules retain HTTP 500 `not-found` as exit-5 `server_error`; missing boards
-retain HTTP 404. Mutation errors can indicate `outcome_unknown: true`; no retry,
-rollback, or readback is performed. See [rule behavior](rules.md).
+retain HTTP 404. Mutation errors retain their native diagnostics; no retry or
+rollback is performed. See [rule behavior](rules.md).
 
 ## Global administrator settings
 
@@ -903,29 +877,27 @@ The response is stored configuration, not a connectivity or migration result.
 Each command sends one native request. Nested section replacement/defaults and
 cloud-provider merging remain native. Strict decoding rejects unmapped fields
 at every object boundary, invalid known-field types/dates, and unmasked secrets.
-HTTP-200 application errors retain native metadata; failed updates retain
-mutation-outcome uncertainty. See [administrator settings](admin-settings.md)
+HTTP-200 application errors and failed updates retain native error metadata. See [administrator settings](admin-settings.md)
 for complete input, credential, and replacement semantics.
 
 ## Import results
 
-`board import-trello` returns `format`, `board_ids`, and
-`mutation_confirmed: false`. JSON omits `errors`; ZIP includes an array of
+`board import-trello` returns `format` and `board_ids`. JSON omits `errors`;
+ZIP includes an array of
 strictly decoded `{board, error}` objects. Failed board names retain their
 string/number/boolean type; composite or null names are protocol errors.
 Any nonempty ZIP error array returns `batch_incomplete` (exit 5), with all
 returned outcomes under `error.details.trello_import_result`, HTTP 200
-metadata, `outcome_unknown: true`, and `retry_safe: false`. Failed boards may
+metadata and `retry_safe: false`. Failed boards may
 leave resources whose IDs are absent from the response. Human errors display
 both returned board IDs and failed boards. Post-submission failures, including
-native HTTP 400, preserve uncertain mutation outcomes. No retry occurs.
+native HTTP 400, preserve the native error details. No retry occurs.
 
-`board import` returns `board_id`, `source` (`native` when --source is omitted),
-and `mutation_confirmed: false`. ZIP results include the destination board,
-requested nullable scope IDs, all six native counters under `counts`, and
-`mutation_confirmed: false`. ICS results include destination board/list/swimlane,
-`created`, `card_ids`, and `mutation_confirmed: false`. These are acknowledgements
-without readback. Only human and JSON output are supported; imports do not prompt.
+`board import` returns `board_id` and `source` (`native` when --source is omitted).
+ZIP results include the destination board, requested nullable scope IDs, and
+all six native counters under `counts`. ICS results include destination
+board/list/swimlane, `created`, and `card_ids`. Human output reports completed
+imports. Only human and JSON output are supported; imports do not prompt.
 Strict response and embedded-error decoding applies, including nested ZIP counts.
 Timeouts and invalid success bodies can follow partial writes; errors preserve
-`outcome_unknown: true` where applicable. See [imports](imports.md).
+the actual failure diagnostics. See [imports](imports.md).

@@ -267,7 +267,7 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
         let value: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(
             value,
-            json!({"ok":true,"data":{"board_id":format!("new-{source}"),"source":source,"mutation_confirmed":false}})
+            json!({"ok":true,"data":{"board_id":format!("new-{source}"),"source":source}})
         );
     }
     let counts =
@@ -345,7 +345,7 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
             let value: Value = serde_json::from_slice(&output.stdout).unwrap();
             assert_eq!(value["data"]["card_ids"], json!(["event"]));
         } else {
-            assert!(String::from_utf8_lossy(&output.stdout).contains("Mutation unconfirmed"));
+            assert!(String::from_utf8_lossy(&output.stdout).starts_with("Imported "));
         }
     }
     server.reset().await;
@@ -363,7 +363,7 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
     assert!(output.stdout.is_empty());
     let error: Value = serde_json::from_slice(&output.stderr).unwrap();
     assert_eq!(error["error"]["code"], "protocol_error");
-    assert_eq!(error["error"]["details"]["outcome_unknown"], true);
+    assert!(error["error"]["details"].get("outcome_unknown").is_none());
 
     for (server_error, code) in [
         ("not-authorized", "permission_denied"),

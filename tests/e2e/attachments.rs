@@ -469,7 +469,7 @@ async fn complete_attachment_flow_matches_wekan_v11_06() {
         else {
             panic!("delete")
         };
-        assert!(!result.mutation_confirmed);
+        assert_eq!(&result.attachment_id, id);
         assert_eq!(
             run(&app, &server, OutputFormat::Json, &["get", id])
                 .await

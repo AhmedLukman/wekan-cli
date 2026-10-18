@@ -1,8 +1,8 @@
 use crate::{
     client::{WekanClientFactory, attachments::TransferAttachmentRequest},
-    command_result::{AttachmentMutationSuccess, CommandSuccess},
+    command_result::CommandSuccess,
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -44,7 +44,7 @@ pub(super) async fn execute(
         target_card_id: a.target_card_id,
     };
     let error = |e| {
-        map_mutation_client_error_with_not_found(
+        map_client_error_with_not_found(
             e,
             &Redactor::with_secret(context.record().token()),
             "attachment transfer",
@@ -53,23 +53,19 @@ pub(super) async fn execute(
     };
     if moving {
         Ok(CommandSuccess::AttachmentMoved(
-            AttachmentMutationSuccess::acknowledged(
-                context
-                    .client()
-                    .move_attachment(&request, context.record().token())
-                    .await
-                    .map_err(error)?,
-            ),
+            context
+                .client()
+                .move_attachment(&request, context.record().token())
+                .await
+                .map_err(error)?,
         ))
     } else {
         Ok(CommandSuccess::AttachmentCopied(
-            AttachmentMutationSuccess::acknowledged(
-                context
-                    .client()
-                    .copy_attachment(&request, context.record().token())
-                    .await
-                    .map_err(error)?,
-            ),
+            context
+                .client()
+                .copy_attachment(&request, context.record().token())
+                .await
+                .map_err(error)?,
         ))
     }
 }

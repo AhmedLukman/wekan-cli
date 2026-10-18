@@ -5,7 +5,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found,
+        client_error::map_client_error_with_not_found,
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -88,7 +88,7 @@ pub(super) async fn execute(
         .await;
     drop(guard);
     let response = result.map_err(|e| {
-        map_mutation_client_error_with_not_found(
+        map_client_error_with_not_found(
             e,
             &Redactor::with_secret(context.record().token()),
             "rule deletion",

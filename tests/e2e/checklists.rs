@@ -458,7 +458,12 @@ async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     target
         .item_detail(checklist, &original, "Renamed", false)
         .await;
@@ -484,7 +489,12 @@ async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     let mut partial = None;
     for _ in 0..40 {
         partial = target

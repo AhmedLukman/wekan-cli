@@ -50,13 +50,13 @@ async fn token_commands_deliver_only_intended_secrets_and_preserve_credentials()
         serde_json::from_str(&render_success(OutputFormat::Json, &created)).unwrap();
     assert_eq!(json["data"]["user_id"], "u");
     assert_eq!(json["data"]["auth_token"], "issued-secret");
-    assert_eq!(json["data"]["creation_requested"], true);
-    assert_eq!(json["data"]["mutation_confirmed"], false);
+    assert!(json["data"].get("creation_requested").is_none());
+    assert!(json["data"].get("mutation_confirmed").is_none());
     assert!(json["data"].get("token_expires").is_none());
-    assert_eq!(json["data"].as_object().unwrap().len(), 4);
+    assert_eq!(json["data"].as_object().unwrap().len(), 2);
     let human = render_success(OutputFormat::Human, &created);
-    assert!(human.contains("Creation requested: true"));
-    assert!(human.contains("Mutation confirmed: false"));
+    assert!(human.starts_with("Token returned for user u."));
+    assert!(!human.contains("confirmed"));
     Mock::given(method("POST"))
         .and(path("/api/deletetoken"))
         .and(body_json(json!({"userId":"u","token":" target-secret "})))
@@ -89,8 +89,7 @@ async fn token_commands_deliver_only_intended_secrets_and_preserve_credentials()
         data.scope,
         crate::command_result::UserTokenDeleteScope::Single
     );
-    assert!(data.deletion_requested);
-    assert!(!data.mutation_confirmed);
+
     assert!(store.record.lock().unwrap().is_some());
     assert_eq!(store.lock_count.load(Ordering::SeqCst), 0);
     assert_eq!(server.received_requests().await.unwrap().len(), 2);

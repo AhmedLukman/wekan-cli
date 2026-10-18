@@ -82,8 +82,6 @@ body. JSON output uses this shape inside the standard success envelope:
   "ok": true,
   "data": {
     "http_status": 200,
-    "mutation_attempted": false,
-    "mutation_confirmed": false,
     "headers": [
       {"name": "content-type", "encoding": "text", "value": "application/json"}
     ],
@@ -100,22 +98,17 @@ response object in `error.details.response`.
 Human and JSON modes retain the 1 MiB structured-response limit. Use
 `--output raw` for larger or byte-sensitive bodies. Exceeding the limit returns
 `api_response_too_large`, records the known HTTP status and whether it was
-successful, and marks an unsafe request's mutation outcome as unconfirmed. The
-same success and retry metadata applies when structured response streaming
-fails before the body is complete; these incomplete responses also set
-`outcome_unknown: true` for unsafe methods. For every unsafe method,
-`mutation_attempted: true` and `mutation_confirmed: false` make the absence of
-an authoritative readback explicit. `retry_safe: false` warns that the request
-must not be repeated merely because structured rendering failed. A local write
-or flush failure after HTTP success returns `internal_error` with exit 4,
-retaining `profile`, `http_status`, and `http_success: true`. Unsafe requests
-also retain `mutation_attempted: true`, `mutation_confirmed: false`, and
-`retry_safe: false`. Raw API mode
-streams an HTTP 2xx body exactly to stdout, or a
-non-2xx body exactly to stderr, without adding a newline, headers, or status
-text. The exit status still reports success or failure. A mid-stream failure
-can leave partial bytes and returns exit 4 without appending a diagnostic to
-those bytes.
+successful. The same
+metadata applies when structured response streaming fails before the body is
+complete. `retry_safe: false` warns that an unsafe request must not be repeated
+merely because structured rendering failed. A local write or flush failure
+after HTTP success returns `internal_error` with exit 4, retaining `profile`,
+`http_status`, and `http_success: true`. Unsafe requests also retain
+`mutation_attempted: true` and `retry_safe: false`. Raw API mode streams an
+HTTP 2xx body exactly to stdout, or a non-2xx body exactly to stderr, without
+adding a newline, headers, or status text. The exit status still reports
+success or failure. A mid-stream failure can leave partial bytes and returns
+exit 4 without appending a diagnostic to those bytes.
 
 CLI-generated diagnostics and debug representations remove managed
 token-bearing request URLs. This protection applies to every same-origin `GET`

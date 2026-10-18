@@ -5,7 +5,7 @@ use crate::{
     command_result::*,
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_client_error, map_partial_mutation_client_error_with_not_found},
+        client_error::{map_client_error, map_client_error_with_not_found},
     },
     credentials::CredentialStore,
     error::AppError,
@@ -226,7 +226,6 @@ pub(crate) async fn execute(
                         e,
                         &Redactor::with_secret(context.record().token()),
                         "admin settings get",
-                        false,
                     )
                 })?;
             Ok(CommandSuccess::GlobalSettings(Box::new(
@@ -293,7 +292,7 @@ pub(crate) async fn execute(
                 .update_global_settings(request, context.record().token())
                 .await
                 .map_err(|e| {
-                    map_partial_mutation_client_error_with_not_found(
+                    map_client_error_with_not_found(
                         e,
                         &Redactor::with_secret(context.record().token()),
                         "admin settings update",

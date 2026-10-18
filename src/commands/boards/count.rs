@@ -23,7 +23,7 @@ pub(super) async fn execute(
         .client()
         .board_counts(context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board count", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "board count"))?;
     Ok(CommandSuccess::BoardCount(BoardCountSuccess {
         private: counts.private,
         public: counts.public,

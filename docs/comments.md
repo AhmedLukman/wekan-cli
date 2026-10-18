@@ -61,4 +61,4 @@ delete another author's comment only when the board does not restrict comment
 editing; other members receive a permission error. Wekan returns the card ID
 after deletion, so the CLI verifies that ID before reporting the requested
 comment as deleted. A malformed or mismatched successful response is reported
-with `outcome_unknown: true`.
+with the actual protocol error.

@@ -259,7 +259,7 @@ fn redacts_passwords_from_server_errors() {
 }
 
 #[test]
-fn registration_errors_preserve_mutation_uncertainty() {
+fn registration_errors_preserve_native_error_details() {
     let password = SecretString::from("secret-password".to_owned());
     let redactor = Redactor::with_secret(&password);
     let error = map_client_error(
@@ -273,8 +273,13 @@ fn registration_errors_preserve_mutation_uncertainty() {
     );
 
     assert_eq!(error.code(), ErrorCode::RegistrationRejected);
-    assert_eq!(error.details().outcome_unknown, Some(true));
-    assert!(error.message().contains("check the server before retrying"));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
+    assert_eq!(error.message(), "Wekan returned a registration error");
 
     let upstream_error = map_client_error(
         ClientError::Server {
@@ -289,12 +294,16 @@ fn registration_errors_preserve_mutation_uncertainty() {
     assert_eq!(upstream_error.code(), ErrorCode::ServerError);
     assert_eq!(upstream_error.exit_code(), StableExitCode::Server);
     assert_eq!(upstream_error.details().http_status, Some(502));
-    assert_eq!(upstream_error.details().outcome_unknown, Some(true));
-    assert_eq!(upstream_error.details().retry_after_seconds, None);
     assert!(
-        upstream_error
-            .message()
-            .contains("check the server before retrying")
+        serde_json::to_value(upstream_error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
+    assert_eq!(upstream_error.details().retry_after_seconds, None);
+    assert_eq!(
+        upstream_error.message(),
+        "the Wekan server returned an unexpected error"
     );
 
     let limited_error = map_client_error(
@@ -328,7 +337,7 @@ fn invalid_registration_success_preserves_the_http_status() {
 }
 
 #[test]
-fn unreadable_registration_error_bodies_preserve_status_and_mutation_uncertainty() {
+fn unreadable_registration_error_bodies_preserve_status_and_error_details() {
     let password = SecretString::from("secret-password".to_owned());
     let redactor = Redactor::with_secret(&password);
     let error = map_client_error(
@@ -344,8 +353,16 @@ fn unreadable_registration_error_bodies_preserve_status_and_mutation_uncertainty
     assert_eq!(error.exit_code(), StableExitCode::Server);
     assert_eq!(error.details().http_status, Some(400));
     assert_eq!(error.details().account_created, None);
-    assert_eq!(error.details().outcome_unknown, Some(true));
-    assert!(error.message().contains("check the server before retrying"));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
+    assert_eq!(
+        error.message(),
+        "the server response exceeded the 1048576-byte safety limit"
+    );
 
     let disabled_error = map_client_error(
         ClientError::ResponseTooLarge {
@@ -358,7 +375,12 @@ fn unreadable_registration_error_bodies_preserve_status_and_mutation_uncertainty
     assert_eq!(disabled_error.code(), ErrorCode::RegistrationDisabled);
     assert_eq!(disabled_error.exit_code(), StableExitCode::Server);
     assert_eq!(disabled_error.details().http_status, Some(403));
-    assert_eq!(disabled_error.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(disabled_error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let limited_error = map_client_error(
         ClientError::ResponseTooLarge {
@@ -380,7 +402,12 @@ fn unreadable_registration_error_bodies_preserve_status_and_mutation_uncertainty
     );
     assert_eq!(success_error.details().http_status, Some(200));
     assert_eq!(success_error.details().account_created, Some(true));
-    assert_eq!(success_error.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(success_error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let upstream_error = map_client_error(
         ClientError::ResponseTooLarge {
@@ -394,11 +421,15 @@ fn unreadable_registration_error_bodies_preserve_status_and_mutation_uncertainty
     assert_eq!(upstream_error.exit_code(), StableExitCode::Server);
     assert_eq!(upstream_error.details().http_status, Some(504));
     assert_eq!(upstream_error.details().account_created, None);
-    assert_eq!(upstream_error.details().outcome_unknown, Some(true));
     assert!(
-        upstream_error
-            .message()
-            .contains("check the server before retrying")
+        serde_json::to_value(upstream_error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
+    assert_eq!(
+        upstream_error.message(),
+        "the server response exceeded the 1048576-byte safety limit"
     );
 }
 

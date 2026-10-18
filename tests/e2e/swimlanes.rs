@@ -372,7 +372,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
     };
     assert_eq!(deleted.board_id, board.board_id);
     assert_eq!(deleted.swimlane_id, created.swimlane_id);
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, SwimlaneDeleteMode::Hard);
 
     wait_for_live_swimlane_absent(&app, &server, &board.board_id, &created.swimlane_id).await;
@@ -400,7 +400,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         panic!("expected repeated delete-swimlane output")
     };
     assert_eq!(repeated.swimlane_id, created.swimlane_id);
-    assert!(repeated.deleted);
+    assert!(repeated.deletion_requested);
 
     wait_for_live_list_absent(&app, &server, &board.board_id, &list.list_id).await;
     wait_for_live_card_absent(
@@ -499,7 +499,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
         panic!("expected preserved-branch delete-swimlane output")
     };
     assert_eq!(preserved_branch_delete.swimlane_id, appended.swimlane_id);
-    assert!(preserved_branch_delete.deleted);
+    assert!(preserved_branch_delete.deletion_requested);
     wait_for_live_swimlane_absent(&app, &server, &board.board_id, &appended.swimlane_id).await;
     wait_for_live_swimlane_absent_from_collection(
         &app,

@@ -412,7 +412,12 @@ async fn count_objects_reject_unknown_fields_invalid_counts_and_non_objects() {
             let error = run(&server, &args).await.unwrap_err();
             assert_eq!(error.code(), ErrorCode::ProtocolError);
             if bulk {
-                assert_eq!(error.details().outcome_unknown, Some(true));
+                assert!(
+                    serde_json::to_value(error.details())
+                        .unwrap()
+                        .get("outcome_unknown")
+                        .is_none()
+                );
             }
         }
     }
@@ -476,7 +481,7 @@ async fn bulk_confirmation_cancels_without_http_and_acceptance_sends_one_request
 }
 
 #[tokio::test]
-async fn embedded_errors_and_empty_updates_preserve_native_status_and_uncertainty() {
+async fn embedded_errors_and_empty_updates_preserve_native_status_and_error_details() {
     for args in [
         vec!["domain", "list"],
         vec!["org", "list"],
@@ -543,7 +548,12 @@ async fn embedded_errors_and_empty_updates_preserve_native_status_and_uncertaint
         let error = run(&server, &args).await.unwrap_err();
         assert_eq!(error.code(), ErrorCode::ProtocolError);
         if args.len() > 2 {
-            assert_eq!(error.details().outcome_unknown, Some(true));
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
+            );
         }
     }
 }

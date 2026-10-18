@@ -176,7 +176,7 @@ pub(super) async fn execute(
     let query = args.query_pairs();
     client_factory
         .validate_raw_api_request(&args.method, &args.path, &query, args.auth_token_query())
-        .map_err(|error| map_raw_request_error(error, &Redactor::default(), false))?;
+        .map_err(|error| map_raw_request_error(error, &Redactor::default()))?;
     let unsafe_method = args.unsafe_method();
 
     if args.authentication_mode() == AuthenticationMode::None {
@@ -317,8 +317,7 @@ async fn send_request(
             timeout: args.timeout,
         })
         .await;
-    let response =
-        response.map_err(|error| map_raw_request_error(error, &redactor, unsafe_method))?;
+    let response = response.map_err(|error| map_raw_request_error(error, &redactor))?;
     Ok(CommandSuccess::ApiResponse(ApiResponseSuccess {
         profile: profile.to_owned(),
         unsafe_method,
@@ -327,16 +326,10 @@ async fn send_request(
     }))
 }
 
-fn map_raw_request_error(
-    error: RawApiRequestError,
-    redactor: &Redactor<'_>,
-    unsafe_method: bool,
-) -> AppError {
+fn map_raw_request_error(error: RawApiRequestError, redactor: &Redactor<'_>) -> AppError {
     match error {
         RawApiRequestError::InvalidInput(message) => AppError::invalid_input(message),
-        RawApiRequestError::Client(error) => {
-            map_client_error(error, redactor, "raw API", unsafe_method)
-        }
+        RawApiRequestError::Client(error) => map_client_error(error, redactor, "raw API"),
     }
 }
 

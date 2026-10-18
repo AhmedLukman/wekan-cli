@@ -78,7 +78,7 @@ pub enum ListDeleteMode {
 pub struct ListDeleteSuccess {
     pub board_id: String,
     pub list_id: String,
-    pub deleted: bool,
+    pub deletion_requested: bool,
     pub delete_mode: ListDeleteMode,
 }
 
@@ -89,6 +89,4 @@ pub struct ListTransferSuccess {
     pub target_board_id: String,
     pub target_swimlane_id: Option<String>,
     pub returned_list_id: String,
-    /// The returned ID acknowledges the request, without independently confirming its effects.
-    pub mutation_confirmed: bool,
 }

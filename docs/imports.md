@@ -30,7 +30,7 @@ All four forms use the selected profile's stored login token. Cookie modes send
 `meteor_login_token` or `wekan_login_token`; no token is supplied as a command
 argument or query parameter. There is no authentication fallback.
 
-Results contain `format`, `board_ids`, and `mutation_confirmed: false`. ZIP
+Results contain `format` and `board_ids`. ZIP
 results also contain `errors`, including an empty array for full success. Each
 failure contains `board` and `error`; failed scalar board names retain their
 string, number, or boolean type. Composite or null names, missing required
@@ -40,9 +40,9 @@ values, and unknown response fields fail with `protocol_error`.
 returns HTTP 200. All returned IDs and failures remain available in
 `error.details.trello_import_result` and human error output. Failed imports can
 leave additional boards whose IDs were not returned, including JSON failures
-with HTTP 400. Errors after submission preserve uncertain outcomes and
+with HTTP 400. Errors after submission preserve native diagnostics and
 `retry_safe: false`. Inspect saved state before another import; no rollback or
-automatic retry occurs. Acknowledgements do not perform readback.
+automatic retry occurs.
 
 ZIP attachment files must match Wekan's native board-name folder or filename
 prefix rules; the root-file fallback applies only to a single-board ZIP.
@@ -94,8 +94,7 @@ Mapping behavior belongs to the selected importer. For example, CSV adds mapped
 card members and omits unmapped ones. This command performs no account lookup
 or reconciliation.
 
-The board result contains `board_id`, `source` (`native` when omitted), and
-`mutation_confirmed: false`.
+The board result contains `board_id` and `source` (`native` when omitted).
 
 ## ZIP into an existing board
 
@@ -127,7 +126,7 @@ Bearer authentication is the default. `--auth-token-query` explicitly sends the
 stored token through `authToken` instead. There is no authentication fallback.
 
 The ZIP result includes `board_id`, requested `swimlane_id`, `list_id`, `card_id`,
-and `checklist_id` (null when absent), `counts`, and `mutation_confirmed: false`.
+and `checklist_id` (null when absent), and `counts`.
 The six counts are `swimlanes`, `lists`, `cards`, `checklists`, `comments`, and
 `attachments`. Requested selectors do not prove that Wekan honored them.
 
@@ -141,9 +140,8 @@ UTF-8 calendar contents are sent in the native `ics` JSON property. Wekan create
 cards from VEVENTs, using DTSTART for `startAt` and DTEND for `dueAt`, or DTSTART
 when DTEND is absent. The CLI does not parse, normalize, or synchronize events.
 
-The result contains `board_id`, `swimlane_id`, `list_id`, `created`, `card_ids`,
-and `mutation_confirmed: false`. Human output includes the returned count and
-card IDs. All import results describe server acknowledgements without readback.
+The result contains `board_id`, `swimlane_id`, `list_id`, `created`, and `card_ids`.
+Human output reports completed imports, including the count and card IDs.
 
 ## Limits and errors
 
@@ -164,7 +162,7 @@ Wekan's HTTP-200 embedded import errors remain errors. A native exception may
 serialize as `{}`; strict decoding reports `protocol_error` (exit 4) rather than
 claiming success. Unknown response fields, including nested ZIP counters, are
 also protocol errors. The existing error envelope preserves native HTTP/error
-metadata and reports `outcome_unknown: true` when mutation effects are uncertain.
+metadata.
 Missing ZIP boards retain HTTP 404. ICS missing boards or insufficient write
 permission return `permission_denied`, retaining HTTP 401 and `not-authorized`
 without advising credential replacement; missing lists/swimlanes on an accessible
@@ -173,5 +171,5 @@ board retain HTTP 500 HTML errors.
 **ZIP attachment bytes can hang after earlier resources have been written.**
 The pinned Meteor-Files call receives an invalid callback argument and never
 settles. A client timeout does not undo those writes or clean the server's
-temporary files. The CLI exposes the timeout and uncertain outcome without a
+temporary files. The CLI reports the timeout without a
 retry, preflight, rollback, attachment omission, or replacement implementation.

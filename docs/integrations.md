@@ -64,9 +64,9 @@ List returns `board_id` and full `integrations` in server order. Get returns
 date strings are validated and preserved. Unmapped fields, invalid types, missing
 required properties, and mismatched resource IDs produce `protocol_error`.
 
-Create returns the board and new integration IDs. Update returns those IDs,
-`submitted_fields`, and `mutation_confirmed: false`. Delete returns those IDs,
-`deletion_requested: true`, and `mutation_confirmed: false`. Activity mutations
+Create returns the board and new integration IDs. Update returns those IDs
+and `submitted_fields`. Delete returns the board and integration IDs.
+Activity mutations
 return `board_id`, `integration_id`, `action` (`add` or `remove`),
 `requested_activities`, and Wekan's returned `activities`. Human output renders
 all mapped fields and escapes terminal controls.
@@ -77,16 +77,18 @@ Declining confirmation returns a cancellation result without sending HTTP.
 
 Wekan v11.06 returns HTTP 200 with an empty body for missing or wrongly scoped
 integration lookups and activity mutations. The CLI reports `not_found` and
-preserves `http_status: 200`. Update and delete instead acknowledge the requested
-ID even when no integration matched; their output does not claim a matched change.
+preserves `http_status: 200`. Update and delete return the requested
+ID even when no integration matched.
 
 Update writes enabled state, title, URL, token, and activities sequentially.
 A later failure can leave earlier fields saved. For example, an invalid URL can
 return HTTP 400 after the new title was written. Errors preserve server metadata
-and flag possible partial effects with `outcome_unknown: true`. Commands perform
+and expose the actual failure diagnostics. Commands perform
 one native request without extra reads, emulation, or mutation retries.
 
 Source evidence: pinned [REST routes](https://github.com/wekan/wekan/blob/v11.06/server/models/integrations.js)
 and [integration schema](https://github.com/wekan/wekan/blob/v11.06/models/integrations.js).
 The isolated lifecycle suite verifies these behaviors against the pinned Compose
 image. Outbound webhook delivery is outside this slice.
+
+Update and deletion report request acceptance because missing or wrongly scoped targets can produce successful no-ops.

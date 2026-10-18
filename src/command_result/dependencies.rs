@@ -59,7 +59,6 @@ pub struct DependencyUpdateSuccess {
     pub card_id: String,
     pub target_card_id: String,
     pub submitted_fields: Vec<DependencySubmittedField>,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -67,6 +66,4 @@ pub struct DependencyDeleteSuccess {
     pub board_id: String,
     pub card_id: String,
     pub target_card_id: String,
-    pub deletion_requested: bool,
-    pub mutation_confirmed: bool,
 }

@@ -74,6 +74,5 @@ sends one request, without a read-before-write merge or automatic retry.
 Wekan v11.06 can return authorization errors inside HTTP 200 responses. The CLI
 preserves both the HTTP status and embedded Wekan status/error metadata while
 redacting stored tokens. Individual updates to absent IDs return empty HTTP 200
-bodies: the CLI reports `protocol_error` with `outcome_unknown: true`, rather than
-inventing a successful update or a server 404. Inspect state before retrying a
-mutation whose outcome is unknown.
+bodies: the CLI reports `protocol_error` without inventing a successful update
+or a server 404.

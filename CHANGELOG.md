@@ -13,7 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   native HTTP importer, completing all 144 audited Wekan v11.06 REST operations.
   Supports file/stdin input, JSON member mapping, all four native authentication
   forms, and timeout controls. ZIP failures return exit 5 with every returned
-  board ID and error; partial writes remain explicit and unconfirmed.
+  board ID and error; partial failures remain explicit.
+
+### Changed
+
+- **Breaking:** Mutations report completed actions directly except where verified
+  Wekan v11.06 defects can prevent them. Those operations report accepted requests
+  with direct explanations of concrete limitations; copies disclose omitted attachments. User,
+  list, card, and swimlane deletion return `deletion_requested` instead of
+  `deleted`. Remove generic confirmation-status and `outcome_unknown` fields;
+  errors report their actual failure. Successful raw API responses contain only
+  status, headers, and body.
 
 ### Fixed
 
@@ -22,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Typed user/auth responses reject unmapped dialog properties, missing required
   IDs, invalid ID types, and nonnumeric list constraints.
 - Human/JSON `api request` output write and flush failures after HTTP success
-  retain the known status and unconfirmed mutation/retry-safety metadata, so
+  retain the known status and mutation/retry-safety metadata, so
   automation can avoid repeating a mutation whose output could not be delivered.
 - Parser errors honor output-format overrides on nested commands and do not
   treat positional values after `--` as output options.
@@ -31,9 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration reads accept null titles, and global settings reads and JSON updates
   support explicit null for the 34 optional REST settings.
 - Rule create/update/get/list map the built-in trigger `description` field.
-- **Breaking:** `user create` accepts username-only or email-only accounts and
-  reports `creation_requested: true` with `mutation_confirmed: false` instead of
-  claiming that Wekan's asynchronous acknowledgement confirms creation.
+- `user create` accepts username-only or email-only accounts.
 - Missing-comment errors retain the actual HTTP 200 status without inventing
   an embedded Wekan 404 or server error text.
 - Correct the API reference's accepted media types, input coercions, nullability,

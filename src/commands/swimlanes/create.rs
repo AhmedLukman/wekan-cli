@@ -51,7 +51,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "swimlane creation", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "swimlane creation"))?;
     Ok(CommandSuccess::SwimlaneCreated(SwimlaneCreateSuccess {
         board_id: args.board_id,
         swimlane_id: created.swimlane_id,

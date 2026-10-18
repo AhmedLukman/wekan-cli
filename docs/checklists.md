@@ -87,8 +87,8 @@ date-times.
 Creation data includes the requested board/card scope and returned checklist ID,
 or the checklist scope and returned item ID. Update data includes all scope IDs,
 `item_id`, and `submitted_fields`, ordered `title` then `is_finished`. Empty
-updates return `submitted_fields: []`. These fields describe the submitted
-request; the CLI performs no readback. Deletion data includes the same scope IDs,
+updates return `submitted_fields: []`. Human output reports the completed
+update. Deletion data includes the same scope IDs,
 `deleted: true`, and `delete_mode: "hard"`.
 
 ## Verified Wekan v11.06 behavior
@@ -109,8 +109,8 @@ request; the CLI performs no readback. Deletion data includes the same scope IDs
 - Checklist creation inserts the checklist before inserting initial items. A
   later invalid item can fail with HTTP 500 after the checklist and earlier
   items were saved. Item update writes completion before title and can likewise
-  fail title validation after saving completion. The CLI reports
-  `outcome_unknown: true` without rollback.
+  fail title validation after saving completion. The CLI reports the error
+  without rollback.
 - Item updates and deletion use Wekan's direct collection operations, bypassing
   activity/completion hooks. The CLI does not emulate those hooks or infer a
   checklist completion timestamp from checked items.
@@ -122,5 +122,5 @@ Both deletion commands require interactive confirmation or command-local
 `--yes`. JSON and non-terminal invocations require `--yes`. Declining a prompt
 returns exit 0 with a cancellation operation of `checklist_delete` or
 `checklist_item_delete`. Malformed or mismatched successful mutation responses
-produce `protocol_error` with `outcome_unknown: true`; mutations are never
+produce `protocol_error`; mutations are never
 retried automatically.

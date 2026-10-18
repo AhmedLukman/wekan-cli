@@ -57,7 +57,7 @@ pub(super) async fn execute(
                 .client()
                 .admin_teams(context.record().token())
                 .await
-                .map_err(|e| map_client_error(e, &redactor, "admin team list", false))?;
+                .map_err(|e| map_client_error(e, &redactor, "admin team list"))?;
             Ok(CommandSuccess::AdminTeams(AdminTeamCollectionSuccess {
                 teams,
             }))
@@ -72,9 +72,7 @@ pub(super) async fn execute(
                         context.record().token(),
                     )
                     .await
-                    .map_err(|e| {
-                        map_client_error(e, &redactor, "admin team features update", true)
-                    })?;
+                    .map_err(|e| map_client_error(e, &redactor, "admin team features update"))?;
                 Ok(CommandSuccess::AdminTeamUpdated(Box::new(
                     AdminTeamUpdateSuccess {
                         team,
@@ -97,7 +95,7 @@ pub(super) async fn execute(
                     .await;
                 drop(guard);
                 let response = result.map_err(|e| {
-                    map_client_error(e, &redactor, "admin team features update-all", true)
+                    map_client_error(e, &redactor, "admin team features update-all")
                 })?;
                 Ok(CommandSuccess::AdminTeamFeaturesUpdatedAll(
                     AdminFeaturesUpdateAllSuccess {

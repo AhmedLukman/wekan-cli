@@ -98,8 +98,7 @@ preserves server metadata; `bytes_written` records the actual decoded byte count
 File I/O failures use `file_io_error` (exit 4). If success reporting fails after
 publication, error details retain `file_saved: true` and `destination`.
 
-Mutations return their mapped response fields plus `mutation_confirmed: false`.
-This is an acknowledgment without a readback. Delete requires confirmation or
+Mutations return their mapped response fields. Delete requires confirmation or
 `--yes`; declining is an exit-0 cancellation with operation `attachment_delete`.
 Deletion re-reads and checks credential identity and expiry after confirmation,
 immediately before sending. It holds the credential guard until the HTTP request finishes.

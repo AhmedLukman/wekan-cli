@@ -216,7 +216,7 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
         updated["submitted_fields"],
         json!(["title", "url", "token", "activities"])
     );
-    assert_eq!(updated["mutation_confirmed"], false);
+    assert!(updated.get("mutation_confirmed").is_none());
     let detail = target.detail().await;
     assert_eq!(detail["title"], "Hook title");
     assert_eq!(detail["url"], "https://8.8.4.4/wekan-cli-test");
@@ -317,7 +317,12 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
         .await
         .unwrap_err();
     assert_eq!(error.details().http_status, Some(400));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(target.detail().await["title"], "Saved before rejection");
     assert_eq!(target.detail().await["url"], before_url);
 
@@ -334,9 +339,13 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
             vec!["update", id, "--title", "No match"],
             vec!["delete", id, "--yes"],
         ] {
-            assert_eq!(
-                scope.command(&args).await.unwrap()["mutation_confirmed"],
-                false
+            assert!(
+                scope
+                    .command(&args)
+                    .await
+                    .unwrap()
+                    .get("mutation_confirmed")
+                    .is_none()
             );
         }
         for action in ["add", "remove"] {
@@ -390,8 +399,8 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
         .command(&["delete", integration, "--yes"])
         .await
         .unwrap();
-    assert_eq!(deleted["deletion_requested"], true);
-    assert_eq!(deleted["mutation_confirmed"], false);
+    assert!(deleted.get("deletion_requested").is_none());
+    assert!(deleted.get("mutation_confirmed").is_none());
     assert!(
         target.command(&["list"]).await.unwrap()["integrations"]
             .as_array()
@@ -406,12 +415,13 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
             .code(),
         ErrorCode::NotFound
     );
-    assert_eq!(
+    assert!(
         target
             .command(&["delete", integration, "--yes"])
             .await
-            .unwrap()["mutation_confirmed"],
-        false
+            .unwrap()
+            .get("mutation_confirmed")
+            .is_none()
     );
     for board in [&board, &foreign] {
         run(&app, &server, &["board", "delete", board, "--yes"])

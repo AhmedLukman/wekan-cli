@@ -164,7 +164,7 @@ async fn all_commands_map_outputs_and_send_one_native_request() {
                 json!({"enabled":false, "title":"", "url":"https://8.8.8.8/new", "token":" webhook-secret ", "activities":["a","a"]}),
             ),
             json!({"_id":"i"}),
-            json!({"board_id":"b", "integration_id":"i", "submitted_fields":["enabled","title","url","token","activities"], "mutation_confirmed":false}),
+            json!({"board_id":"b", "integration_id":"i", "submitted_fields":["enabled","title","url","token","activities"]}),
         ),
         (
             vec!["delete", "i", "--yes"],
@@ -172,7 +172,7 @@ async fn all_commands_map_outputs_and_send_one_native_request() {
             "/api/boards/b/integrations/i",
             None,
             json!({"_id":"i"}),
-            json!({"board_id":"b", "integration_id":"i", "deletion_requested":true, "mutation_confirmed":false}),
+            json!({"board_id":"b", "integration_id":"i"}),
         ),
         (
             vec!["activity", "add", "i", "--activity", "a", "--activity", "a"],
@@ -393,7 +393,12 @@ async fn errors_redact_both_tokens_and_mark_partial_update_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(error.details().http_status, Some(400));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     for output in [
         format!("{error:?}"),
         crate::output::render_error(OutputFormat::Human, &error),
@@ -425,7 +430,12 @@ async fn errors_redact_both_tokens_and_mark_partial_update_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     server.reset().await;
     Mock::given(method("GET"))
         .respond_with(ResponseTemplate::new(200))

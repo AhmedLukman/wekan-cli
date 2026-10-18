@@ -29,7 +29,7 @@ meanings. In particular:
 | Admin attachment `settings.upload_settings.allowed_mime_types` | Array or `null`. |
 | Rule `trigger` and `action` | Object or `null`; nested properties preserve omission, explicit `null`, and supplied values separately. |
 | Trello import `errors` | Omitted for JSON import; an array for ZIP import. A nonempty array is a partial failure, with results in error details. |
-| `error.details` | Always an object. Irrelevant or unavailable properties are omitted, rather than universally filled with null. `remote_logout_completed` can explicitly be `null` for an unknown outcome. |
+| `error.details` | Always an object. Irrelevant or unavailable properties are omitted, rather than universally filled with null. |
 
 Known nullable scalars, objects, array elements, and typed value unions retain
 their documented types. `false`, zero, empty string, empty array/object, null,
@@ -43,9 +43,24 @@ native exports follow their format-specific contracts.
 The [error catalogue](agent-contract.md#errors) lists every current code and
 its exit status. Exit 0 includes explicitly cancelled no-ops. A successful HTTP
 status alone does not establish CLI success: typed decoding, embedded Wekan
-errors, or partial batch outcomes can still fail. Mutation acknowledgements
-and submitted field names do not imply authoritative saved-state verification.
-Inspect the documented outcome fields before deciding whether to retry.
+errors, or partial batch outcomes can still fail. Mutations report completed
+actions where the pinned server supports that claim. Endpoints that can accept
+an ineffective request use request-accepted wording. Human messages explain concrete limitations where needed.
+Delayed ownership transfer retains direct success wording. Inspect error details before deciding whether to retry a
+failed request.
+
+| Affected command | What its output establishes |
+| --- | --- |
+| `user create` | Creation request accepted; duplicate identities receive the same response without creating an account. |
+| `user token create` | Token returned; a missing user produces an unusable token. |
+| `user token delete --token-stdin` | Deletion request accepted; an issued raw token is not revoked because Wekan compares stored values directly. Delete-all retains direct success wording. |
+| `user disable-login` | Reports the returned login-disabled flag or an unchanged user for self-targeting. New REST logins still work. |
+| Board/card/list/swimlane copy | Copy completed; human output states that Wekan omits attachments. |
+| Cross-board list move | Request accepted; source list remains, position is ignored, and selectors can transfer no cards. Same-board list moves retain direct success wording. |
+| User/list/card/swimlane/custom-field/dropdown-item/integration deletion | Request accepted even when nothing matched. The first four use `deletion_requested: true`, without `deleted: true`. Wrong-list card deletion can remove children while leaving the card. |
+| Card/custom-field/dropdown-item/integration update; dropdown-item creation | Request accepted; missing targets can cause a successful no-op. Human card-update output explains ineffective overtime changes when requested; submitted fields describe input rather than applied changes. |
+| Dependency update/delete | Request accepted; a missing edge is a successful no-op. |
+| Board member add/remove | Request accepted; active-member addition can preserve permissions, and sole-administrator removal can leave membership intact. |
 
 `protocol_error` uses exit 4 for protocol/response validation failures and
 exit 5 for documented HTTP-200 Wekan error envelopes without an application

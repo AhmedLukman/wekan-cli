@@ -4,8 +4,7 @@ use crate::{
         CommandSuccess, IntegrationSubmittedField as Field, IntegrationUpdateSuccess,
     },
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::map_partial_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
@@ -16,7 +15,7 @@ use secrecy::{ExposeSecret, SecretString};
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Activity flags replace the complete subscription array. Empty updates send {}. Wekan writes fields sequentially and can retain earlier writes after a later failure; the returned ID does not confirm a matched change."
+    after_help = "Activity flags replace the complete subscription array. Empty updates send {}. Wekan writes fields sequentially and can retain earlier writes after a later failure."
 )]
 pub struct UpdateArgs {
     #[command(flatten)]
@@ -108,7 +107,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|e| {
-            map_partial_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &redactor,
                 "integration update",
@@ -120,7 +119,6 @@ pub(super) async fn execute(
             board_id: args.target.board_id,
             integration_id: response.integration_id,
             submitted_fields: fields,
-            mutation_confirmed: false,
         },
     ))
 }

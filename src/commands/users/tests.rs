@@ -19,7 +19,7 @@ use super::UserCommand;
 use crate::{
     cli::Cli,
     client::{ClientError, WekanClientFactory},
-    command_result::{CommandSuccess, DestructiveOperation, UserCreateWarning},
+    command_result::{CommandSuccess, DestructiveOperation},
     commands::RootCommand,
     credentials::{
         CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialMutation,
@@ -354,13 +354,8 @@ async fn create_reads_the_shared_account_password_and_reports_the_v11_defect() {
     let CommandSuccess::UserCreated(created) = success else {
         panic!("expected user creation")
     };
-    assert!(created.creation_requested);
-    assert!(!created.mutation_confirmed);
+
     assert_eq!(created.user_id, None);
-    assert_eq!(
-        created.warning,
-        Some(UserCreateWarning::UserIdUnavailableInWekanV1106)
-    );
     assert_eq!(*secrets.modes.lock().unwrap(), [true]);
 }
 
@@ -588,7 +583,7 @@ async fn deleting_self_removes_only_the_matching_local_credential() {
     let CommandSuccess::UserDeleted(deleted) = success else {
         panic!("expected user deletion")
     };
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert!(deleted.deleted_current_user);
     assert!(deleted.local_credential_removed);
     assert!(!deleted.credential_stored);
@@ -758,7 +753,6 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
         },
         &redactor,
         "user lookup",
-        false,
     );
     assert_eq!(rejected.code(), ErrorCode::AuthenticationRejected);
     assert!(
@@ -776,7 +770,6 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
         },
         &redactor,
         "user lookup",
-        false,
     );
     assert_eq!(forbidden.code(), ErrorCode::PermissionDenied);
     assert_eq!(forbidden.exit_code(), StableExitCode::Server);
@@ -789,7 +782,6 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
         },
         &redactor,
         "user lookup",
-        false,
     );
     assert_eq!(success_body.code(), ErrorCode::ProtocolError);
     assert_eq!(success_body.exit_code(), StableExitCode::Transport);
@@ -800,7 +792,6 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
         },
         &redactor,
         "user lookup",
-        false,
     );
     assert_eq!(redirect.exit_code(), StableExitCode::Transport);
 
@@ -812,7 +803,6 @@ fn response_failures_use_http_status_and_transport_exit_codes() {
         },
         &redactor,
         "user lookup",
-        false,
     );
     assert_eq!(protocol.exit_code(), StableExitCode::Transport);
 }

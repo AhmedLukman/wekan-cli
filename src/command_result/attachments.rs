@@ -30,22 +30,6 @@ pub struct AttachmentCollectionSuccess {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct AttachmentMutationSuccess<T> {
-    #[serde(flatten)]
-    pub response: T,
-    pub mutation_confirmed: bool,
-}
-
-impl<T> AttachmentMutationSuccess<T> {
-    pub fn acknowledged(response: T) -> Self {
-        Self {
-            response,
-            mutation_confirmed: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AttachmentDownloadSuccess {
     pub attachment_id: String,
     pub file_name: String,

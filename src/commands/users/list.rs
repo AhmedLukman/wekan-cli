@@ -25,7 +25,7 @@ pub(super) async fn execute(
         .client()
         .users(context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user list", false))?
+        .map_err(|error| map_client_error(error, &redactor, "user list"))?
         .into_iter()
         .map(|user| UserSummary {
             user_id: user.user_id,

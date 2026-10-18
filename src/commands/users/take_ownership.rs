@@ -64,7 +64,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "ownership transfer", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "ownership transfer"))?;
     let UserActionResult::OwnershipTransferred(boards) = boards else {
         return Err(AppError::new(
             ErrorCode::ProtocolError,

@@ -344,7 +344,7 @@ async fn upload_preserves_binary_and_explicit_names_and_reports_acknowledgement(
     .unwrap();
     let output: Value =
         serde_json::from_str(&crate::output::render_success(OutputFormat::Json, &result)).unwrap();
-    assert_eq!(output["data"]["mutation_confirmed"], false);
+    assert!(output["data"].get("mutation_confirmed").is_none());
     assert_eq!(output["data"]["background_image_url"], "/background");
     server.reset().await;
     Mock::given(method("POST"))
@@ -364,7 +364,12 @@ async fn upload_preserves_binary_and_explicit_names_and_reports_acknowledgement(
     .await
     .unwrap_err();
     assert_eq!(error.details().http_status, Some(408));
-    assert!(error.details().outcome_unknown.is_none());
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]

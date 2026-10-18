@@ -41,7 +41,7 @@ pub(super) async fn execute(
             .client()
             .swimlane_cards(&args.board_id, &swimlane_id, context.record().token())
             .await
-            .map_err(|e| map_client_error(e, &redactor, "swimlane card collection", false))?;
+            .map_err(|e| map_client_error(e, &redactor, "swimlane card collection"))?;
         return Ok(CommandSuccess::SwimlaneCards(
             crate::command_result::SwimlaneCardCollectionSuccess {
                 board_id: args.board_id,
@@ -71,7 +71,7 @@ pub(super) async fn execute(
         .client()
         .board_list_cards(&args.board_id, &list_id, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "board list card collection", false))?;
+        .map_err(|error| map_client_error(error, &redactor, "board list card collection"))?;
     Ok(CommandSuccess::CardCollection(CardCollectionSuccess {
         board_id: args.board_id,
         list_id,

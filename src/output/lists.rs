@@ -74,7 +74,7 @@ pub(super) fn render_list_updated(data: &ListUpdateSuccess) -> String {
 
 pub(super) fn render_list_deleted(data: &ListDeleteSuccess) -> String {
     format!(
-        "Soft-deleted list {} on board {} and its live cards.",
+        "List deletion request accepted for {} on board {} (soft deletion).",
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)
     )

@@ -478,7 +478,12 @@ async fn failed_mutations_preserve_outcome_metadata_and_redact_credential_values
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
     assert_eq!(error.details().http_status, Some(200));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     let output = wekan_cli::output::render_error(OutputFormat::Json, &error);
     assert!(!output.contains("secret-input"));
     assert!(!output.contains("private-key-value"));

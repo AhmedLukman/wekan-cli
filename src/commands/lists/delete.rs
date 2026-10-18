@@ -87,11 +87,10 @@ pub(super) async fn execute(
         .delete_list(&args.board_id, &args.list_id, context.record().token())
         .await;
     drop(credential_mutation);
-    let deleted =
-        deletion.map_err(|error| map_client_error(error, &redactor, "list deletion", true))?;
+    let deleted = deletion.map_err(|error| map_client_error(error, &redactor, "list deletion"))?;
     if deleted.list_id != args.list_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different deleted list ID than requested",
@@ -102,7 +101,7 @@ pub(super) async fn execute(
     Ok(CommandSuccess::ListDeleted(ListDeleteSuccess {
         board_id: args.board_id,
         list_id: deleted.list_id,
-        deleted: true,
+        deletion_requested: true,
         delete_mode: ListDeleteMode::Soft,
     }))
 }

@@ -93,10 +93,10 @@ pub use swimlanes::{
 };
 pub use users::{
     UserBoardMembership, UserBoardsSuccess, UserCard, UserCardsSuccess, UserCreateSuccess,
-    UserCreateWarning, UserDeleteSuccess, UserDetail, UserDialogOptionsDetail, UserEmail,
-    UserListSuccess, UserLoginAction, UserLoginChangeSuccess, UserOrganization,
-    UserOwnershipSuccess, UserProfileDetail, UserProfileNotificationDetail,
-    UserProfileStarredPageDetail, UserSessionData, UserSummary, UserTeam, UserWorkspaceNodeDetail,
+    UserDeleteSuccess, UserDetail, UserDialogOptionsDetail, UserEmail, UserListSuccess,
+    UserLoginAction, UserLoginChangeSuccess, UserOrganization, UserOwnershipSuccess,
+    UserProfileDetail, UserProfileNotificationDetail, UserProfileStarredPageDetail,
+    UserSessionData, UserSummary, UserTeam, UserWorkspaceNodeDetail,
 };
 
 use serde::Serialize;
@@ -177,17 +177,11 @@ pub enum CommandSuccess {
     DependencyDeleted(DependencyDeleteSuccess),
     AttachmentList(AttachmentCollectionSuccess),
     AttachmentShown(crate::client::attachments::AttachmentInfo),
-    AttachmentUploaded(
-        AttachmentMutationSuccess<crate::client::attachments::AttachmentUploadResponse>,
-    ),
-    BackgroundUploaded(
-        AttachmentMutationSuccess<crate::client::attachments::BackgroundUploadResponse>,
-    ),
-    AttachmentCopied(AttachmentMutationSuccess<crate::client::attachments::AttachmentCopyResponse>),
-    AttachmentMoved(AttachmentMutationSuccess<crate::client::attachments::AttachmentMoveResponse>),
-    AttachmentDeleted(
-        AttachmentMutationSuccess<crate::client::attachments::AttachmentDeleteResponse>,
-    ),
+    AttachmentUploaded(crate::client::attachments::AttachmentUploadResponse),
+    BackgroundUploaded(crate::client::attachments::BackgroundUploadResponse),
+    AttachmentCopied(crate::client::attachments::AttachmentCopyResponse),
+    AttachmentMoved(crate::client::attachments::AttachmentMoveResponse),
+    AttachmentDeleted(crate::client::attachments::AttachmentDeleteResponse),
     AttachmentDownloaded(AttachmentDownloadSuccess),
     ApiResponse(ApiResponseSuccess),
     Cancelled(CancellationSuccess),

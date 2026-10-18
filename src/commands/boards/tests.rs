@@ -139,7 +139,7 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 #[tokio::test]
-async fn membership_commands_render_full_records_and_unconfirmed_acknowledgments() {
+async fn membership_commands_render_full_records() {
     use crate::output::{OutputFormat, render_success};
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server);
@@ -221,7 +221,7 @@ async fn membership_commands_render_full_records_and_unconfirmed_acknowledgments
                 assert!(data["members"][0]["is_worker"].is_null());
             }
             "add" | "remove" => {
-                assert_eq!(data["mutation_confirmed"], false);
+                assert!(data.get("mutation_confirmed").is_none());
                 assert_eq!(data["action"], args[1]);
             }
             "update" => {
@@ -236,27 +236,24 @@ async fn membership_commands_render_full_records_and_unconfirmed_acknowledgments
 }
 
 #[tokio::test]
-async fn membership_errors_retain_strict_decoding_and_unknown_mutation_outcomes() {
+async fn membership_errors_retain_strict_decoding_and_error_details() {
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server);
-    for (args, response, expected, unknown) in [
+    for (args, response, expected) in [
         (
             vec!["member", "list", "--board", "b"],
             json!({"_id":"b","title":"Board","members":[{"userId":"u","isAdmin":true,"isActive":true,"unmapped":"secret"}]}),
             ErrorCode::ProtocolError,
-            false,
         ),
         (
             vec!["member", "add", "u", "--board", "b"],
             json!([{"_id":"b","title":"Board","unmapped":"secret"}]),
             ErrorCode::ProtocolError,
-            true,
         ),
         (
             vec!["member", "update", "u", "--board", "b", "--role", "normal"],
             json!({"error":"not-authorized","reason":"Denied","statusCode":403}),
             ErrorCode::PermissionDenied,
-            false,
         ),
     ] {
         server.reset().await;
@@ -274,7 +271,12 @@ async fn membership_errors_retain_strict_decoding_and_unknown_mutation_outcomes(
         .await
         .unwrap_err();
         assert_eq!(error.code(), expected);
-        assert_eq!(error.details().outcome_unknown == Some(true), unknown);
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert!(!error.message().contains("secret"));
     }
 }
@@ -629,7 +631,12 @@ async fn get_maps_wekan_v11_06_embedded_404_to_not_found() {
         error.details().server_reason.as_deref(),
         Some("Board not found")
     );
-    assert_eq!(error.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -674,7 +681,12 @@ async fn delete_confirms_before_http_and_verifies_the_returned_id() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -720,7 +732,7 @@ async fn delete_rejects_a_replaced_credential_before_confirmation_or_http() {
 }
 
 #[tokio::test]
-async fn ambiguous_mutation_failures_report_unknown_outcomes() {
+async fn ambiguous_mutation_failures_report_error_details() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/boards"))
@@ -738,7 +750,12 @@ async fn ambiguous_mutation_failures_report_unknown_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     Mock::given(method("PUT"))
         .and(path("/api/boards/board-1/title"))
@@ -758,5 +775,10 @@ async fn ambiguous_mutation_failures_report_unknown_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

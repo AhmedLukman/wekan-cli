@@ -235,7 +235,6 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
         if source == "csv" {
             assert_eq!(saved["cards"][0]["members"], json!([user.user_id]));
         }
-        assert!(!result.mutation_confirmed);
         imported_boards.push(result.board_id);
     }
     // Repeating a valid import creates another board with a distinct ID.
@@ -442,7 +441,12 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
         let error = run(&app, &server, &args).await.unwrap_err();
         assert_eq!(error.code(), ErrorCode::ProtocolError);
         assert_eq!(error.details().http_status, Some(200));
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
     }
 
     // A mapped archive attachment hangs after earlier writes in v11.06.
@@ -475,7 +479,12 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::TransportError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     // The client deadline does not stop server work. Wait for the attachment
     // staging write to finish, after the earlier database inserts, before
     // checking effects or removing the files held by the stuck server call.

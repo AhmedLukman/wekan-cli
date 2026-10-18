@@ -4,7 +4,7 @@ This document describes the implemented `wekan auth register`,
 `wekan auth login`, `wekan auth status`, and `wekan auth logout` slices. It
 shows how command-line input becomes a Wekan request, how returned tokens cross
 into and back out of the native credential store, and how success, failure, and
-uncertain outcomes are reported. It also covers named-profile target resolution
+remote errors are reported. It also covers named-profile target resolution
 and the lease that keeps profile configuration stable during authentication.
 
 The behavioral details and stable machine contract remain authoritative in
@@ -295,9 +295,8 @@ sequenceDiagram
 ```
 
 Remote errors stop before deletion. A malformed, unreadable, or oversized HTTP
-200 records the observed status but sets `remote_logout_completed: null` and
-`outcome_unknown: true`, then preserves the credential. A validated 200 followed
-by deletion failure reports `remote_logout_completed: true` with
+200 records the observed status and preserves the credential. A validated 200
+followed by deletion failure reports `remote_logout_completed: true` with
 `credential_store_failed`.
 
 The native credential store uses stable, private per-user application-data
@@ -347,10 +346,10 @@ flowchart TD
 
     request --> response{Observed result}
     response -- Redirect --> redirect[unexpected_redirect<br/>exit 4]
-    response -- Transport failure --> transport[transport_error<br/>exit 4<br/>outcome_unknown = true]
-    response -- HTTP 400 --> rejected[registration_rejected<br/>exit 5<br/>outcome_unknown = true]
+    response -- Transport failure --> transport[transport_error<br/>exit 4]
+    response -- HTTP 400 --> rejected[registration_rejected<br/>exit 5]
     response -- HTTP 403 --> disabled[registration_disabled<br/>exit 5]
-    response -- HTTP 5xx --> servererr[server_error<br/>exit 5<br/>outcome_unknown = true]
+    response -- HTTP 5xx --> servererr[server_error<br/>exit 5]
     response -- Other non-success --> other[server_error<br/>exit 5]
     response -- HTTP 200 --> valid{Body within limit and<br/>session fields valid?}
 
@@ -366,11 +365,9 @@ flowchart TD
     save -- Created --> success([Success envelope<br/>profile_created/profile_active<br/>exit 0])
 ```
 
-`account_created` states what the CLI knows about the mutation. An HTTP 200
-with an unusable body still means Wekan reported success, and a vault write
-failure occurs after a validated success. `outcome_unknown` instead marks cases
-where the request may have taken effect but the CLI cannot prove it. This is
-especially important because registration is intentionally never retried.
+`account_created` records that Wekan reported account creation. An HTTP 200
+with an unusable body retains that status, and a vault write failure occurs
+after a validated success. Registration is never automatically retried.
 
 ## Login validation and outcome flow
 
@@ -387,7 +384,7 @@ flowchart TD
     secrets -- No --> input[invalid_input<br/>exit 2]
     secrets -- Yes --> request[Send one POST users/login]
     request --> response{Observed result}
-    response -- Transport or 5xx --> unknown[outcome_unknown = true]
+    response -- Transport or 5xx --> requestfail[transport_error or server_error]
     response -- 400 --> malformed[protocol_error<br/>exit 4]
     response -- 401 --> rejected[login_rejected<br/>exit 5]
     rejected --> twofactor{no-2fa-code?}
@@ -448,10 +445,10 @@ flowchart TD
     load -- Invalid --> invalid[credential_store_failed<br/>exit 6]
     load -- Valid or expired --> request[POST users/logout]
     request --> response{Observed result}
-    response -- Transport or 5xx --> unknown[Preserve credential<br/>outcome_unknown = true]
+    response -- Transport or 5xx --> requestfail[Preserve credential]
     response -- 401 --> rejected[authentication_rejected<br/>preserve credential]
     response -- Redirect/other error --> error[Preserve credential<br/>mapped error]
-    response -- Unusable 200 --> protocol[protocol_error<br/>remote_logout_completed = null<br/>outcome_unknown = true<br/>preserve credential]
+    response -- Unusable 200 --> protocol[protocol_error<br/>preserve credential]
     response -- Valid 200 --> delete{Stored record still matches?}
     delete -- Failed --> deletefail[credential_store_failed<br/>remote_logout_completed = true]
     delete -- Yes --> removed[Delete matching record<br/>local_credential_removed = true]

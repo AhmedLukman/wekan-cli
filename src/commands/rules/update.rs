@@ -2,8 +2,7 @@ use crate::{
     client::{WekanClientFactory, rules::UpdateRuleRequest},
     command_result::{CommandSuccess, RuleSubmittedField as Field, RuleUpdateSuccess},
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::map_partial_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -12,7 +11,7 @@ use crate::{
 use clap::Args;
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan shallow-merges supplied trigger/action fields; omitted fields remain. Including activityType can reset omitted matching fields to '*'. Empty definitions send {}. Earlier writes may persist after a later failure, and acknowledgements do not confirm all requested changes."
+    after_help = "Wekan shallow-merges supplied trigger/action fields; omitted fields remain. Including activityType can reset omitted matching fields to '*'. Empty definitions send {}. Earlier writes may persist after a later failure."
 )]
 pub struct UpdateArgs {
     #[command(flatten)]
@@ -47,7 +46,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|e| {
-            map_partial_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "rule update",
@@ -58,6 +57,5 @@ pub(super) async fn execute(
         board_id: args.target.board_id,
         rule_id: d.rule_id,
         submitted_fields: fields,
-        mutation_confirmed: false,
     }))
 }

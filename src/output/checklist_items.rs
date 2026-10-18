@@ -33,7 +33,7 @@ pub(super) fn render_checklist_item_created(data: &ChecklistItemCreateSuccess) -
 }
 pub(super) fn render_checklist_item_updated(data: &ChecklistItemUpdateSuccess) -> String {
     format!(
-        "Wekan acknowledged update of item {} in checklist {} on card {} on board {}.",
+        "Updated item {} in checklist {} on card {} on board {}.",
         escape_terminal_controls(&data.item_id),
         escape_terminal_controls(&data.checklist_id),
         escape_terminal_controls(&data.card_id),

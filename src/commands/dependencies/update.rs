@@ -2,7 +2,7 @@ use crate::{
     client::WekanClientFactory,
     command_result::{CommandSuccess, DependencyUpdateSuccess},
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_mutation_client_error_with_not_found,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -12,7 +12,7 @@ use clap::Args;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan removes empty metadata strings and stores nulls; dependency list normalizes both to defaults. No metadata sends {} and Wekan returns HTTP 500. A missing edge can be acknowledged without a change.\n\nExample:\n  wekan dependency update target-card-id --board board-id --card source-card-id --color '#2196f3'"
+    after_help = "Wekan removes empty metadata strings and stores nulls; dependency list normalizes both to defaults. No metadata sends {} and Wekan returns HTTP 500.\n\nExample:\n  wekan dependency update target-card-id --board board-id --card source-card-id --color '#2196f3'"
 )]
 pub struct UpdateArgs {
     #[command(flatten)]
@@ -40,7 +40,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 error,
                 &Redactor::with_secret(context.record().token()),
                 "dependency update",
@@ -52,6 +52,5 @@ pub(super) async fn execute(
         card_id: response.card_id,
         target_card_id: args.target.target_card_id,
         submitted_fields,
-        mutation_confirmed: false,
     }))
 }

@@ -23,13 +23,13 @@ pub(super) fn created(data: &IntegrationCreateSuccess) -> String {
 }
 pub(super) fn updated(data: &IntegrationUpdateSuccess) -> String {
     format!(
-        "Integration update acknowledged; a matched change is unconfirmed:\n{}",
+        "Integration update request accepted:\n{}",
         render_object(data)
     )
 }
 pub(super) fn deleted(data: &IntegrationDeleteSuccess) -> String {
     format!(
-        "Integration deletion acknowledged; a matched deletion is unconfirmed:\n{}",
+        "Integration deletion request accepted:\n{}",
         render_object(data)
     )
 }

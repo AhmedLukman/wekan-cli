@@ -57,7 +57,7 @@ pub(super) async fn execute(
                 .client()
                 .admin_organizations(context.record().token())
                 .await
-                .map_err(|e| map_client_error(e, &redactor, "admin org list", false))?;
+                .map_err(|e| map_client_error(e, &redactor, "admin org list"))?;
             Ok(CommandSuccess::AdminOrganizations(
                 AdminOrganizationCollectionSuccess { organizations },
             ))
@@ -72,9 +72,7 @@ pub(super) async fn execute(
                         context.record().token(),
                     )
                     .await
-                    .map_err(|e| {
-                        map_client_error(e, &redactor, "admin org features update", true)
-                    })?;
+                    .map_err(|e| map_client_error(e, &redactor, "admin org features update"))?;
                 Ok(CommandSuccess::AdminOrganizationUpdated(Box::new(
                     AdminOrganizationUpdateSuccess {
                         organization,
@@ -96,9 +94,8 @@ pub(super) async fn execute(
                     .update_all_organization_features(field, args.value, context.record().token())
                     .await;
                 drop(guard);
-                let response = result.map_err(|e| {
-                    map_client_error(e, &redactor, "admin org features update-all", true)
-                })?;
+                let response = result
+                    .map_err(|e| map_client_error(e, &redactor, "admin org features update-all"))?;
                 Ok(CommandSuccess::AdminOrganizationFeaturesUpdatedAll(
                     AdminFeaturesUpdateAllSuccess {
                         field,

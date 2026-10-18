@@ -58,7 +58,7 @@ fn imported(result: CommandSuccess) -> TrelloImportResult {
     let CommandSuccess::TrelloImported(result) = result else {
         panic!("Trello result")
     };
-    assert!(!result.mutation_confirmed);
+
     result
 }
 
@@ -239,7 +239,12 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
         assert_eq!(errors.len(), 3);
         assert_eq!(serde_json::to_value(&errors[1].board).unwrap(), 42);
         assert_eq!(serde_json::to_value(&errors[2].board).unwrap(), true);
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert!(render_error(OutputFormat::Human, &error).contains("Failed boards: 3"));
         created.extend(result.board_ids.clone());
     }
@@ -258,7 +263,12 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap_err();
     assert_eq!(error.details().http_status, Some(400));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     let partials = mongo(
         "print(JSON.stringify(db.getSiblingDB('wekan').boards.find({title:{$regex:p.prefix}}).toArray()));",
         json!({"prefix":format!("^Partial Trello {nonce}")}),
@@ -372,7 +382,12 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
         error.details().server_error.as_deref(),
         Some("error-notAuthorized")
     );
-    assert_ne!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     app.credential_store()
         .credential
         .lock()

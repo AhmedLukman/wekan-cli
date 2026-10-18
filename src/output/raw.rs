@@ -54,7 +54,7 @@ pub(super) async fn write_response(
         body.extend_from_slice(&chunk);
     }
 
-    let data = structured_api_response(status, &raw_headers, body, unsafe_method);
+    let data = structured_api_response(status, &raw_headers, body);
     if status.is_success() {
         let rendered = match format {
             super::OutputFormat::Human => render_human_response(&data),
@@ -78,7 +78,6 @@ pub(super) async fn write_response(
                     http_success: Some(true),
                     retry_safe: unsafe_method.then_some(false),
                     mutation_attempted: unsafe_method.then_some(true),
-                    mutation_confirmed: unsafe_method.then_some(false),
                     ..ErrorDetails::default()
                 })
             })?;
@@ -164,7 +163,6 @@ pub(crate) fn structured_api_response(
     status: StatusCode,
     headers: &HeaderMap,
     body: Vec<u8>,
-    unsafe_method: bool,
 ) -> RawApiResponseData {
     let headers = headers
         .iter()
@@ -192,8 +190,6 @@ pub(crate) fn structured_api_response(
     };
     RawApiResponseData {
         http_status: status.as_u16(),
-        mutation_attempted: unsafe_method,
-        mutation_confirmed: false,
         headers,
         body,
     }
@@ -208,10 +204,6 @@ pub(crate) fn render_human_response(data: &RawApiResponseData) -> String {
     } else {
         format!("HTTP {} {reason}", data.http_status)
     }];
-    if data.mutation_attempted {
-        lines.push("Mutation attempted: yes".to_owned());
-        lines.push("Mutation confirmed: no (no authoritative readback)".to_owned());
-    }
     lines.extend(data.headers.iter().map(|header| match header.encoding {
         RawValueEncoding::Text => format!(
             "{}: {}",
@@ -317,11 +309,10 @@ fn api_response_body_error_for_status(
         http_success: Some(success),
         retry_safe: (success && unsafe_method).then_some(false),
         mutation_attempted: unsafe_method.then_some(true),
-        mutation_confirmed: unsafe_method.then_some(false),
         retry_after_seconds: (status == StatusCode::TOO_MANY_REQUESTS)
             .then_some(retry_after_seconds)
             .flatten(),
-        outcome_unknown: unsafe_method.then_some(true),
+
         ..ErrorDetails::default()
     })
 }
@@ -376,10 +367,7 @@ fn api_status_error(
         http_status: Some(status.as_u16()),
         http_success: Some(false),
         mutation_attempted: unsafe_method.then_some(true),
-        mutation_confirmed: unsafe_method.then_some(false),
         retry_after_seconds,
-        outcome_unknown: (unsafe_method && (status.is_redirection() || status.is_server_error()))
-            .then_some(true),
         response: Some(response),
         ..ErrorDetails::default()
     })
@@ -406,8 +394,7 @@ fn api_response_too_large(status: StatusCode, profile: String, unsafe_method: bo
         response_limit_bytes: Some(MAX_STRUCTURED_RESPONSE_BYTES as u64),
         retry_safe: (success && unsafe_method).then_some(false),
         mutation_attempted: unsafe_method.then_some(true),
-        mutation_confirmed: unsafe_method.then_some(false),
-        outcome_unknown: unsafe_method.then_some(true),
+
         ..ErrorDetails::default()
     })
 }
@@ -432,9 +419,14 @@ mod tests {
         assert_eq!(created.details().http_status, Some(201));
         assert_eq!(created.details().http_success, Some(true));
         assert_eq!(created.details().retry_safe, Some(false));
-        assert_eq!(created.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(created.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert_eq!(created.details().mutation_attempted, Some(true));
-        assert_eq!(created.details().mutation_confirmed, Some(false));
+
         assert!(created.message().contains("do not retry"));
 
         let redirect = api_response_body_error_for_status(
@@ -448,9 +440,13 @@ mod tests {
         assert_eq!(redirect.exit_code(), StableExitCode::Transport);
         assert_eq!(redirect.details().http_status, Some(302));
         assert_eq!(redirect.details().http_success, Some(false));
-        assert_eq!(redirect.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(redirect.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         assert_eq!(redirect.details().mutation_attempted, Some(true));
-        assert_eq!(redirect.details().mutation_confirmed, Some(false));
 
         let bad_request = api_response_body_error_for_status(
             StatusCode::BAD_REQUEST,
@@ -459,11 +455,21 @@ mod tests {
             true,
             true,
         );
-        assert_eq!(bad_request.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(bad_request.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
 
         let rate_limited =
             api_response_too_large(StatusCode::TOO_MANY_REQUESTS, "default".to_owned(), true);
-        assert_eq!(rate_limited.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(rate_limited.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
     }
 
     #[test]

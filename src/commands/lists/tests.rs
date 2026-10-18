@@ -538,7 +538,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     .unwrap() else {
         panic!("expected list deletion")
     };
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, ListDeleteMode::Soft);
 
     let replacement = CredentialRecord::new(
@@ -590,7 +590,12 @@ async fn update_maps_404_and_mutation_protocol_failures_are_ambiguous() {
     .await
     .unwrap_err();
     assert_eq!(not_found.code(), ErrorCode::NotFound);
-    assert_eq!(not_found.details().outcome_unknown, None);
+    assert!(
+        serde_json::to_value(not_found.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let malformed = dispatch(
         list_command(&["create", "--board", "board-1", "--title", "Todo"]),
@@ -601,5 +606,10 @@ async fn update_maps_404_and_mutation_protocol_failures_are_ambiguous() {
     .await
     .unwrap_err();
     assert_eq!(malformed.code(), ErrorCode::ProtocolError);
-    assert_eq!(malformed.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(malformed.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }

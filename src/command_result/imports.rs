@@ -7,14 +7,12 @@ pub struct TrelloImportResult {
     pub board_ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub errors: Option<Vec<crate::client::boards::trello_import::TrelloImportBoardError>>,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct BoardImportSuccess {
     pub board_id: String,
     pub source: String,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -25,7 +23,6 @@ pub struct ZipImportSuccess {
     pub card_id: Option<String>,
     pub checklist_id: Option<String>,
     pub counts: ZipImportCounts,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -35,5 +32,4 @@ pub struct IcsImportSuccess {
     pub list_id: String,
     pub created: u64,
     pub card_ids: Vec<String>,
-    pub mutation_confirmed: bool,
 }

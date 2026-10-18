@@ -63,7 +63,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "disable-login", true))?;
+        .map_err(|error| map_client_error(error, &redactor, "disable-login"))?;
     let UserActionResult::LoginChanged(user) = result else {
         return Err(AppError::new(
             ErrorCode::ProtocolError,

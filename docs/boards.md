@@ -22,7 +22,7 @@ and other subresources are outside this command family's scope.
 
 `board member list/add/remove/update` implements board membership management.
 See [board and card memberships](memberships.md) for syntax, permission inputs,
-stable results, and Wekan's unconfirmed acknowledgments and no-op behavior.
+stable results, and Wekan's no-op behavior.
 
 ## Listing and counting
 
@@ -82,8 +82,8 @@ cancellation and sends no HTTP request. JSON or non-terminal execution must pass
 command-local `--yes`; other board commands do not accept it.
 
 The CLI verifies the returned board ID. Board mutations are never retried, and
-ambiguous transport, redirect, server, or successful-body failures report
-`outcome_unknown: true` because Wekan may already have applied the operation.
+transport, redirect, server, and response-validation failures retain their
+actual error codes and diagnostics.
 
 ## Stable JSON data shapes
 

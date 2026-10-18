@@ -233,7 +233,7 @@ async fn complete_membership_lifecycle_matches_wekan_v11_06() {
     let ack = board_member(&app, &server, &board, &["add", &user, "--role", "worker"])
         .await
         .unwrap();
-    assert_eq!(ack["mutation_confirmed"], false);
+    assert!(ack.get("mutation_confirmed").is_none());
     assert_eq!(ack["boards"][0]["board_id"], board);
     assert_eq!(
         member(&app, &server, &board, &user).await["is_worker"],
@@ -424,7 +424,12 @@ async fn complete_membership_lifecycle_matches_wekan_v11_06() {
         .await
         .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::ProtocolError);
-    assert_eq!(missing.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(missing.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     let missing = board_member(&app, &server, &board, &["remove", "missing-user"])
         .await
         .unwrap_err();
@@ -535,7 +540,12 @@ async fn complete_membership_lifecycle_matches_wekan_v11_06() {
             .await
             .unwrap_err();
         assert_eq!(error.details().http_status, Some(500));
-        assert_eq!(error.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(error.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
     }
     verify_linked_card_memberships(&scope, &swimlane, &admin, &user).await;
 

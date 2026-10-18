@@ -592,7 +592,7 @@ async fn local_only_delete_failure_does_not_claim_remote_logout() {
     assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
     assert_eq!(error.exit_code(), StableExitCode::Credential);
     assert_eq!(error.details().logout_scope, Some(LogoutScope::LocalOnly));
-    assert_eq!(error.details().remote_logout_completed, Some(Some(false)));
+    assert_eq!(error.details().remote_logout_completed, Some(false));
     assert!(store.has_credential());
 }
 
@@ -913,7 +913,7 @@ async fn authentication_rejection_preserves_the_credential() {
 }
 
 #[tokio::test]
-async fn redirect_outcome_is_unknown_and_preserves_the_credential() {
+async fn redirect_reports_the_error_and_preserves_the_credential() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/users/logout"))
@@ -929,8 +929,13 @@ async fn redirect_outcome_is_unknown_and_preserves_the_credential() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::UnexpectedRedirect);
     assert_eq!(error.details().http_status, Some(307));
-    assert_eq!(error.details().remote_logout_completed, Some(None));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert_eq!(error.details().remote_logout_completed, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(error.details().credential_stored, Some(true));
     let rendered: serde_json::Value =
         serde_json::from_str(&render_error(OutputFormat::Json, &error)).unwrap();
@@ -942,7 +947,7 @@ async fn redirect_outcome_is_unknown_and_preserves_the_credential() {
 }
 
 #[tokio::test]
-async fn server_failures_preserve_the_credential_and_report_uncertainty() {
+async fn server_failures_report_the_error_and_preserve_the_credential() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/users/logout"))
@@ -957,14 +962,19 @@ async fn server_failures_preserve_the_credential_and_report_uncertainty() {
         .await
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(error.details().logout_scope, Some(LogoutScope::AllTokens));
     assert!(store.has_credential());
     assert_eq!(store.deletes.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]
-async fn unusable_http_200_preserves_the_credential_and_unknown_outcome() {
+async fn unusable_http_200_preserves_the_credential() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/users/logout"))
@@ -980,8 +990,13 @@ async fn unusable_http_200_preserves_the_credential_and_unknown_outcome() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
     assert_eq!(error.details().http_status, Some(200));
-    assert_eq!(error.details().remote_logout_completed, Some(None));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert_eq!(error.details().remote_logout_completed, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(error.details().credential_stored, Some(true));
     assert_eq!(error.details().local_credential_removed, Some(false));
     let rendered: serde_json::Value =
@@ -995,7 +1010,7 @@ async fn unusable_http_200_preserves_the_credential_and_unknown_outcome() {
 }
 
 #[tokio::test]
-async fn oversized_http_200_preserves_the_credential_and_unknown_outcome() {
+async fn oversized_http_200_preserves_the_credential() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/users/logout"))
@@ -1011,8 +1026,13 @@ async fn oversized_http_200_preserves_the_credential_and_unknown_outcome() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
     assert_eq!(error.details().http_status, Some(200));
-    assert_eq!(error.details().remote_logout_completed, Some(None));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert_eq!(error.details().remote_logout_completed, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(error.details().credential_stored, Some(true));
     assert_eq!(error.details().local_credential_removed, Some(false));
     assert!(store.has_credential());
@@ -1020,7 +1040,7 @@ async fn oversized_http_200_preserves_the_credential_and_unknown_outcome() {
 }
 
 #[tokio::test]
-async fn truncated_http_200_preserves_the_credential_and_unknown_outcome() {
+async fn truncated_http_200_preserves_the_credential() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server_url = format!("http://{address}");
@@ -1056,8 +1076,13 @@ async fn truncated_http_200_preserves_the_credential_and_unknown_outcome() {
 
     assert_eq!(error.code(), ErrorCode::ProtocolError);
     assert_eq!(error.details().http_status, Some(200));
-    assert_eq!(error.details().remote_logout_completed, Some(None));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert_eq!(error.details().remote_logout_completed, None);
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(error.details().credential_stored, Some(true));
     assert_eq!(error.details().local_credential_removed, Some(false));
     assert!(store.has_credential());
@@ -1079,7 +1104,7 @@ async fn deletion_failure_after_success_reports_the_remote_side_effect() {
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::CredentialStoreFailed);
     assert_eq!(error.details().logout_scope, Some(LogoutScope::AllTokens));
-    assert_eq!(error.details().remote_logout_completed, Some(Some(true)));
+    assert_eq!(error.details().remote_logout_completed, Some(true));
     assert!(store.has_credential());
     assert!(!error.message().contains("logout-token"));
 }

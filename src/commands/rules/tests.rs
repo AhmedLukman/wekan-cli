@@ -198,7 +198,7 @@ async fn commands_map_full_results_and_sparse_updates_with_one_native_request() 
             vec!["update", "r", "--rule", "{}"],
             "PUT",
             json!({"_id":"r"}),
-            json!({"board_id":"b","rule_id":"r","submitted_fields":[],"mutation_confirmed":false}),
+            json!({"board_id":"b","rule_id":"r","submitted_fields":[]}),
             Some(json!({})),
         ),
         (
@@ -210,7 +210,7 @@ async fn commands_map_full_results_and_sparse_updates_with_one_native_request() 
             ],
             "PUT",
             json!({"_id":"r"}),
-            json!({"board_id":"b","rule_id":"r","submitted_fields":["title","trigger","action"],"mutation_confirmed":false}),
+            json!({"board_id":"b","rule_id":"r","submitted_fields":["title","trigger","action"]}),
             Some(json!({"title":"","trigger":{"listName":null},"action":{}})),
         ),
         (
@@ -242,7 +242,7 @@ async fn commands_map_full_results_and_sparse_updates_with_one_native_request() 
         let human = render_success(OutputFormat::Human, &result);
         assert!(!human.is_empty());
         if verb == "PUT" {
-            assert!(human.contains("unconfirmed"));
+            assert!(human.starts_with("Rule updated:"));
         }
         server.verify().await;
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
@@ -408,7 +408,12 @@ async fn mutation_failures_preserve_server_status_and_possible_partial_effects()
         assert_eq!(e.code(), ErrorCode::ServerError);
         assert_eq!(e.details().http_status, Some(500));
         assert_eq!(e.details().server_error.as_deref(), Some("not-found"));
-        assert_eq!(e.details().outcome_unknown, Some(true));
+        assert!(
+            serde_json::to_value(e.details())
+                .unwrap()
+                .get("outcome_unknown")
+                .is_none()
+        );
         server.verify().await;
     }
 }

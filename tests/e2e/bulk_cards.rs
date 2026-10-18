@@ -979,7 +979,12 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap_err();
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     let after = run(
         &app,
         &server,

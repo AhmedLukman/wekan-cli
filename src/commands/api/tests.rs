@@ -823,11 +823,13 @@ async fn structured_output_failures_retain_http_and_mutation_retry_context() {
                     error.details().mutation_attempted,
                     unsafe_method.then_some(true)
                 );
-                assert_eq!(
-                    error.details().mutation_confirmed,
-                    unsafe_method.then_some(false)
+
+                assert!(
+                    serde_json::to_value(error.details())
+                        .unwrap()
+                        .get("outcome_unknown")
+                        .is_none()
                 );
-                assert_eq!(error.details().outcome_unknown, None);
                 assert_eq!(error.message().contains("do not retry"), unsafe_method);
                 assert!(stderr.is_empty());
                 let rendered: serde_json::Value =
@@ -880,8 +882,8 @@ async fn json_output_preserves_unmodeled_response_fields_and_non_success_bodies(
     let value: serde_json::Value = serde_json::from_slice(&stdout).unwrap();
     assert_eq!(value["ok"], true);
     assert_eq!(value["data"]["body"]["encoding"], "json");
-    assert_eq!(value["data"]["mutation_attempted"], false);
-    assert_eq!(value["data"]["mutation_confirmed"], false);
+    assert!(value["data"].get("mutation_attempted").is_none());
+    assert!(value["data"].get("mutation_confirmed").is_none());
     assert_eq!(value["data"]["body"]["value"]["statusCode"], 401);
     assert_eq!(value["data"]["body"]["value"]["future"]["field"][2], 3);
     assert_eq!(
@@ -918,7 +920,7 @@ async fn json_output_preserves_unmodeled_response_fields_and_non_success_bodies(
 }
 
 #[tokio::test]
-async fn structured_success_reports_unsafe_mutation_as_unconfirmed() {
+async fn structured_success_reports_unsafe_response_without_confirmation_metadata() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/mutation"))
@@ -945,8 +947,8 @@ async fn structured_success_reports_unsafe_mutation_as_unconfirmed() {
     assert_eq!(exit, std::process::ExitCode::SUCCESS);
     let value: serde_json::Value = serde_json::from_slice(&stdout).unwrap();
     assert_eq!(value["data"]["http_status"], 202);
-    assert_eq!(value["data"]["mutation_attempted"], true);
-    assert_eq!(value["data"]["mutation_confirmed"], false);
+    assert!(value["data"].get("mutation_attempted").is_none());
+    assert!(value["data"].get("mutation_confirmed").is_none());
 }
 
 #[tokio::test]
@@ -967,24 +969,21 @@ async fn structured_output_maps_redirect_auth_and_server_statuses() {
     }
     let store = FakeCredentialStore::absent();
 
-    for (arguments, expected_code, expected_status, outcome_unknown) in [
+    for (arguments, expected_code, expected_status) in [
         (
             vec!["request", "GET", "/api/moved", "--no-auth"],
             "unexpected_redirect",
             302,
-            None,
         ),
         (
             vec!["request", "GET", "/api/auth", "--no-auth"],
             "authentication_rejected",
             401,
-            None,
         ),
         (
             vec!["request", "POST", "/api/failure", "--no-auth", "--yes"],
             "server_error",
             500,
-            Some(true),
         ),
     ] {
         let response = execute(command(&arguments), &factory(&server), &store)
@@ -1005,10 +1004,7 @@ async fn structured_output_maps_redirect_auth_and_server_statuses() {
             value["error"]["details"]["response"]["http_status"],
             expected_status
         );
-        assert_eq!(
-            value["error"]["details"]["outcome_unknown"].as_bool(),
-            outcome_unknown
-        );
+        assert!(value["error"]["details"].get("outcome_unknown").is_none());
     }
 }
 
@@ -1113,8 +1109,12 @@ async fn structured_output_rejects_large_bodies_and_directs_callers_to_raw() {
     assert_eq!(value["error"]["details"]["http_success"], true);
     assert_eq!(value["error"]["details"]["retry_safe"], false);
     assert_eq!(value["error"]["details"]["mutation_attempted"], true);
-    assert_eq!(value["error"]["details"]["mutation_confirmed"], false);
-    assert_eq!(value["error"]["details"]["outcome_unknown"], true);
+    assert!(
+        value["error"]["details"]
+            .get("mutation_confirmed")
+            .is_none()
+    );
+    assert!(value["error"]["details"].get("outcome_unknown").is_none());
     assert!(
         value["error"]["message"]
             .as_str()

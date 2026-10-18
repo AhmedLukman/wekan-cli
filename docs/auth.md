@@ -124,8 +124,6 @@ from arguments, environment variables and output.
 Site administrators can issue and revoke API tokens with
 [`user token create/delete`](users.md#api-tokens). Creation explicitly prints
 the issued secret; it does not replace the selected profile's credential.
-Creation reports `creation_requested: true` and `mutation_confirmed: false`;
-the returned secret does not confirm that Wekan stored a session.
 Remote token deletion retains local vault entries. After a stored token is
 revoked, remove it with `wekan auth logout --local-only --yes` before logging
 in again. The create-token endpoint returns no expiry, and token import is
@@ -189,14 +187,9 @@ transport/server error families.
 
 Remote logout is strict and remote-first. The local credential is deleted only
 after a complete HTTP 200 response containing the documented string `message`.
-Any remote error preserves it for retry or diagnosis. Transport errors,
-redirects, and 5xx errors set `outcome_unknown: true` and
-`remote_logout_completed: null`: a sent request can be processed before an
-intermediary returns one of those failures. An unusable HTTP 200 returns
-`protocol_error` with the same indeterminate outcome and preserves the local
-record. HTTP 200 is recorded as the observed status, but it is not proof that
-logout completed until the body validates. If a validated remote success is
-followed by a vault deletion failure, the command returns
+Any remote error preserves it for retry or diagnosis. Invalid HTTP 200 bodies
+return `protocol_error` with the observed status. If a validated remote success
+is followed by a vault deletion failure, the command returns
 `credential_store_failed` with `remote_logout_completed: true`.
 
 After validated remote success, deletion compares the stored record with the
@@ -255,9 +248,8 @@ When HTTP 401 contains Wekan's `no-2fa-code` error, the CLI still returns
 retry with `--code` or `--code-stdin`. It does not automatically replay login.
 
 Wekan `v11.06` can return HTTP 400 after creating a user if login-token
-insertion then fails, so registration 400 errors set `outcome_unknown: true`.
-A transport failure or 5xx response for either mutating authentication request
-can also have an unknown remote outcome and is never retried automatically.
+insertion then fails. The CLI reports the returned error and never retries
+mutating authentication requests automatically.
 
 An unusable HTTP 200 registration response sets `account_created: true`; an
 unusable HTTP 200 login response sets `session_created: true`. These fields

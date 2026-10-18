@@ -309,7 +309,7 @@ async fn complete_list_lifecycle_matches_wekan_v11_06() {
     };
     assert_eq!(deleted.board_id, board.board_id);
     assert_eq!(deleted.list_id, created.list_id);
-    assert!(deleted.deleted);
+    assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, ListDeleteMode::Soft);
 
     let CommandSuccess::ListShown(soft_deleted) = execute_live_list(

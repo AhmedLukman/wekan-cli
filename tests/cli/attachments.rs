@@ -180,7 +180,7 @@ async fn executable_transfers_binary_stdin_and_stdout_without_text_conversion() 
     );
     assert!(uploaded.stderr.is_empty());
     let result: Value = serde_json::from_slice(&uploaded.stdout).unwrap();
-    assert_eq!(result["data"]["mutation_confirmed"], false);
+    assert!(result["data"].get("mutation_confirmed").is_none());
     Mock::given(method("GET")).and(path("/api/attachment/download/a"))
         .and(header("Authorization","Bearer attachment-cli-token"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"attachmentId":"a","fileName":"binary.png","fileSize":3,"fileType":"image/png","storageBackend":"fs","base64Data":"AP8K"}))).expect(1).mount(&server).await;

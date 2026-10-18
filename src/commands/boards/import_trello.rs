@@ -15,7 +15,7 @@ use crate::{
     command_result::{CommandSuccess, TrelloImportResult},
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_partial_mutation_client_error_with_not_found,
+        client_error::map_client_error_with_not_found,
         imports::{self, ImportInput},
     },
     credentials::CredentialStore,
@@ -152,17 +152,19 @@ pub(crate) async fn execute(
         }
     }
     .map_err(|error| {
-        let error = map_partial_mutation_client_error_with_not_found(
+        let error = map_client_error_with_not_found(
             error,
             &redactor,
             "Trello import",
             "the Trello import endpoint was not found",
         );
-        if error.details().outcome_unknown == Some(true) {
+        if !matches!(
+            error.code(),
+            ErrorCode::AuthenticationRejected | ErrorCode::InternalError
+        ) {
             let mut details = error.details().clone();
             details.retry_safe = Some(false);
             details.mutation_attempted = Some(true);
-            details.mutation_confirmed = Some(false);
             error.with_details(details)
         } else {
             error
@@ -172,7 +174,6 @@ pub(crate) async fn execute(
         format,
         board_ids: response.board_ids,
         errors: response.errors,
-        mutation_confirmed: false,
     };
     if let Some(errors) = &mut result.errors {
         for error in errors {
@@ -197,8 +198,7 @@ pub(crate) async fn execute(
             http_status: Some(200),
             http_success: Some(true),
             mutation_attempted: Some(true),
-            mutation_confirmed: Some(false),
-            outcome_unknown: Some(true),
+
             retry_safe: Some(false),
             ..Default::default()
         }));

@@ -24,7 +24,7 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "A successful message acknowledges the request and does not confirm revocation. The native v11.06 operation receives the token unchanged. Local credentials are retained."
+    after_help = "The native v11.06 operation receives the token unchanged. Local credentials are retained."
 )]
 pub struct DeleteArgs {
     /// Wekan user ID whose tokens should be deleted.
@@ -140,7 +140,7 @@ pub(super) async fn execute(
         .delete_user_token(&request, context.record().token())
         .await;
     drop(guard);
-    let response = response.map_err(|e| map_client_error(e, &redactor, "token deletion", true))?;
+    let response = response.map_err(|e| map_client_error(e, &redactor, "token deletion"))?;
     Ok(CommandSuccess::UserTokenDeleted(UserTokenDeleteSuccess {
         user_id: request.user_id.clone(),
         scope: if args.all {
@@ -149,7 +149,5 @@ pub(super) async fn execute(
             UserTokenDeleteScope::Single
         },
         message: redactor.redact(response.message.expose_secret()),
-        deletion_requested: true,
-        mutation_confirmed: false,
     }))
 }

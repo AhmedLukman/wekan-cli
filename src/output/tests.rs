@@ -24,8 +24,8 @@ use crate::{
         ProfileRemoveSuccess, SwimlaneCollectionSuccess, SwimlaneCreateSuccess, SwimlaneDeleteMode,
         SwimlaneDeleteSuccess, SwimlaneDetail, SwimlaneSummary, SwimlaneUpdateSuccess,
         SwimlaneUpdatedField, UserBoardSummary, UserBoardsSuccess, UserCard, UserCardsSuccess,
-        UserCreateSuccess, UserCreateWarning, UserDeleteSuccess, UserDetail, UserEmail,
-        UserListSuccess, UserOwnershipSuccess, UserSummary,
+        UserCreateSuccess, UserDeleteSuccess, UserDetail, UserEmail, UserListSuccess,
+        UserOwnershipSuccess, UserSummary,
     },
     error::AppError,
     exit_code::StableExitCode,
@@ -90,24 +90,22 @@ fn raw_api_structured_values_preserve_json_text_binary_and_header_bytes() {
         StatusCode::OK,
         &headers,
         br#"{"unknown":{"nested":true}}"#.to_vec(),
-        false,
     );
     assert_eq!(json.headers.len(), 3);
-    assert!(!json.mutation_attempted);
-    assert!(!json.mutation_confirmed);
+    assert_eq!(json.http_status, 200);
     assert_eq!(json.headers[2].value, BASE64.encode([0x80, 0x81]));
     assert!(matches!(
         json.body,
         crate::command_result::RawResponseBody::Json { .. }
     ));
 
-    let text = structured_api_response(StatusCode::OK, &HeaderMap::new(), b"hello".to_vec(), false);
+    let text = structured_api_response(StatusCode::OK, &HeaderMap::new(), b"hello".to_vec());
     assert!(matches!(
         text.body,
         crate::command_result::RawResponseBody::Text { ref value } if value == "hello"
     ));
 
-    let binary = structured_api_response(StatusCode::OK, &HeaderMap::new(), vec![0, 255], false);
+    let binary = structured_api_response(StatusCode::OK, &HeaderMap::new(), vec![0, 255]);
     assert!(matches!(
         binary.body,
         crate::command_result::RawResponseBody::Base64 { ref value }
@@ -122,7 +120,6 @@ fn raw_api_structured_json_preserves_arbitrary_precision_numbers() {
         StatusCode::OK,
         &HeaderMap::new(),
         br#"{"integer":18446744073709551616,"decimal":0.123456789012345678901234567890}"#.to_vec(),
-        false,
     );
     let crate::command_result::RawResponseBody::Json { value } = response.body else {
         panic!("valid JSON should remain structured")
@@ -136,17 +133,19 @@ fn raw_api_structured_json_preserves_arbitrary_precision_numbers() {
 }
 
 #[test]
-fn raw_api_structured_response_marks_unsafe_mutations_unconfirmed() {
+fn raw_api_structured_response_renders_http_success() {
     let response = structured_api_response(
         StatusCode::ACCEPTED,
         &HeaderMap::new(),
         br#"{"accepted":true}"#.to_vec(),
-        true,
     );
 
-    assert!(response.mutation_attempted);
-    assert!(!response.mutation_confirmed);
-    assert!(render_api_response_human(&response).contains("Mutation confirmed: no"));
+    let human = render_api_response_human(&response);
+    assert!(human.starts_with("HTTP 202 Accepted"));
+    assert!(!human.contains("Mutation"));
+    let json = serde_json::to_value(&response).unwrap();
+    assert!(json.get("mutation_confirmed").is_none());
+    assert!(json.get("mutation_attempted").is_none());
 }
 
 #[test]
@@ -524,6 +523,26 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
             .chars()
             .all(|character| !character.is_control() || character == '\n')
     );
+    let CommandSuccess::UserCurrent(mut user) = success else {
+        unreachable!()
+    };
+    user.login_disabled = None;
+    let disabled =
+        CommandSuccess::UserLoginChanged(crate::command_result::UserLoginChangeSuccess {
+            action: crate::command_result::UserLoginAction::Disabled,
+            user,
+        });
+    let human = render_success(OutputFormat::Human, &disabled);
+    assert!(!human.contains("Disabled login for"));
+    assert!(human.contains("returned user is unchanged"));
+    assert!(human.contains("still permits new REST logins"));
+    let json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &disabled)).unwrap();
+    assert_eq!(
+        json["data"]["user"]["login_disabled"],
+        serde_json::Value::Null
+    );
+    assert!(json.get("warnings").is_none());
 }
 
 #[test]
@@ -560,26 +579,23 @@ fn user_lists_and_cards_have_stable_empty_and_escaped_output() {
 #[test]
 fn user_creation_and_mutation_results_are_stable() {
     let created = CommandSuccess::UserCreated(UserCreateSuccess {
-        creation_requested: true,
-        mutation_confirmed: false,
         username: "bob".to_owned(),
         email: "bob@example.com".to_owned(),
         user_id: None,
-        warning: Some(UserCreateWarning::UserIdUnavailableInWekanV1106),
     });
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &created)).unwrap();
-    assert_eq!(json["data"]["creation_requested"], true);
-    assert_eq!(json["data"]["mutation_confirmed"], false);
+    assert!(json["data"].get("creation_requested").is_none());
+    assert!(json["data"].get("mutation_confirmed").is_none());
     assert!(json["data"].get("created").is_none());
     assert_eq!(json["data"]["user_id"], serde_json::Value::Null);
     assert_eq!(
-        json["data"]["warning"],
-        "user_id_unavailable_in_wekan_v11_06"
+        json["data"],
+        serde_json::json!({"username":"bob", "email":"bob@example.com", "user_id":null})
     );
-    assert!(
-        render_success(OutputFormat::Human, &created)
-            .contains("Warning [user_id_unavailable_in_wekan_v11_06]")
+    assert_eq!(
+        render_success(OutputFormat::Human, &created),
+        "User creation request accepted for bob (bob@example.com).\nUser ID: unavailable\nWekan v11.06 also accepts duplicate user creation requests without creating an account."
     );
 
     let ownership = CommandSuccess::UserOwnershipTaken(UserOwnershipSuccess {
@@ -593,6 +609,7 @@ fn user_creation_and_mutation_results_are_stable() {
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &ownership)).unwrap();
     assert_eq!(json["data"]["boards"][0]["board_id"], "board-1");
+    assert!(json.get("warnings").is_none());
     assert!(render_success(OutputFormat::Human, &ownership).contains("Transferred 1 board"));
 
     let boards = CommandSuccess::UserBoards(UserBoardsSuccess {
@@ -606,18 +623,19 @@ fn user_creation_and_mutation_results_are_stable() {
 
     let deleted = CommandSuccess::UserDeleted(UserDeleteSuccess {
         user_id: "user-1".to_owned(),
-        deleted: true,
+        deletion_requested: true,
         deleted_current_user: true,
         credential_stored: false,
         local_credential_removed: true,
     });
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
-    assert_eq!(json["data"]["deleted"], true);
+    assert_eq!(json["data"]["deletion_requested"], true);
+    assert!(json["data"].get("deleted").is_none());
     assert_eq!(json["data"]["deleted_current_user"], true);
     assert_eq!(json["data"]["local_credential_removed"], true);
     let rendered = render_success(OutputFormat::Human, &deleted);
-    assert!(rendered.contains("Deleted user user-1"));
+    assert!(rendered.contains("User deletion request accepted for user-1"));
     assert!(rendered.contains("local credential"));
 
     let list = CommandSuccess::UserList(UserListSuccess {
@@ -635,6 +653,85 @@ fn user_creation_and_mutation_results_are_stable() {
         }],
     });
     assert!(render_success(OutputFormat::Human, &email_only).contains("<none>"));
+}
+
+#[test]
+fn defective_endpoints_report_requests_without_completion_claims() {
+    use crate::command_result::*;
+    let cases = [
+        (
+            CommandSuccess::UserTokenDeleted(UserTokenDeleteSuccess {
+                user_id: "u".into(),
+                scope: UserTokenDeleteScope::Single,
+                message: "Server says deleted".into(),
+            }),
+            "Single-token deletion request accepted",
+        ),
+        (
+            CommandSuccess::DependencyUpdated(DependencyUpdateSuccess {
+                board_id: "b".into(),
+                card_id: "c".into(),
+                target_card_id: "absent".into(),
+                submitted_fields: vec![DependencySubmittedField::Color],
+            }),
+            "Dependency update request accepted",
+        ),
+        (
+            CommandSuccess::IntegrationDeleted(IntegrationDeleteSuccess {
+                board_id: "b".into(),
+                integration_id: "absent".into(),
+            }),
+            "Integration deletion request accepted",
+        ),
+        (
+            CommandSuccess::CustomFieldItemsCreated(CustomFieldItemCreateSuccess {
+                board_id: "b".into(),
+                custom_field_id: "absent".into(),
+            }),
+            "Dropdown item creation request accepted",
+        ),
+        (
+            CommandSuccess::ListMoved(ListTransferSuccess {
+                source_board_id: "a".into(),
+                source_list_id: "l".into(),
+                target_board_id: "b".into(),
+                target_swimlane_id: None,
+                returned_list_id: "l".into(),
+            }),
+            "Cross-board list move request accepted (source list retained; position ignored)",
+        ),
+    ];
+    for (success, heading) in cases {
+        let human = render_success(OutputFormat::Human, &success);
+        assert!(human.starts_with(heading), "{human}");
+        let json: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(json["ok"], true);
+        assert!(json.get("warnings").is_none());
+        assert!(!human.contains("unconfirmed"));
+        assert!(!human.contains("pending confirmation"));
+    }
+
+    let copied = CommandSuccess::BoardCopied(BoardCopySuccess {
+        source_board_id: "a".into(),
+        board_id: "b".into(),
+    });
+    let human = render_success(OutputFormat::Human, &copied);
+    assert!(human.starts_with("Board copied:"));
+    assert!(human.contains("Wekan v11.06 omits attachments."));
+    let json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &copied)).unwrap();
+    assert!(json.get("warnings").is_none());
+
+    let delete_all = CommandSuccess::UserTokenDeleted(UserTokenDeleteSuccess {
+        user_id: "u".into(),
+        scope: UserTokenDeleteScope::All,
+        message: "done".into(),
+    });
+    assert!(render_success(OutputFormat::Human, &delete_all).starts_with("Deleted all tokens"));
+    let json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &delete_all)).unwrap();
+    assert!(json.get("warnings").is_none());
 }
 
 #[test]
@@ -778,7 +875,7 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     let deleted = CommandSuccess::ListDeleted(ListDeleteSuccess {
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
-        deleted: true,
+        deletion_requested: true,
         delete_mode: ListDeleteMode::Soft,
     });
     let updated_json: serde_json::Value =
@@ -792,7 +889,9 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert_eq!(deleted_json["data"]["delete_mode"], "soft");
     assert!(render_success(OutputFormat::Human, &created).contains("Created list"));
     assert!(render_success(OutputFormat::Human, &updated).contains("title, wip_limit"));
-    assert!(render_success(OutputFormat::Human, &deleted).contains("Soft-deleted"));
+    assert!(
+        render_success(OutputFormat::Human, &deleted).contains("List deletion request accepted")
+    );
 }
 
 #[test]
@@ -914,13 +1013,13 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
         card_id: "card-1".to_owned(),
-        deleted: true,
+        deletion_requested: true,
         delete_mode: CardDeleteMode::Hard,
     });
     assert!(render_success(OutputFormat::Human, &created).contains("Created card"));
     let updated_human = render_success(OutputFormat::Human, &updated);
-    assert!(updated_human.contains("Submitted update for card"));
-    assert!(updated_human.contains("submitted fields: title, sort, due_at, is_over_time"));
+    assert!(updated_human.contains("Card update request accepted"));
+    assert!(updated_human.contains("fields: title, sort, due_at, is_over_time"));
     let updated_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &updated)).unwrap();
     assert_eq!(
@@ -928,7 +1027,7 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         serde_json::json!(["title", "sort", "due_at", "is_over_time"])
     );
     assert!(updated_json["data"].get("updated_fields").is_none());
-    assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
+    assert!(render_success(OutputFormat::Human, &deleted).contains("deletion request accepted"));
     let deleted_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
     assert_eq!(deleted_json["data"]["delete_mode"], "hard");
@@ -1098,7 +1197,7 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     let deleted = CommandSuccess::SwimlaneDeleted(SwimlaneDeleteSuccess {
         board_id: "board-1".to_owned(),
         swimlane_id: "swimlane-1".to_owned(),
-        deleted: true,
+        deletion_requested: true,
         delete_mode: SwimlaneDeleteMode::Hard,
     });
     let updated_json: serde_json::Value =
@@ -1112,7 +1211,7 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert_eq!(deleted_json["data"]["delete_mode"], "hard");
     assert!(render_success(OutputFormat::Human, &created).contains("Created swimlane"));
     assert!(render_success(OutputFormat::Human, &updated).contains("title"));
-    assert!(render_success(OutputFormat::Human, &deleted).contains("Permanently deleted"));
+    assert!(render_success(OutputFormat::Human, &deleted).contains("deletion request accepted"));
 }
 
 #[tokio::test]

@@ -80,7 +80,7 @@ fn factory(server: &MockServer) -> WekanClientFactory {
 }
 
 #[tokio::test]
-async fn copy_move_commands_send_one_request_and_render_acknowledgments() {
+async fn copy_move_commands_send_one_request_and_render_completed_actions() {
     use crate::output::{OutputFormat, render_success};
     for (family, action, id, route) in [
         ("board", "copy", "b", "/api/boards/b/copy"),
@@ -166,34 +166,44 @@ async fn copy_move_commands_send_one_request_and_render_acknowledgments() {
                     serde_json::from_str(&render_success(OutputFormat::Json, &result)).unwrap();
                 let expected = match family {
                     "board" => json!({
-                        "source_board_id":"b", "board_id":"new",
-                        "mutation_confirmed":false
+                        "source_board_id":"b", "board_id":"new"
                     }),
                     "card" => json!({
                         "source_board_id":"b", "source_list_id":"l", "source_card_id":"c",
                         "target_board_id":"target", "target_list_id":"tl",
-                        "target_swimlane_id":"ts", "card_id":"new", "mutation_confirmed":false
+                        "target_swimlane_id":"ts", "card_id":"new"
                     }),
                     "list" => json!({
                         "source_board_id":"b", "source_list_id":"l", "target_board_id":"target",
-                        "target_swimlane_id":"ts", "returned_list_id":"new", "mutation_confirmed":false
+                        "target_swimlane_id":"ts", "returned_list_id":"new"
                     }),
                     "swimlane" => json!({
                         "source_board_id":"b", "source_swimlane_id":"s", "target_board_id":"target",
-                        "returned_swimlane_id":"new", "mutation_confirmed":false
+                        "returned_swimlane_id":"new"
                     }),
                     _ => unreachable!(),
                 };
-                assert_eq!(value, json!({"ok":true,"data":expected}));
+                assert_eq!(value["ok"], true);
+                assert_eq!(value["data"], expected);
+                assert!(value.get("warnings").is_none());
+                let completed = if action == "copy" { "copied" } else { "moved" };
+                let heading = if family == "list" && action == "move" {
+                    "cross-board list move request accepted (source list retained; position ignored):".to_owned()
+                } else {
+                    format!("{family} {completed}:")
+                };
                 assert!(
                     render_success(OutputFormat::Human, &result)
-                        .contains("effects are unconfirmed")
+                        .to_lowercase()
+                        .starts_with(&heading)
                 );
             } else {
                 let error = result.unwrap_err();
-                assert_eq!(
-                    error.details().outcome_unknown,
-                    if status == 500 { Some(true) } else { None }
+                assert!(
+                    serde_json::to_value(error.details())
+                        .unwrap()
+                        .get("outcome_unknown")
+                        .is_none()
                 );
                 assert_eq!(
                     error.code(),

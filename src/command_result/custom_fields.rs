@@ -53,8 +53,6 @@ pub struct CustomFieldUpdateSuccess {
 pub struct CustomFieldDeleteSuccess {
     pub board_id: String,
     pub custom_field_id: String,
-    pub deletion_requested: bool,
-    pub mutation_confirmed: bool,
     pub delete_mode: CustomFieldDeleteMode,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

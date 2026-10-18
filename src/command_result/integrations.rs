@@ -58,15 +58,12 @@ pub struct IntegrationUpdateSuccess {
     pub board_id: String,
     pub integration_id: String,
     pub submitted_fields: Vec<IntegrationSubmittedField>,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct IntegrationDeleteSuccess {
     pub board_id: String,
     pub integration_id: String,
-    pub deletion_requested: bool,
-    pub mutation_confirmed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

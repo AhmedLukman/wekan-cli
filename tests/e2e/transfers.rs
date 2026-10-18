@@ -17,7 +17,7 @@ async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Result<Value, AppErr
         &success,
         CommandSuccess::BoardCopied(_) | CommandSuccess::CardCopied(_)
     ) {
-        assert!(human.contains("effects are unconfirmed"));
+        assert!(human.starts_with("Board copied:") || human.starts_with("Card copied:"));
     }
     Ok(
         serde_json::from_str::<Value>(&wekan_cli::output::render_success(
@@ -420,7 +420,7 @@ async fn verify_transfer_ordering(app: &LiveApp, server: &str) {
         let returned_field = format!("returned_{family}_id");
         let id = copied[&returned_field].as_str().unwrap();
         assert_ne!(id, source_id);
-        assert_eq!(copied["mutation_confirmed"], false);
+        assert!(copied.get("mutation_confirmed").is_none());
         assert_resource_position(app, server, family, &target, id, expected_sort, &siblings).await;
 
         for (flag, value, expected_sort) in [
@@ -449,7 +449,7 @@ async fn verify_transfer_ordering(app: &LiveApp, server: &str) {
             .await
             .unwrap();
             assert_eq!(result[&returned_field], id);
-            assert_eq!(result["mutation_confirmed"], false);
+            assert!(result.get("mutation_confirmed").is_none());
             assert_resource_position(app, server, family, &target, id, expected_sort, &siblings)
                 .await;
         }
@@ -681,7 +681,7 @@ async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap();
     let copied_card = copied["card_id"].as_str().unwrap();
-    assert_eq!(copied["mutation_confirmed"], false);
+    assert!(copied.get("mutation_confirmed").is_none());
     let copied_detail = detail(&app, &server, copied_card).await;
     assert_eq!(copied_detail["board_id"], target);
     assert_eq!(copied_detail["list_id"], target_list);
@@ -840,7 +840,7 @@ async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap();
     let copied_board = board_copy["board_id"].as_str().unwrap();
-    assert_eq!(board_copy["mutation_confirmed"], false);
+    assert!(board_copy.get("mutation_confirmed").is_none());
     assert_ne!(copied_board, b);
     let copied_board_detail = run(&app, &server, &["board", "get", copied_board])
         .await
@@ -1028,7 +1028,12 @@ async fn verify_empty_and_partial_moves(
     .await
     .unwrap_err();
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
     assert_eq!(detail(app, server, &card_id).await["board_id"], target);
     assert_eq!(
         run(app, server, &["swimlane", "get", lane_id, "--board", b])
@@ -1181,7 +1186,12 @@ async fn verify_list_move_filters(
         if matching_filter || existing_destination {
             let error = result.unwrap_err();
             assert_eq!(error.details().http_status, Some(500));
-            assert_eq!(error.details().outcome_unknown, Some(true));
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
+            );
             let moved = detail(app, server, &card_id).await;
             assert_eq!(moved["board_id"], target);
             assert_eq!(moved["list_id"], destination_id);
@@ -1192,7 +1202,7 @@ async fn verify_list_move_filters(
         } else {
             let acknowledged = result.unwrap();
             assert_eq!(acknowledged["returned_list_id"], list_id);
-            assert_eq!(acknowledged["mutation_confirmed"], false);
+            assert!(acknowledged.get("mutation_confirmed").is_none());
             assert_eq!(detail(app, server, &card_id).await, card_before);
             assert!(
                 list_cards(app, server, target, destination_id)
@@ -1335,7 +1345,7 @@ async fn verify_attachment_copy(app: &LiveApp, server: &str, nonce: u128) {
     )
     .await
     .unwrap();
-    assert_eq!(copied_card["mutation_confirmed"], false);
+    assert!(copied_card.get("mutation_confirmed").is_none());
     assert_eq!(
         detail(app, server, copied_card["card_id"].as_str().unwrap()).await["title"],
         "Attachment copy"
@@ -1388,7 +1398,7 @@ async fn verify_attachment_copy(app: &LiveApp, server: &str, nonce: u128) {
     .unwrap();
     assert_eq!(lane_cards["cards"].as_array().unwrap().len(), 1);
     let board_copy = run(app, server, &["board", "copy", &b]).await.unwrap();
-    assert_eq!(board_copy["mutation_confirmed"], false);
+    assert!(board_copy.get("mutation_confirmed").is_none());
     let copied_board = board_copy["board_id"].as_str().unwrap();
     assert_eq!(count(app, server, copied_board, None).await, 1);
     // W11-047: all four successful deep copies call an unawaited helper that

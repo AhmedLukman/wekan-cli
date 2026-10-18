@@ -80,11 +80,10 @@ pub(super) async fn execute(
         .delete_board(&args.board_id, context.record().token())
         .await;
     drop(credential_mutation);
-    let deleted =
-        deletion.map_err(|error| map_client_error(error, &redactor, "board deletion", true))?;
+    let deleted = deletion.map_err(|error| map_client_error(error, &redactor, "board deletion"))?;
     if deleted.board_id != args.board_id {
-        let mut details = protocol_error_details(true);
-        details.outcome_unknown = Some(true);
+        let details = protocol_error_details(true);
+
         return Err(AppError::new(
             ErrorCode::ProtocolError,
             "Wekan reported a different deleted board ID than requested",

@@ -99,21 +99,11 @@ pub struct UserBoardsSuccess {
     pub boards: Vec<UserBoardSummary>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UserCreateWarning {
-    #[serde(rename = "user_id_unavailable_in_wekan_v11_06")]
-    UserIdUnavailableInWekanV1106,
-}
-
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct UserCreateSuccess {
-    pub creation_requested: bool,
-    pub mutation_confirmed: bool,
     pub username: String,
     pub email: String,
     pub user_id: Option<String>,
-    pub warning: Option<UserCreateWarning>,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -139,7 +129,7 @@ pub struct UserLoginChangeSuccess {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct UserDeleteSuccess {
     pub user_id: String,
-    pub deleted: bool,
+    pub deletion_requested: bool,
     pub deleted_current_user: bool,
     pub credential_stored: bool,
     pub local_credential_removed: bool,

@@ -73,7 +73,7 @@ cards with deletion metadata in one batch. Because cards are affected,
 `list delete` requires interactive confirmation or command-local `--yes`.
 
 The operation is idempotent: deleting an already deleted or absent list returns
-the requested ID just like a newly deleted list. Therefore `deleted: true` and
+the requested ID just like a newly deleted list. Therefore `deletion_requested: true` and
 `delete_mode: "soft"` mean Wekan accepted and validated the request, not that a
 previously live list was found.
 

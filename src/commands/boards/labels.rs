@@ -5,8 +5,7 @@ use crate::{
     },
     command_result::{BoardDetailLabel, BoardLabelAdded, BoardLabelCollection, CommandSuccess},
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::{map_client_error_with_not_found, map_mutation_client_error_with_not_found},
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
         custom_fields::non_empty,
     },
     credentials::CredentialStore,
@@ -95,7 +94,7 @@ pub(super) async fn dispatch(
                 )
                 .await
                 .map_err(|error| {
-                    map_mutation_client_error_with_not_found(
+                    map_client_error_with_not_found(
                         error,
                         &redactor,
                         "board label addition",

@@ -16,8 +16,6 @@ pub struct CustomFieldItemDeleteSuccess {
     pub board_id: String,
     pub custom_field_id: String,
     pub item_id: String,
-    pub deletion_requested: bool,
-    pub mutation_confirmed: bool,
     pub delete_mode: CustomFieldItemDeleteMode,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

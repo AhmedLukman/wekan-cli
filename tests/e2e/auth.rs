@@ -105,7 +105,12 @@ async fn authentication_flow_matches_wekan_v11_06() {
             .as_deref()
             .is_some_and(|reason| !reason.is_empty())
     );
-    assert_eq!(duplicate_error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(duplicate_error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 
     let username_login = Cli::try_parse_from([
         "wekan",
@@ -425,7 +430,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     assert_eq!(invalid_logout.details().http_status, Some(401));
     assert_eq!(
         invalid_logout.details().remote_logout_completed,
-        Some(Some(false))
+        Some(false)
     );
     assert_eq!(invalid_logout.details().credential_stored, Some(true));
     assert_eq!(
@@ -778,9 +783,10 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     );
     assert_secret_absent(&transport_failure, &password);
     let transport_failure = error_json(&transport_failure, 4, "transport_error");
-    assert_eq!(
-        transport_failure["error"]["details"]["outcome_unknown"],
-        true
+    assert!(
+        transport_failure["error"]["details"]
+            .get("outcome_unknown")
+            .is_none()
     );
     assert!(
         FileProfileStore::at(transport_config_directory.path().to_owned())

@@ -133,7 +133,7 @@ async fn dependency_dispatch_maps_all_outputs_without_extra_http() {
             "/api/boards/b/cards/c/dependencies/t",
             json!({"_id":"c"}),
             Some(json!({"type":"", "color":null})),
-            json!({"board_id":"b", "card_id":"c", "target_card_id":"t", "submitted_fields":["type", "color"], "mutation_confirmed":false}),
+            json!({"board_id":"b", "card_id":"c", "target_card_id":"t", "submitted_fields":["type", "color"]}),
         ),
         (
             vec!["delete", "t", "--card", "c", "--yes"],
@@ -141,7 +141,7 @@ async fn dependency_dispatch_maps_all_outputs_without_extra_http() {
             "/api/boards/b/cards/c/dependencies/t",
             json!({"_id":"c"}),
             None,
-            json!({"board_id":"b", "card_id":"c", "target_card_id":"t", "deletion_requested":true, "mutation_confirmed":false}),
+            json!({"board_id":"b", "card_id":"c", "target_card_id":"t"}),
         ),
     ];
     for (args, verb, url, response, body, expected) in cases {
@@ -307,7 +307,12 @@ async fn dependency_errors_preserve_status_redact_secrets_and_report_mutation_ou
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ProtocolError);
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 #[test]

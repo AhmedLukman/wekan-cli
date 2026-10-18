@@ -2,8 +2,8 @@ use crate::{
     client::{WekanClientFactory, boards::CopyBoardRequest},
     command_result::{BoardCopySuccess, CommandSuccess},
     commands::{
-        authenticated::AuthenticatedContext,
-        client_error::map_mutation_client_error_with_not_found, transfer::identifier,
+        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
+        transfer::identifier,
     },
     credentials::CredentialStore,
     error::AppError,
@@ -35,7 +35,7 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|e| {
-            map_mutation_client_error_with_not_found(
+            map_client_error_with_not_found(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "board copy",
@@ -45,6 +45,5 @@ pub(super) async fn execute(
     Ok(CommandSuccess::BoardCopied(BoardCopySuccess {
         source_board_id: args.board_id,
         board_id,
-        mutation_confirmed: false,
     }))
 }

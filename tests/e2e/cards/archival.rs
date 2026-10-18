@@ -46,7 +46,12 @@ pub(super) async fn verify_archive_restore(
                 "{role} {command}"
             );
             assert_eq!(error.details().http_status, Some(403));
-            assert_ne!(error.details().outcome_unknown, Some(true));
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
+            );
         }
         let response = http
             .post(format!(
@@ -89,9 +94,11 @@ pub(super) async fn verify_archive_restore(
                     ErrorCode::ServerError
                 }
             );
-            assert_eq!(
-                error.details().outcome_unknown,
-                (status == 500).then_some(true)
+            assert!(
+                serde_json::to_value(error.details())
+                    .unwrap()
+                    .get("outcome_unknown")
+                    .is_none()
             );
         }
     }
@@ -370,7 +377,12 @@ async fn assert_wrong_state(
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().outcome_unknown, Some(true));
+    assert!(
+        serde_json::to_value(error.details())
+            .unwrap()
+            .get("outcome_unknown")
+            .is_none()
+    );
 }
 
 async fn get(app: &LiveApp, server: &str, board: &str, list: &str, card: &str) -> CardDetail {

@@ -120,7 +120,7 @@ pub(crate) async fn execute(
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
     match error {
         error @ ClientError::EmptyNotFound { .. } =>
-            crate::commands::client_error::map_client_error(error, redactor, "login", true),
+            crate::commands::client_error::map_client_error(error, redactor, "login"),
         ClientError::Build(_) => AppError::new(
             ErrorCode::InternalError,
             "the HTTP client could not be initialized",
@@ -128,13 +128,9 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         ),
         ClientError::Transport(_) => AppError::new(
             ErrorCode::TransportError,
-            "the login request failed; its remote outcome may be unknown, so check the server before retrying",
+            "the login request failed",
             StableExitCode::Transport,
-        )
-        .with_details(ErrorDetails {
-            outcome_unknown: Some(true),
-            ..ErrorDetails::default()
-        }),
+        ),
         ClientError::UnexpectedRedirect { status } => AppError::new(
             ErrorCode::UnexpectedRedirect,
             "the server redirected login; configure the canonical Wekan URL because login requests are never replayed",
@@ -184,7 +180,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
             server_error_type,
             server_is_client_safe,
         } => {
-            let mut details = embedded_protocol_error_details(
+            let details = embedded_protocol_error_details(
                 http_status,
                 server_error,
                 server_reason,
@@ -193,10 +189,10 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 server_is_client_safe,
                 redactor,
             );
-            details.outcome_unknown = Some(true);
+
             AppError::new(
                 ErrorCode::ProtocolError,
-                "Wekan returned an embedded login error without statusCode; the remote outcome may be unknown",
+                "Wekan returned an embedded login error without statusCode",
                 StableExitCode::Server,
             )
             .with_details(details)
@@ -209,42 +205,31 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
         } => {
             let two_factor_required = status == reqwest::StatusCode::UNAUTHORIZED
                 && server_error.as_deref() == Some("no-2fa-code");
-            let (code, message, exit_code, outcome_unknown) = match status.as_u16() {
+            let (code, message, exit_code) = match status.as_u16() {
                 400 => (
                     ErrorCode::ProtocolError,
                     "Wekan rejected the login request as malformed",
                     StableExitCode::Transport,
-                    None,
                 ),
                 401 if two_factor_required => (
                     ErrorCode::LoginRejected,
                     "this account requires a two-factor code; retry with --code or --code-stdin",
                     StableExitCode::Server,
-                    None,
                 ),
                 401 => (
                     ErrorCode::LoginRejected,
                     "Wekan rejected the username or email, password, or two-factor code",
                     StableExitCode::Server,
-                    None,
                 ),
                 429 => (
                     ErrorCode::LoginRateLimited,
                     "too many failed login attempts; try again later",
                     StableExitCode::Server,
-                    None,
-                ),
-                _ if status.is_server_error() => (
-                    ErrorCode::ServerError,
-                    "the Wekan server returned an unexpected error; the remote outcome may be unknown, so check the server before retrying",
-                    StableExitCode::Server,
-                    Some(true),
                 ),
                 _ => (
                     ErrorCode::ServerError,
                     "the Wekan server returned an unexpected error",
                     StableExitCode::Server,
-                    None,
                 ),
             };
             let message = append_retry_after(message.to_owned(), status, retry_after_seconds);
@@ -256,7 +241,7 @@ fn map_client_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
                 redactor,
             );
             details.two_factor_required = two_factor_required.then_some(true);
-            details.outcome_unknown = outcome_unknown;
+
             AppError::new(code, message, exit_code).with_details(details)
         }
         ClientError::EmbeddedServer {
@@ -292,14 +277,11 @@ fn response_body_error(
             .with_details(details);
     }
 
-    let (code, exit_code, outcome_unknown) = match status.as_u16() {
-        400 => (ErrorCode::ProtocolError, StableExitCode::Transport, None),
-        401 => (ErrorCode::LoginRejected, StableExitCode::Server, None),
-        429 => (ErrorCode::LoginRateLimited, StableExitCode::Server, None),
-        _ if status.is_server_error() => {
-            (ErrorCode::ServerError, StableExitCode::Server, Some(true))
-        }
-        _ => (ErrorCode::ServerError, StableExitCode::Server, None),
+    let (code, exit_code) = match status.as_u16() {
+        400 => (ErrorCode::ProtocolError, StableExitCode::Transport),
+        401 => (ErrorCode::LoginRejected, StableExitCode::Server),
+        429 => (ErrorCode::LoginRateLimited, StableExitCode::Server),
+        _ => (ErrorCode::ServerError, StableExitCode::Server),
     };
     let mut message = if status == reqwest::StatusCode::UNAUTHORIZED {
         "Wekan rejected the username or email, password, or two-factor code".to_owned()
@@ -308,13 +290,8 @@ fn response_body_error(
     } else {
         message
     };
-    if outcome_unknown.is_some() {
-        message
-            .push_str("; the remote outcome may be unknown, so check the server before retrying");
-    }
     message = append_retry_after(message, status, retry_after_seconds);
 
-    details.outcome_unknown = outcome_unknown;
     AppError::new(code, message, exit_code).with_details(details)
 }
 

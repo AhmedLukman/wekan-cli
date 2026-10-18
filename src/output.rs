@@ -245,7 +245,7 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         }
         (OutputFormat::Json, CommandSuccess::BoardDomains(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardDomainChanged(data)) => format!(
-            "Board domains returned for the requested sharing change:\n{}",
+            "Board domains updated:\n{}",
             formatting::render_object(data)
         ),
         (OutputFormat::Json, CommandSuccess::BoardDomainChanged(data)) => render_json_success(data),
@@ -287,36 +287,48 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         }
         (OutputFormat::Human, CommandSuccess::BoardCopied(data)) => {
             format!(
-                "Board copy acknowledged; effects are unconfirmed:\n{}",
+                "Board copied:\nWekan v11.06 omits attachments.\n{}",
                 formatting::render_object(data)
             )
         }
         (OutputFormat::Json, CommandSuccess::BoardCopied(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardCopied(data)) => {
             format!(
-                "Card copy acknowledged; effects are unconfirmed:\n{}",
+                "Card copied:\nWekan v11.06 omits attachments.\n{}",
                 formatting::render_object(data)
             )
         }
         (OutputFormat::Json, CommandSuccess::CardCopied(data)) => render_json_success(data),
-        (
-            OutputFormat::Human,
-            CommandSuccess::ListCopied(data) | CommandSuccess::ListMoved(data),
-        ) => format!(
-            "List transfer acknowledged; effects are unconfirmed:\n{}",
-            formatting::render_object(data)
-        ),
+        (OutputFormat::Human, CommandSuccess::ListCopied(data)) => {
+            format!(
+                "List copied:\nWekan v11.06 omits attachments.\n{}",
+                formatting::render_object(data)
+            )
+        }
+        (OutputFormat::Human, CommandSuccess::ListMoved(data)) => {
+            format!(
+                "{}:\n{}",
+                if data.source_board_id == data.target_board_id {
+                    "List moved"
+                } else {
+                    "Cross-board list move request accepted (source list retained; position ignored)"
+                },
+                formatting::render_object(data)
+            )
+        }
         (
             OutputFormat::Json,
             CommandSuccess::ListCopied(data) | CommandSuccess::ListMoved(data),
         ) => render_json_success(data),
-        (
-            OutputFormat::Human,
-            CommandSuccess::SwimlaneCopied(data) | CommandSuccess::SwimlaneMoved(data),
-        ) => format!(
-            "Swimlane transfer acknowledged; effects are unconfirmed:\n{}",
-            formatting::render_object(data)
-        ),
+        (OutputFormat::Human, CommandSuccess::SwimlaneCopied(data)) => {
+            format!(
+                "Swimlane copied:\nWekan v11.06 omits attachments.\n{}",
+                formatting::render_object(data)
+            )
+        }
+        (OutputFormat::Human, CommandSuccess::SwimlaneMoved(data)) => {
+            format!("Swimlane moved:\n{}", formatting::render_object(data))
+        }
         (
             OutputFormat::Json,
             CommandSuccess::SwimlaneCopied(data) | CommandSuccess::SwimlaneMoved(data),
@@ -352,7 +364,14 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         }
         (OutputFormat::Json, CommandSuccess::BoardMembers(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberChanged(data)) => {
-            formatting::render_object(data)
+            let action = match data.action {
+                crate::command_result::MembershipAction::Add => "Addition",
+                crate::command_result::MembershipAction::Remove => "Removal",
+            };
+            format!(
+                "Board member {action} request accepted:\n{}",
+                formatting::render_object(data)
+            )
         }
         (OutputFormat::Json, CommandSuccess::BoardMemberChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberUpdated(data)) => {
@@ -396,18 +415,24 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Human, CommandSuccess::AttachmentShown(data)) => attachments::detail(data),
         (OutputFormat::Json, CommandSuccess::AttachmentShown(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AttachmentUploaded(data)) => {
-            attachments::detail(data)
+            format!("Attachment uploaded:\n{}", attachments::detail(data))
         }
         (OutputFormat::Json, CommandSuccess::AttachmentUploaded(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BackgroundUploaded(data)) => {
-            attachments::detail(data)
+            format!("Board background uploaded:\n{}", attachments::detail(data))
         }
         (OutputFormat::Json, CommandSuccess::BackgroundUploaded(data)) => render_json_success(data),
-        (OutputFormat::Human, CommandSuccess::AttachmentCopied(data)) => attachments::detail(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentCopied(data)) => {
+            format!("Attachment copied:\n{}", attachments::detail(data))
+        }
         (OutputFormat::Json, CommandSuccess::AttachmentCopied(data)) => render_json_success(data),
-        (OutputFormat::Human, CommandSuccess::AttachmentMoved(data)) => attachments::detail(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentMoved(data)) => {
+            format!("Attachment moved:\n{}", attachments::detail(data))
+        }
         (OutputFormat::Json, CommandSuccess::AttachmentMoved(data)) => render_json_success(data),
-        (OutputFormat::Human, CommandSuccess::AttachmentDeleted(data)) => attachments::detail(data),
+        (OutputFormat::Human, CommandSuccess::AttachmentDeleted(data)) => {
+            format!("Attachment deleted:\n{}", attachments::detail(data))
+        }
         (OutputFormat::Json, CommandSuccess::AttachmentDeleted(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AttachmentDownloaded(data)) => {
             attachments::detail(data)
