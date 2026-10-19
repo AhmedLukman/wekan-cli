@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-19
+
 ### Added
 
 - A portable agent discovery skill and offline `skill list` / `skill show [TOPIC]`
@@ -22,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The documented CLI syntax, structured output, errors, exit statuses, and
+  configuration behavior now follow Semantic Versioning; incompatible changes
+  require a new major release.
 - **Breaking:** Mutations report completed actions directly except where verified
   Wekan v11.06 defects can prevent them. Those operations report accepted requests
   with direct explanations of concrete limitations; copies disclose omitted attachments. User,

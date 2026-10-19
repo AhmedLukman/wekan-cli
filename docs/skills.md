@@ -42,13 +42,13 @@ Human `show` output is the document's Markdown with one final newline. Human
 [agent contract](agent-contract.md); success `data` is:
 
 ```json
-{"cli_version":"0.21.0","topics":[{"name":"core","description":"Start here: agent workflows, discovery, and essential conventions"}]}
+{"cli_version":"1.0.0","topics":[{"name":"core","description":"Start here: agent workflows, discovery, and essential conventions"}]}
 ```
 
 The example above abbreviates the list. `show` instead returns:
 
 ```json
-{"cli_version":"0.21.0","topic":"core","content":"# Using Wekan CLI from an agent\n..."}
+{"cli_version":"1.0.0","topic":"core","content":"# Using Wekan CLI from an agent\n..."}
 ```
 
 `cli_version` is the executable's package version. `content` is the complete

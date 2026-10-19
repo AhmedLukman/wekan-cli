@@ -4,8 +4,25 @@ Wekan CLI is an agent-first, human-friendly command-line client for Wekan. It
 provides deterministic commands, stable JSON output, explicit errors, native
 credential storage, and confirmation gates for destructive operations.
 
-Version 0.21.0 targets **Wekan v11.06 exactly**. Other Wekan versions are not
+Version 1.0.0 targets **Wekan v11.06 exactly**. Other Wekan versions are not
 currently supported or tested.
+
+## Compatibility
+
+Starting with v1.0.0, the documented command syntax, JSON field names and types,
+error codes, exit statuses, and configuration behavior follow Semantic
+Versioning. Incompatible changes require a new major version. Compatible
+releases can add commands, optional flags, and JSON or error-detail fields;
+automation should accept additional output fields and use documented error
+codes and exit statuses instead of parsing human-readable messages.
+
+Human output, help text, and error wording can change between releases. Raw
+API bodies and native export contents follow the supported Wekan server's
+behavior. The Rust library modules support the CLI implementation and are not
+a supported Rust SDK. See the
+[command contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/command-contract.md)
+and [agent contract](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/agent-contract.md)
+for the supported CLI interfaces.
 
 ## Install
 

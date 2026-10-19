@@ -2,20 +2,10 @@
 
 This is an agent-first, human-friendly, cross-platform Rust CLI for Wekan. Prefer deterministic commands, stable structured output, explicit errors and safe mutations when destructive. Write clean, organized code that fully satisfies the goal while avoiding unnecessary complexity and speculative functionality.
 
-## Release compatibility
-
-For all 0.x releases
-(before v1.0.0), breaking changes are explicitly allowed without supporting
-legacy behavior or maintaining backward compatibility. Do not retain old
-command syntax, configuration formats, deprecated options, compatibility shims,
-or unused code unless the user explicitly asks for them. Prefer direct cleanup
-and update tests and documentation in the same change. Reassess compatibility
-requirements when preparing v1.0.0.
+## Changelog
 
 Record pending changes under Unreleased without changing the package version
 until preparing a release.
-
-## Changelog
 
 Keep `CHANGELOG.md` limited to user-facing changes. Entries must describe an
 observable change to CLI behavior, commands, output, installation, compatibility,

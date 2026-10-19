@@ -2,11 +2,19 @@
 
 ## Supported versions
 
-Security fixes are made for the current `0.1.x` release line.
+Security fixes are provided in the latest stable Wekan CLI release. Upgrade to
+the [latest release][latest-release] to receive fixes; older versions do not
+receive separate backports.
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | Yes |
+| Latest stable release | Yes |
+| Older stable releases | No |
+| Prereleases and development snapshots | No separate support guarantee |
+
+The latest stable 1.x release is supported; 0.x releases are unsupported.
+Reports concerning prereleases and development snapshots are still welcome through the private
+reporting process below.
 
 ## Reporting a vulnerability
 
@@ -40,5 +48,6 @@ or REST API vulnerabilities through the [upstream security policy][wekan-securit
 and non-security CLI bugs through the [public issue tracker][issues].
 
 [private-report]: https://github.com/AhmedLukman/wekan-cli/security/advisories/new
+[latest-release]: https://github.com/AhmedLukman/wekan-cli/releases/latest
 [wekan-security]: https://github.com/wekan/wekan/security/policy
 [issues]: https://github.com/AhmedLukman/wekan-cli/issues/new
