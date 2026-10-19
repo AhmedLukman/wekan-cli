@@ -12,31 +12,12 @@ Failures are one `{"ok":false,"error":{"code":...,"message":...,"details":{...}}
 object on stderr. Each ends with a newline; the other stream is empty except
 for documented interactive prompts and output-delivery failures. `--help` and
 `--version` print text even when JSON is selected. See the
-[agent contract](agent-contract.md) for delivery, binary output, mutation
-outcomes, and detailed fields.
+[agent contract](agent-contract.md) for shared delivery, decoding, mutation, and
+error rules; resource-family guides define their result fields and raw output.
 
-Success objects normally emit every mapped field, with `null` for unavailable
-optional values. A nullable collection and an empty collection have different
-meanings. In particular:
-
-| Value | Contract |
-| --- | --- |
-| Resource collection results | Named arrays, including `[]` for an empty result; selector IDs are nullable where documented. |
-| Card/list detail `watchers` | `null` when absent; `[]` when present and empty. |
-| Swimlane card summaries `assignees` | Array or `null`; array elements may also be `null`. List-scoped card summaries instead normalize missing assignees to `[]`. |
-| User detail `profile` | Always an object; its optional arrays/maps, including workspace children, may be `null`. Top-level user collections are arrays. |
-| Custom-field `settings.dropdown_items` | Array or `null`. |
-| Admin attachment `settings.upload_settings.allowed_mime_types` | Array or `null`. |
-| Rule `trigger` and `action` | Object or `null`; nested properties preserve omission, explicit `null`, and supplied values separately. |
-| Trello import `errors` | Omitted for JSON import; an array for ZIP import. A nonempty array is a partial failure, with results in error details. |
-| `error.details` | Always an object. Irrelevant or unavailable properties are omitted, rather than universally filled with null. |
-
-Known nullable scalars, objects, array elements, and typed value unions retain
-their documented types. `false`, zero, empty string, empty array/object, null,
-and omission are not interchangeable. Dynamic dictionary keys (such as board
-IDs or schema step names) are data, not new schema fields. The raw API body's
-`encoding: json` value and raw bytes preserve arbitrary upstream content;
-native exports follow their format-specific contracts.
+The [JSON presence and nullability contract](agent-contract.md#json-presence-and-nullability)
+defines collection shapes and the distinctions between null, omission, and
+empty values, including command-specific exceptions.
 
 ## Errors and exit statuses
 
@@ -79,7 +60,8 @@ Every leaf command below is included in the verification inventory. A command ca
 native endpoints or output shapes through its arguments. The
 [API coverage table](api-coverage.md) records all 144 corrected operations,
 complete options, requirements, conflicts, and endpoint selectors. The six
-local profile commands and the raw API escape hatch are included below too.
+local profile commands, two local guidance commands, and the raw API escape
+hatch are included below too.
 The executable-wide contract test discovers the parser tree and requires
 this inventory to cover every leaf; it also checks help and JSON usage errors
 at every command/group depth. Family documentation specifies each success
@@ -209,6 +191,8 @@ shape and verified native limitations.
 | `wekan rule get` | [Contract](rules.md) |
 | `wekan rule list` | [Contract](rules.md) |
 | `wekan rule update` | [Contract](rules.md) |
+| `wekan skill list` | [Contract](skills.md) |
+| `wekan skill show` | [Contract](skills.md) |
 | `wekan swimlane copy` | [Contract](copy-and-move.md) |
 | `wekan swimlane create` | [Contract](swimlanes.md) |
 | `wekan swimlane delete` | [Contract](swimlanes.md) |

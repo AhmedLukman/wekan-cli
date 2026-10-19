@@ -59,7 +59,9 @@ added-or-reused acknowledgment with `board_id` and `label_id`.
 
 Board label listing preserves stored order and returns IDs, nullable names, and
 colors. Card label listing returns stored IDs and preserves null elements. Both
-strictly decode the complete underlying document before projection.
+strictly decode the complete underlying document before projection. Board data
+contains `board_id` and `labels` (`label_id`, nullable `name`, `color`); card data
+contains `board_id`, `list_id`, `card_id`, and `label_ids`.
 
 ## Merge card labels
 
@@ -113,8 +115,9 @@ exit 5. Its error details retain HTTP 200 and the entire typed result:
 ```
 
 Errors go to stderr with empty stdout, including all returned successes.
-Creation results contain `results` with zero-based `index`, nullable `card_id`,
-and nullable `error`. Label results contain `updated` objects with `card_id` and
+Creation data contains `board_id`, `list_id`, and `results` with zero-based
+`index`, nullable `card_id`, and nullable `error`. Deletion data contains
+`board_id`, `deleted`, and `not_found`. Label results contain `updated` objects with `card_id` and
 `label_ids`, plus `not_found`. No response arrays are sorted or deduplicated.
 Human output includes counts and every returned outcome. Unknown response
 fields, including nested fields, are protocol errors.
@@ -123,3 +126,6 @@ The CLI performs no automatic retries, rollback, label editing/deletion
 emulation, or batch chunking. Request-level failures can follow partial writes.
 Single-card replacement remains available through `card update --label`,
 `--labels`, or `--clear-labels`.
+
+File/stdin read failures use `file_io_error`, exit 4. Invalid JSON, unsupported
+properties, invalid field types, and batch sizes use `invalid_input`, exit 2.

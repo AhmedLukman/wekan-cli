@@ -75,6 +75,31 @@ wekan profile add local http://localhost:3000 --use
 wekan --profile local auth login --username alice
 ```
 
+## Agent skill
+
+Install the portable discovery skill for your agent, separately from the CLI:
+
+```console
+npx skills add AhmedLukman/wekan-cli --skill wekan-cli --agent codex
+```
+
+For Claude Code, replace `--agent codex` with `--agent claude-code`. Add
+`--global` for a user-wide install. GitHub CLI and manual copying also work
+without Node.js; see [skill installation and commands](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/skills.md).
+
+The small skill directs the agent to guidance embedded in the installed
+executable:
+
+```console
+wekan skill show
+wekan skill list
+wekan skill show cards
+```
+
+These commands work offline without a server, profile, or credentials. Updating
+the CLI updates its detailed guide. Use command-specific `--help` for commands,
+arguments, and options, and read additional topics for behavior beyond help.
+
 ## Command coverage
 
 The CLI includes profile and authentication management plus typed commands for

@@ -19,6 +19,7 @@ pub mod integrations;
 pub mod lists;
 pub mod profile;
 pub mod rules;
+pub mod skill;
 pub mod swimlanes;
 pub mod system;
 mod transfer;
@@ -31,6 +32,8 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Read agent guidance embedded in this CLI version.
+    Skill(skill::SkillArgs),
     /// Inspect public Wekan system status.
     System(system::SystemArgs),
     /// Report domains and configure global settings, organizations, and teams.

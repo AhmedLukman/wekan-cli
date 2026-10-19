@@ -13,7 +13,7 @@ wekan --output raw board export BOARD --format csv --destination - --no-auth
 Board formats are `json`, `csv`, `tsv`, `xlsx`, `pdf`, `zip`, `kanboard`, `deck`,
 `openproject`, `github`, `gitlab`, `gitea`, `forgejo`, `trello`, `jira`, `asana`, and
 `zenkit`. Card formats are `xlsx` and `pdf`. Attachment export produces Wekan's
-native JSON object containing metadata and base64 file data; use
+native JSON object containing metadata and nullable base64 file data; use
 `attachment download` for the decoded file. Formats are required for board/card
 exports and are never inferred from the destination extension.
 
@@ -21,6 +21,8 @@ These commands call the ten native export operations. They make one request,
 without resource lookups, retries, authentication fallback, or export emulation.
 The server determines which information each format contains. External-tool JSON
 exports are Wekan's format projections, not a complete backup.
+The default detailed XLSX is a report. Excel import interprets its first-sheet
+rows as card data and can create extra cards; see [import behavior](imports.md#new-boards).
 Trello exports preserve null entries in card label ID arrays, including those
 stored by `card update --labels '[null]'`.
 
@@ -129,6 +131,8 @@ control characters. If completion output fails after saving, error details retai
   the route's native failure behavior.
 
 Other invalid response shapes/media/signatures use `protocol_error`, exit 4.
+Attachment JSON can contain `file: null`, including for GridFS-only files;
+successful file delivery does not establish that attachment bytes were included.
 File staging/read/save failures use `file_io_error`, exit 4. Native non-200
 responses use the existing server, permission, authentication, and not-found
 classifications and retain their actual HTTP status.

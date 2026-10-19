@@ -91,3 +91,6 @@ and
 [`models/metadata/dependencies.js`](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/models/metadata/dependencies.js).
 
 Update and deletion report request acceptance because a missing edge is a successful no-op. Creation retains direct create-or-update wording.
+
+Declining dependency deletion returns the shared cancellation result with
+operation `dependency_delete`.

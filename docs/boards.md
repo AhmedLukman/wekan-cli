@@ -78,7 +78,7 @@ the outer HTTP status and Wekan's embedded status and reason.
 
 Deletion permanently removes the board and its contents. Interactive human
 execution displays that warning and defaults to no. Declining is an exit-0
-cancellation and sends no HTTP request. JSON or non-terminal execution must pass
+cancellation with operation `board_delete` and sends no HTTP request. JSON or non-terminal execution must pass
 command-local `--yes`; other board commands do not accept it.
 
 The CLI verifies the returned board ID. Board mutations are never retried, and

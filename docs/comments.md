@@ -61,4 +61,6 @@ delete another author's comment only when the board does not restrict comment
 editing; other members receive a permission error. Wekan returns the card ID
 after deletion, so the CLI verifies that ID before reporting the requested
 comment as deleted. A malformed or mismatched successful response is reported
-with the actual protocol error.
+with `protocol_error`. A missing board or comment during deletion produces
+`not_found` and is known not to have deleted anything. Declining deletion uses
+cancellation operation `comment_delete`.

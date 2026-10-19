@@ -143,11 +143,21 @@ cross-process initialization races between Wekan CLI processes.
 
 ## Output and errors
 
-Profile objects have `name`, `server`, and `active` fields. JSON list output is
-`{"active_profile": string|null, "profiles": [...]}`. Removal reports the
-removed name and server, `removed: true`, and the resulting nullable active
-profile. Human list output has deterministic Name, Server, and Active columns;
-an empty store prints a clear no-profiles message.
+Profile objects have `name`, canonical `server`, and boolean `active` fields.
+`profile add`, `show`, `use`, and `update` return one profile object as `data`.
+List data contains the nullable active name and a name-sorted profile array;
+an empty store uses `{"active_profile":null,"profiles":[]}`. Removal reports
+the removed name/server and the resulting selection:
+
+```json
+{"active_profile":"work","profiles":[{"name":"work","server":"https://wekan.example/","active":true}]}
+{"name":"work","server":"https://wekan.example/","removed":true,"active_profile":null}
+```
+
+These data objects use the [shared envelope](agent-contract.md). Human list
+output has deterministic Name, Server, and Active columns; an empty store prints
+a clear no-profiles message. Declining removal uses cancellation operation
+`profile_remove`.
 
 Missing, duplicate, mismatched-server, active-in-use, and credential-bearing
 profiles use the stable codes `profile_not_found`, `profile_already_exists`,

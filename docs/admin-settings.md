@@ -189,10 +189,12 @@ contents are excluded from debug output and redacted from returned errors.
 
 Reads and updates return `settings` with snake_case fields. `_id` becomes
 `settings_id`; attachment timestamps and actor metadata remain available.
-Optional fields serialize as null when absent. Updates add `submitted_fields`
+Optional fields serialize as null when absent; `upload_settings.allowed_mime_types`
+is an array or null. Updates add `submitted_fields`
 in canonical order, listing the top-level fields explicitly supplied; server
 filled defaults do not add submitted fields. Human output includes the complete
-mapped configuration with terminal controls escaped.
+mapped configuration with terminal controls escaped. Results describe stored
+configuration, not a connectivity check or completed storage migration.
 
 The global endpoint can return an empty document, represented as settings with
 null fields; updating a missing global document returns HTTP 404. Attachment

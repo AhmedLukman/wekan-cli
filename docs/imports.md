@@ -85,6 +85,10 @@ physical lines are skipped by the CSV reader. Wekan recognizes headers such as
 and members. `--delimiter` is CSV-only, defaults to comma, and accepts one ASCII
 character other than NUL, CR, LF, or double quote, or the literal `\t` for tab.
 Excel input is XLSX bytes, encoded as `excelBase64`; Wekan reads its first sheet.
+It treats those rows as tabular card data. The default detailed board XLSX
+export contains report rows, which can become extra cards when imported.
+Verify imported lists, cards, and fields rather than assuming an export/import
+round trip preserves the board.
 
 Optional member mapping is an object of source identifiers to local Wekan user
 IDs, for example `{"upstream-alice":"local-user-id"}`. Use either

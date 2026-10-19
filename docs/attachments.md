@@ -89,7 +89,10 @@ Lists include requested selector IDs, `requested_scope`, `effective_scope`,
 `count`, and typed `attachments`. Metadata includes IDs, filename, size, MIME,
 storage backend, optional location/timestamp/image fields, and typed versions.
 Missing optional properties become null in stable output; unmapped fields or
-invalid mapped values produce `protocol_error` (exit 4).
+invalid mapped values produce `protocol_error` (exit 4). Stable output nulls can
+represent omitted upstream properties even where an explicit null is not allowed
+in the typed response. Scoped listings expose `requested_scope` and
+`effective_scope`.
 
 Saved downloads return `attachment_id`, `file_name`, `file_size`, `file_type`,
 `storage_backend`, `background_image_url` (null for ordinary files), `destination`,
@@ -107,7 +110,11 @@ Uploads, copy, move, background changes, and local `--overwrite` do not require
 an additional confirmation. Mutations are never automatically retried. Transport,
 protocol, and ambiguous server failures retain the existing outcome diagnostics.
 
-`attachment export` writes native attachment JSON, including base64 data, through
-the shared [export interface](exports.md). A missing attachment exports `{}`.
+`attachment export` writes native attachment JSON through the shared
+[export interface](exports.md). Its `file` field contains base64 data or `null`.
+Wekan v11.06's exporter reads a filesystem path; a GridFS-only attachment can
+export `file: null` even when its normal download succeeds. Inspect that field
+before treating the saved JSON as a backup of the bytes. A missing attachment
+exports `{}`.
 Legacy board-attachment listing and administrator storage settings use separate
 operations.

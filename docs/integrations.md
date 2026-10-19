@@ -92,3 +92,6 @@ The isolated lifecycle suite verifies these behaviors against the pinned Compose
 image. Outbound webhook delivery is outside this slice.
 
 Update and deletion report request acceptance because missing or wrongly scoped targets can produce successful no-ops.
+
+Declining integration deletion returns the shared cancellation result with
+operation `integration_delete`.

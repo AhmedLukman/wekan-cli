@@ -19,7 +19,9 @@ mod imports;
 mod integrations;
 pub use imports::*;
 mod rules;
+mod skills;
 pub use rules::*;
+pub use skills::{SkillListSuccess, SkillShowSuccess, SkillTopicSummary};
 mod lists;
 mod profiles;
 mod swimlanes;
@@ -118,6 +120,8 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    SkillList(SkillListSuccess),
+    SkillShown(SkillShowSuccess),
     AuthPreflight(AuthPreflightSuccess),
     SchemaUpgradeStatus(crate::client::system::SchemaUpgradeState),
     BoardAttachments(attachments::BoardAttachmentCollectionSuccess),

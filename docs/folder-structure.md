@@ -165,6 +165,8 @@ wekan-cli/
 │   │   │   └── request.rs             # Raw same-origin REST request command
 │   │   │
 │   │   ├── completion.rs              # Generates shell completions
+│   │   ├── skill.rs                   # Local embedded-guide family and dispatch
+│   │   ├── skill/                     # Guide list/show handlers and explicit topic registry
 │   │   ├── doctor.rs                  # Configuration, connectivity and auth diagnostics
 │   │   └── ...
 │   │
@@ -329,7 +331,9 @@ wekan-cli/
 │
 ├── docs/
 │   ├── architecture.md                # Architectural boundaries and dependency rules
-│   ├── agent-contract.md              # JSON contracts, stdout/stderr and exit codes
+│   ├── agent-contract.md              # Shared JSON envelopes, streams, confirmations and errors
+│   ├── agent-guide.md                 # Core agent workflow guide compiled into the executable
+│   ├── skills.md                      # Discovery-skill installation and guide command contract
 │   ├── auth.md                        # Authentication and credential behavior
 │   ├── boards.md                      # Core board lifecycle and stable results
 │   ├── config.md                      # Profiles, environment and precedence
@@ -342,6 +346,10 @@ wekan-cli/
 │   │   ├── 0003-credentials.md
 │   │   └── ...
 │   └── ...
+│
+├── skills/
+│   └── wekan-cli/
+│       └── SKILL.md                   # Canonical portable discovery skill for CLI consumers
 │
 └── .github/
     ├── workflows/

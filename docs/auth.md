@@ -172,7 +172,8 @@ deletes a local credential, or both. Human output with terminal stdin and stderr
 shows a scope-specific prompt that defaults to no. `--all` explicitly warns
 that browser and other CLI sessions will be revoked; `--local-only` warns that
 the remote token will remain valid. Answering no is an exit-0 cancellation and
-performs no vault or HTTP mutation. Pass command-local `--yes` to skip the
+performs no vault or HTTP mutation. Cancellation uses operation `auth_logout`.
+Pass command-local `--yes` to skip the
 prompt. JSON output and non-terminal execution never prompt and return
 `invalid_input` unless `--yes` is present. The CLI acquires the target's
 credential mutation guards before prompting and retains them through the
@@ -223,6 +224,77 @@ explicitly states that no Wekan tokens were revoked; any still-valid remote
 token remains usable until revoked or expired. Confirmation occurs before the
 vault is accessed.
 
+## Success output
+
+Registration and login use the same secret-free data shape:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server": "https://wekan.example/",
+    "profile": "default",
+    "user_id": "XQMZgynx9M79qTtQc",
+    "token_expires": "2030-01-02T03:04:05Z",
+    "credential_stored": true,
+    "profile_created": true,
+    "profile_active": true
+  }
+}
+```
+
+Authentication status includes a nested allowlisted `user` object. Optional
+scalar fields in that object are always present and use `null` when Wekan omits them; missing
+emails use an empty array, and optional email-entry fields also use `null`.
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server": "https://wekan.example/",
+    "profile": "default",
+    "authenticated": true,
+    "token_expires": "2030-01-02T03:04:05Z",
+    "credential_stored": true,
+    "user": {
+      "user_id": "XQMZgynx9M79qTtQc",
+      "username": "alice",
+      "full_name": "Alice Example",
+      "is_admin": false,
+      "emails": [
+        {
+          "address": "alice@example.com",
+          "verified": true
+        }
+      ]
+    }
+  }
+}
+```
+
+Logout reports the completed scope and the resulting local credential state:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server": "https://wekan.example/",
+    "profile": "default",
+    "logout_scope": "current_token",
+    "credential_stored": false,
+    "local_credential_removed": true
+  }
+}
+```
+
+`logout_scope` is `current_token`, `all_tokens`, or `local_only`. Local-only
+success sets `remote_logout_completed: false`; it means only that the selected
+local credential is absent, not that any Wekan token was revoked.
+`local_credential_removed` distinguishes a deletion performed by this command
+from an idempotent already-absent result. If remote logout succeeds but its
+comparison observes a replacement, the newer record is preserved and success
+sets `credential_stored: true` and `local_credential_removed: false`.
+
 ## Request safety and server errors
 
 Registration, login, and remote logout send one JSON POST request; status sends
@@ -255,6 +327,34 @@ An unusable HTTP 200 registration response sets `account_created: true`; an
 unusable HTTP 200 login response sets `session_created: true`. These fields
 record that Wekan reported success even though the CLI could not safely use its
 response.
+
+### Error details
+
+Errors use the [shared output and error contract](agent-contract.md). The
+selected `profile` is included when target context is available. Authentication
+can also report:
+
+- `account_created` or `session_created`: the known remote account/session
+  outcome, including an unusable success response or a later vault-write failure;
+- `profile_created` and `profile_active`: the known local profile outcome;
+- `credential_stored`: known local credential presence at the guarded outcome;
+- `token_expires`: the saved RFC 3339 expiry for an expired credential;
+- `two_factor_required`: the accepted password needs a two-factor code;
+- `retry_after_seconds`: a valid integer `Retry-After` value from HTTP 429;
+- `logout_scope`: `current_token`, `all_tokens`, or `local_only`;
+- `remote_logout_completed`: true after validated remote success, false when
+  remote logout did not run, and omitted when completion is unknown;
+- `local_credential_removed`: whether this invocation is known to have
+  removed the local credential.
+
+For an unusable current-token HTTP 200, the retained details include:
+
+```json
+{"profile":"default","http_status":200,"logout_scope":"current_token","credential_stored":true,"local_credential_removed":false}
+```
+
+The CLI reports `protocol_error` and preserves the record. An absent completion
+field does not establish that the remote token remains valid.
 
 ## Credential storage
 

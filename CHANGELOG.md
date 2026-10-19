@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A portable agent discovery skill and offline `skill list` / `skill show [TOPIC]`
+  commands provide core workflow guidance and on-demand behavioral references
+  bundled with the installed CLI, with human/JSON output. Shared output/error
+  guidance is retrieved separately from resource-specific result schemas.
+
 - `board import-trello` imports Trello JSON boards and ZIP archives through the
   native HTTP importer, completing all 144 audited Wekan v11.06 REST operations.
   Supports file/stdin input, JSON member mapping, all four native authentication
@@ -27,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Card-list help and usage errors show `--list` and `--swimlane` as required
+  alternatives instead of suggesting board-only usage or requiring both.
+- Ownership-action help and guidance explain that Wekan can select inactive or
+  non-administrator memberships and that returned boards do not confirm completion.
+- Import/export guidance explains that importing the detailed XLSX report can
+  create extra cards from report rows.
+- Attachment export guidance explains that native JSON can omit the file bytes
+  as `file: null`, including for readable GridFS-only attachments.
+- Command help clarifies that `--server` and `--profile` are not accepted by
+  profile-management commands.
 - **Breaking:** User-profile dialog preferences now expose typed `board_id`,
   `swimlane_id`, `list_id`, and nullable `card_id` values under dynamic board IDs.
   Typed user/auth responses reject unmapped dialog properties, missing required

@@ -103,6 +103,10 @@ Successful commands use `{ "ok": true, "data": ... }`. Representative data:
 {"board_id":"b","list_id":"l","card_id":"c","user_id":"u","kind":"member","action":"add","members":["u"],"assignees":[]}
 ```
 
+Reads strictly decode the complete board/card document before projecting member
+or assignee data. Board lists preserve inactive records and nullable permission
+flags; card lists preserve selected user IDs in server order.
+
 Board add/remove return summaries even for no-ops, including sole-admin removal.
 Permission updates report Wekan's
 affected-document count, including zero, and submitted input names in fixed
@@ -113,7 +117,8 @@ invalid types, missing required fields, and mismatched card IDs produce
 `protocol_error`. Embedded errors with HTTP 200 retain their Wekan status.
 Transport, server, and response-validation failures report their actual errors. Mutations are never retried and no preflight or repair
 request is sent. Human output escapes terminal controls and includes all mapped
-fields, including nulls and empty arrays.
+fields, including nulls and empty arrays. Removals require no confirmation and
+do not accept `--yes`.
 
 ## Examples
 

@@ -76,3 +76,7 @@ preserves both the HTTP status and embedded Wekan status/error metadata while
 redacting stored tokens. Individual updates to absent IDs return empty HTTP 200
 bodies: the CLI reports `protocol_error` without inventing a successful update
 or a server 404.
+
+Declining instance-wide organization or team updates returns the shared
+cancellation result with operation `admin_organization_features_update_all` or
+`admin_team_features_update_all`, respectively.

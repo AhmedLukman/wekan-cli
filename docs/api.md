@@ -97,8 +97,8 @@ response object in `error.details.response`.
 
 Human and JSON modes retain the 1 MiB structured-response limit. Use
 `--output raw` for larger or byte-sensitive bodies. Exceeding the limit returns
-`api_response_too_large`, records the known HTTP status and whether it was
-successful. The same
+`api_response_too_large`, includes `response_limit_bytes`, and records the known
+HTTP status and whether it was successful. The same
 metadata applies when structured response streaming fails before the body is
 complete. `retry_safe: false` warns that an unsafe request must not be repeated
 merely because structured rendering failed. A local write or flush failure

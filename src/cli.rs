@@ -12,10 +12,12 @@ use crate::{commands::RootCommand, output::OutputFormat};
 )]
 pub struct Cli {
     /// Wekan server base URL. Initializes or verifies a profile; public system/preflight probes and local-only logout also accept a missing profile.
+    /// Not accepted by profile-management commands.
     #[arg(long, global = true, help_heading = "Global options")]
     pub server: Option<String>,
 
     /// Named local server profile. Overrides environment and active selection.
+    /// Not accepted by profile-management commands.
     #[arg(
         long = "profile",
         global = true, help_heading = "Global options",

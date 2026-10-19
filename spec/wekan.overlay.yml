@@ -3625,19 +3625,29 @@ actions:
   - target: '$.paths["/api/users/{user}"].put'
     description: >-
       Document the three explicit administrative actions in Wekan v11.06
-      server/models/users.js lines 2066-2099.
+      server/models/users.js lines 2066-2099 and models/boards.js lines 2124-2129.
+      The digest-pinned image and the 2026-10-18 CLI-only skill evaluation verify
+      that separate array predicates can select an inactive non-admin member;
+      tests/e2e/users.rs records membership readback before and after the action.
     update:
       summary: Perform an administrative action on a user.
       description: >-
-        Site-administrator access is required. `takeOwnership` transfers every
-        board administered by the target user to the caller and returns affected
-        board summaries. `disableLogin` sets
+        Site-administrator access is required. `takeOwnership` selects boards
+        with a target-user membership and any administrator membership using
+        separate array predicates, so the target can be inactive or a non-admin.
+        It replaces that membership's user ID with the caller's ID without
+        changing its flags and can leave duplicate caller memberships. The
+        returned board summaries identify selected targets, not completed
+        transfers: changeOwnership is called without await. `disableLogin` sets
         `loginDisabled` and clears the target's existing sessions, but the
         v11.06 REST login handler does not inspect that field and can mint a new
         token with correct credentials. `enableLogin` omits `loginDisabled`
         from the returned user document; both login actions return sanitized
         user documents.
       x-wekan-v11.06-defect: disable-login-does-not-block-rest-login
+      x-wekan-v11.06-defects:
+        - ownership-selection-matches-different-members
+        - unawaited-take-ownership-change
 
   - target: '$.paths["/api/users/{user}"].put.responses["200"]'
     description: Add action-specific success and embedded error alternatives.

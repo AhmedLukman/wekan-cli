@@ -61,7 +61,7 @@ pub enum UserCommand {
     /// List active boards visible for a user ID.
     Boards(boards::BoardsArgs),
 
-    /// Transfer boards administered by a user to the current user.
+    /// Run Wekan's board ownership action for a user.
     TakeOwnership(take_ownership::TakeOwnershipArgs),
 
     /// Disable a user's login and clear their sessions.

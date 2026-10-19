@@ -1,4 +1,4 @@
-use clap::Args;
+use clap::{ArgGroup, Args};
 
 use crate::{
     client::WekanClientFactory,
@@ -13,19 +13,20 @@ use crate::commands::transfer::identifier;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Examples:\n  wekan card list --board board-id --list list-id\n  wekan card list --board board-id --swimlane swimlane-id"
+    after_help = "Select exactly one of --list or --swimlane.\n\nExamples:\n  wekan card list --board board-id --list list-id\n  wekan card list --board board-id --swimlane swimlane-id"
 )]
+#[command(group(ArgGroup::new("scope").args(["list_id", "swimlane_id"]).required(true)))]
 pub struct ListArgs {
     /// Wekan board ID.
     #[arg(long = "board", value_parser = identifier, help_heading = "Target")]
     pub board_id: String,
 
     /// Wekan list ID.
-    #[arg(long = "list", required_unless_present = "swimlane_id", conflicts_with = "swimlane_id", value_parser = identifier, help_heading = "Target")]
+    #[arg(long = "list", value_parser = identifier, help_heading = "Target")]
     pub list_id: Option<String>,
 
     /// Swimlane selector, mutually exclusive with --list.
-    #[arg(long = "swimlane", value_parser = identifier, required_unless_present = "list_id", conflicts_with = "list_id", help_heading = "Target")]
+    #[arg(long = "swimlane", value_parser = identifier, help_heading = "Target")]
     pub swimlane_id: Option<String>,
 }
 

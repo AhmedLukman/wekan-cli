@@ -112,7 +112,8 @@ contain `board_id` and `custom_fields` summaries with `custom_field_id`, `name`,
 and `field_type`. Details expose every known property in snake case: IDs,
 name/type, settings, all display controls, and timestamps. Settings expose
 `currency_code`, `dropdown_items` (with `item_id` and `name`),
-`stringtemplate_format`, and `stringtemplate_separator`. Absent optional
+`stringtemplate_format`, and `stringtemplate_separator`. `dropdown_items` is an
+array or null. Absent optional
 properties and explicit null settings values both appear as null.
 
 Creation returns the board and acknowledged field ID. Updates include scope IDs

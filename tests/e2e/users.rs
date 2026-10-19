@@ -387,6 +387,46 @@ async fn complete_user_flow_matches_wekan_v11_06() {
     assert_eq!(member_after.user_id, member_id);
     assert_eq!(member_after.login_disabled, None);
 
+    // Separate native array predicates also select an inactive non-admin target
+    // when another member administers the board. Keep this behavior visible.
+    execute_live_board(
+        &admin_app,
+        &server,
+        &[
+            "member",
+            "add",
+            &owner_id,
+            "--board",
+            &admin_board_id,
+            "--role",
+            "normal",
+        ],
+    )
+    .await
+    .expect("the target must join the administrator's board as a normal member");
+    execute_live_board(
+        &admin_app,
+        &server,
+        &["member", "remove", &owner_id, "--board", &admin_board_id],
+    )
+    .await
+    .expect("removing the target must retain an inactive non-admin membership");
+    let CommandSuccess::BoardMembers(before) = execute_live_board(
+        &admin_app,
+        &server,
+        &["member", "list", "--board", &admin_board_id],
+    )
+    .await
+    .unwrap() else {
+        panic!("expected board members before ownership selection")
+    };
+    assert!(
+        before
+            .members
+            .iter()
+            .any(|member| { member.user_id == owner_id && !member.is_admin && !member.is_active })
+    );
+
     let CommandSuccess::UserOwnershipTaken(transfer) =
         execute_live_user(&admin_app, &server, &["take-ownership", &owner_id, "--yes"])
             .await
@@ -400,7 +440,47 @@ async fn complete_user_flow_matches_wekan_v11_06() {
             .iter()
             .any(|board| board.board_id == owner_board_id)
     );
+    assert!(
+        transfer
+            .boards
+            .iter()
+            .any(|board| board.board_id == admin_board_id)
+    );
     wait_for_live_board_admin_membership(&admin_app, &server, &owner_board_id).await;
+
+    // Only the test waits for the native unawaited write; production does not
+    // retry or emulate ownership changes.
+    let mut replacement_observed = false;
+    for _ in 0..40 {
+        let CommandSuccess::BoardMembers(after) = execute_live_board(
+            &admin_app,
+            &server,
+            &["member", "list", "--board", &admin_board_id],
+        )
+        .await
+        .unwrap() else {
+            panic!("expected board members after ownership selection")
+        };
+        if !after
+            .members
+            .iter()
+            .any(|member| member.user_id == owner_id)
+        {
+            assert!(after.members.iter().any(|member| {
+                member.user_id == admin_id && member.is_admin && member.is_active
+            }));
+            assert!(after.members.iter().any(|member| {
+                member.user_id == admin_id && !member.is_admin && !member.is_active
+            }));
+            replacement_observed = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert!(
+        replacement_observed,
+        "native membership replacement did not settle"
+    );
 
     for user_id in [&member_id, &owner_id] {
         let CommandSuccess::UserDeleted(deleted) =

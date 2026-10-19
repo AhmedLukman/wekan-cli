@@ -89,9 +89,16 @@ returns `_id: {}`, so the CLI exposes `user_id: null`:
 
 ## Administrative actions and safety
 
-`take-ownership` sends the explicit `takeOwnership` action. It transfers every
-board administered by the target user to the authenticated caller and returns
-the affected board summaries. Self-targeting is sent after confirmation. When
+`take-ownership` sends Wekan's explicit `takeOwnership` action and returns
+selected board summaries. Wekan v11.06 selects boards containing the target
+user's membership and any administrator membership; those can be different
+members. The target can therefore be inactive or a non-administrator. The
+server replaces that membership's user ID with the caller's ID, preserving its
+flags, and can leave duplicate caller memberships. Returned summaries do not
+confirm completed transfers: Wekan starts the changes without awaiting them.
+Inspect membership readback before relying on the result.
+
+Self-targeting is sent after confirmation. When
 another active board administrator exists, Wekan v11.06 can deactivate the
 caller's membership; the CLI preserves that upstream defect.
 
@@ -109,6 +116,9 @@ login, so the CLI outputs `login_disabled: null`.
 Ownership transfer, login disabling, and deletion prompt interactively and
 default to no. Non-interactive and JSON invocations must pass command-local
 `--yes`. Declining returns an exit-0 cancellation and sends no mutation request.
+Cancellation uses `user_take_ownership`, `user_disable_login`, or `user_delete`
+for those respective commands. Token-deletion cancellation uses
+`user_token_delete`.
 Mutation requests are bounded, never follow redirects, and are never retried.
 Transport failures, redirects, server failures, and unusable successful bodies
 report their actual error codes and diagnostics.
@@ -183,12 +193,27 @@ Lists use compact human tables. Detail and mutation commands use labelled
 fields. Every string received from Wekan is escaped before terminal rendering.
 JSON uses the standard `{ "ok": true, "data": ... }` envelope.
 
-User detail output includes only the exact fields listed for `current` above.
-This includes profile preferences, `createdThroughApi`, and `sessionData.totalHits`,
-using stable snake_case output names. Workspace nodes map `id`, `name`, `icon`,
-and recursive `children`; additional fields on a node or child produce
-`protocol_error`. Services and password or token material are excluded.
-Unmapped response fields are rejected rather than omitted.
+`user current`, `user get`, and no-action `user update` return the same typed,
+resource-focused shape. Stable scalar/output names include `user_id`, `username`,
+`full_name`, `emails`, `is_admin`, `login_disabled`, `authentication_method`,
+`created_at`, `modified_at`, and `last_connection_date`, plus typed organization,
+team, and board-role memberships. The complete `profile` is always an object
+with snake_case keys. `created_through_api`, `heartbeat`,
+`session_data.total_hits`, and `import_usernames` retain mapped metadata.
+
+Optional scalars are null. Top-level collections are arrays; optional arrays
+and maps inside `profile`, including workspace `children`, are null when absent.
+Workspace nodes map `id`, `name`, `icon`, and recursive `children`; additional
+fields on a node or child produce `protocol_error`. Services and password or
+token material are excluded. Unmapped fields are rejected rather than omitted.
+
+Collection data is `{"users":[...]}` for `user list`, `{"cards":[...]}` for
+`user cards`, and `{"user_id":"...","boards":[...]}` for `user boards`.
+Login actions return `{"action":"disabled|enabled","user":{...}}`.
+Ownership transfer returns `from_user_id`, `to_user_id`, and the affected `boards`.
+Deletion returns `user_id`, `deletion_requested`, `deleted_current_user`,
+`credential_stored`, and `local_credential_removed`; the last three describe
+self-delete cleanup.
 Verified HTTP or embedded status 403 maps to `permission_denied`.
 The user operations do not consistently expose a verified not-found identifier,
 so other server and embedded errors preserve their original metadata instead of

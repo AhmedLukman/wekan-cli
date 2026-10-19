@@ -36,11 +36,17 @@ Omitting both flags leaves the server's original copy/move sorting behavior.
 
 ## Results and pinned behavior
 
-JSON uses the standard `{ "ok": true, "data": ... }` envelope. Copy results
-include source identifiers and the returned `board_id` or `card_id`; card copies
-also include resolved destination selectors. List and swimlane transfers include
-source and destination identifiers and a `returned_list_id` or
-`returned_swimlane_id`. Human output reports the completed copy or move.
+JSON uses the standard `{ "ok": true, "data": ... }` envelope. Result fields are:
+
+| Operation | Data fields |
+| --- | --- |
+| Board copy | `source_board_id`, new `board_id` |
+| Card copy | `source_board_id`, `source_list_id`, `source_card_id`, resolved `target_board_id`, `target_list_id`, `target_swimlane_id`, new `card_id` |
+| List copy/move | `source_board_id`, `source_list_id`, `target_board_id`, nullable `target_swimlane_id`, `returned_list_id` |
+| Swimlane copy/move | `source_board_id`, `source_swimlane_id`, `target_board_id`, `returned_swimlane_id` |
+
+Human output reports the completed copy or move, subject to the accepted-request
+wording for cross-board list moves described below.
 
 Wekan v11.06 reuses an active destination list with the same title when copying
 a list. A same-board list copy can therefore return the source ID and duplicate

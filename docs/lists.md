@@ -46,11 +46,14 @@ has the shape:
 ```
 
 `list get` maps the complete supported list document to snake-case output. In
-particular, Wekan's `_updatedAt` field becomes `position_updated_at` and its
-`type` field becomes `list_type`. Responses are strict: an unmodeled field at
-the list or nested WIP level is a protocol error rather than silently discarded
-data. `watchers` is `null` when absent and preserves an array when present,
+particular, `_id` becomes `list_id`, `_updatedAt` becomes `position_updated_at`,
+and `type` becomes `list_type`. Optional scalars use their value or JSON null;
+`list_type` remains an open string. Unknown top-level or WIP fields, invalid
+timestamps, invalid nonempty colors, widths outside 100–1000, and empty required
+identifiers cause `protocol_error`. `watchers` is `null` when absent and preserves an array when present,
 including `[]` after the last watcher is removed.
+
+Creation returns `{"board_id":"...","list_id":"..."}`.
 
 An update reports its accepted fields in the fixed order `title`, `color`,
 `starred`, `wip_limit`, regardless of option order. For example:
@@ -75,7 +78,9 @@ cards with deletion metadata in one batch. Because cards are affected,
 The operation is idempotent: deleting an already deleted or absent list returns
 the requested ID just like a newly deleted list. Therefore `deletion_requested: true` and
 `delete_mode: "soft"` mean Wekan accepted and validated the request, not that a
-previously live list was found.
+previously live list was found. Delete data includes `board_id` and `list_id`.
+Declining deletion returns the shared cancellation result with operation
+`list_delete`.
 
 Wekan v11.06 has two related read quirks. Its board-list collection filters
 archived lists but not soft-deleted lists and omits deletion metadata from each

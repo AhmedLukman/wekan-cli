@@ -40,10 +40,11 @@ has the shape:
 `swimlane get` maps the complete supported Wekan v11.06 document to
 snake-case output. Wekan's `_id` becomes `swimlane_id` and `type` becomes
 `swimlane_type`. Optional archive/update dates, sort, color and height are
-preserved. Dates, colors and Wekan's `-1` or 50-through-2000 height constraint
-are validated. Any unmodeled response field is a protocol error rather than
-being silently discarded.
+present as their value or JSON `null`. Dates, colors, Wekan's `-1` or
+50-through-2000 height constraint, and required nonempty identifiers are
+validated. Invalid known values or unmodeled fields cause `protocol_error`.
 
+Creation returns `{"board_id":"...","swimlane_id":"..."}`.
 An update reports the one supported field explicitly:
 
 ```json
@@ -68,7 +69,9 @@ confirmation or command-local `--yes`.
 The endpoint is idempotent: deleting an absent swimlane still returns the
 requested ID. Therefore `deletion_requested: true` and `delete_mode: "hard"` mean Wekan
 accepted and validated the request, not that a live swimlane necessarily
-existed immediately before the call. A subsequent `swimlane get` normalizes
+existed immediately before the call. Delete data includes `board_id` and
+`swimlane_id`. Declining deletion returns the shared cancellation result with
+operation `swimlane_delete`. A subsequent `swimlane get` normalizes
 Wekan's empty HTTP 200 response to the stable `not_found` error.
 
 Copy/move command syntax, position inputs, typed acknowledgments, and pinned

@@ -44,7 +44,9 @@ response values, full lookup output, and pinned server limitations.
 `card list` requires exactly one of `--list` and `--swimlane`. List results
 preserve `{board_id, list_id, cards}`; swimlane results use
 `{board_id, swimlane_id, cards}`, with `list_id` on each card summary.
-Both use the server's active-card projection and sort order. A missing list or
+List-scoped summaries normalize omitted assignees to `[]`; swimlane-scoped
+summaries preserve null assignee arrays and null elements. Both use the server's
+active-card projection and sort order. A missing list or
 swimlane returns an empty collection after the board access check.
 
 `card count` returns `{board_id, list_id, count}`, with null `list_id` for
@@ -205,10 +207,12 @@ states cause `protocol_error`.
 
 These objects appear under the usual `{"ok":true,"data":...}` envelope.
 `card get` returns the complete supported Wekan v11.06 card document in snake
-case. Omitted collections become arrays except `watchers`, which is `null`
+case; `_id` becomes `card_id` and `type` becomes `card_type`. Omitted collections become arrays except `watchers`, which is `null`
 when absent and preserves `[]` when present and empty. Omitted optional scalars become
 JSON `null`. The card, custom-field, sticker, location, dependency, vote, and
-poker objects are strict; unknown fields are protocol errors. Known IDs,
+poker objects are strict; unknown fields are protocol errors. Custom-field
+values retain their string, number, boolean, string-array (including null
+members), or null union. Known IDs,
 timestamps, colors, card types, sticker highlights, nested values, and required
 types are also validated.
 
@@ -218,7 +222,8 @@ CLI normalizes that response to `not_found`.
 ## Hard deletion warning
 
 `card delete` requires interactive confirmation or command-local `--yes` and
-issues exactly one DELETE request. The endpoint is idempotent and always
+issues exactly one DELETE request. Declining uses cancellation operation
+`card_delete`. The endpoint is idempotent and always
 returns the requested ID, including for an absent card. Therefore
 `deletion_requested: true` means Wekan accepted the request; it does not prove that the
 card previously existed or was removed.

@@ -15,6 +15,7 @@ mod lists;
 mod profiles;
 mod raw;
 mod rules;
+mod skills;
 mod swimlanes;
 mod users;
 
@@ -153,6 +154,12 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::SkillList(data)) => skills::list(data),
+        (OutputFormat::Json, CommandSuccess::SkillList(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SkillShown(data)) => {
+            data.content.trim_end_matches(['\r', '\n']).to_owned()
+        }
+        (OutputFormat::Json, CommandSuccess::SkillShown(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AuthPreflight(data)) => {
             formatting::render_object(data)
         }

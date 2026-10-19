@@ -21,10 +21,10 @@ use super::{map_client_error, non_empty};
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan v11.06 self-targeting can deactivate your membership when another active board administrator exists."
+    after_help = "Wekan v11.06 can select boards where the target is an inactive or non-administrator member. Returned board summaries do not confirm completed transfers. Self-targeting can deactivate your membership when another active board administrator exists. See `wekan skill show users` for details."
 )]
 pub struct TakeOwnershipArgs {
-    /// Wekan user ID whose administered boards will be transferred.
+    /// Wekan user ID whose board memberships Wekan will select.
     #[arg(value_parser = non_empty)]
     pub user_id: String,
 
@@ -43,7 +43,7 @@ pub(super) async fn execute(
         "Run Wekan's self ownership action, which can deactivate your board memberships?".to_owned()
     } else {
         format!(
-            "Transfer every board administered by Wekan user `{}` to the current user?",
+            "Run Wekan's ownership action for user `{}`, including boards where that user is not an administrator?",
             args.user_id
         )
     };

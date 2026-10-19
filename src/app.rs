@@ -106,6 +106,9 @@ where
     }
 
     pub async fn execute(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
+        if let RootCommand::Skill(args) = command {
+            return commands::skill::dispatch(args.command);
+        }
         if let RootCommand::Profile(args) = command {
             if self.target_resolver.has_explicit_target() {
                 return Err(AppError::invalid_input(
@@ -270,7 +273,7 @@ where
                 )
                 .await
             }
-            RootCommand::Profile(_) => {
+            RootCommand::Profile(_) | RootCommand::Skill(_) => {
                 unreachable!("local commands return before target resolution")
             }
         };

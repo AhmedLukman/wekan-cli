@@ -2,6 +2,40 @@ use crate::support::wekan;
 use predicates::prelude::*;
 
 #[test]
+fn card_list_help_and_errors_show_one_required_scope_selector() {
+    use clap::Parser;
+    use wekan_cli::cli::Cli;
+
+    for selector in ["--list", "--swimlane"] {
+        assert!(
+            Cli::try_parse_from(["wekan", "card", "list", "--board", "b", selector, "scope"])
+                .is_ok()
+        );
+    }
+    for args in [
+        vec!["card", "list", "--help"],
+        vec!["card", "list", "--board", "b"],
+    ] {
+        let output = wekan().args(&args).output().unwrap();
+        let text = if args.contains(&"--help") {
+            assert!(output.status.success());
+            String::from_utf8(output.stdout).unwrap()
+        } else {
+            assert_eq!(output.status.code(), Some(2));
+            String::from_utf8(output.stderr).unwrap()
+        };
+        let usage = text
+            .lines()
+            .find(|line| line.starts_with("Usage:"))
+            .unwrap();
+        assert!(
+            usage.contains("--list <LIST_ID>|--swimlane <SWIMLANE_ID>"),
+            "{usage}"
+        );
+    }
+}
+
+#[test]
 fn scoped_card_syntax_requires_named_parents_and_help_is_readable() {
     let directory = super::support::TestDirectory::new("named-card-parents");
     for args in [
