@@ -76,7 +76,7 @@ cargo test --locked --test contract -- --include-ignored
 
 Every compiled live suite selected by the
 [E2E matrix](.github/workflows/e2e.yml) must pass against fresh isolated Wekan
-v12.57 stacks (currently 29 suites). Ordinary `cargo test` skips these suites;
+v12.57 stacks (currently 32 suites). Ordinary `cargo test` skips these suites;
 its E2E inventory tests only check that the workflow selects them all. Follow
 the [local Wekan guide](docs/local-wekan.md) when running suites locally.
 

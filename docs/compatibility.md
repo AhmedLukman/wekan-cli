@@ -3,7 +3,7 @@
 Wekan **v12.57** is the sole supported server baseline. The upstream commit is
 [`647cbd111f43b4c936af2e03480f04cb8e2ef39e`](https://github.com/wekan/wekan/tree/v12.57).
 The [Compose stack](../compose.yaml) pins the verified image digest and MongoDB
-replica set. The CLI package version remains 1.0.0 until a release is prepared.
+replica set. Wekan CLI 2.0.0 supports this exact server baseline.
 
 The corrected native REST contract has 168 method/path operations: 167 are mapped
 in [API coverage](api-coverage.md), and the Amazon SES/SNS endpoint is intentionally

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-24
+
 ### Added
 
 - Add native ZIP import into a new board with `--new-board` and member selection,
@@ -42,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Update TLS certificate verification and bundled trust roots to reject
+  distrusted emSign intermediates (RUSTSEC-2026-0382 and RUSTSEC-2026-0383),
+  and address Tokio's asynchronous I/O safety issue (RUSTSEC-2026-0386).
 - Support native multi-select custom fields and Jira time/estimate settings in
   typed reads, settings input, and JSON board exports.
 - Preserve explicit null values in bot reports, including native numeric resets

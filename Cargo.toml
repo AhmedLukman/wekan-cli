@@ -1,6 +1,6 @@
 [package]
 name = "wekan-cli"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 license = "Apache-2.0"
 rust-version = "1.88"
@@ -68,7 +68,7 @@ sha2 = "0.10.9"
 thiserror = "2.0.20"
 tempfile = "3.27.0"
 time = { version = "0.3.55", features = ["formatting", "parsing", "serde", "large-dates"] }
-tokio = { version = "1.53.1", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread"] }
+tokio = { version = "1.53.3", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7.18", features = ["io"] }
 url = "2.5.8"
 

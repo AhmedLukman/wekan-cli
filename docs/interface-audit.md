@@ -2,7 +2,7 @@
 
 The supported baseline is Wekan v12.57, commit
 [`647cbd111f43b4c936af2e03480f04cb8e2ef39e`](https://github.com/wekan/wekan/tree/v12.57).
-The package version remains **1.0.0**. The parser has **166 leaf commands in
+The CLI package version is **2.0.0**. The parser has **166 leaf commands in
 18 root families**, mapping **167 of 168 audited native REST operations**.
 The Amazon SES/SNS operation is intentionally excluded from typed CLI support.
 [API coverage](api-coverage.md) lists every argument, optional/global flag,

@@ -12,7 +12,7 @@ receive separate backports.
 | Older stable releases | No |
 | Prereleases and development snapshots | No separate support guarantee |
 
-The latest stable 1.x release is supported; 0.x releases are unsupported.
+The latest stable 2.x release is supported; 1.x and 0.x releases are unsupported.
 Reports concerning prereleases and development snapshots are still welcome through the private
 reporting process below.
 
