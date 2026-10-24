@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Interactive startup notifications for new stable CLI releases, with optional
+  installation, daily check caching, and `WEKAN_NO_UPDATE_NOTIFIER` opt-out.
+- `wekan self update` with `--check`, `--yes`, and JSON output, preserving official
+  release and tracked crates.io installation methods. Cargo updates keep the
+  installed CLI available while downloading and compiling, including if interrupted.
+
 ## [2.0.0] - 2026-10-24
 
 ### Added

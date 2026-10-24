@@ -38,6 +38,7 @@ pub enum ErrorCode {
     CredentialStoreFailed,
     InternalError,
     FileIoError,
+    UpdateFailed,
 }
 
 impl ErrorCode {
@@ -71,6 +72,7 @@ impl ErrorCode {
             Self::CredentialStoreFailed => "credential_store_failed",
             Self::InternalError => "internal_error",
             Self::FileIoError => "file_io_error",
+            Self::UpdateFailed => "update_failed",
         }
     }
 }

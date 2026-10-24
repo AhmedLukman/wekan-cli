@@ -4,6 +4,10 @@ Named profiles associate a portable local name with a canonical Wekan server
 URL. They contain no credentials, and profile-management commands never contact
 Wekan.
 
+CLI update notifications use a separate platform cache and no Wekan profile.
+Set `WEKAN_NO_UPDATE_NOTIFIER` to any value to disable automatic checking;
+explicit `wekan self update` commands remain available. See [CLI updates](updates.md).
+
 ```text
 wekan profile add <NAME> <URL> [--use]
 wekan profile list

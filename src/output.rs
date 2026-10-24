@@ -15,6 +15,7 @@ mod lists;
 mod profiles;
 mod raw;
 mod rules;
+mod self_update;
 mod skills;
 mod swimlanes;
 mod users;
@@ -72,6 +73,7 @@ use crate::{
 pub(crate) use raw::render_human_response as render_api_response_human;
 #[cfg(test)]
 pub(crate) use raw::structured_api_response;
+pub(crate) use self_update::write_update_notice;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 #[value(rename_all = "lower")]
@@ -237,6 +239,8 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::CommentUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::SelfUpdate(data)) => self_update::render(data),
+        (OutputFormat::Json, CommandSuccess::SelfUpdate(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SkillList(data)) => skills::list(data),
         (OutputFormat::Json, CommandSuccess::SkillList(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SkillShown(data)) => {

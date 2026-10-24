@@ -17,6 +17,9 @@ Use command-specific `--help` for syntax.
   separator, including overrides on nested commands.
 - Interactive confirmation prompts are written to stderr. JSON output never
   prompts; destructive automation must pass command-local `--yes`.
+- Automatic CLI update checks and notices are disabled for JSON/raw output,
+  redirected streams, and CI. Explicit `self update` commands retain the usual
+  JSON stream guarantees and capture installer output; see [updates](updates.md).
 
 Stream guarantees assume working output destinations. A write or flush failure
 can leave partial or even complete success bytes on stdout and returns exit 4;
@@ -146,6 +149,7 @@ the process exit status. Stable error codes are:
 | `protocol_error` | 4 for protocol/response validation failures; 5 for a decoded HTTP-200 Wekan error without `statusCode`, or a native export text failure |
 | `api_response_too_large` | 4 |
 | `file_io_error` | 4 |
+| `update_failed` | 4 |
 | `login_rejected` | 5 |
 | `login_rate_limited` | 5 |
 | `credential_not_found` | 5 when initially absent; 6 when a prepared mutation's credential disappears before execution |

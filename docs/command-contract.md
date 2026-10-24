@@ -215,6 +215,7 @@ shape and verified native limitations.
 | `wekan rule get` | [Contract](rules.md) |
 | `wekan rule list` | [Contract](rules.md) |
 | `wekan rule update` | [Contract](rules.md) |
+| `wekan self update` | [Contract](updates.md) |
 | `wekan skill list` | [Contract](skills.md) |
 | `wekan skill show` | [Contract](skills.md) |
 | `wekan swimlane copy` | [Contract](copy-and-move.md) |

@@ -10,6 +10,7 @@ pub mod exit_code;
 pub mod input;
 pub mod output;
 pub mod redaction;
+mod update;
 
 use std::{
     env,
@@ -68,6 +69,21 @@ async fn run_command() -> ExitCode {
         ServerSelection::new(cli.server, cli.profile_name, cli.allow_insecure_http),
         output_format != OutputFormat::Json,
     );
+    match app.check_for_update(output_format, &cli.command).await {
+        Ok(outcome) => {
+            if let Err(error) = output::write_update_notice(&outcome, &mut io::stderr()) {
+                eprintln!("{}", render_error(output_format, &error));
+                return error.exit_code().into();
+            }
+            if outcome.should_exit() {
+                return ExitCode::SUCCESS;
+            }
+        }
+        Err(error) => {
+            eprintln!("{}", render_error(output_format, &error));
+            return error.exit_code().into();
+        }
+    }
 
     match app.execute(cli.command).await {
         Ok(success) => {

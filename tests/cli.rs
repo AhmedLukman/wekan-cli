@@ -20,6 +20,8 @@ mod output;
 mod profiles;
 #[path = "cli/remaining.rs"]
 mod remaining;
+#[path = "cli/self_update.rs"]
+mod self_update;
 #[path = "cli/skills.rs"]
 mod skills;
 #[path = "cli/stability.rs"]

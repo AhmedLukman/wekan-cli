@@ -41,6 +41,98 @@ fn output_write_failures_use_the_transport_exit_status() {
     assert_eq!(error.exit_code(), StableExitCode::Transport);
 }
 
+fn self_update_result() -> crate::command_result::SelfUpdateSuccess {
+    use crate::command_result::{InstallationMethod, SelfUpdateStatus, SelfUpdateSuccess};
+    SelfUpdateSuccess {
+        current_version: "2.0.0".to_owned(),
+        latest_version: "2.1.0".to_owned(),
+        status: SelfUpdateStatus::Available,
+        installation_method: InstallationMethod::Release,
+        release_url: "https://github.com/AhmedLukman/wekan-cli/releases/tag/v2.1.0".to_owned(),
+    }
+}
+
+#[test]
+fn self_update_results_keep_json_and_human_rendering_separate() {
+    use crate::command_result::{InstallationMethod, SelfUpdateStatus};
+    let success = CommandSuccess::SelfUpdate(self_update_result());
+    let json: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+    assert_eq!(
+        json["data"],
+        serde_json::json!({
+            "current_version": "2.0.0", "latest_version": "2.1.0", "status": "available",
+            "installation_method": "release", "release_url": "https://github.com/AhmedLukman/wekan-cli/releases/tag/v2.1.0"
+        })
+    );
+    assert_eq!(
+        render_success(OutputFormat::Human, &success),
+        "A new Wekan CLI version is available: 2.0.0 → 2.1.0\nhttps://github.com/AhmedLukman/wekan-cli/releases/tag/v2.1.0\nRun `wekan self update` to install."
+    );
+    for (status, method, expected) in [
+        (
+            SelfUpdateStatus::UpToDate,
+            InstallationMethod::Cargo,
+            "Wekan CLI is up to date (2.0.0).",
+        ),
+        (
+            SelfUpdateStatus::Updated,
+            InstallationMethod::Release,
+            "Updated successfully; rerun your command.",
+        ),
+        (
+            SelfUpdateStatus::Available,
+            InstallationMethod::Unknown,
+            "A new Wekan CLI version is available: 2.0.0 → 2.1.0\nhttps://github.com/AhmedLukman/wekan-cli/releases/tag/v2.1.0\nInstallation method is unrecognized; update using your original installation method.",
+        ),
+    ] {
+        let mut data = self_update_result();
+        data.status = status;
+        data.installation_method = method;
+        assert_eq!(
+            render_success(OutputFormat::Human, &CommandSuccess::SelfUpdate(data)),
+            expected
+        );
+    }
+}
+
+#[test]
+fn startup_update_notices_preserve_text_and_write_failure_policy() {
+    use super::write_update_notice;
+    use crate::command_result::StartupUpdateOutcome;
+
+    let mut output = Vec::new();
+    write_update_notice(&StartupUpdateOutcome::Continue, &mut output).unwrap();
+    assert!(output.is_empty());
+    let notice = StartupUpdateOutcome::Notice(self_update_result());
+    write_update_notice(&notice, &mut output).unwrap();
+    assert_eq!(
+        String::from_utf8(output).unwrap(),
+        "A new Wekan CLI version is available: 2.0.0 → 2.1.0\nInstallation method is unrecognized; update using your original installation method.\nhttps://github.com/AhmedLukman/wekan-cli/releases/tag/v2.1.0\n"
+    );
+    let mut output = Vec::new();
+    write_update_notice(&StartupUpdateOutcome::Updated, &mut output).unwrap();
+    assert_eq!(output, b"Updated successfully; rerun your command.\n");
+
+    struct Fails;
+    impl std::io::Write for Fails {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("closed output"))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    write_update_notice(&notice, &mut Fails).unwrap();
+    let error = write_update_notice(&StartupUpdateOutcome::Updated, &mut Fails).unwrap_err();
+    assert_eq!(error.code(), crate::error::ErrorCode::FileIoError);
+    assert_eq!(error.exit_code(), StableExitCode::Transport);
+    assert_eq!(
+        error.message(),
+        "could not write update confirmation: closed output"
+    );
+}
+
 #[test]
 fn bot_run_results_preserve_public_names_and_status_values() {
     use crate::client::cards::bot_runs::BotRunReport;

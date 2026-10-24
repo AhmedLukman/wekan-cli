@@ -40,6 +40,7 @@ include = [
     "/docs/swimlanes.md",
     "/docs/system.md",
     "/docs/users.md",
+    "/docs/updates.md",
     "/Cargo.toml",
     "/Cargo.lock",
     "/README.md",
@@ -57,29 +58,36 @@ clap = { version = "4.6.6", features = ["derive", "env"] }
 csv = "1.4.0"
 directories = "6.0.0"
 fs4 = { version = "1.1.0", default-features = false, features = ["sync"] }
+# Select the pure Rust DEFLATE backend used by zip.
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 keyring = { version = "4.1.6", default-features = false, features = ["v1"] }
+lzma-rust2 = { version = "0.23.0", default-features = false, features = ["std", "xz"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream", "system-proxy"] }
 rpassword = "7.5.4"
 secrecy = "0.10.3"
+self-replace = "1.5.0"
+semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["arbitrary_precision"] }
 serde_path_to_error = "0.1.20"
 sha2 = "0.10.9"
+tar = "0.4.44"
 thiserror = "2.0.20"
 tempfile = "3.27.0"
 time = { version = "0.3.55", features = ["formatting", "parsing", "serde", "large-dates"] }
 tokio = { version = "1.53.3", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7.18", features = ["io"] }
 url = "2.5.8"
+zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2"] }
 
 [dev-dependencies]
+lzma-rust2 = { version = "0.23.0", default-features = false, features = ["std", "xz", "encoder"] }
 assert_cmd = "2.2.2"
 futures-util = { version = "0.3.34", features = ["sink"] }
 predicates = "3.1.3"
 serde_yaml_ng = "0.10.0"
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect"] }
 wiremock = "0.6.5"
-zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [profile.dist]
 inherits = "release"

@@ -57,6 +57,23 @@ With the GitHub CLI installed, an asset can be verified with:
 gh attestation verify PATH-TO-ASSET -R AhmedLukman/wekan-cli
 ```
 
+## Updates
+
+Interactive terminal commands check for a newer stable CLI release at most once
+every 24 hours and offer `Update now? [y/N]`. Declining continues your command.
+After installing, rerun your command to use the new version.
+
+```console
+wekan self update --check
+wekan self update
+```
+
+Updates preserve official release or tracked crates.io installations. Other
+installations receive manual guidance. Set `WEKAN_NO_UPDATE_NOTIFIER` to any
+value to disable automatic checks. Scripts, JSON/raw output, redirected streams,
+help, version output, and CI do not trigger automatic checks or prompts.
+See [update behavior and automation](docs/updates.md).
+
 ## Quick start
 
 Login can initialize the default profile after Wekan accepts the credentials:

@@ -100,7 +100,7 @@ jobs:
           set -euo pipefail
           cargo package --list --locked > target/package-files.txt
           unexpected="$({
-            grep -Ev '^(\.cargo_vcs_info\.json|Cargo\.toml(\.orig)?|Cargo\.lock|README\.md|CHANGELOG\.md|LICENSE|src/.*|skills/wekan-cli/SKILL\.md|docs/(admin|admin-settings|agent-contract|agent-guide|api|attachments|auth|boards|bulk-cards-and-labels|cards|checklists|comments|config|copy-and-move|custom-fields|dependencies|exports|imports|integrations|lists|memberships|rules|swimlanes|system|users)\.md)$' target/package-files.txt || true
+            grep -Ev '^(\.cargo_vcs_info\.json|Cargo\.toml(\.orig)?|Cargo\.lock|README\.md|CHANGELOG\.md|LICENSE|src/.*|skills/wekan-cli/SKILL\.md|docs/(admin|admin-settings|agent-contract|agent-guide|api|attachments|auth|boards|bulk-cards-and-labels|cards|checklists|comments|config|copy-and-move|custom-fields|dependencies|exports|imports|integrations|lists|memberships|rules|swimlanes|system|updates|users)\.md)$' target/package-files.txt || true
           })"
           if [[ -n "$unexpected" ]]; then
             echo "Unexpected files in the crates.io package:" >&2

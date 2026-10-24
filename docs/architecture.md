@@ -56,6 +56,15 @@ does not implicitly change the public output contract. External side effects
 use focused traits for credential storage, secret input, profile storage, and
 confirmation. HTTP tests exercise the real client against a mock server.
 
+CLI maintenance uses a separate `update/` subsystem for GitHub release
+discovery, update caching, and installation. `App` owns its lazy service factory,
+constructs the service only for an eligible startup check or an explicit update
+command, and supplies the application's confirmation provider. The self-management
+family receives the prepared service; it does not assemble infrastructure.
+Startup checks return typed outcomes, and `output/self_update.rs` renders both
+startup notices and manual update results. Neither path resolves a Wekan target
+or reads profiles or credentials.
+
 ## Command design
 
 Commands use singular resources and verbs, such as `board get` and `card

@@ -128,6 +128,11 @@ pub(super) const TOPICS: &[Topic] = &[
         content: include_str!("../../../docs/system.md"),
     },
     Topic {
+        name: "updates",
+        description: "CLI update notifications, installation methods, and automation",
+        content: include_str!("../../../docs/updates.md"),
+    },
+    Topic {
         name: "users",
         description: "User inspection, administration, ownership, and tokens",
         content: include_str!("../../../docs/users.md"),

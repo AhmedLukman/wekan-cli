@@ -19,6 +19,7 @@ pub mod integrations;
 pub mod lists;
 pub mod profile;
 pub mod rules;
+pub mod self_management;
 pub mod skill;
 pub mod swimlanes;
 pub mod system;
@@ -32,6 +33,9 @@ use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
+    /// Maintain this Wekan CLI installation.
+    #[command(name = "self")]
+    SelfManagement(self_management::SelfArgs),
     /// Read agent guidance embedded in this CLI version.
     Skill(skill::SkillArgs),
     /// Inspect public Wekan system status.

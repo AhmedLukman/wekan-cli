@@ -32,6 +32,11 @@ wekan-cli/
 │   ├── error.rs                       # Application-level error representation
 │   ├── exit_code.rs                   # Stable documented process exit codes
 │   ├── redaction.rs                   # Central secret-redaction policy
+│   ├── update.rs                      # CLI update policy and orchestration
+│   ├── update/                       # GitHub discovery, update cache and installation
+│   │   ├── cache.rs
+│   │   ├── install.rs
+│   │   └── release.rs
 │   │
 │   ├── commands.rs                    # Root command enum and module declarations; App owns root dispatch
 │   ├── commands/
@@ -165,6 +170,7 @@ wekan-cli/
 │   │   │   └── request.rs             # Raw same-origin REST request command
 │   │   │
 │   │   ├── completion.rs              # Generates shell completions
+│   │   ├── self_management.rs         # Local CLI-maintenance arguments and prepared-service dispatch
 │   │   ├── skill.rs                   # Local embedded-guide family and dispatch
 │   │   ├── skill/                     # Guide list/show handlers and explicit topic registry
 │   │   ├── doctor.rs                  # Configuration, connectivity and auth diagnostics
@@ -268,6 +274,7 @@ wekan-cli/
 │   ├── output.rs                      # Output selection and rendering façade
 │   └── output/
 │       ├── auth.rs                    # Authentication human rendering
+│       ├── self_update.rs             # CLI update results and optional startup notices
 │       ├── boards.rs                  # Board human rendering
 │       ├── cards.rs                   # Card human rendering
 │       ├── formatting.rs              # Shared terminal escaping, tables and nested values

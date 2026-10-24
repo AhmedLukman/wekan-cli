@@ -19,8 +19,11 @@ mod imports;
 mod integrations;
 pub use imports::*;
 mod rules;
+mod self_update;
 mod skills;
 pub use rules::*;
+pub(crate) use self_update::StartupUpdateOutcome;
+pub use self_update::{InstallationMethod, SelfUpdateStatus, SelfUpdateSuccess};
 pub use skills::{SkillListSuccess, SkillShowSuccess, SkillTopicSummary};
 mod lists;
 mod profiles;
@@ -121,6 +124,7 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    SelfUpdate(SelfUpdateSuccess),
     BotRunReported(BotRunReport),
     InboundEmailSubmitted(InboundEmailReceipt),
     EmailBounceSubmitted(BounceReceipt),
@@ -286,6 +290,7 @@ pub enum MembershipAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DestructiveOperation {
+    SelfUpdate,
     AdminOrganizationFeaturesUpdateAll,
     AdminTeamFeaturesUpdateAll,
     IntegrationDelete,
@@ -314,6 +319,7 @@ pub enum DestructiveOperation {
 impl DestructiveOperation {
     pub const fn as_command(self) -> &'static str {
         match self {
+            Self::SelfUpdate => "self update",
             Self::AdminOrganizationFeaturesUpdateAll => "admin org features update-all",
             Self::AdminTeamFeaturesUpdateAll => "admin team features update-all",
             Self::IntegrationDelete => "integration delete",

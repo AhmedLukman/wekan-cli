@@ -1,5 +1,5 @@
 use crate::{
-    command_result::CommandSuccess,
+    command_result::{CommandSuccess, StartupUpdateOutcome},
     commands::{self, RootCommand},
     config::{ServerSelection, TargetResolver, profiles::FileProfileStore},
     credentials::{
@@ -7,6 +7,8 @@ use crate::{
     },
     error::AppError,
     input::{ConfirmationProvider, SystemConfirmationProvider},
+    output::OutputFormat,
+    update::{FileCache, StartupEligibility, UpdateService},
 };
 
 pub struct App<S, P, F = FileProfileStore, C = SystemConfirmationProvider> {
@@ -15,6 +17,7 @@ pub struct App<S, P, F = FileProfileStore, C = SystemConfirmationProvider> {
     secret_input: P,
     profile_store: F,
     confirmation: C,
+    update_service_factory: fn() -> Result<UpdateService, AppError>,
 }
 
 impl
@@ -85,6 +88,7 @@ where
             secret_input,
             profile_store,
             confirmation,
+            update_service_factory: UpdateService::production,
         }
     }
 
@@ -98,11 +102,38 @@ where
             secret_input: self.secret_input,
             profile_store: self.profile_store,
             confirmation,
+            update_service_factory: self.update_service_factory,
         }
     }
 
     pub const fn credential_store(&self) -> &S {
         &self.credential_store
+    }
+
+    pub(crate) fn check_for_update(
+        &self,
+        output: OutputFormat,
+        command: &RootCommand,
+    ) -> impl std::future::Future<Output = Result<StartupUpdateOutcome, AppError>> + '_ {
+        let eligible = StartupEligibility::production(
+            output,
+            matches!(command, RootCommand::SelfManagement(_)),
+        );
+        // Keep release HTTP state off the process entry future's stack.
+        Box::pin(async move {
+            if !eligible.eligible() {
+                return Ok(StartupUpdateOutcome::Continue);
+            }
+            // Discovery and cache failures are optional startup work. Failures
+            // after affirmative installation consent remain explicit errors.
+            let Ok(service) = (self.update_service_factory)() else {
+                return Ok(StartupUpdateOutcome::Continue);
+            };
+            let Ok(mut cache) = FileCache::production() else {
+                return Ok(StartupUpdateOutcome::Continue);
+            };
+            service.automatic(&mut cache, &self.confirmation).await
+        })
     }
 
     pub fn execute(
@@ -112,7 +143,32 @@ where
         // Keep the dispatch future off callers' stacks. The complete native
         // response models make it large enough to overflow Windows test and
         // embedding threads when nested in a multi-command workflow.
-        Box::pin(self.execute_command(command))
+        // Select local maintenance before constructing the large API dispatch
+        // future. Adding another CommandSuccess-producing await inside that
+        // state machine exceeds Windows' process-entry stack budget.
+        let task: std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<CommandSuccess, AppError>> + Send + '_>,
+        > = if let RootCommand::SelfManagement(args) = command {
+            if self.target_resolver.has_explicit_target() {
+                Box::pin(async {
+                    Err(AppError::invalid_input(
+                        "--server and --profile cannot be used with self-management commands",
+                    ))
+                })
+            } else {
+                match (self.update_service_factory)() {
+                    Ok(service) => Box::pin(commands::self_management::dispatch(
+                        args.command,
+                        service,
+                        &self.confirmation,
+                    )),
+                    Err(error) => Box::pin(async move { Err(error) }),
+                }
+            }
+        } else {
+            Box::pin(self.execute_command(command))
+        };
+        task
     }
 
     async fn execute_command(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
@@ -284,7 +340,7 @@ where
                 )
                 .await
             }
-            RootCommand::Profile(_) | RootCommand::Skill(_) => {
+            RootCommand::Profile(_) | RootCommand::Skill(_) | RootCommand::SelfManagement(_) => {
                 unreachable!("local commands return before target resolution")
             }
         };

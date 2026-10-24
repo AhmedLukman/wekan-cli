@@ -317,6 +317,59 @@ fn execute_future_is_send() {
 }
 
 #[tokio::test]
+async fn updates_remain_lazy_and_self_update_uses_app_composition_without_profiles() {
+    use crate::{
+        commands::self_management::{SelfArgs, SelfCommand, UpdateArgs},
+        input::FakeConfirmationProvider,
+        output::OutputFormat,
+    };
+
+    fn update_command() -> RootCommand {
+        RootCommand::SelfManagement(SelfArgs {
+            command: SelfCommand::Update(UpdateArgs {
+                check: true,
+                yes: false,
+            }),
+        })
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let profiles = directory.path().join("unused-profiles");
+    let credentials = RecordingCredentialStore::default();
+    let secrets = FixedSecretInput::default();
+    let mut app = App::with_profile_store(
+        ServerSelection::default(),
+        credentials.clone(),
+        secrets.clone(),
+        FileProfileStore::at(profiles.clone()),
+    );
+    app.update_service_factory = || panic!("ineligible checks must not initialize the updater");
+    for output in [OutputFormat::Json, OutputFormat::Raw] {
+        assert!(matches!(
+            app.check_for_update(output, &login_command())
+                .await
+                .unwrap(),
+            crate::command_result::StartupUpdateOutcome::Continue
+        ));
+    }
+    assert!(matches!(
+        app.check_for_update(OutputFormat::Human, &update_command())
+            .await
+            .unwrap(),
+        crate::command_result::StartupUpdateOutcome::Continue
+    ));
+    app.update_service_factory = || Err(AppError::configuration("injected update service failure"));
+    let app = app.with_confirmation_provider(FakeConfirmationProvider::failing(
+        AppError::invalid_input("initialization failure must precede confirmation"),
+    ));
+    let error = app.execute(update_command()).await.unwrap_err();
+    assert_eq!(error.message(), "injected update service failure");
+    assert!(!profiles.exists());
+    assert!(credentials.state.accounts.lock().unwrap().is_empty());
+    assert_eq!(secrets.reads.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn local_only_logout_removes_an_orphaned_credential_without_recreating_the_profile() {
     let directory = test_directory("orphaned-local-only-logout");
     let profile_store = FileProfileStore::at(directory.clone());
