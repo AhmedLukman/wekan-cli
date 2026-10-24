@@ -226,6 +226,11 @@ impl super::super::release::AssetDownloader for LocalAssets {
     }
 }
 
+fn replacement_version() -> String {
+    let current = semver::Version::parse(CURRENT_VERSION).unwrap();
+    format!("{}.{}.0", current.major, current.minor + 1)
+}
+
 fn native_assets(corrupt_checksum: bool) -> (Release, LocalAssets) {
     let extension = if cfg!(windows) { "zip" } else { "tar.xz" };
     let name = format!("wekan-cli-{}.{extension}", release_target().unwrap());
@@ -262,11 +267,12 @@ fn native_assets(corrupt_checksum: bool) -> (Release, LocalAssets) {
         })
     )
     .into_bytes();
-    let mut release = super::super::tests::release("2.1.0");
+    let mut release = super::super::tests::release(&replacement_version());
     for name in [name.clone(), format!("{name}.sha256")] {
         release.assets.push(super::super::release::Asset {
             browser_download_url: format!(
-                "https://github.com/AhmedLukman/wekan-cli/releases/download/v2.1.0/{name}"
+                "https://github.com/AhmedLukman/wekan-cli/releases/download/{}/{name}",
+                release.tag
             ),
             name,
         });
@@ -296,7 +302,8 @@ fn native_archive_format_is_verified_and_extractable() {
 #[test]
 fn isolated_release_replacement_refreshes_receipt_and_checksum_failure_leaves_it_untouched() {
     for corrupt in [false, true] {
-        let (dir, executable, receipt_path, receipt) = fixture();
+        let (dir, executable, receipt_path, mut receipt) = fixture();
+        receipt["version"] = CURRENT_VERSION.into();
         fs::copy(std::env::current_exe().unwrap(), &executable).unwrap();
         fs::write(&receipt_path, serde_json::to_vec(&receipt).unwrap()).unwrap();
         let permissions = fs::metadata(&executable).unwrap().permissions();
@@ -322,9 +329,9 @@ fn isolated_release_replacement_refreshes_receipt_and_checksum_failure_leaves_it
             assert!(fs::metadata(&executable).unwrap().len() > 1024);
         } else {
             assert_eq!(fs::read(&executable).unwrap(), b"replacement executable");
-            assert_eq!(saved["version"], "2.1.0");
+            assert_eq!(saved["version"], replacement_version());
             let mut expected = receipt.clone();
-            expected["version"] = "2.1.0".into();
+            expected["version"] = replacement_version().into();
             assert_eq!(saved, expected);
             assert_eq!(
                 fs::metadata(&executable).unwrap().permissions().readonly(),
