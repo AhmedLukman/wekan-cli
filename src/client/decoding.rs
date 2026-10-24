@@ -6,6 +6,13 @@ use serde_path_to_error::Segment;
 
 use super::ClientError;
 
+/// An optional property may be omitted, but its present value must have the mapped type.
+pub(crate) fn optional_non_null<'de, D: serde::Deserializer<'de>, T: serde::Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(deserializer).map(Some)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseDecodeKind {

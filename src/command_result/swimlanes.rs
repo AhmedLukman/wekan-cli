@@ -1,3 +1,4 @@
+use crate::client::metadata::*;
 use serde::Serialize;
 use serde_json::Number;
 
@@ -15,6 +16,9 @@ pub struct SwimlaneCollectionSuccess {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct SwimlaneDetail {
+    pub scrum: Option<ScrumSwimlane>,
+
+    pub scrum_revision: Option<serde_json::Number>,
     pub swimlane_id: String,
     pub title: String,
     pub archived: bool,

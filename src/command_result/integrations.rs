@@ -1,5 +1,33 @@
 use serde::Serialize;
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct InboundEmailReceipt {
+    pub resource_id: Option<String>,
+}
+
+impl From<crate::client::integrations::inbound_email::InboundEmailReceipt> for InboundEmailReceipt {
+    fn from(receipt: crate::client::integrations::inbound_email::InboundEmailReceipt) -> Self {
+        Self {
+            resource_id: receipt.resource_id,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct BounceReceipt {
+    pub ok: bool,
+    pub recorded: u64,
+}
+
+impl From<crate::client::integrations::inbound_email::BounceReceipt> for BounceReceipt {
+    fn from(receipt: crate::client::integrations::inbound_email::BounceReceipt) -> Self {
+        Self {
+            ok: receipt.ok,
+            recorded: receipt.recorded,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct IntegrationDetail {
     pub integration_id: String,
@@ -12,6 +40,9 @@ pub struct IntegrationDetail {
     pub created_at: String,
     pub modified_at: String,
     pub user_id: String,
+    pub notification_delivery: Option<crate::client::integrations::WebhookNotificationDelivery>,
+    pub mattermost_direct_messages: Option<bool>,
+    pub bot: Option<bool>,
 }
 
 impl From<crate::client::integrations::IntegrationDocument> for IntegrationDetail {
@@ -27,6 +58,9 @@ impl From<crate::client::integrations::IntegrationDocument> for IntegrationDetai
             created_at: d.created_at,
             modified_at: d.modified_at,
             user_id: d.user_id,
+            notification_delivery: d.notification_delivery,
+            mattermost_direct_messages: d.mattermost_direct_messages,
+            bot: d.bot,
         }
     }
 }
@@ -51,6 +85,7 @@ pub enum IntegrationSubmittedField {
     Url,
     Token,
     Activities,
+    NotificationDelivery,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

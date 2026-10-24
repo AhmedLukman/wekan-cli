@@ -1,4 +1,4 @@
-use super::support::attachment_fixtures::{assert_stored_file_deleted, fixture_command, seed};
+use super::support::attachment_fixtures::{fixture_command, seed};
 use super::support::*;
 use serde_json::{Value, json};
 
@@ -437,9 +437,9 @@ async fn verify_bulk_delete_retains_attachments(
         "data":STANDARD.encode([0, 255, 13, 10, 42]),"user_id":user_id,
         "board_id":b,"swimlane_id":s,"list_id":l,"card_id":card
     });
-    // The pinned upload endpoint cannot create fixtures. Reuse the ordinary
-    // persisted attachment shape and genuine filesystem bytes from its suite.
-    let stored = seed(&input);
+    // Seed the native filesystem metadata shape and backing bytes.
+    // Explicit raw upload and storage migration are covered in the attachment suite.
+    let _stored = seed(&input);
     let before = run(app, server, &["attachment", "list", "--board", b])
         .await
         .unwrap();
@@ -473,16 +473,13 @@ async fn verify_bulk_delete_retains_attachments(
     );
 
     // W11-046: cardRemover selects top-level cardId instead of meta.cardId.
-    // Wait for the physical-cleanup window used by the attachment suite, then
-    // verify retained bytes and strictly decoded metadata before fixture cleanup.
+    // The surviving bug is the attachment remaining visible after its card
+    // is deleted. Backing-byte retention alone is normal recoverable deletion.
     let bytes = fixture_command(
         "wekan",
         "node",
         r#"
-          const fs=require('fs'); const deadline=Date.now()+10000;
-          while(fs.existsSync(p.path) && Date.now()<deadline) {
-            await new Promise(resolve=>setTimeout(resolve,100));
-          }
+          const fs=require('fs');
           const exists=fs.existsSync(p.path);
           console.log(JSON.stringify({exists,data:exists ? fs.readFileSync(p.path).toString('base64') : null}));
         "#,
@@ -497,7 +494,7 @@ async fn verify_bulk_delete_retains_attachments(
         "bulk deletion unexpectedly cleaned up attachment metadata"
     );
 
-    // Explicit test-fixture cleanup, after the native bulk-delete observations.
+    // Native attachment deletion is recoverable and must retain its file bytes.
     run(
         app,
         server,
@@ -505,12 +502,18 @@ async fn verify_bulk_delete_retains_attachments(
     )
     .await
     .unwrap();
-    assert_stored_file_deleted(&stored);
+    let retained = fixture_command(
+        "wekan",
+        "node",
+        "console.log(JSON.stringify(require('fs').readFileSync(p.path).toString('base64')));",
+        &input,
+    );
+    assert_eq!(retained, input["data"]);
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_BULK_CARD_E2E_URL"]
-async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_BULK_CARD_E2E_URL"]
+async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_BULK_CARD_E2E_URL")
         .expect("set WEKAN_BULK_CARD_E2E_URL to an isolated stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
@@ -647,7 +650,14 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|label| label == &json!({"label_id":red_id,"name":"Bulk red","color":"red"}))
+            .any(|label| label
+                == &json!({
+                    "label_id": red_id,
+                    "name": "Bulk red",
+                    "color": "red",
+                    "due_at": null,
+                    "shared_label_id": null
+                }))
     );
     assert!(
         labels["labels"]
@@ -670,8 +680,12 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06() {
         ErrorCode::PermissionDenied
     );
 
+    // Supplying unknown card members triggers Wekan's GuestBleed account
+    // protection even though it filters the IDs and returns created cards.
+    let (_assignment_probe_dir, assignment_probe, _) =
+        register_live_board_role(&server, &canonical, &token, &b, nonce + 10, "normal").await;
     let made = create(
-        &normal,
+        &assignment_probe,
         &server,
         &b,
         &l,
@@ -707,40 +721,31 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap();
     assert_eq!(second["title"], Value::Null);
-    for role in [&comment, &worker] {
-        create(
-            role,
-            &server,
-            &b,
-            &l,
-            &s,
-            json!([{"title":"Role creation"}]),
-        )
-        .await;
+    for denied_role in [&readonly, &comment, &worker] {
+        assert_eq!(
+            run(
+                denied_role,
+                &server,
+                &[
+                    "card",
+                    "bulk",
+                    "create",
+                    "--board",
+                    &b,
+                    "--list",
+                    &l,
+                    "--swimlane-id",
+                    &s,
+                    "--cards",
+                    "[{}]"
+                ]
+            )
+            .await
+            .unwrap_err()
+            .code(),
+            ErrorCode::PermissionDenied
+        );
     }
-    assert_eq!(
-        run(
-            &readonly,
-            &server,
-            &[
-                "card",
-                "bulk",
-                "create",
-                "--board",
-                &b,
-                "--list",
-                &l,
-                "--swimlane-id",
-                &s,
-                "--cards",
-                "[{}]"
-            ]
-        )
-        .await
-        .unwrap_err()
-        .code(),
-        ErrorCode::PermissionDenied
-    );
 
     // The body parentId works here, unlike the single-create route's pinned defect.
     let child = create(

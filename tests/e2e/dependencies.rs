@@ -132,11 +132,15 @@ async fn new_card(
 fn assert_server_failure(error: &AppError, symbol: &str) {
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
-    assert_eq!(error.details().server_error.as_deref(), Some(symbol));
+    assert_eq!(
+        error.details().server_error.as_deref(),
+        Some("Internal server error"),
+        "native {symbol} failure must be sanitized"
+    );
 }
 
 fn seed_raw_dependency_type(card: &str, dependency_type: &str) {
-    // v11.06 models/cards.js:535-571 defines an optional plain string, without
+    // v12.57 models/cards.js:535-571 defines an optional plain string, without
     // an enum constraint. Seed retained/imported data on this test's card only.
     let script = format!(
         "const r=db.getSiblingDB('wekan').cards.updateOne({{_id:{}}},{{$set:{{'cardDependencies.0.type':{}}}}});if(r.matchedCount!==1)throw new Error('fixture card not found');",
@@ -157,10 +161,10 @@ fn seed_raw_dependency_type(card: &str, dependency_type: &str) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_DEPENDENCY_E2E_URL"]
-async fn complete_dependency_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_DEPENDENCY_E2E_URL"]
+async fn complete_dependency_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_DEPENDENCY_E2E_URL")
-        .expect("set WEKAN_DEPENDENCY_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_DEPENDENCY_E2E_URL to an isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -431,7 +435,7 @@ async fn complete_dependency_lifecycle_matches_wekan_v11_06() {
         assert_eq!(response.status(), 500);
         assert_eq!(
             response.json::<Value>().await.unwrap()["error"],
-            "bad-request"
+            "Internal server error"
         );
     }
     let response = http

@@ -59,7 +59,7 @@ pub(crate) fn non_empty(value: &str) -> Result<String, String> {
 }
 fn field_type(value: &str) -> Result<crate::client::custom_fields::CustomFieldType, String> {
     serde_json::from_value(serde_json::Value::String(value.to_owned())).map_err(|_| {
-        "expected text, number, date, dropdown, checkbox, currency or stringtemplate".to_owned()
+        "expected text, number, date, dropdown, dropdownMultiSelect, checkbox, currency or stringtemplate".to_owned()
     })
 }
 fn settings(value: &str) -> Result<crate::client::custom_fields::CustomFieldSettings, String> {
@@ -88,6 +88,7 @@ fn type_name(value: crate::client::custom_fields::CustomFieldType) -> String {
         Number => "number",
         Date => "date",
         Dropdown => "dropdown",
+        DropdownMultiSelect => "dropdownMultiSelect",
         Checkbox => "checkbox",
         Currency => "currency",
         Stringtemplate => "stringtemplate",
@@ -104,6 +105,9 @@ fn detail(
         name: value.name,
         field_type: type_name(value.field_type),
         settings: CustomFieldSettings {
+            jira_time_field: value.settings.jira_time_field.flatten(),
+            jira_estimate_field_id: value.settings.jira_estimate_field_id.flatten(),
+            jira_estimate_unit: value.settings.jira_estimate_unit.flatten(),
             currency_code: value.settings.currency_code.flatten(),
             dropdown_items: value.settings.dropdown_items.flatten().map(|items| {
                 items
@@ -124,6 +128,10 @@ fn detail(
         show_sum_at_top_of_list: value.show_sum_at_top_of_list,
         created_at: value.created_at,
         modified_at: value.modified_at,
+        card_kinds: value.card_kinds,
+        read_only: value.read_only,
+        admin_only: value.admin_only,
+        sort: value.sort,
     }
 }
 

@@ -1,4 +1,4 @@
-// Fixture only: use the same DDP collection inserts as the v11.06 checklist UI.
+// Fixture only: use the same DDP collection inserts as the v12.57 checklist UI.
 use std::time::Duration;
 
 use serde_json::json;

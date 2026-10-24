@@ -62,7 +62,7 @@ pub(crate) async fn execute(
 }
 
 fn map_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
-    // v11.06 checks login first, then uses this exact 401 for missing boards
+    // v12.57 checks login first, then uses this exact 401 for missing boards
     // and callers without board write access (server/methods/icsImport.js).
     if let ClientError::Server {
         status,

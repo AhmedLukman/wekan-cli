@@ -41,6 +41,73 @@ fn output_write_failures_use_the_transport_exit_status() {
     assert_eq!(error.exit_code(), StableExitCode::Transport);
 }
 
+#[test]
+fn bot_run_results_preserve_public_names_and_status_values() {
+    use crate::client::cards::bot_runs::BotRunReport;
+    use serde_json::json;
+
+    for status in [
+        "queued",
+        "running",
+        "awaiting_input",
+        "review",
+        "done",
+        "failed",
+        "stopped",
+    ] {
+        let wire: BotRunReport = serde_json::from_value(json!({
+            "_id": "run\u{1b}[2J", "status": status,
+        }))
+        .unwrap();
+        let success = CommandSuccess::BotRunReported(wire.into());
+        let rendered: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(
+            rendered,
+            json!({
+                "ok": true,
+                "data": {"run_id": "run\u{1b}[2J", "status": status},
+            })
+        );
+        let human = render_success(OutputFormat::Human, &success);
+        assert!(human.contains("run_id:"));
+        assert!(human.contains(status));
+        assert!(!human.contains('\u{1b}'));
+    }
+}
+
+#[test]
+fn inbound_email_results_preserve_nullable_ids_and_bounce_counts() {
+    use crate::client::integrations::inbound_email::{BounceReceipt, InboundEmailReceipt};
+    use serde_json::json;
+
+    for resource_id in [Some("card-1"), None] {
+        let wire: InboundEmailReceipt =
+            serde_json::from_value(json!({"_id": resource_id})).unwrap();
+        let success = CommandSuccess::InboundEmailSubmitted(wire.into());
+        let rendered: serde_json::Value =
+            serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+        assert_eq!(
+            rendered,
+            json!({
+                "ok": true, "data": {"resource_id": resource_id},
+            })
+        );
+    }
+
+    let wire: BounceReceipt = serde_json::from_value(json!({"ok": true, "recorded": 2})).unwrap();
+    let success = CommandSuccess::EmailBounceSubmitted(wire.into());
+    let rendered: serde_json::Value =
+        serde_json::from_str(&render_success(OutputFormat::Json, &success)).unwrap();
+    assert_eq!(
+        rendered,
+        json!({
+            "ok": true, "data": {"ok": true, "recorded": 2},
+        })
+    );
+    assert!(render_success(OutputFormat::Human, &success).contains("recorded: 2"));
+}
+
 fn success() -> CommandSuccess {
     CommandSuccess::Registration(AuthSuccess {
         server: "https://wekan.example/".to_owned(),
@@ -455,7 +522,46 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
         }
     });
     let success = CommandSuccess::UserCurrent(UserDetail {
+        passkeys: None,
+        sqrl: None,
+        web_push_subscriptions: None,
+        ntfy: None,
+        notification_delivery_pending: None,
+        notification_delivery_revision: None,
+        feature_preview: None,
+        inactivity_clock_start: None,
+        login_disabled_reason: None,
+        anonymized: None,
+        anonymized_at: None,
+
         profile: Box::new(crate::command_result::UserProfileDetail {
+            chat_view_layout: None,
+            email_to_card: None,
+            notification_delivery: None,
+            my_dependencies: None,
+            notify_muted_activities: None,
+            notify_override_tray: None,
+            notify_override_email: None,
+            webhook_hide_identity: None,
+            unread_changes_since: None,
+            keep_title_tags: None,
+            checklist_ding_sound: None,
+            dismissed_board_announcements: None,
+            card_label_text_override: None,
+            show_label_text_override: None,
+            board_labels: None,
+            hidden_boards: None,
+            starred_swimlanes: None,
+            starred_lists: None,
+            starred_cards: None,
+            default_board_template_id: None,
+            default_board_template_board_id: None,
+            board_views: None,
+            show_board_dependencies: None,
+            show_my_dependencies: None,
+            board_visits: None,
+            dismissed_rule_suggestions: None,
+            date_format_override: None,
             move_and_copy_dialog: Some(std::collections::BTreeMap::from([(
                 "object\u{1b}]52;c;clipboard\u{7}".to_owned(),
                 crate::command_result::UserDialogOptionsDetail {
@@ -534,8 +640,8 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
         });
     let human = render_success(OutputFormat::Human, &disabled);
     assert!(!human.contains("Disabled login for"));
-    assert!(human.contains("returned user is unchanged"));
-    assert!(human.contains("still permits new REST logins"));
+    assert!(human.contains("Login-disable request left unchanged"));
+    assert!(!human.contains("still permits new REST logins"));
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &disabled)).unwrap();
     assert_eq!(
@@ -581,21 +687,21 @@ fn user_creation_and_mutation_results_are_stable() {
     let created = CommandSuccess::UserCreated(UserCreateSuccess {
         username: "bob".to_owned(),
         email: "bob@example.com".to_owned(),
-        user_id: None,
+        user_id: "user-1".into(),
     });
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &created)).unwrap();
     assert!(json["data"].get("creation_requested").is_none());
     assert!(json["data"].get("mutation_confirmed").is_none());
     assert!(json["data"].get("created").is_none());
-    assert_eq!(json["data"]["user_id"], serde_json::Value::Null);
+    assert_eq!(json["data"]["user_id"], "user-1");
     assert_eq!(
         json["data"],
-        serde_json::json!({"username":"bob", "email":"bob@example.com", "user_id":null})
+        serde_json::json!({"username":"bob", "email":"bob@example.com", "user_id":"user-1"})
     );
     assert_eq!(
         render_success(OutputFormat::Human, &created),
-        "User creation request accepted for bob (bob@example.com).\nUser ID: unavailable\nWekan v11.06 also accepts duplicate user creation requests without creating an account."
+        "Created user bob (bob@example.com).\nUser ID: user-1"
     );
 
     let ownership = CommandSuccess::UserOwnershipTaken(UserOwnershipSuccess {
@@ -610,7 +716,10 @@ fn user_creation_and_mutation_results_are_stable() {
         serde_json::from_str(&render_success(OutputFormat::Json, &ownership)).unwrap();
     assert_eq!(json["data"]["boards"][0]["board_id"], "board-1");
     assert!(json.get("warnings").is_none());
-    assert!(render_success(OutputFormat::Human, &ownership).contains("Transferred 1 board"));
+    assert!(
+        render_success(OutputFormat::Human, &ownership)
+            .contains("Ownership transfer requested for 1 board")
+    );
 
     let boards = CommandSuccess::UserBoards(UserBoardsSuccess {
         user_id: "user-1".to_owned(),
@@ -623,19 +732,19 @@ fn user_creation_and_mutation_results_are_stable() {
 
     let deleted = CommandSuccess::UserDeleted(UserDeleteSuccess {
         user_id: "user-1".to_owned(),
-        deletion_requested: true,
+        deleted: true,
         deleted_current_user: true,
         credential_stored: false,
         local_credential_removed: true,
     });
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
-    assert_eq!(json["data"]["deletion_requested"], true);
-    assert!(json["data"].get("deleted").is_none());
+    assert_eq!(json["data"]["deleted"], true);
+    assert!(json["data"].get("deletion_requested").is_none());
     assert_eq!(json["data"]["deleted_current_user"], true);
     assert_eq!(json["data"]["local_credential_removed"], true);
     let rendered = render_success(OutputFormat::Human, &deleted);
-    assert!(rendered.contains("User deletion request accepted for user-1"));
+    assert!(rendered.contains("Deleted user user-1"));
     assert!(rendered.contains("local credential"));
 
     let list = CommandSuccess::UserList(UserListSuccess {
@@ -718,7 +827,7 @@ fn defective_endpoints_report_requests_without_completion_claims() {
     });
     let human = render_success(OutputFormat::Human, &copied);
     assert!(human.starts_with("Board copied:"));
-    assert!(human.contains("Wekan v11.06 omits attachments."));
+    assert!(!human.contains("omits attachments"));
     let json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &copied)).unwrap();
     assert!(json.get("warnings").is_none());
@@ -787,6 +896,7 @@ fn board_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(shown_human.contains("watchers: [1]"));
 
     let count = CommandSuccess::BoardCount(BoardCountSuccess {
+        instance: 0,
         private: 4,
         public: 2,
     });
@@ -830,6 +940,18 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &collection).contains(r"Todo\nnext"));
 
     let shown = CommandSuccess::ListShown(ListDetail {
+        scrum: None,
+        role_exceptions: None,
+        sync_source: None,
+        scrum_revision: None,
+        cards_use_list_color: None,
+        linked_board_id: None,
+        linked_list_id: None,
+        sync_revision: None,
+        sync_credential_generation: None,
+        sync_credential_fence: None,
+        sync_write_back_error: None,
+        sync_credential_incarnation: None,
         watchers: None,
         list_id: "list-1".to_owned(),
         title: "Todo\u{1b}]52;c;x\u{7}".to_owned(),
@@ -925,6 +1047,39 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(collection_human.contains("user-1"));
 
     let card = crate::command_result::CardDetail {
+        scrum: None,
+        drawings: None,
+        custom_field_links: None,
+        sync_last_source: None,
+        email: None,
+        scrum_revision: None,
+        parent_ids: None,
+        map_x: None,
+        map_y: None,
+        column_set_values: None,
+        card_kind: None,
+        last_recurrence_at: None,
+        sync_source_key: None,
+        sync_label_ids: None,
+        sync_issue_state: None,
+        sync_closed_by_we_kan: None,
+        sync_external_id: None,
+        sync_source_type: None,
+        attached_card_ids: None,
+        flow_start_at: None,
+        flow_user_id: None,
+        pomodoro_start_at: None,
+        pomodoro_phase: None,
+        pomodoro_user_id: None,
+        show_list_on_card: None,
+        checklists: None,
+        list_entered_at: None,
+        recurrence_interval: None,
+        last_move_reason: None,
+        flow_interruptions: None,
+        pomodoro_count: None,
+        pomodoro_work_minutes: None,
+
         watchers: None,
         card_id: "card-1".to_owned(),
         title: Some("Todo\u{001b}]52;c;x\u{0007}".to_owned()),
@@ -1074,6 +1229,7 @@ fn comment_outputs_are_stable_comprehensive_and_terminal_safe() {
         created_at: "2030-01-02T03:04:05Z".to_owned(),
         modified_at: "2030-01-02T03:05:05Z".to_owned(),
         author_id: "user-1".to_owned(),
+        sync_comment_id: None,
     });
     let shown_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &shown)).unwrap();
@@ -1164,6 +1320,8 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &collection).contains(r"Delivery\nnext"));
 
     let shown = CommandSuccess::SwimlaneShown(SwimlaneDetail {
+        scrum: None,
+        scrum_revision: None,
         swimlane_id: "swimlane-1".to_owned(),
         title: "Delivery\u{1b}]52;c;x\u{7}".to_owned(),
         archived: false,

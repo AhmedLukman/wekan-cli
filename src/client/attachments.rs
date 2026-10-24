@@ -1,5 +1,8 @@
 use std::time::Duration;
 
+mod raw_upload;
+pub mod recovery;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use reqwest::{Method, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};

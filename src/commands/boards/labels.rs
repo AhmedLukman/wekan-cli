@@ -74,6 +74,8 @@ pub(super) async fn dispatch(
                     .labels
                     .into_iter()
                     .map(|label| BoardDetailLabel {
+                        due_at: label.due_at,
+                        shared_label_id: label.shared_label_id,
                         label_id: label.label_id,
                         name: label.name,
                         color: label.color,

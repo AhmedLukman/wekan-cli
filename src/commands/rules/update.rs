@@ -28,6 +28,7 @@ pub(super) async fn execute(
     let mut fields = Vec::new();
     for (present, field) in [
         (request.title.is_some(), Field::Title),
+        (request.enabled.is_some(), Field::Enabled),
         (request.trigger.is_some(), Field::Trigger),
         (request.action.is_some(), Field::Action),
     ] {

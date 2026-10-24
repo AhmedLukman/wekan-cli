@@ -1,7 +1,7 @@
 # Command behavior and inventory
 
 This reference summarizes the current `wekan` command interface verified
-against Wekan v11.06. The family documentation records command syntax,
+against Wekan v12.57. The family documentation records command syntax,
 response fields, and native server limitations. Typed commands reject unmapped
 upstream object fields with `protocol_error`.
 
@@ -27,18 +27,20 @@ status alone does not establish CLI success: typed decoding, embedded Wekan
 errors, or partial batch outcomes can still fail. Mutations report completed
 actions where the pinned server supports that claim. Endpoints that can accept
 an ineffective request use request-accepted wording. Human messages explain concrete limitations where needed.
-Delayed ownership transfer retains direct success wording. Inspect error details before deciding whether to retry a
+Delayed ownership transfer reports that the request was accepted. Inspect error details before deciding whether to retry a
 failed request.
 
 | Affected command | What its output establishes |
 | --- | --- |
-| `user create` | Creation request accepted; duplicate identities receive the same response without creating an account. |
-| `user token create` | Token returned; a missing user produces an unusable token. |
-| `user token delete --token-stdin` | Deletion request accepted; an issued raw token is not revoked because Wekan compares stored values directly. Delete-all retains direct success wording. |
-| `user disable-login` | Reports the returned login-disabled flag or an unchanged user for self-targeting. New REST logins still work. |
-| Board/card/list/swimlane copy | Copy completed; human output states that Wekan omits attachments. |
-| Cross-board list move | Request accepted; source list remains, position is ignored, and selectors can transfer no cards. Same-board list moves retain direct success wording. |
-| User/list/card/swimlane/custom-field/dropdown-item/integration deletion | Request accepted even when nothing matched. The first four use `deletion_requested: true`, without `deleted: true`. Wrong-list card deletion can remove children while leaving the card. |
+| `user create` | Returns the newly created user ID; duplicate identities fail. |
+| `user token create` | Returns a token for an existing user and records the required audit reason; a missing user returns HTTP 404. |
+| `user token delete --token-stdin` | Acknowledges raw issued tokens without revoking them (W11-058). Delete-all revokes all sessions for the selected user. |
+| `user disable-login` | Reports the returned login-disabled flag or an unchanged user for self-targeting. Disabled accounts cannot start new REST sessions. |
+| `attachment upload` | Request accepted; `upload_confirmed: false` because deferred native validation can still remove the attachment. Receipt text is named `server_message`. |
+| `attachment upload-background --transport raw` | The known helper failure returns `server_error` with native HTTP 401 after storing the upload. It does not establish credential rejection or a changed background. |
+| Board/card/list/swimlane copy | Copy completed, including native attachment copying. |
+| Cross-board list move | Request accepted; source list remains, position is ignored, and populated moves can fail after transferring the first card. Same-board list moves retain direct success wording. |
+| List/card/swimlane/custom-field/dropdown-item/integration deletion | Request accepted even when nothing matched. List, card, and swimlane commands use `deletion_requested: true`, without `deleted: true`. Wrong-list card deletion can remove children while leaving the card. |
 | Card/custom-field/dropdown-item/integration update; dropdown-item creation | Request accepted; missing targets can cause a successful no-op. Human card-update output explains ineffective overtime changes when requested; submitted fields describe input rather than applied changes. |
 | Dependency update/delete | Request accepted; a missing edge is a successful no-op. |
 | Board member add/remove | Request accepted; active-member addition can preserve permissions, and sole-administrator removal can leave membership intact. |
@@ -58,7 +60,8 @@ successful or safe-to-retry outcome.
 
 Every leaf command below is included in the verification inventory. A command can select several
 native endpoints or output shapes through its arguments. The
-[API coverage table](api-coverage.md) records all 144 corrected operations,
+[API coverage table](api-coverage.md) records all 168 corrected native operations
+(167 implemented and the Amazon SES endpoint intentionally excluded), with
 complete options, requirements, conflicts, and endpoint selectors. The six
 local profile commands, two local guidance commands, and the raw API escape
 hatch are included below too.
@@ -72,9 +75,15 @@ shape and verified native limitations.
 | `wekan admin attachment-settings get` | [Contract](admin-settings.md) |
 | `wekan admin attachment-settings update` | [Contract](admin-settings.md) |
 | `wekan admin domain list` | [Contract](admin.md) |
+| `wekan admin oauth-provider get` | [Contract](admin.md) |
+| `wekan admin oauth-provider update` | [Contract](admin.md) |
 | `wekan admin org features update` | [Contract](admin.md) |
 | `wekan admin org features update-all` | [Contract](admin.md) |
 | `wekan admin org list` | [Contract](admin.md) |
+| `wekan admin passwordless update` | [Contract](admin.md) |
+| `wekan admin problem acknowledge` | [Contract](admin.md) |
+| `wekan admin problem get` | [Contract](admin.md) |
+| `wekan admin problem list` | [Contract](admin.md) |
 | `wekan admin settings get` | [Contract](admin-settings.md) |
 | `wekan admin settings update` | [Contract](admin-settings.md) |
 | `wekan admin team features update` | [Contract](admin.md) |
@@ -88,7 +97,9 @@ shape and verified native limitations.
 | `wekan attachment export` | [Contract](exports.md) |
 | `wekan attachment get` | [Contract](attachments.md) |
 | `wekan attachment list` | [Contract](attachments.md) |
+| `wekan attachment list-deleted` | [Contract](attachments.md) |
 | `wekan attachment move` | [Contract](attachments.md) |
+| `wekan attachment restore` | [Contract](attachments.md) |
 | `wekan attachment upload` | [Contract](attachments.md) |
 | `wekan attachment upload-background` | [Contract](attachments.md) |
 | `wekan auth login` | [Contract](auth.md) |
@@ -97,8 +108,11 @@ shape and verified native limitations.
 | `wekan auth register` | [Contract](auth.md) |
 | `wekan auth status` | [Contract](auth.md) |
 | `wekan board attachment list` | [Contract](boards.md) |
+| `wekan board card-field-order get` | [Contract](boards.md) |
+| `wekan board card-field-order update` | [Contract](boards.md) |
 | `wekan board card-settings get` | [Contract](boards.md) |
 | `wekan board card-settings update` | [Contract](boards.md) |
+| `wekan board chart export` | [Contract](boards.md) |
 | `wekan board copy` | [Contract](copy-and-move.md) |
 | `wekan board count` | [Contract](boards.md) |
 | `wekan board create` | [Contract](boards.md) |
@@ -107,6 +121,7 @@ shape and verified native limitations.
 | `wekan board domain list` | [Contract](boards.md) |
 | `wekan board domain remove` | [Contract](boards.md) |
 | `wekan board export` | [Contract](exports.md) |
+| `wekan board export-all` | [Contract](boards.md) |
 | `wekan board get` | [Contract](boards.md) |
 | `wekan board import` | [Contract](imports.md) |
 | `wekan board import-trello` | [Contract](imports.md) |
@@ -119,10 +134,13 @@ shape and verified native limitations.
 | `wekan board member remove` | [Contract](memberships.md) |
 | `wekan board member update` | [Contract](memberships.md) |
 | `wekan board rename` | [Contract](boards.md) |
+| `wekan board view-settings get` | [Contract](boards.md) |
+| `wekan board view-settings update` | [Contract](boards.md) |
 | `wekan card archive` | [Contract](cards.md) |
 | `wekan card assignee add` | [Contract](memberships.md) |
 | `wekan card assignee list` | [Contract](memberships.md) |
 | `wekan card assignee remove` | [Contract](memberships.md) |
+| `wekan card bot-run report` | [Contract](cards.md) |
 | `wekan card bulk create` | [Contract](bulk-cards-and-labels.md) |
 | `wekan card bulk delete` | [Contract](bulk-cards-and-labels.md) |
 | `wekan card bulk labels` | [Contract](bulk-cards-and-labels.md) |
@@ -150,10 +168,12 @@ shape and verified native limitations.
 | `wekan checklist item get` | [Contract](checklists.md) |
 | `wekan checklist item update` | [Contract](checklists.md) |
 | `wekan checklist list` | [Contract](checklists.md) |
+| `wekan checklist update` | [Contract](checklists.md) |
 | `wekan comment create` | [Contract](comments.md) |
 | `wekan comment delete` | [Contract](comments.md) |
 | `wekan comment get` | [Contract](comments.md) |
 | `wekan comment list` | [Contract](comments.md) |
+| `wekan comment update` | [Contract](comments.md) |
 | `wekan custom-field create` | [Contract](custom-fields.md) |
 | `wekan custom-field delete` | [Contract](custom-fields.md) |
 | `wekan custom-field get` | [Contract](custom-fields.md) |
@@ -171,14 +191,18 @@ shape and verified native limitations.
 | `wekan integration create` | [Contract](integrations.md) |
 | `wekan integration delete` | [Contract](integrations.md) |
 | `wekan integration get` | [Contract](integrations.md) |
+| `wekan integration inbound-email bounce` | [Contract](integrations.md) |
+| `wekan integration inbound-email submit` | [Contract](integrations.md) |
 | `wekan integration list` | [Contract](integrations.md) |
 | `wekan integration update` | [Contract](integrations.md) |
+| `wekan list archive` | [Contract](lists.md) |
 | `wekan list copy` | [Contract](copy-and-move.md) |
 | `wekan list create` | [Contract](lists.md) |
 | `wekan list delete` | [Contract](lists.md) |
 | `wekan list get` | [Contract](lists.md) |
 | `wekan list list` | [Contract](lists.md) |
 | `wekan list move` | [Contract](copy-and-move.md) |
+| `wekan list restore` | [Contract](lists.md) |
 | `wekan list update` | [Contract](lists.md) |
 | `wekan profile add` | [Contract](config.md) |
 | `wekan profile list` | [Contract](config.md) |

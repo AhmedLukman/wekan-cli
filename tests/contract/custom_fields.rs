@@ -15,6 +15,35 @@ fn document() -> Value {
         "showOnCard":true,"automaticallyOnCard":false,"alwaysOnCard":false,"showLabelOnMiniCard":true,"showSumAtTopOfList":false,
         "createdAt":"2030-01-01T00:00:00Z","modifiedAt":"2030-01-02T00:00:00Z"})
 }
+
+#[test]
+fn v12_field_metadata_preserves_optional_values_and_rejects_wrong_types() {
+    let mut value = document();
+    value["cardKinds"] = json!(["card"]);
+    value["readOnly"] = json!(true);
+    value["adminOnly"] = json!(false);
+    value["sort"] = json!(0.5);
+    let decoded: CustomFieldDocument = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(decoded.card_kinds, Some(vec!["card".to_owned()]));
+    assert_eq!(decoded.read_only, Some(true));
+    assert_eq!(decoded.admin_only, Some(false));
+    assert_eq!(
+        decoded.sort,
+        Some(serde_json::Number::from_f64(0.5).unwrap())
+    );
+    let omitted: CustomFieldDocument = serde_json::from_value(document()).unwrap();
+    assert!(
+        omitted.card_kinds.is_none()
+            && omitted.read_only.is_none()
+            && omitted.admin_only.is_none()
+            && omitted.sort.is_none()
+    );
+    for field in ["cardKinds", "readOnly", "adminOnly", "sort"] {
+        let mut invalid = value.clone();
+        invalid[field] = json!({"unexpected":true});
+        assert!(serde_json::from_value::<CustomFieldDocument>(invalid).is_err());
+    }
+}
 fn create() -> CreateCustomFieldRequest {
     CreateCustomFieldRequest {
         name: "  Field  ".to_owned(),
@@ -25,6 +54,76 @@ fn create() -> CreateCustomFieldRequest {
         show_label_on_mini_card: None,
         show_sum_at_top_of_list: None,
     }
+}
+
+#[tokio::test]
+async fn multiselect_definitions_use_exact_native_casing_for_reads_and_writes() {
+    let server = MockServer::start().await;
+    let token = SecretString::from("custom-field-token");
+    let mut document = document();
+    document["type"] = json!("dropdownMultiSelect");
+    Mock::given(method("GET"))
+        .and(path(endpoint(0).1))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"_id":"field-1","name":"Multi","type":"dropdownMultiSelect"}
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(endpoint(1).1))
+        .respond_with(ResponseTemplate::new(200).set_body_json(document))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(endpoint(2).1))
+        .and(body_json(
+            json!({"name":"  Field  ","type":"dropdownMultiSelect","settings":{}}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"field-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(endpoint(3).1))
+        .and(body_json(json!({"type":"dropdownMultiSelect"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"field-1"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    assert_eq!(
+        client.board_custom_fields("board-1", &token).await.unwrap()[0].field_type,
+        CustomFieldType::DropdownMultiSelect
+    );
+    assert_eq!(
+        client
+            .custom_field("board-1", "field-1", &token)
+            .await
+            .unwrap()
+            .unwrap()
+            .field_type,
+        CustomFieldType::DropdownMultiSelect
+    );
+    let mut request = create();
+    request.field_type = CustomFieldType::DropdownMultiSelect;
+    client
+        .create_custom_field("board-1", &request, &token)
+        .await
+        .unwrap();
+    client
+        .update_custom_field(
+            "board-1",
+            "field-1",
+            &UpdateCustomFieldRequest {
+                field_type: Some(CustomFieldType::DropdownMultiSelect),
+                ..Default::default()
+            },
+            &token,
+        )
+        .await
+        .unwrap();
 }
 fn endpoint(operation: usize) -> (&'static str, &'static str) {
     match operation {
@@ -204,6 +303,7 @@ async fn every_response_object_rejects_unknown_fields_and_bad_acknowledgements()
                 ("boardIds", json!(["wrong-board"])),
                 ("modifiedAt", json!("2030-01-01")),
                 ("type", json!("future-type")),
+                ("type", json!("dropdownmultiselect")),
                 ("showOnCard", json!("true")),
             ] {
                 let mut body = document();
@@ -221,6 +321,9 @@ async fn every_response_object_rejects_unknown_fields_and_bad_acknowledgements()
                 invalid.push(body);
             }
             for (field, value) in [
+                ("jiraTimeField", json!(false)),
+                ("jiraEstimateFieldId", json!(42)),
+                ("jiraEstimateUnit", json!([])),
                 ("currencyCode", json!(42)),
                 ("dropdownItems", json!("items")),
                 ("stringtemplateFormat", json!(42)),
@@ -274,6 +377,8 @@ async fn nullable_settings_preserve_null_and_omission_in_requests_and_responses(
         json!({"dropdownItems":null}),
         json!({"stringtemplateFormat":null}),
         json!({"stringtemplateSeparator":null}),
+        json!({"jiraTimeField":null,"jiraEstimateFieldId":null,"jiraEstimateUnit":null}),
+        json!({"jiraTimeField":"original","jiraEstimateFieldId":"customfield_10001","jiraEstimateUnit":"points"}),
         json!({"currencyCode":null,"dropdownItems":null,"stringtemplateFormat":null,"stringtemplateSeparator":null}),
     ] {
         server.reset().await;

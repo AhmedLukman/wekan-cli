@@ -105,7 +105,17 @@ where
         &self.credential_store
     }
 
-    pub async fn execute(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
+    pub fn execute(
+        &self,
+        command: RootCommand,
+    ) -> impl std::future::Future<Output = Result<CommandSuccess, AppError>> + '_ {
+        // Keep the dispatch future off callers' stacks. The complete native
+        // response models make it large enough to overflow Windows test and
+        // embedding threads when nested in a multi-command workflow.
+        Box::pin(self.execute_command(command))
+    }
+
+    async fn execute_command(&self, command: RootCommand) -> Result<CommandSuccess, AppError> {
         if let RootCommand::Skill(args) = command {
             return commands::skill::dispatch(args.command);
         }
@@ -205,6 +215,7 @@ where
                     args.command,
                     target.client_factory(),
                     &self.credential_store,
+                    &self.secret_input,
                     &self.confirmation,
                 )
                 .await

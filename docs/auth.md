@@ -76,7 +76,7 @@ and explicitly permitted remote HTTP use the system proxy policy.
 `auth preflight login`, `auth preflight register`, and `auth preflight logout`
 send a single anonymous OPTIONS request to the corresponding `/users/` route.
 They require HTTP 200 with a zero-byte body; a nonempty successful response is
-`protocol_error` (exit 4). Missing Content-Type is accepted, matching v11.06.
+`protocol_error` (exit 4). Missing Content-Type is accepted, matching v12.57.
 Other statuses retain the usual HTTP error mapping. Redirects are rejected.
 
 Successful human/JSON output contains `server`, `endpoint` (`login`, `register`,
@@ -142,7 +142,7 @@ expired credential with `wekan auth logout --local-only` before logging in
 again.
 
 For a nonexpired record, the CLI sends one bearer-authenticated `GET api/user`
-request. Wekan v11.06 reports a missing or invalid token as HTTP 200 with an
+request. Wekan v12.57 reports a missing or invalid token as HTTP 200 with an
 embedded `statusCode: 401`; the CLI maps this to `authentication_rejected` and
 reports both `http_status: 200` and `wekan_status_code: 401`. It does not delete
 the rejected credential. Remove that entry with
@@ -319,7 +319,7 @@ When HTTP 401 contains Wekan's `no-2fa-code` error, the CLI still returns
 `login_rejected` but sets `two_factor_required: true` and tells the caller to
 retry with `--code` or `--code-stdin`. It does not automatically replay login.
 
-Wekan `v11.06` can return HTTP 400 after creating a user if login-token
+Wekan `v12.57` can return HTTP 400 after creating a user if login-token
 insertion then fails. The CLI reports the returned error and never retries
 mutating authentication requests automatically.
 

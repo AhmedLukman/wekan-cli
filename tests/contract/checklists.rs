@@ -24,6 +24,76 @@ fn item() -> Value {
         "createdAt":"2030-01-02T03:04:05Z", "modifiedAt":"2030-01-02T03:04:05Z"})
 }
 
+#[tokio::test]
+async fn checklist_item_assignment_and_link_are_optional_strict_strings() {
+    let server = MockServer::start().await;
+    for present in [false, true] {
+        server.reset().await;
+        let mut response = item();
+        if present {
+            response["assigneeId"] = json!("member-1");
+            response["linkedCardId"] = json!("subtask-1");
+        }
+        Mock::given(method("GET"))
+            .and(path(endpoint(5).1))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let document = client(&server)
+            .checklist_item(
+                "board-1",
+                "card-1",
+                "checklist-1",
+                "item-1",
+                &super::user_token(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            document.assignee_id.as_deref(),
+            present.then_some("member-1")
+        );
+        assert_eq!(
+            document.linked_card_id.as_deref(),
+            present.then_some("subtask-1")
+        );
+    }
+    for field in ["assigneeId", "linkedCardId"] {
+        for value in [
+            Value::Null,
+            json!(true),
+            json!(2),
+            json!([]),
+            json!({"unmapped":"secret-value"}),
+        ] {
+            server.reset().await;
+            let mut response = item();
+            response[field] = value;
+            Mock::given(method("GET"))
+                .and(path(endpoint(5).1))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = invoke(&client(&server), 5).await.unwrap_err();
+            assert!(matches!(
+                error,
+                ClientError::Protocol {
+                    success_status_received: true,
+                    ..
+                }
+            ));
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
+    let mut response = item();
+    response["assigneeId"] = json!("member-1");
+    response["linkedCardId"] = json!("subtask-1");
+    response["unmapped"] = json!("secret-value");
+    assert!(serde_json::from_value::<ChecklistItemDocument>(response).is_err());
+}
+
 async fn invoke(client: &WekanClient, operation: usize) -> Result<(), ClientError> {
     let token = SecretString::from("checklist-token".to_owned());
     match operation {
@@ -57,6 +127,7 @@ async fn invoke(client: &WekanClient, operation: usize) -> Result<(), ClientErro
                     "card-1",
                     "checklist-1",
                     &CreateChecklistItemRequest {
+                        due_at: None,
                         title: "Verify".to_owned(),
                         sort: None,
                     },
@@ -125,7 +196,7 @@ fn endpoint(operation: usize) -> (&'static str, &'static str) {
 
 fn success(operation: usize) -> Value {
     match operation {
-        0 => json!([{"_id":"checklist-1", "title":"Release"}]),
+        0 => json!([checklist()]),
         2 => checklist(),
         5 => item(),
         1 | 3 => json!({"_id":"checklist-1"}),
@@ -243,6 +314,7 @@ async fn checklist_requests_preserve_every_corrected_json_union_form() {
                 "card-1",
                 "checklist-1",
                 &CreateChecklistItemRequest {
+                    due_at: None,
                     title: "  Verify  ".to_owned(),
                     sort: Some(serde_json::from_value(sort).unwrap()),
                 },
@@ -275,6 +347,7 @@ async fn checklist_requests_preserve_every_corrected_json_union_form() {
                 "checklist-1",
                 "item-1",
                 &UpdateChecklistItemRequest {
+                    due_at: None,
                     title: Some("  Renamed  ".to_owned()),
                     is_finished: Some(serde_json::from_value(finished).unwrap()),
                 },

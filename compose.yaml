@@ -105,7 +105,7 @@ services:
       - wekan
 
   wekan:
-    image: wekanteam/wekan:v11.06@sha256:f25c69374e8020a4c7662fae0c96a66fc4f0d5d5fff9d237c67f1ade1d6e357e
+    image: wekanteam/wekan:v12.57@sha256:e6fbfeb61089be9f70e78150b9582838c360ed4862a9750b8e259fb5821ae424
     restart: "no"
     depends_on:
       mongodb:

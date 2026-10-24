@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_LIST_E2E_URL"]
-async fn complete_list_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_LIST_E2E_URL"]
+async fn complete_list_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_LIST_E2E_URL")
-        .expect("set WEKAN_LIST_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_LIST_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()

@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add native ZIP import into a new board with `--new-board` and member selection,
+  and `card update --move-reason` for native list and board moves.
+- Map v12.57 rule filters, cron schedules, bot and comment actions, copy
+  destinations, email inclusion options, integration delivery settings, user
+  channels and custom-field metadata in typed results.
+- Support Trello HTTP import member handling through `--members-mode`.
+
+- Checklist and comment editing; list archival and restoration; attachment
+  recovery and board-scoped deletion.
+- Board view settings, card section ordering, calendar and chart exports, and
+  exporting multiple boards in one native request.
+- OAuth provider, passwordless, and problem-report administration; native bot
+  run reporting and incoming-email and bounce submissions. Amazon SES/SNS
+  integration is excluded from typed CLI support.
+- Explicit raw-byte attachment and background uploads alongside JSON transport,
+  and WebDAV attachment storage configuration with protected password input.
+
+### Changed
+
+- **Breaking:** Wekan v12.57 is the sole supported server baseline. Import and
+  export catalogs follow that version, with strict typed decoding of its native
+  resource, metadata, and artifact fields.
+- **Breaking:** Board creation always uses the authenticated caller as its
+  initial active administrator. Remove ignored owner and initial-role options;
+  use board membership commands to change roles after creation.
+- **Breaking:** User token creation requires `--reason` for Wekan's audit log.
+  User creation returns the created ID, user deletion reports `deleted`, board
+  counts include `instance`, and checklist listings include full documents.
+- Attachment deletion confirmations describe recoverable deletion and retained
+  file bytes.
+
+### Fixed
+
+- Support native multi-select custom fields and Jira time/estimate settings in
+  typed reads, settings input, and JSON board exports.
+- Preserve explicit null values in bot reports, including native numeric resets
+  and option-label behavior; reject null status and options before HTTP.
+- Report card upload acceptance with `upload_confirmed: false` and preserve
+  native receipt text as `server_message` while validation remains pending.
+- Preserve the known raw background helper failure's HTTP 401 as `server_error`
+  without advising replacement of a valid credential; mark the partial mutation
+  as attempted and unsafe to retry.
+- Correct missing-user compatibility documentation: lookup returns HTTP 500,
+  while updates return empty HTTP 200 responses rejected by typed decoding.
+- Reject explicit null rule enablement before sending an update, instead of
+  silently ignoring it. Raw background uploads now retain the documented PNG
+  MIME default when `--file-type` is omitted.
+- Correct upload request schemas to describe base64 file contents and update
+  comment permissions and domain error documentation for Wekan v12.57.
+- Document native raw background upload's partial failure: its attachment can
+  persist even though Wekan returns HTTP 401 before selecting the background.
+- Document native filename normalization removing valid streamed uploads during
+  deferred validation while leaving renamed backing bytes orphaned.
+- Keep GitLab board exports working for release-linked cards, undated planned
+  sprints, and comments whose authors were deleted.
+- Keep OpenProject exports working with undated releases and sprints, sprint
+  goals, and release-linked cards. Preserve comments by deleted authors in
+  Kanboard, Deck, OpenProject, Jira, Asana, and Zenkit exports.
+- Keep user reads and authentication status working after scheduled tray
+  notifications arrive, preserving their visibility timestamps as `show_at`.
+- Keep JSON board exports working after custom-field creation and card movement,
+  preserving custom-field visibility, kind and order metadata and movement reasons.
+- Decode all native card settings, milestone and shared-label metadata, group and
+  custom-role memberships, and assigned or linked checklist items in resource
+  reads and native exports.
+- Reject `board import --members-mode` without an explicit `--source`, preventing
+  silently ignored member handling and unintended placeholder users.
+- Correct the mass-export API authentication contract and the raw-token deletion
+  example, which acknowledges the request without revoking the issued token.
+- Update authentication errors, disabled-account login behavior, delete-all
+  session revocation, and missing-card comment handling for Wekan v12.57.
+
+
 ## [1.0.0] - 2026-10-19
 
 ### Added

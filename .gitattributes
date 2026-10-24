@@ -1,0 +1,2 @@
+# Preserve the vendored upstream snapshot byte for byte on every platform.
+spec/wekan.yml -text

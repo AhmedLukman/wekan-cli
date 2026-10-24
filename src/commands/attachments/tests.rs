@@ -116,7 +116,11 @@ async fn deletion_cancels_and_rejects_changed_credentials_without_http() {
         panic!("expected cancellation")
     };
     assert_eq!(result.operation, DestructiveOperation::AttachmentDelete);
-    assert!(confirmation.requests()[0].prompt().contains("stored file"));
+    assert!(
+        confirmation.requests()[0]
+            .prompt()
+            .contains("retained for restoration")
+    );
     let mut store = Store::new(&server);
     store.change_on_load = true;
     let error = run(&server, &store, &["delete", "a", "--yes"], &confirmation)
@@ -402,4 +406,110 @@ async fn scoped_listing_exposes_board_scope_without_filtering() {
     assert_eq!(output["data"]["effective_scope"], "board");
     assert_eq!(output["data"]["attachments"][0]["card_id"], "other-card");
     assert!(crate::output::render_success(OutputFormat::Human, &result).contains("ignores"));
+}
+
+#[tokio::test]
+async fn upload_receipts_do_not_claim_completed_validation_or_storage() {
+    let server = MockServer::start().await;
+    let store = Store::new(&server);
+    let directory = tempfile::tempdir().unwrap();
+    let file = directory.path().join("upload.bin");
+    std::fs::write(&file, [0, 255, 10]).unwrap();
+    Mock::given(method("POST"))
+        .and(path("/api/attachment/upload"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success":true,"attachmentId":"a","fileName":"upload.bin",
+            "fileSize":3,"storageBackend":"gridfs","message":"Attachment uploaded successfully"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = run(
+        &server,
+        &store,
+        &[
+            "upload",
+            file.to_str().unwrap(),
+            "--board",
+            "b",
+            "--swimlane-id",
+            "s",
+            "--list",
+            "l",
+            "--card",
+            "c",
+            "--transport",
+            "raw",
+        ],
+        &FakeConfirmationProvider::declining(),
+    )
+    .await
+    .unwrap();
+    let output: Value =
+        serde_json::from_str(&crate::output::render_success(OutputFormat::Json, &result)).unwrap();
+    assert_eq!(
+        output,
+        json!({"ok":true,"data":{
+            "attachment_id":"a","file_name":"upload.bin","file_size":3,"storage_backend":"gridfs",
+            "server_message":"Attachment uploaded successfully","request_accepted":true,"upload_confirmed":false
+        }})
+    );
+    let human = crate::output::render_success(OutputFormat::Human, &result);
+    assert!(human.starts_with("Attachment upload accepted; final availability is unconfirmed:"));
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn background_helper_failures_preserve_native_401_without_credential_replacement_advice() {
+    for (server_error, code) in [
+        ("t.isBoardAdmin is not a function", ErrorCode::ServerError),
+        (
+            "currentUser.isBoardAdmin is not a function",
+            ErrorCode::ServerError,
+        ),
+        ("Invalid credentials", ErrorCode::AuthenticationRejected),
+    ] {
+        let server = MockServer::start().await;
+        let store = Store::new(&server);
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("background.png");
+        std::fs::write(&file, [0, 255, 10]).unwrap();
+        Mock::given(method("POST"))
+            .and(path("/api/attachment/upload-background"))
+            .respond_with(
+                ResponseTemplate::new(401)
+                    .insert_header("retry-after", "5")
+                    .set_body_json(json!({"success":false,"error":server_error})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let error = run(
+            &server,
+            &store,
+            &[
+                "upload-background",
+                file.to_str().unwrap(),
+                "--board",
+                "b",
+                "--transport",
+                "raw",
+            ],
+            &FakeConfirmationProvider::declining(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code(), code);
+        assert_eq!(error.details().http_status, Some(401));
+        assert_eq!(error.details().server_error.as_deref(), Some(server_error));
+        assert_eq!(error.details().retry_after_seconds, None);
+        if code == ErrorCode::ServerError {
+            assert!(!error.message().contains("logout"));
+            assert!(!error.message().contains("log in again"));
+            assert!(error.message().contains("after storing the upload"));
+            assert_eq!(error.details().mutation_attempted, Some(true));
+            assert_eq!(error.details().retry_safe, Some(false));
+        }
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    }
 }

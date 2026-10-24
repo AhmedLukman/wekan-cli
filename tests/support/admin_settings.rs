@@ -1,4 +1,4 @@
-//! Explicit pinned v11.06 field inventory, shared only by verification.
+//! Explicit pinned v12.57 field inventory, shared only by verification.
 pub const GLOBAL_FIELDS: &[(&str, &str, &str, bool)] = &[
     (
         "disableRegistration",

@@ -19,6 +19,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         "number",
         "date",
         "dropdown",
+        "dropdownMultiSelect",
         "checkbox",
         "currency",
         "stringtemplate",
@@ -92,7 +93,7 @@ fn custom_field_cli_exposes_all_commands_and_exact_input_modes() {
         ])
         .unwrap();
     }
-    parse(&["custom-field","update","f","--show-on-card","false","--automatically-on-card","true","--always-on-card","false","--show-label-on-mini-card","true","--show-sum-at-top-of-list","false","--settings",r#"{"currencyCode":"USD","dropdownItems":[{"_id":"i","name":"N"}],"stringtemplateFormat":"x","stringtemplateSeparator":" "}"#]).unwrap();
+    parse(&["custom-field","update","f","--show-on-card","false","--automatically-on-card","true","--always-on-card","false","--show-label-on-mini-card","true","--show-sum-at-top-of-list","false","--settings",r#"{"currencyCode":"USD","dropdownItems":[{"_id":"i","name":"N"}],"stringtemplateFormat":"x","stringtemplateSeparator":" ","jiraTimeField":"original","jiraEstimateFieldId":"customfield_10001","jiraEstimateUnit":"points"}"#]).unwrap();
     for (family, verbs) in [
         (
             "custom-field",
@@ -179,6 +180,9 @@ fn parser_rejects_conflicts_unknown_settings_and_missing_targeting() {
         "[]",
         r#"{"future":true}"#,
         r#"{"currencyCode":42}"#,
+        r#"{"jiraTimeField":true}"#,
+        r#"{"jiraEstimateFieldId":42}"#,
+        r#"{"jiraEstimateUnit":[]}"#,
         r#"{"dropdownItems":false}"#,
         r#"{"dropdownItems":[{"_id":"i","name":"N","future":true}]}"#,
         r#"{"dropdownItems":[{"_id":"i"}]}"#,
@@ -210,6 +214,7 @@ fn settings_accept_nullable_properties_for_creation_and_update() {
         r#"{"dropdownItems":null}"#,
         r#"{"stringtemplateFormat":null}"#,
         r#"{"stringtemplateSeparator":null}"#,
+        r#"{"jiraTimeField":null,"jiraEstimateFieldId":null,"jiraEstimateUnit":null}"#,
         r#"{"currencyCode":null,"dropdownItems":null,"stringtemplateFormat":null,"stringtemplateSeparator":null}"#,
     ] {
         parse(&[

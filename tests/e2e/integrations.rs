@@ -56,10 +56,10 @@ fn assert_stored_token(integration: &str, expected: Option<&str>) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_INTEGRATION_E2E_URL"]
-async fn complete_integration_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_INTEGRATION_E2E_URL"]
+async fn complete_integration_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_INTEGRATION_E2E_URL")
-        .expect("set WEKAN_INTEGRATION_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_INTEGRATION_E2E_URL to an isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -124,7 +124,7 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
         register_live_board_role(&server, &canonical, &token, &board, nonce, "readonly").await;
     let (_normal_dir, normal, _) =
         register_live_board_role(&server, &canonical, &token, &board, nonce, "normal").await;
-    let (_outsider_dir, outsider, outsider_id) =
+    let (_outsider_dir, _outsider, outsider_id) =
         register_live_board_role(&server, &canonical, &token, &board, nonce + 1, "normal").await;
     run(
         &app,
@@ -185,6 +185,44 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
     assert_eq!(defaults["board_id"], board);
     assert!(defaults.get("token").is_none());
     assert_stored_token(integration, None);
+    assert!(defaults["notification_delivery"].is_null());
+    assert!(defaults["mattermost_direct_messages"].is_null());
+    assert!(defaults["bot"].is_null());
+    target.command(&["update", integration, "--notification-delivery", r#"{"webhook":{"text":false,"fields":["standard"],"schedule":"daily","dailyTime":"09:30","timezone":"Africa/Nairobi"}}"#]).await.unwrap();
+    let delivery = target.detail().await;
+    assert_eq!(delivery["notification_delivery"]["webhook"]["text"], false);
+    assert_eq!(
+        delivery["notification_delivery"]["webhook"]["daily_time"],
+        "09:30"
+    );
+    let invalid = target
+        .command(&[
+            "update",
+            integration,
+            "--notification-delivery",
+            r#"{"webhook":{"schedule":"invalid"}}"#,
+        ])
+        .await
+        .unwrap_err();
+    assert_eq!(invalid.details().http_status, Some(400));
+    assert_eq!(
+        target.detail().await["notification_delivery"],
+        delivery["notification_delivery"]
+    );
+    target
+        .command(&["update", integration, "--clear-notification-delivery"])
+        .await
+        .unwrap();
+    assert!(target.detail().await["notification_delivery"].is_null());
+    super::support::attachment_fixtures::fixture_command(
+        "mongodb",
+        "mongosh",
+        "db.getSiblingDB('wekan').integrations.updateOne({_id:p.id},{$set:{mattermostDirectMessages:true,bot:true}});print('{}');",
+        &json!({"id":integration}),
+    );
+    let flags = target.detail().await;
+    assert_eq!(flags["mattermost_direct_messages"], true);
+    assert_eq!(flags["bot"], true);
     target
         .command(&["update", integration, "--enabled", "false"])
         .await
@@ -358,7 +396,8 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
         }
     }
     assert_eq!(target.detail().await["title"], "Saved before rejection");
-    for app in [&reader, &normal] {
+    let mut permission_nonce = nonce + 100;
+    for (role, app) in [("readonly", &reader), ("normal", &normal)] {
         let scope = Target { app, ..target };
         assert_eq!(scope.detail().await["integration_id"], integration);
         assert_eq!(
@@ -375,23 +414,54 @@ async fn complete_integration_lifecycle_matches_wekan_v11_06() {
             vec!["activity", "add", integration, "--activity", "all"],
             vec!["activity", "remove", integration, "--activity", "all"],
         ] {
+            let (_probe_dir, probe, _) = register_live_board_role(
+                &server,
+                &canonical,
+                &token,
+                &board,
+                permission_nonce,
+                role,
+            )
+            .await;
+            permission_nonce += 1;
+            let denied = Target {
+                app: &probe,
+                ..target
+            };
             assert_eq!(
-                scope.command(&args).await.unwrap_err().code(),
+                denied.command(&args).await.unwrap_err().code(),
                 ErrorCode::PermissionDenied
             );
         }
     }
-    let scope = Target {
-        app: &outsider,
-        ..target
-    };
     for args in [
         vec!["list"],
         vec!["get", integration],
         vec!["create", "--url", "https://8.8.8.8/hook"],
     ] {
+        let (_probe_dir, probe, probe_id) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            &board,
+            permission_nonce,
+            "normal",
+        )
+        .await;
+        permission_nonce += 1;
+        run(
+            &app,
+            &server,
+            &["board", "member", "remove", &probe_id, "--board", &board],
+        )
+        .await
+        .unwrap();
+        let denied = Target {
+            app: &probe,
+            ..target
+        };
         assert_eq!(
-            scope.command(&args).await.unwrap_err().code(),
+            denied.command(&args).await.unwrap_err().code(),
             ErrorCode::PermissionDenied
         );
     }

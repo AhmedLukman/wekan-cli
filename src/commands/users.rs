@@ -120,10 +120,23 @@ pub(crate) async fn dispatch(
 
 fn user_detail(user: UserRecord) -> UserDetail {
     UserDetail {
+        passkeys: user.passkeys,
+        sqrl: user.sqrl,
+        web_push_subscriptions: user.web_push_subscriptions,
+        ntfy: user.ntfy,
+        notification_delivery_pending: user.notification_delivery_pending,
+
+        notification_delivery_revision: user.notification_delivery_revision,
+        feature_preview: user.feature_preview,
+        inactivity_clock_start: user.inactivity_clock_start,
+        login_disabled_reason: user.login_disabled_reason,
+        anonymized: user.anonymized,
+        anonymized_at: user.anonymized_at,
+
         user_id: user.user_id,
         username: user.username,
         full_name: user.profile.fullname.clone(),
-        profile: Box::new(user_profile(user.profile)),
+        profile: Box::new(user_profile(*user.profile)),
         created_through_api: user.created_through_api,
         heartbeat: user.heartbeat,
         session_data: user.session_data.map(|data| UserSessionData {
@@ -165,6 +178,8 @@ fn user_detail(user: UserRecord) -> UserDetail {
             .boards
             .into_iter()
             .map(|board| UserBoardMembership {
+                granted_by: board.granted_by,
+                custom_role_id: board.custom_role_id,
                 board_id: board.board_id,
                 is_active: board.is_active,
                 is_admin: board.is_admin,
@@ -220,6 +235,33 @@ fn user_dialog_options(
 
 fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
     UserProfileDetail {
+        chat_view_layout: profile.chat_view_layout,
+        email_to_card: profile.email_to_card,
+        notification_delivery: profile.notification_delivery,
+        my_dependencies: profile.my_dependencies,
+        notify_muted_activities: profile.notify_muted_activities,
+        notify_override_tray: profile.notify_override_tray,
+        notify_override_email: profile.notify_override_email,
+        webhook_hide_identity: profile.webhook_hide_identity,
+        unread_changes_since: profile.unread_changes_since,
+        keep_title_tags: profile.keep_title_tags,
+        checklist_ding_sound: profile.checklist_ding_sound,
+        dismissed_board_announcements: profile.dismissed_board_announcements,
+        card_label_text_override: profile.card_label_text_override,
+        show_label_text_override: profile.show_label_text_override,
+        board_labels: profile.board_labels,
+        hidden_boards: profile.hidden_boards,
+        starred_swimlanes: profile.starred_swimlanes,
+        starred_lists: profile.starred_lists,
+        starred_cards: profile.starred_cards,
+        default_board_template_id: profile.default_board_template_id,
+        default_board_template_board_id: profile.default_board_template_board_id,
+        board_views: profile.board_views,
+        show_board_dependencies: profile.show_board_dependencies,
+        show_my_dependencies: profile.show_my_dependencies,
+        board_visits: profile.board_visits,
+        dismissed_rule_suggestions: profile.dismissed_rule_suggestions,
+        date_format_override: profile.date_format_override,
         full_name: profile.fullname,
         avatar_url: profile.avatar_url,
         email_buffer: profile.email_buffer,
@@ -260,6 +302,7 @@ fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
                 .map(|item| UserProfileNotificationDetail {
                     activity: item.activity,
                     read: item.read,
+                    show_at: item.show_at,
                 })
                 .collect()
         }),
@@ -302,5 +345,8 @@ fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
         date_format: profile.date_format,
         mobile_mode: profile.mobile_mode,
         card_zoom: profile.card_zoom,
+        calendar_system: profile.calendar_system,
+        collapsed_cards: profile.collapsed_cards,
+        card_last_views: profile.card_last_views,
     }
 }

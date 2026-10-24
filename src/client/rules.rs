@@ -16,6 +16,11 @@ const MAX_RULE_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RuleDocument {
+    pub enabled: bool,
+    #[serde(rename = "extraTriggers")]
+    pub extra_triggers: Option<Vec<RuleTrigger>>,
+    #[serde(rename = "extraActions")]
+    pub extra_actions: Option<Vec<RuleAction>>,
     #[serde(rename = "_id")]
     pub rule_id: String,
     pub title: String,
@@ -59,6 +64,12 @@ pub struct CreateRuleRequest {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateRuleRequest {
+    #[serde(
+        default,
+        deserialize_with = "super::decoding::optional_non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enabled: Option<bool>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,

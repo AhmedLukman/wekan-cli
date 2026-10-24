@@ -211,7 +211,7 @@ async fn verify_list_copy(
     .await;
     let source_before = list_cards(admin, server, b, l).await;
     let target_before = list_cards(admin, server, target, target_list).await;
-    let eligible_titles = ["Eligible first", "Eligible second"];
+    let eligible_titles = ["Eligible first", "Eligible second", "Other swimlane"];
     let merged = run(
         writer,
         server,
@@ -249,8 +249,14 @@ async fn verify_list_copy(
     )
     .await
     .unwrap();
-    assert_eq!(self_copy["returned_list_id"], l.as_str());
-    assert_copied_cards(admin, server, (b, l, s), &source_before, &eligible_titles).await;
+    let self_list = self_copy["returned_list_id"].as_str().unwrap();
+    assert_ne!(
+        self_list,
+        l.as_str(),
+        "a same-board list copy creates a separate list"
+    );
+    assert_copied_cards(admin, server, (b, self_list, s), &[], &eligible_titles).await;
+    assert_eq!(list_cards(admin, server, b, l).await, source_before);
     for original in originals {
         assert_eq!(
             detail(admin, server, original["card_id"].as_str().unwrap()).await,
@@ -434,17 +440,10 @@ async fn verify_transfer_ordering(app: &LiveApp, server: &str) {
             ),
             ("--position-json", "false", 9.0),
         ] {
-            // Same-board list copy reuses its source list, so it must reposition
-            // that existing list too. Swimlane moves operate on an empty copy.
-            let action = if family == "list" && value == "[\"2\"]" {
-                "copy"
-            } else {
-                "move"
-            };
             let result = run(
                 app,
                 server,
-                &[family, action, id, "--board", &target, flag, value],
+                &[family, "move", id, "--board", &target, flag, value],
             )
             .await
             .unwrap();
@@ -473,8 +472,8 @@ async fn verify_transfer_ordering(app: &LiveApp, server: &str) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_TRANSFER_E2E_URL"]
-async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_TRANSFER_E2E_URL"]
+async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_TRANSFER_E2E_URL")
         .expect("set WEKAN_TRANSFER_E2E_URL to an isolated stack");
     let nonce = SystemTime::now()
@@ -882,7 +881,7 @@ async fn verify_empty_and_partial_moves(
     let copied = run(app, server, &["list", "copy", list_id, "--board", b])
         .await
         .unwrap();
-    assert_eq!(copied["returned_list_id"], list_id);
+    assert_ne!(copied["returned_list_id"], list_id);
     let moved = run(
         app,
         server,
@@ -1130,7 +1129,6 @@ async fn verify_list_move_filters(
             None
         };
         let card_id = card(app, server, source, list_id, &source_lane, title).await;
-        let card_before = detail(app, server, &card_id).await;
         // A second source lane proves the matching case does not simply move
         // the first available card. The reuse case needs one excluded card.
         let excluded = if existing_destination {
@@ -1183,7 +1181,7 @@ async fn verify_list_move_filters(
         if let Some(existing) = existing_list {
             assert_eq!(existing["list_id"], destination_id);
         }
-        if matching_filter || existing_destination {
+        {
             let error = result.unwrap_err();
             assert_eq!(error.details().http_status, Some(500));
             assert!(
@@ -1198,16 +1196,6 @@ async fn verify_list_move_filters(
             assert_eq!(
                 list_cards(app, server, target, destination_id).await.len(),
                 1
-            );
-        } else {
-            let acknowledged = result.unwrap();
-            assert_eq!(acknowledged["returned_list_id"], list_id);
-            assert!(acknowledged.get("mutation_confirmed").is_none());
-            assert_eq!(detail(app, server, &card_id).await, card_before);
-            assert!(
-                list_cards(app, server, target, destination_id)
-                    .await
-                    .is_empty()
             );
         }
         if let Some((id, original)) = excluded {
@@ -1270,53 +1258,53 @@ async fn verify_permissions(
     let denied = run(&readonly, server, &["board", "copy", b])
         .await
         .unwrap_err();
-    assert_eq!(denied.details().http_status, Some(500));
+    assert_eq!(denied.details().http_status, Some(403));
     let missing = run(app, server, &["card", "count", "--board", "missing"])
         .await
         .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
+    assert_eq!(missing.details().http_status, Some(404));
 }
 
-async fn verify_attachment_copy(app: &LiveApp, server: &str, nonce: u128) {
-    use super::support::attachment_fixtures::{fixture_command, seed};
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
+async fn verify_attachment_copy(app: &LiveApp, server: &str, _nonce: u128) {
+    use super::support::attachment_fixtures::fixture_command;
     let (b, l, s) = board(app, server, "Attachment source").await;
     let (target, target_list, target_lane) = board(app, server, "Attachment copies").await;
     let c = card(app, server, &b, &l, &s, "Attachment copy").await;
-    let attachment_id = format!("transferfile{nonce}");
-    let bytes = b"Native card copy fixture bytes";
-    let user_id = app
-        .credential_store()
-        .credential
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .2
-        .clone();
-    let input = json!({"id":attachment_id,"storage":"fs","background":false,
-        "path":format!("/data/files/attachments/{attachment_id}-original-fixture.bin"),
-        "data":STANDARD.encode(bytes),"board_id":b,"list_id":l,"swimlane_id":s,"card_id":c,"user_id":user_id});
-    let _stored = seed(&input);
-    fixture_command(
-        "mongodb",
-        "mongosh",
-        r#"
-        db.getSiblingDB('wekan').attachments.updateOne({_id:p.id},{$unset:{'versions.thumbnail':''}}); print('{}');
-    "#,
-        &input,
-    );
-    // Verify the source fixture is readable through the production boundary first.
+    let bytes = [0_u8, 255, 13, 10, 42];
     let dir = TestDirectory::new("source-attachment");
-    let file = dir.path().join("fixture.bin");
+    let source = dir.path().join("original.bin");
+    fs::write(&source, bytes).unwrap();
+    let uploaded = run(
+        app,
+        server,
+        &[
+            "attachment",
+            "upload",
+            source.to_str().unwrap(),
+            "--transport",
+            "raw",
+            "--board",
+            &b,
+            "--swimlane-id",
+            &s,
+            "--list",
+            &l,
+            "--card",
+            &c,
+        ],
+    )
+    .await
+    .unwrap();
+    let attachment_id = uploaded["attachment_id"].as_str().unwrap();
+    let file = dir.path().join("download.bin");
     run(
         app,
         server,
         &[
             "attachment",
             "download",
-            &attachment_id,
+            attachment_id,
             "--destination",
             file.to_str().unwrap(),
         ],
@@ -1401,20 +1389,48 @@ async fn verify_attachment_copy(app: &LiveApp, server: &str, nonce: u128) {
     assert!(board_copy.get("mutation_confirmed").is_none());
     let copied_board = board_copy["board_id"].as_str().unwrap();
     assert_eq!(count(app, server, copied_board, None).await, 1);
-    // W11-047: all four successful deep copies call an unawaited helper that
-    // immediately rejects with ReferenceError: ReactiveCache is not defined.
+    // W11-047 is fixed: each deep-copy operation creates an independently readable file.
     let result = fixture_command(
         "mongodb",
         "mongosh",
-        r#"
-        const w=db.getSiblingDB('wekan'); await new Promise(r=>setTimeout(r,1000));
-        print(JSON.stringify({copies:w.attachments.countDocuments({'meta.copyFrom':p.id}),
-          destination:w.attachments.countDocuments({'meta.boardId':{$in:p.targets}}),
-          source:w.attachments.countDocuments({_id:p.id})}));
-    "#,
-        &json!({"id":attachment_id,"targets":[target,copied_board]}),
+        r#"const w=db.getSiblingDB('wekan');print(JSON.stringify({copies:w.attachments.find({'meta.copyFrom':p.id},{_id:1,'meta.boardId':1}).toArray(),source:w.attachments.countDocuments({_id:p.id})}));"#,
+        &json!({"id":attachment_id}),
     );
-    assert_eq!(result, json!({"copies":0,"destination":0,"source":1}));
+    assert_eq!(result["source"], 1);
+    let copies = result["copies"].as_array().unwrap();
+    assert_eq!(copies.len(), 4);
+    assert_eq!(
+        copies
+            .iter()
+            .filter(|a| a["meta"]["boardId"] == target)
+            .count(),
+        3
+    );
+    assert_eq!(
+        copies
+            .iter()
+            .filter(|a| a["meta"]["boardId"] == copied_board)
+            .count(),
+        1
+    );
+    for attachment in copies {
+        let id = attachment["_id"].as_str().unwrap();
+        let path = dir.path().join(format!("{id}.bin"));
+        run(
+            app,
+            server,
+            &[
+                "attachment",
+                "download",
+                id,
+                "--destination",
+                path.to_str().unwrap(),
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
     for id in [&b, &target, copied_board] {
         run(app, server, &["board", "delete", id, "--yes"])
             .await

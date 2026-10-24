@@ -179,8 +179,8 @@ async fn commands_map_full_results_and_sparse_updates_with_one_native_request() 
         (
             vec!["get", "r"],
             "GET",
-            json!({"_id":"r","title":"Title","trigger":{"activityType":"button","buttonLabel":"Run","desc":null},"action":null}),
-            json!({"board_id":"b","rule_id":"r","title":"Title","trigger":{"activity_type":"button","button_label":"Run","desc":null},"action":null}),
+            json!({"_id":"r","title":"Title","enabled":true,"trigger":{"activityType":"button","buttonLabel":"Run","desc":null},"action":null}),
+            json!({"board_id":"b","rule_id":"r","title":"Title","enabled":true,"extra_triggers":null,"extra_actions":null,"trigger":{"activity_type":"button","button_label":"Run","desc":null},"action":null}),
             None,
         ),
         (
@@ -200,6 +200,25 @@ async fn commands_map_full_results_and_sparse_updates_with_one_native_request() 
             json!({"_id":"r"}),
             json!({"board_id":"b","rule_id":"r","submitted_fields":[]}),
             Some(json!({})),
+        ),
+        (
+            vec!["update", "r", "--rule", r#"{"enabled":false}"#],
+            "PUT",
+            json!({"_id":"r"}),
+            json!({"board_id":"b","rule_id":"r","submitted_fields":["enabled"]}),
+            Some(json!({"enabled":false})),
+        ),
+        (
+            vec![
+                "update",
+                "r",
+                "--rule",
+                r#"{"enabled":true,"title":"Resumed"}"#,
+            ],
+            "PUT",
+            json!({"_id":"r"}),
+            json!({"board_id":"b","rule_id":"r","submitted_fields":["title","enabled"]}),
+            Some(json!({"enabled":true,"title":"Resumed"})),
         ),
         (
             vec![
@@ -289,6 +308,24 @@ async fn invalid_json_and_create_requirements_fail_without_http() {
     }
     assert!(server.received_requests().await.unwrap().is_empty());
 }
+#[tokio::test]
+async fn null_rule_enabled_fails_before_credentials_and_http() {
+    let server = MockServer::start().await;
+    let store = Store {
+        record: Mutex::new(None),
+    };
+    let error = run(
+        &server,
+        &store,
+        &["update", "r", "--rule", r#"{"enabled":null}"#],
+        &FakeConfirmationProvider::declining(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidInput);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
 #[tokio::test]
 async fn invalid_timestamps_fail_before_credentials_and_http() {
     let server = MockServer::start().await;
@@ -420,7 +457,7 @@ async fn mutation_failures_preserve_server_status_and_possible_partial_effects()
 #[tokio::test]
 async fn human_output_escapes_untrusted_rule_text() {
     let server = MockServer::start().await;
-    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"r","title":"x\u{1b}[31m","trigger":null,"action":{"emailMsg":"\u{1b}]52;c;secret\u{7}"}}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"r","title":"x\u{1b}[31m","enabled":true,"trigger":null,"action":{"emailMsg":"\u{1b}]52;c;secret\u{7}"}}))).mount(&server).await;
     let result = run(
         &server,
         &Store::new(&server),

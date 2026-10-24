@@ -36,7 +36,7 @@ their clients lazily.
 | `app.rs` | Dependency composition, common target preparation, root dispatch, profile error context |
 | `commands/<resource>.rs` | Resource vocabulary and leaf dispatch |
 | `commands/<resource>/<operation>.rs` | Operation arguments, orchestration, and response-to-result mapping |
-| `client/<resource>.rs` | Wekan v11.06 routes, request/response DTOs, and semantic validation |
+| `client/<resource>.rs` | Wekan v12.57 routes, request/response DTOs, and semantic validation |
 | `client/transport.rs`, `client/decoding.rs` | Bounded HTTP execution, embedded Wekan errors, strict decoding, and safe diagnostics |
 | `command_result/<resource>.rs` | Stable CLI result types, separate from wire DTOs |
 | `output/<resource>.rs` | Human rendering for that resource |
@@ -77,7 +77,7 @@ fields, dates, people/labels, and global options.
 Unit tests cover policy, mapping, rendering, and failure paths. Black-box CLI
 tests cover arguments, help, streams, and exit statuses. HTTP
 contract tests cover actual request serialization and strict response decoding.
-Live tests use isolated Wekan v11.06 stacks to verify server behavior.
+Live tests use isolated Wekan v12.57 stacks to verify server behavior.
 
 See [the authentication architecture](auth-architecture.md) for transaction and
 locking details, and [the agent contract](agent-contract.md) for output semantics.

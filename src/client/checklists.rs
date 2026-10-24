@@ -7,13 +7,7 @@ use super::{
     ClientError, WekanClient, datetime::validate_response_date, transport::decode_success,
 };
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ChecklistSummary {
-    #[serde(rename(deserialize = "_id", serialize = "checklist_id"))]
-    pub checklist_id: String,
-    pub title: String,
-}
+pub type ChecklistSummary = ChecklistDocument;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
@@ -21,6 +15,7 @@ pub struct ChecklistSummary {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct ChecklistItemSummary {
+    pub due_at: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "item_id"))]
     pub item_id: String,
     pub title: String,
@@ -33,10 +28,13 @@ pub struct ChecklistItemSummary {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct ChecklistDocument {
+    pub last_reset_at: Option<String>,
+    pub reset_interval: Option<String>,
+    pub due_at: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "checklist_id"))]
     pub checklist_id: String,
     pub card_id: String,
-    /// Denormalized metadata; v11.06 REST card moves can leave the source board ID.
+    /// Denormalized metadata; v12.57 REST card moves can leave the source board ID.
     pub board_id: Option<String>,
     pub user_id: Option<String>,
     pub title: String,
@@ -72,6 +70,15 @@ pub struct CreateChecklistResult {
     pub checklist_id: String,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateChecklistRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<Option<String>>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DeleteChecklistResult {
     pub checklist_id: String,
@@ -85,6 +92,34 @@ struct IdResponse {
 }
 
 impl WekanClient {
+    pub async fn update_checklist(
+        &self,
+        board_id: &str,
+        card_id: &str,
+        checklist_id: &str,
+        request: &UpdateChecklistRequest,
+        token: &SecretString,
+    ) -> Result<CreateChecklistResult, ClientError> {
+        let body = self
+            .execute_success_request(
+                self.http
+                    .put(self.checklist_endpoint(board_id, card_id, Some(checklist_id))?)
+                    .header(ACCEPT, "application/json")
+                    .bearer_auth(token.expose_secret())
+                    .json(request),
+            )
+            .await?;
+        let response: IdResponse = decode_success(&body, "checklist update", true)?;
+        require_id(&response.id, "updated checklist id")?;
+        if response.id != checklist_id {
+            return Err(protocol_error(
+                "the updated checklist ID did not match the requested checklist",
+            ));
+        }
+        Ok(CreateChecklistResult {
+            checklist_id: response.id,
+        })
+    }
     pub async fn card_checklists(
         &self,
         board_id: &str,
@@ -103,6 +138,26 @@ impl WekanClient {
             decode_success(&body, "card checklist collection", true)?;
         for checklist in &checklists {
             require_id(&checklist.checklist_id, "checklist id")?;
+            require_id(&checklist.card_id, "card id")?;
+            if checklist.card_id != card_id {
+                return Err(protocol_error(
+                    "the checklist collection contains a checklist for another card",
+                ));
+            }
+            for date in [&checklist.created_at, &checklist.modified_at]
+                .into_iter()
+                .chain(checklist.finished_at.iter())
+                .chain(checklist.due_at.iter())
+                .chain(checklist.last_reset_at.iter())
+            {
+                require_date(date)?;
+            }
+            for item in &checklist.items {
+                require_id(&item.item_id, "item id")?;
+                if let Some(date) = &item.due_at {
+                    require_date(date)?;
+                }
+            }
         }
         Ok(checklists)
     }
@@ -139,11 +194,16 @@ impl WekanClient {
         for date in [&checklist.created_at, &checklist.modified_at]
             .into_iter()
             .chain(checklist.finished_at.iter())
+            .chain(checklist.due_at.iter())
+            .chain(checklist.last_reset_at.iter())
         {
             require_date(date)?;
         }
         for item in &checklist.items {
             require_id(&item.item_id, "item id")?;
+            if let Some(date) = &item.due_at {
+                require_date(date)?;
+            }
         }
         Ok(checklist)
     }

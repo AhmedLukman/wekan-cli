@@ -16,6 +16,19 @@ fn inspect_xlsx(bytes: &[u8]) {
             .expect("every XLSX entry must decompress and pass its CRC");
     }
 }
+fn workbook_text(bytes: &[u8]) -> String {
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let mut text = String::new();
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index).unwrap();
+        if entry.name().unwrap().ends_with(".xml") {
+            let mut part = String::new();
+            entry.read_to_string(&mut part).unwrap();
+            text.push_str(&part);
+        }
+    }
+    text
+}
 fn inspect_pdf(bytes: &[u8]) {
     assert!(bytes.starts_with(b"%PDF-"));
     assert!(bytes.windows(5).any(|w| w == b"%%EOF"));
@@ -55,6 +68,170 @@ async fn raw(app: &LiveApp, server: &str, args: &[&str]) -> Vec<u8> {
 }
 fn mongo(script: &str, input: &Value) -> Value {
     fixture_command("mongodb", "mongosh", script, input)
+}
+
+async fn verify_custom_field_and_movement_exports(app: &LiveApp, server: &str, token: &str) {
+    let CommandSuccess::BoardCreated(board) = execute_live_board(
+        app,
+        server,
+        &["create", "--title", "Export metadata regressions"],
+    )
+    .await
+    .unwrap() else {
+        panic!("metadata board")
+    };
+    let b = &board.board_id;
+    let CommandSuccess::CustomFieldCreated(field) = run(
+        app,
+        server,
+        &[
+            "custom-field",
+            "create",
+            "--board",
+            b,
+            "--name",
+            "Score",
+            "--type",
+            "number",
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("custom-field")
+    };
+    for phase in ["defaults", "configured", "legacy"] {
+        if phase == "configured" {
+            // Exercise the same collection method as the custom-field settings UI.
+            tokio::time::timeout(std::time::Duration::from_secs(30), async {
+                let mut session = ddp::Session::login(server, token).await;
+                session
+                    .call(
+                        "/customFields/update",
+                        json!([{"_id":field.custom_field_id},{"$set":{
+                            "readOnly":true,"adminOnly":true,"cardKinds":["story","task"],"sort":2.5
+                        }}]),
+                    )
+                    .await;
+                session.close().await;
+            })
+            .await
+            .expect("custom-field settings fixture timed out");
+        } else if phase == "legacy" {
+            // A pre-feature record has no metadata; the native exporter does not add defaults.
+            mongo(
+                "db.getSiblingDB('wekan').customFields.updateOne({_id:p.id},{$unset:{readOnly:'',adminOnly:'',cardKinds:'',sort:''}});print('{}');",
+                &json!({"id":field.custom_field_id}),
+            );
+        }
+        let mut stored = mongo(
+            "print(JSON.stringify(db.getSiblingDB('wekan').customFields.findOne({_id:p.id})));",
+            &json!({"id":field.custom_field_id}),
+        );
+        match phase {
+            "defaults" => {
+                assert_eq!(stored["readOnly"], false);
+                assert_eq!(stored["adminOnly"], false);
+                assert!(stored.get("cardKinds").is_none());
+                assert!(stored.get("sort").is_none());
+            }
+            "configured" => {
+                assert_eq!(stored["readOnly"], true);
+                assert_eq!(stored["adminOnly"], true);
+                assert_eq!(stored["cardKinds"], json!(["story", "task"]));
+                assert_eq!(stored["sort"], 2.5);
+            }
+            _ => {
+                for property in ["readOnly", "adminOnly", "cardKinds", "sort"] {
+                    assert!(stored.get(property).is_none());
+                }
+            }
+        }
+        let bytes = raw(app, server, &["board", "export", b, "--format", "json"]).await;
+        let exported: Value = serde_json::from_slice(&bytes).unwrap();
+        // Native JSON excludes boardIds but otherwise preserves the actual persisted definition.
+        stored.as_object_mut().unwrap().remove("boardIds");
+        assert_eq!(exported["customFields"], json!([stored]), "{phase}");
+    }
+
+    let mut lists = Vec::new();
+    for title in ["Todo", "Review"] {
+        let CommandSuccess::ListCreated(list) =
+            execute_live_list(app, server, &["create", "--board", b, "--title", title])
+                .await
+                .unwrap()
+        else {
+            panic!("movement list")
+        };
+        lists.push(list.list_id);
+    }
+    let CommandSuccess::CardCreated(card) = execute_live_card(
+        app,
+        server,
+        &[
+            "create",
+            "--board",
+            b,
+            "--list",
+            &lists[0],
+            "--swimlane-id",
+            &board.default_swimlane_id,
+            "--title",
+            "Move for export",
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("movement card")
+    };
+    for (from, to, reason) in [
+        (&lists[0], &lists[1], Some("  Ready for review  ")),
+        (&lists[1], &lists[0], None),
+    ] {
+        let mut args = vec![
+            "card",
+            "update",
+            &card.card_id,
+            "--board",
+            b,
+            "--list",
+            from,
+            "--list-id",
+            to,
+        ];
+        if let Some(reason) = reason {
+            args.extend(["--move-reason", reason]);
+        }
+        run(app, server, &args).await.unwrap();
+        let stored = mongo(
+            "const w=db.getSiblingDB('wekan');print(JSON.stringify({card:w.cards.findOne({_id:p.card},{listId:1,lastMoveReason:1}),activity:w.activities.findOne({cardId:p.card,activityType:'moveCard',listId:p.list})}));",
+            &json!({"card":card.card_id,"list":to}),
+        );
+        let expected = reason.unwrap_or("").trim();
+        assert_eq!(stored["card"]["listId"], to.as_str());
+        if expected.is_empty() {
+            assert!(stored["card"].get("lastMoveReason").is_none());
+        } else {
+            assert_eq!(stored["card"]["lastMoveReason"], expected);
+        }
+        assert_eq!(stored["activity"]["moveReason"], expected);
+        let bytes = raw(app, server, &["board", "export", b, "--format", "json"]).await;
+        let exported: Value = serde_json::from_slice(&bytes).unwrap();
+        let activities = exported["activities"].as_array().unwrap();
+        let moved = activities
+            .iter()
+            .find(|activity| activity["_id"] == stored["activity"]["_id"])
+            .expect("export must include the independently stored movement activity");
+        let mut expected = stored["activity"].clone();
+        expected.as_object_mut().unwrap().remove("boardId");
+        assert_eq!(moved, &expected);
+        assert!(activities.iter().any(|activity| {
+            activity["activityType"] == "createCard" && activity.get("moveReason").is_none()
+        }));
+    }
+    execute_live_board(app, server, &["delete", b, "--yes"])
+        .await
+        .unwrap();
+    wait_for_live_board_absent(&reqwest::Client::new(), server, token, b).await;
 }
 
 async fn import_and_export(
@@ -107,9 +284,310 @@ async fn import_and_export(
     (board_id, exported_activity["source"].clone())
 }
 
+async fn external_export(app: &LiveApp, server: &str, board: &str, format: &str) -> Value {
+    let bytes = raw(app, server, &["board", "export", board, "--format", format]).await;
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn gitlab_issue(app: &LiveApp, server: &str, board: &str) -> Value {
+    let issues = external_export(app, server, board, "gitlab").await;
+    let issues = issues
+        .as_array()
+        .expect("GitLab export must be an issue array");
+    assert_eq!(issues.len(), 1);
+    issues[0].clone()
+}
+
+async fn verify_external_comment_authors(
+    app: &LiveApp,
+    server: &str,
+    board: &str,
+    text: &str,
+    author: Option<&str>,
+) {
+    for (format, pointer, text_pointer, identity_pointer) in [
+        ("kanboard", "/tasks/0/comments/0", "/comment", "/username"),
+        (
+            "deck",
+            "/stacks/0/cards/0/comments/0",
+            "/message",
+            "/actorId",
+        ),
+        (
+            "openproject",
+            "/_embedded/elements/0/_embedded/activities/0",
+            "/comment/raw",
+            "/_links/user/title",
+        ),
+        (
+            "jira",
+            "/issues/0/fields/comment/comments/0",
+            "/body",
+            "/author/name",
+        ),
+        ("asana", "/data/0/stories/0", "/text", "/created_by/name"),
+        ("zenkit", "/items/0/comments/0", "/text", "/author"),
+    ] {
+        let document = external_export(app, server, board, format).await;
+        let comment = document.pointer(pointer).expect("native retained comment");
+        assert_eq!(comment.pointer(text_pointer).unwrap(), text, "{format}");
+        match author {
+            Some(name) => assert_eq!(comment.pointer(identity_pointer).unwrap(), name, "{format}"),
+            None => {
+                assert!(comment.pointer(identity_pointer).is_none(), "{format}");
+                if matches!(format, "openproject" | "jira" | "asana") {
+                    let (parent, _) = identity_pointer.rsplit_once('/').unwrap();
+                    assert_eq!(comment.pointer(parent).unwrap(), &json!({}), "{format}");
+                }
+            }
+        }
+    }
+}
+
+async fn verify_external_planning_and_retained_comments(
+    app: &LiveApp,
+    server: &str,
+    token: &str,
+    nonce: u128,
+) {
+    let CommandSuccess::BoardCreated(board) = execute_live_board(
+        app,
+        server,
+        &["create", "--title", "External export regressions"],
+    )
+    .await
+    .unwrap() else {
+        panic!("GitLab export board")
+    };
+    let b = &board.board_id;
+    let CommandSuccess::ListCreated(list) =
+        execute_live_list(app, server, &["create", "--board", b, "--title", "Todo"])
+            .await
+            .unwrap()
+    else {
+        panic!("GitLab export list")
+    };
+    let CommandSuccess::CardCreated(card) = execute_live_card(
+        app,
+        server,
+        &[
+            "create",
+            "--board",
+            b,
+            "--list",
+            &list.list_id,
+            "--swimlane-id",
+            &board.default_swimlane_id,
+            "--title",
+            "GitLab planning and comment history",
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("GitLab export card")
+    };
+    let canonical = ServerUrl::parse(server).unwrap().as_str().to_owned();
+    let (_author_directory, author, author_id) =
+        register_live_board_role(server, &canonical, token, b, nonce + 777, "normal").await;
+    let CommandSuccess::UserCurrent(author_record) =
+        execute_live_user(&author, server, &["current"])
+            .await
+            .unwrap()
+    else {
+        panic!("GitLab comment author")
+    };
+    let author_name = author_record
+        .username
+        .expect("registered author has a username");
+    let text = "Comment retained after its author deletes their account";
+    let CommandSuccess::CommentCreated(comment) = run(
+        &author,
+        server,
+        &[
+            "comment",
+            "create",
+            "--board",
+            b,
+            "--card",
+            &card.card_id,
+            "--text",
+            text,
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("GitLab export comment")
+    };
+    let before = gitlab_issue(app, server, b).await;
+    assert_eq!(before["notes"][0]["body"], text);
+    assert_eq!(before["notes"][0]["author"]["username"], author_name);
+    assert!(before.get("iteration").is_none());
+    assert!(before.get("milestone").is_none());
+    verify_external_comment_authors(app, server, b, text, Some(&author_name)).await;
+
+    // The native account-deletion hook keeps comments and removes the user;
+    // the GitLab formatter consequently emits an empty note-author object.
+    let CommandSuccess::UserDeleted(deleted) =
+        execute_live_user(app, server, &["delete", &author_id, "--yes"])
+            .await
+            .unwrap()
+    else {
+        panic!("GitLab comment-author deletion")
+    };
+    assert!(deleted.deleted);
+    assert!(!deleted.deleted_current_user);
+    let stored = mongo(
+        "const w=db.getSiblingDB('wekan');print(JSON.stringify({user:w.users.findOne({_id:p.user}),comment:w.card_comments.findOne({_id:p.comment})}));",
+        &json!({"user":author_id,"comment":comment.comment_id}),
+    );
+    assert!(stored["user"].is_null());
+    assert_eq!(stored["comment"]["userId"], author_id);
+    assert_eq!(stored["comment"]["text"], text);
+    let retained = gitlab_issue(app, server, b).await;
+    assert_eq!(retained["notes"][0]["body"], text);
+    assert_eq!(retained["notes"][0]["author"], json!({}));
+    assert_eq!(
+        retained["notes"][0]["created_at"],
+        before["notes"][0]["created_at"]
+    );
+    verify_external_comment_authors(app, server, b, text, None).await;
+    run(
+        &author,
+        server,
+        &["auth", "logout", "--local-only", "--yes"],
+    )
+    .await
+    .unwrap();
+
+    // Create and edit planning records through the same methods as the Scrum UI.
+    let (sprint, release) = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        let mut session = ddp::Session::login(server, token).await;
+        let sprint = session
+            .call(
+                "scrum.saveSprint",
+                json!([b, null, {"name":"Undated sprint"}]),
+            )
+            .await;
+        session
+            .call(
+                "scrum.updateCard",
+                json!([b,card.card_id,{"sprintId":sprint["_id"]}]),
+            )
+            .await;
+        session.close().await;
+        let openproject = external_export(app, server, b, "openproject").await;
+        let planning = &openproject["_embedded"]["sprints"][0];
+        for field in ["description", "startDate", "finishDate"] {
+            assert!(planning.get(field).is_none(), "{field}");
+        }
+        let mut session = ddp::Session::login(server, token).await;
+        let sprint = session
+            .call(
+                "scrum.saveSprint",
+                json!([b,sprint["_id"],{"goal":"Sprint goal"},sprint["revision"]]),
+            )
+            .await;
+        session.close().await;
+        let issue = gitlab_issue(app, server, b).await;
+        assert_eq!(issue["iteration"]["title"], "Undated sprint");
+        assert_eq!(issue["iteration"]["description"], "Sprint goal");
+        assert_eq!(issue["iteration"]["state"], 1);
+        assert!(issue["iteration"].get("start_date").is_none());
+        assert!(issue["iteration"].get("due_date").is_none());
+
+        let mut session = ddp::Session::login(server, token).await;
+        let release = session
+            .call(
+                "scrum.saveRelease",
+                json!([b,null,{"name":"Undated release"}]),
+            )
+            .await;
+        session
+            .call(
+                "scrum.updateCard",
+                json!([b,card.card_id,{"releaseId":release["_id"]}]),
+            )
+            .await;
+        session.close().await;
+        let openproject = external_export(app, server, b, "openproject").await;
+        let planning = &openproject["_embedded"]["versions"][0];
+        for field in ["description", "startDate", "endDate"] {
+            assert!(planning.get(field).is_none(), "{field}");
+        }
+        assert_eq!(
+            openproject["_embedded"]["sprints"][0]["description"]["raw"],
+            "Sprint goal"
+        );
+        assert_eq!(
+            openproject["_embedded"]["elements"][0]["_links"]["version"],
+            json!({"href":"/api/v3/versions/1","title":"Undated release"})
+        );
+        let mut session = ddp::Session::login(server, token).await;
+        let release = session
+            .call(
+                "scrum.saveRelease",
+                json!([b,release["_id"],{"notes":"Release notes"},release["revision"]]),
+            )
+            .await;
+        session.close().await;
+        (sprint, release)
+    })
+    .await
+    .expect("GitLab planning fixtures timed out");
+    let undated = gitlab_issue(app, server, b).await;
+    assert_eq!(undated["milestone"]["id"], 1);
+    assert_eq!(undated["milestone"]["iid"], 1);
+    assert_eq!(undated["milestone"]["title"], "Undated release");
+    assert_eq!(undated["milestone"]["description"], "Release notes");
+    assert_eq!(undated["milestone"]["state"], "active");
+    for field in ["iteration", "milestone"] {
+        assert!(undated[field].get("start_date").is_none());
+        assert!(undated[field].get("due_date").is_none());
+    }
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        let mut session = ddp::Session::login(server, token).await;
+        for (method, record) in [
+            ("scrum.saveSprint", &sprint),
+            ("scrum.saveRelease", &release),
+        ] {
+            session
+                .call(
+                    method,
+                    json!([b,record["_id"],{
+                    "plannedStart":"2030-01-02T00:00:00Z","plannedEnd":"2030-01-09T00:00:00Z"
+                },record["revision"]]),
+                )
+                .await;
+        }
+        session.close().await;
+    })
+    .await
+    .expect("dated GitLab planning fixtures timed out");
+    let dated = gitlab_issue(app, server, b).await;
+    for field in ["iteration", "milestone"] {
+        assert_eq!(dated[field]["start_date"], "2030-01-02");
+        assert_eq!(dated[field]["due_date"], "2030-01-09");
+    }
+    assert_eq!(dated["notes"][0]["author"], json!({}));
+    let openproject = external_export(app, server, b, "openproject").await;
+    for (collection, end, description) in [
+        ("versions", "endDate", "Release notes"),
+        ("sprints", "finishDate", "Sprint goal"),
+    ] {
+        let planning = &openproject["_embedded"][collection][0];
+        assert_eq!(planning["startDate"], "2030-01-02");
+        assert_eq!(planning[end], "2030-01-09");
+        assert_eq!(planning["description"]["raw"], description);
+    }
+    execute_live_board(app, server, &["delete", b, "--yes"])
+        .await
+        .unwrap();
+    wait_for_live_board_absent(&reqwest::Client::new(), server, token, b).await;
+}
+
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_EXPORT_E2E_URL"]
-async fn complete_export_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_EXPORT_E2E_URL"]
+async fn complete_export_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_EXPORT_E2E_URL")
         .expect("set WEKAN_EXPORT_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()
@@ -290,7 +768,7 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
         &["board", "export", b, "--format", "json"],
     )
     .await;
-    for (resource, id, scope, format) in [
+    for (case, (resource, id, scope, format)) in [
         ("board", b.as_str(), vec![], Some("csv")),
         ("board", b.as_str(), vec![], Some("tsv")),
         ("board", b.as_str(), vec![], Some("xlsx")),
@@ -306,19 +784,32 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
             vec!["--board", b],
             None,
         ),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (_probe_dir, probe, _) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            b,
+            nonce + 100 + case as u128,
+            "normal",
+        )
+        .await;
         let mut denied = vec![resource, "export", id, "--destination", "-"];
         denied.extend(scope.clone());
         if let Some(format) = format {
             denied.extend(["--format", format]);
         }
-        let error = run(&normal, &server, &denied).await.unwrap_err();
-        assert_eq!(error.details().http_status, Some(403));
-        let mut accepted = denied;
+        let mut accepted = denied.clone();
         accepted.push("--auth-token-query");
         let cli = Cli::try_parse_from(["wekan", "--server", &server].into_iter().chain(accepted))
             .unwrap();
-        normal.execute(cli.command).await.unwrap();
+        probe.execute(cli.command).await.unwrap();
+        // W12-002: attachment Bearer denial can disable a legitimate member.
+        let error = run(&probe, &server, &denied).await.unwrap_err();
+        assert_eq!(error.details().http_status, Some(403));
     }
     inspect_pdf(&raw(&normal, &server, &["board", "export", b, "--format", "pdf"]).await);
     inspect_pdf(
@@ -658,7 +1149,7 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
     )
     .await;
     inspect_xlsx(&board_locale);
-    let zip = run(
+    let bytes = raw(
         &app,
         &server,
         &[
@@ -667,14 +1158,149 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
             b,
             "--format",
             "zip",
-            "--destination",
-            "-",
             "--auth-token-query",
         ],
     )
+    .await;
+    let mut archive = zip::ZipArchive::new(Cursor::new(&bytes)).unwrap();
+    let document: Value = serde_json::from_reader(archive.by_name("wekan.json").unwrap()).unwrap();
+    assert_eq!(document["_id"], *b);
+    let attachment_name = "attachments/fixture.bin";
+    let mut attachment_bytes = Vec::new();
+    archive
+        .by_name(attachment_name)
+        .unwrap()
+        .read_to_end(&mut attachment_bytes)
+        .unwrap();
+    assert_eq!(attachment_bytes, [0, 255, 10]);
+    for index in 0..archive.len() {
+        let mut bytes = Vec::new();
+        archive
+            .by_index(index)
+            .unwrap()
+            .read_to_end(&mut bytes)
+            .unwrap();
+    }
+    // Native ZIP exports omit attachment IDs from filenames, while both ZIP
+    // import modes resolve entries by ID. Preserve this verified server failure.
+    let roundtrip_dir = TestDirectory::new("native-zip-roundtrip");
+    let roundtrip_file = roundtrip_dir.path().join("board.zip");
+    std::fs::write(&roundtrip_file, &bytes).unwrap();
+    // W12-005: the tracked importer starts outside the DDP identity context.
+    for members_mode in [None, Some("me")] {
+        let mut args = vec![
+            "board",
+            "import-zip",
+            roundtrip_file.to_str().unwrap(),
+            "--new-board",
+        ];
+        if let Some(mode) = members_mode {
+            args.extend(["--members-mode", mode]);
+        }
+        let error = run(&app, &server, &args).await.unwrap_err();
+        assert_eq!(error.code(), ErrorCode::ServerError);
+        assert_eq!(error.details().http_status, Some(500));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("import-failed")
+        );
+    }
+    let CommandSuccess::BoardCreated(scoped_board) = execute_live_board(
+        &app,
+        &server,
+        &["create", "--title", "ZIP roundtrip target"],
+    )
     .await
-    .unwrap_err();
-    assert_eq!(zip.details().http_status, Some(500));
+    .unwrap() else {
+        panic!("ZIP target");
+    };
+    let CommandSuccess::ZipImported(scoped) = run(
+        &app,
+        &server,
+        &[
+            "board",
+            "import-zip",
+            roundtrip_file.to_str().unwrap(),
+            "--board",
+            &scoped_board.board_id,
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("scoped ZIP import");
+    };
+    assert_eq!(scoped.counts.cards, 1);
+    assert_eq!(scoped.counts.attachments, 0);
+    for id in [&scoped_board.board_id] {
+        execute_live_board(&app, &server, &["delete", id, "--yes"])
+            .await
+            .unwrap();
+    }
+    // W11-063: GridFS downloads and ZIP streams retain bytes, but JSON reads a filesystem path.
+    let grid_id = format!("export-grid-{nonce}");
+    let grid_bytes = [0_u8, 255, 13, 10, 42];
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let _grid = seed(
+        &json!({"id":grid_id,"storage":"gridfs","background":false,"data":STANDARD.encode(grid_bytes),"user_id":user.user_id,"board_id":b,"swimlane_id":s,"list_id":l,"card_id":c}),
+    );
+    let grid_download = roundtrip_dir.path().join("grid.bin");
+    run(
+        &app,
+        &server,
+        &[
+            "attachment",
+            "download",
+            &grid_id,
+            "--destination",
+            grid_download.to_str().unwrap(),
+        ],
+    )
+    .await
+    .unwrap();
+    assert_eq!(std::fs::read(&grid_download).unwrap(), grid_bytes);
+    let grid_json = raw(&app, &server, &["board", "export", b, "--format", "json"]).await;
+    let grid_json: Value = serde_json::from_slice(&grid_json).unwrap();
+    let row = grid_json["attachments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["_id"] == grid_id)
+        .unwrap();
+    assert_eq!(row["file"], "");
+    let grid_single = raw(
+        &app,
+        &server,
+        &[
+            "attachment",
+            "export",
+            &grid_id,
+            "--board",
+            b,
+            "--auth-token-query",
+        ],
+    )
+    .await;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&grid_single).unwrap()["file"],
+        Value::Null
+    );
+    let grid_zip = raw(&app, &server, &["board", "export", b, "--format", "zip"]).await;
+    let mut grid_zip = zip::ZipArchive::new(Cursor::new(grid_zip)).unwrap();
+    let mut found_grid = false;
+    let mut attachment_names = std::collections::BTreeSet::new();
+    for index in 0..grid_zip.len() {
+        let mut entry = grid_zip.by_index(index).unwrap();
+        let mut data = Vec::new();
+        entry.read_to_end(&mut data).unwrap();
+        if entry.name().unwrap().starts_with("attachments/") {
+            assert!(attachment_names.insert(entry.name().unwrap().into_owned()));
+            if data == grid_bytes {
+                found_grid = true;
+            }
+        }
+    }
+    assert_eq!(attachment_names.len(), 2);
+    assert!(found_grid, "ZIP must independently retain the GridFS bytes");
     let missing = run(
         &app,
         &server,
@@ -715,7 +1341,9 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
     )
     .await
     .unwrap_err();
-    assert_eq!(broken_card.details().http_status, Some(500));
+    // W11-028: v12.57 starts the XLSX response, then destroys it after the null-list exception.
+    assert_eq!(broken_card.code(), ErrorCode::TransportError);
+    assert_eq!(broken_card.details().http_status, None);
     let denied = run(
         &app,
         &server,
@@ -768,6 +1396,33 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
         "db.getSiblingDB('wekan').activities.deleteOne({_id:'export-unknown'});print('{}');",
         &json!({}),
     );
+    let private_locale = raw(
+        &app,
+        &server,
+        &[
+            "card",
+            "export",
+            c,
+            "--board",
+            b,
+            "--list",
+            l,
+            "--format",
+            "xlsx",
+            "--auth-token-query",
+            "--field",
+            "board-info",
+            "--field",
+            "dates",
+            "--date-format",
+            "DD-MM-YYYY",
+            "--timezone",
+            "Pacific/Kiritimati",
+        ],
+    )
+    .await;
+    // W11-027 is fixed by native Excel date cells: both branches retain the same UTC serial.
+    assert!(workbook_text(&private_locale).contains("<v>46376.5</v>"));
     // Public exports do not need a credential; public CSV's native fields mask is ignored.
     mongo(
         "db.getSiblingDB('wekan').boards.updateOne({_id:p.board_id},{$set:{permission:'public'}});print('{}');",
@@ -781,6 +1436,34 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
         )
         .await;
     }
+    // Public and private workbooks now use actual Excel date cells rather than differently formatted text.
+    let public_locale = raw(
+        &app,
+        &server,
+        &[
+            "card",
+            "export",
+            c,
+            "--board",
+            b,
+            "--list",
+            l,
+            "--format",
+            "xlsx",
+            "--no-auth",
+            "--field",
+            "board-info",
+            "--field",
+            "dates",
+            "--date-format",
+            "DD-MM-YYYY",
+            "--timezone",
+            "Pacific/Kiritimati",
+        ],
+    )
+    .await;
+    let public_text = workbook_text(&public_locale);
+    assert!(public_text.contains("<v>46376.5</v>"));
     let all = raw(
         &app,
         &server,
@@ -914,6 +1597,9 @@ async fn complete_export_lifecycle_matches_wekan_v11_06() {
             assert_eq!(value, json!([]));
         }
     }
+    verify_custom_field_and_movement_exports(&app, &server, &token).await;
+    verify_external_planning_and_retained_comments(&app, &server, &token, nonce).await;
+
     let (imported_id, source) = import_and_export(
         &app,
         &server,

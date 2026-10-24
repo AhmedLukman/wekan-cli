@@ -20,9 +20,12 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
-    /// Wekan attachment ID to permanently delete.
+    /// Wekan attachment ID to soft-delete.
     #[arg(value_parser = super::identifier)]
     pub attachment_id: String,
+    /// Use the board-scoped delete endpoint; omit to use the legacy attachment endpoint.
+    #[arg(long="board", value_parser=super::identifier)]
+    pub board_id: Option<String>,
     #[command(flatten)]
     pub confirmation: ConfirmationArgs,
 }
@@ -38,7 +41,7 @@ pub(super) async fn execute(
     let request = ConfirmationRequest::new(
         DestructiveOperation::AttachmentDelete,
         format!(
-            "Permanently delete Wekan attachment `{}` and its stored file?",
+            "Delete Wekan attachment `{}`? Its file is retained for restoration.",
             escape_terminal_text(&a.attachment_id)
         ),
     );
@@ -75,10 +78,28 @@ pub(super) async fn execute(
             ..ErrorDetails::default()
         }));
     }
-    let response = context
-        .client()
-        .delete_attachment(&a.attachment_id, context.record().token())
-        .await;
+    let response = if let Some(board_id) = a.board_id {
+        context
+            .client()
+            .soft_delete_board_attachment(&board_id, &a.attachment_id, context.record().token())
+            .await
+            .map(|response| {
+                CommandSuccess::AttachmentSoftDeleted(
+                    crate::command_result::AttachmentSoftDeleteSuccess {
+                        board_id,
+                        attachment_id: a.attachment_id,
+                        deleted: response.deleted,
+                        batch_id: response.batch_id,
+                    },
+                )
+            })
+    } else {
+        context
+            .client()
+            .delete_attachment(&a.attachment_id, context.record().token())
+            .await
+            .map(CommandSuccess::AttachmentDeleted)
+    };
     drop(guard);
     let response = response.map_err(|e| {
         map_client_error_with_not_found(
@@ -88,5 +109,5 @@ pub(super) async fn execute(
             "the attachment was not found",
         )
     })?;
-    Ok(CommandSuccess::AttachmentDeleted(response))
+    Ok(response)
 }

@@ -13,6 +13,9 @@ pub struct CustomFieldDropdownItem {
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CustomFieldSettings {
+    pub jira_time_field: Option<String>,
+    pub jira_estimate_field_id: Option<String>,
+    pub jira_estimate_unit: Option<String>,
     pub currency_code: Option<String>,
     pub dropdown_items: Option<Vec<CustomFieldDropdownItem>>,
     pub stringtemplate_format: Option<String>,
@@ -32,6 +35,10 @@ pub struct CustomFieldDetail {
     pub show_sum_at_top_of_list: bool,
     pub created_at: Option<String>,
     pub modified_at: String,
+    pub card_kinds: Option<Vec<String>>,
+    pub read_only: Option<bool>,
+    pub admin_only: Option<bool>,
+    pub sort: Option<serde_json::Number>,
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CustomFieldCollectionSuccess {

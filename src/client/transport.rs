@@ -24,6 +24,12 @@ struct WekanErrorResponse {
     status_code: Option<i64>,
     #[serde(rename = "success")]
     _success: Option<bool>,
+    #[serde(rename = "ok")]
+    _ok: Option<bool>,
+    #[serde(rename = "recorded")]
+    _recorded: Option<u64>,
+    #[serde(rename = "skipped")]
+    _skipped: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]

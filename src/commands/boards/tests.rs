@@ -314,7 +314,14 @@ async fn dispatch(
     credential_store: &dyn CredentialStore,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
-    super::dispatch(command, client_factory, credential_store, confirmation).await
+    super::dispatch(
+        command,
+        client_factory,
+        credential_store,
+        &crate::credentials::SystemSecretInputProvider,
+        confirmation,
+    )
+    .await
 }
 
 #[test]
@@ -329,15 +336,10 @@ fn parser_exposes_the_board_lifecycle_and_validates_inputs() {
             "create",
             "--title",
             "Board",
-            "--owner",
-            "user-2",
             "--permission",
             "public",
             "--color",
             "cleanlight",
-            "--no-comments",
-            "--comment-only",
-            "--worker",
         ],
         vec!["rename", "board-1", "--title", "Renamed"],
         vec!["delete", "board-1", "--yes"],
@@ -371,15 +373,11 @@ fn parser_exposes_the_board_lifecycle_and_validates_inputs() {
     let BoardCommand::Create(defaults) = board_command(&["create", "--title", "Board"]) else {
         panic!("expected create command")
     };
-    assert_eq!(defaults.owner, None);
     assert_eq!(
         defaults.permission,
         super::create::BoardPermissionArg::Private
     );
     assert_eq!(defaults.color, super::create::BoardColorArg::Belize);
-    assert!(!defaults.no_comments);
-    assert!(!defaults.comment_only);
-    assert!(!defaults.worker);
 }
 
 #[tokio::test]
@@ -441,12 +439,8 @@ async fn create_sends_every_meaningful_field_and_returns_ids() {
         .and(header("authorization", "Bearer board-token"))
         .and(body_json(json!({
             "title": "Board",
-            "owner": "user-2",
             "permission": "public",
-            "color": "cleanlight",
-            "isNoComments": true,
-            "isCommentOnly": true,
-            "isWorker": true
+            "color": "cleanlight"
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "_id": "board-1",
@@ -462,15 +456,10 @@ async fn create_sends_every_meaningful_field_and_returns_ids() {
             "create",
             "--title",
             "Board",
-            "--owner",
-            "user-2",
             "--permission",
             "public",
             "--color",
             "cleanlight",
-            "--no-comments",
-            "--comment-only",
-            "--worker",
         ]),
         &factory(&server),
         &store,
@@ -490,6 +479,7 @@ async fn count_get_and_rename_return_typed_results() {
     Mock::given(method("GET"))
         .and(path("/api/boards_count"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "instance": 0,
             "private": 4,
             "public": 2
         })))
@@ -597,7 +587,7 @@ async fn get_rejects_unmapped_response_fields() {
 }
 
 #[tokio::test]
-async fn get_maps_wekan_v11_06_embedded_404_to_not_found() {
+async fn get_maps_wekan_v12_57_embedded_404_to_not_found() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/missing-board"))

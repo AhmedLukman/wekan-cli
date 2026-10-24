@@ -231,7 +231,7 @@ async fn schema_state_accepts_initial_nulls_and_every_native_step_status() {
     assert!(initial.finished_at.is_none());
     assert!(initial.last_check.is_none());
     server.reset().await;
-    value["appVersion"] = json!("v11.06.0");
+    value["appVersion"] = json!("v12.57.0");
     for status in ["pending", "checking", "running", "done", "skipped", "error"] {
         value["steps"][status] = json!({"status":status,"fixed":0,"unresolved":0});
     }

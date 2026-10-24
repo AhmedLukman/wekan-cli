@@ -25,6 +25,7 @@ pub(super) async fn execute(
         .await
         .map_err(|error| map_client_error(error, &redactor, "board count"))?;
     Ok(CommandSuccess::BoardCount(BoardCountSuccess {
+        instance: counts.instance,
         private: counts.private,
         public: counts.public,
     }))

@@ -1,0 +1,20 @@
+{
+  "mstodo": true,
+  "lists": [
+    {
+      "id": "list",
+      "displayName": "Todo",
+      "tasks": [
+        {
+          "id": "card",
+          "title": "Catalog card",
+          "status": "notStarted",
+          "body": {
+            "content": "Details",
+            "contentType": "text"
+          }
+        }
+      ]
+    }
+  ]
+}

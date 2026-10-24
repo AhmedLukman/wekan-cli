@@ -1,0 +1,29 @@
+{
+  "planka": {
+    "item": {
+      "id": "board",
+      "name": "Catalog"
+    },
+    "included": {
+      "lists": [
+        {
+          "id": "list",
+          "name": "Todo",
+          "position": 1,
+          "type": "active"
+        }
+      ],
+      "cards": [
+        {
+          "id": "card",
+          "name": "Catalog card",
+          "listId": "list",
+          "position": 1
+        }
+      ],
+      "users": [],
+      "labels": []
+    }
+  },
+  "comments": {}
+}

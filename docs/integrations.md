@@ -1,6 +1,6 @@
 # Board integrations and webhook subscriptions
 
-Integration commands target Wekan v11.06. All require `--board BOARD_ID` and
+Integration commands target Wekan v12.57. All require `--board BOARD_ID` and
 accept `--server URL`, `--profile PROFILE`, `--output human|json`,
 `--allow-insecure-http`, and `--help` (`-h`). Raw output is unsupported.
 
@@ -75,7 +75,7 @@ Board access permits reads; mutations require board administration.
 Integration deletion uses the existing confirmation flow, or `--yes` for scripts.
 Declining confirmation returns a cancellation result without sending HTTP.
 
-Wekan v11.06 returns HTTP 200 with an empty body for missing or wrongly scoped
+Wekan v12.57 returns HTTP 200 with an empty body for missing or wrongly scoped
 integration lookups and activity mutations. The CLI reports `not_found` and
 preserves `http_status: 200`. Update and delete return the requested
 ID even when no integration matched.
@@ -86,8 +86,8 @@ return HTTP 400 after the new title was written. Errors preserve server metadata
 and expose the actual failure diagnostics. Commands perform
 one native request without extra reads, emulation, or mutation retries.
 
-Source evidence: pinned [REST routes](https://github.com/wekan/wekan/blob/v11.06/server/models/integrations.js)
-and [integration schema](https://github.com/wekan/wekan/blob/v11.06/models/integrations.js).
+Source evidence: pinned [REST routes](https://github.com/wekan/wekan/blob/v12.57/server/models/integrations.js)
+and [integration schema](https://github.com/wekan/wekan/blob/v12.57/models/integrations.js).
 The isolated lifecycle suite verifies these behaviors against the pinned Compose
 image. Outbound webhook delivery is outside this slice.
 
@@ -95,3 +95,37 @@ Update and deletion report request acceptance because missing or wrongly scoped 
 
 Declining integration deletion returns the shared cancellation result with
 operation `integration_delete`.
+
+## Delivery overrides and metadata
+
+`integration update` accepts `--notification-delivery JSON`, for example
+`'{"webhook":{"text":false,"schedule":"daily","dailyTime":"09:30","timezone":"Africa/Nairobi"}}'`.
+The typed webhook keys are `text`, `fields`, `grouping`, `schedule`,
+`intervalMinutes`, `dailyTime`, `quietStart`, `quietEnd`, and `timezone`.
+`--clear-notification-delivery` conflicts with the JSON input and restores
+inheritance from board/administrator defaults. Wekan validates delivery settings
+before any field writes. Reads expose `notification_delivery`,
+`mattermost_direct_messages`, and `bot`; omitted metadata becomes null.
+
+## Incoming email providers
+
+```console
+wekan integration inbound-email submit --file message.json --headers-file provider-headers.json
+wekan integration inbound-email bounce mailgun --file bounce.json --headers-file provider-headers.json
+```
+
+These endpoints use provider authentication, without the selected profile's
+session token. `--file PATH|-` preserves original bytes, including signed bodies.
+`--headers-file PATH` is a regular JSON object of string header values; stdin is
+reserved for the payload. Header values are secret inputs and are redacted from
+diagnostics. `submit` and `bounce` accept `--content-type`, defaulting to
+`application/json`; RFC822 and multipart messages require their native media
+type and boundary.
+
+Bounce providers are `mailgun`, `sendgrid`, `postmark`, `brevo`, `mailjet`,
+`sparkpost`, `mandrill`, and `resend`. The server's configured provider secrets,
+signatures and recipient matching determine acceptance.
+Results are typed native receipts; the CLI does not fabricate signatures or
+convert provider payloads.
+
+The Amazon SES/SNS endpoint is intentionally excluded from typed CLI support.

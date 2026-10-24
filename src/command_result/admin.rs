@@ -4,6 +4,17 @@ use crate::client::admin::{
 };
 use serde::Serialize;
 
+mod login_providers;
+mod problems;
+pub use login_providers::{
+    BooleanConfigValue, ConfigSource, OauthProviderSettings, OauthProviderSource,
+    OauthProviderSources, PasswordlessSettings, SecretConfigSource,
+};
+pub use problems::{
+    DetectedProblem, EventActor, EventLocation, NewProblemCount, ProblemAcknowledgment,
+    ProblemEvent, ProblemPage, ProblemsOverview, ProgressProblem,
+};
+
 use crate::client::admin::people::{
     DomainCount, FeatureField, OrganizationDocument, OrganizationSummary, TeamDocument, TeamSummary,
 };
@@ -330,7 +341,31 @@ impl From<storage::MigrationDocument> for MigrationSettingsDetail {
     }
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct WebdavSettingsDetail {
+    pub enabled: Option<bool>,
+    pub read: Option<bool>,
+    pub write: Option<bool>,
+    pub endpoint: Option<String>,
+    pub username: Option<String>,
+    pub bucket: Option<String>,
+    pub password_set: bool,
+}
+impl From<storage::WebdavDocument> for WebdavSettingsDetail {
+    fn from(d: storage::WebdavDocument) -> Self {
+        Self {
+            enabled: d.enabled,
+            read: d.read,
+            write: d.write,
+            endpoint: d.endpoint,
+            username: d.username,
+            bucket: d.bucket,
+            password_set: d.password_set,
+        }
+    }
+}
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct StorageConfigDetail {
+    pub webdav: Option<WebdavSettingsDetail>,
     pub filesystem: Option<FilesystemSettingsDetail>,
     pub gridfs: Option<GridfsSettingsDetail>,
     pub s3: Option<S3SettingsDetail>,
@@ -340,6 +375,7 @@ pub struct StorageConfigDetail {
 impl From<storage::StorageConfigDocument> for StorageConfigDetail {
     fn from(d: storage::StorageConfigDocument) -> Self {
         Self {
+            webdav: d.webdav.map(Into::into),
             filesystem: d.filesystem.map(Into::into),
             gridfs: d.gridfs.map(Into::into),
             s3: d.s3.map(Into::into),

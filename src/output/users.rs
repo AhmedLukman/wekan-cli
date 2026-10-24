@@ -9,7 +9,7 @@ use crate::command_result::{
 pub(super) fn render_token_created(data: &crate::command_result::UserTokenCreateSuccess) -> String {
     use secrecy::ExposeSecret;
     format!(
-        "Token returned for user {}.\nAuth token: {}\nWekan v11.06 returns an unusable token for a nonexistent user.",
+        "Token returned for user {}.\nAuth token: {}",
         escape_terminal_controls(&data.user_id),
         escape_terminal_controls(data.auth_token().expose_secret())
     )
@@ -22,7 +22,7 @@ pub(super) fn render_token_deleted(data: &crate::command_result::UserTokenDelete
         }
         crate::command_result::UserTokenDeleteScope::All => "Deleted all tokens",
     };
-    let mut rendered = format!(
+    let mut output = format!(
         "{heading} for user {}.\nScope: {}\nServer message: {}",
         escape_terminal_controls(&data.user_id),
         match data.scope {
@@ -32,9 +32,9 @@ pub(super) fn render_token_deleted(data: &crate::command_result::UserTokenDelete
         escape_terminal_controls(&data.message)
     );
     if data.scope == crate::command_result::UserTokenDeleteScope::Single {
-        rendered.push_str("\nWekan v11.06 compares the supplied value with stored hashes or legacy tokens; an issued raw token is not revoked.");
+        output.push_str("\nWekan v12.57 acknowledges raw-token deletion without revoking that session (W11-058).");
     }
-    rendered
+    output
 }
 
 pub(super) fn render_user_detail(data: &UserDetail) -> String {
@@ -92,6 +92,17 @@ pub(super) fn render_user_detail(data: &UserDetail) -> String {
         "heartbeat",
         "session_data",
         "import_usernames",
+        "notification_delivery_revision",
+        "feature_preview",
+        "inactivity_clock_start",
+        "login_disabled_reason",
+        "anonymized",
+        "anonymized_at",
+        "passkeys",
+        "sqrl",
+        "web_push_subscriptions",
+        "ntfy",
+        "notification_delivery_pending",
     ] {
         super::formatting::render_named_value_complete(&mut lines, 0, name, &value[name]);
     }
@@ -135,19 +146,14 @@ pub(super) fn render_user_cards(data: &UserCardsSuccess) -> String {
 
 pub(super) fn render_user_created(data: &UserCreateSuccess) -> String {
     let mut lines = vec![format!(
-        "User creation request accepted for {} ({}).",
+        "Created user {} ({}).",
         escape_terminal_controls(&data.username),
         escape_terminal_controls(&data.email)
     )];
-    if let Some(user_id) = &data.user_id {
-        lines.push(format!("User ID: {}", escape_terminal_controls(user_id)));
-    } else {
-        lines.push("User ID: unavailable".to_owned());
-    }
-    lines.push(
-        "Wekan v11.06 also accepts duplicate user creation requests without creating an account."
-            .to_owned(),
-    );
+    lines.push(format!(
+        "User ID: {}",
+        escape_terminal_controls(&data.user_id)
+    ));
     lines.join("\n")
 }
 
@@ -173,7 +179,7 @@ pub(super) fn render_user_boards(data: &UserBoardsSuccess) -> String {
 
 pub(super) fn render_user_ownership(data: &UserOwnershipSuccess) -> String {
     let mut lines = vec![format!(
-        "Transferred {} board(s) from user {} to user {}.",
+        "Ownership transfer requested for {} board(s) from user {} to user {}.",
         data.boards.len(),
         escape_terminal_controls(&data.from_user_id),
         escape_terminal_controls(&data.to_user_id)
@@ -198,30 +204,23 @@ pub(super) fn render_user_login_change(data: &UserLoginChangeSuccess) -> String 
     let action = match data.action {
         crate::command_result::UserLoginAction::Disabled => {
             if data.user.login_disabled == Some(true) {
-                "Login-disabled flag is set for"
+                "Disabled login for"
             } else {
                 "Login-disable request left unchanged"
             }
         }
         crate::command_result::UserLoginAction::Enabled => "Enabled login for",
     };
-    let mut rendered = format!(
+    format!(
         "{action} user {}.\n{}",
         escape_terminal_controls(&data.user.user_id),
         render_user_detail(&data.user)
-    );
-    if data.action == crate::command_result::UserLoginAction::Disabled {
-        if data.user.login_disabled != Some(true) {
-            rendered.push_str("\nWekan v11.06 ignores self-targeted login disabling; the returned user is unchanged.");
-        }
-        rendered.push_str("\nWekan v11.06 still permits new REST logins with valid credentials after login disabling.");
-    }
-    rendered
+    )
 }
 
 pub(super) fn render_user_deleted(data: &UserDeleteSuccess) -> String {
     let mut lines = vec![format!(
-        "User deletion request accepted for {}.",
+        "Deleted user {}.",
         escape_terminal_controls(&data.user_id)
     )];
     if data.deleted_current_user {

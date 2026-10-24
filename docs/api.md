@@ -31,7 +31,7 @@ hatch can reach unmodeled same-origin Wekan endpoints.
 
 By default the command requires a current stored credential and sends it as a
 Bearer token. `--auth-token-query` instead sends the same stored token as
-Wekan's `authToken` query parameter, which is needed by some v11.06 private
+Wekan's `authToken` query parameter, which is needed by some v12.57 private
 export routes. It is allowed for any `GET` route; callers should prefer the
 default Bearer mode unless the endpoint requires query authentication.
 `--no-auth` does not read or inject the selected profile's

@@ -32,7 +32,7 @@ async fn token_commands_deliver_only_intended_secrets_and_preserve_credentials()
     let store = FakeCredentialStore::authenticated(&server, "u");
     let confirmation = FakeConfirmationProvider::accepting();
     let created = dispatch(
-        user_command(&["token", "create", "u"]),
+        user_command(&["token", "create", "u", "--reason", "integration test"]),
         &factory(&server),
         &store,
         &NoTokenInput,

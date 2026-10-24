@@ -58,11 +58,11 @@ pub struct UpdateArgs {
     #[arg(value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
-    /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
+    /// New title. Wekan v12.57 truncates values longer than 1000 UTF-16 code units.
     #[arg(long, help_heading = "Fields")]
     pub title: Option<String>,
 
-    /// Numeric card order. Wekan v11.06 silently ignores zero.
+    /// Numeric card order. Wekan v12.57 silently ignores zero.
     #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub sort: Option<f64>,
 
@@ -130,11 +130,11 @@ pub struct UpdateArgs {
     #[arg(long, conflicts_with = "end_at", help_heading = "Dates")]
     pub clear_end_at: bool,
 
-    /// Finite spent-time value. Wekan v11.06 silently ignores zero.
+    /// Spent time in hours, including zero. Wekan rejects negative values.
     #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub spent_time: Option<f64>,
 
-    /// Overtime state. Wekan v11.06 ignores false and mishandles true.
+    /// Overtime state. Wekan v12.57 ignores false and mishandles true.
     #[arg(long, help_heading = "Fields")]
     pub is_over_time: Option<bool>,
 
@@ -178,6 +178,10 @@ pub struct UpdateArgs {
     #[arg(long, value_parser = non_empty, help_heading = "Movement")]
     pub new_list_id: Option<String>,
 
+    /// Reason used by native list or board moves; Wekan trims and limits it to 1000 code units.
+    #[arg(long, help_heading = "Movement")]
+    pub move_reason: Option<String>,
+
     /// Archive (true) or restore (false) through the update endpoint.
     #[arg(long, help_heading = "Fields")]
     pub archive: Option<bool>,
@@ -210,6 +214,7 @@ pub(super) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let submitted_fields = submitted_fields(&args);
     let request = UpdateCardRequest {
+        move_reason: args.move_reason,
         title: args.title,
         sort: args
             .sort
@@ -355,6 +360,7 @@ fn submitted_fields(args: &UpdateArgs) -> Vec<CardSubmittedField> {
             CardSubmittedField::NewSwimlaneId,
         ),
         (args.new_list_id.is_some(), CardSubmittedField::NewListId),
+        (args.move_reason.is_some(), CardSubmittedField::MoveReason),
         (args.archive.is_some(), CardSubmittedField::Archive),
         (args.vote.is_some(), CardSubmittedField::Vote),
         (args.poker.is_some(), CardSubmittedField::Poker),

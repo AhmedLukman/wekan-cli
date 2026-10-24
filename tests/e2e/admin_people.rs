@@ -92,10 +92,10 @@ fn compare_document(kind: &str, output: &Value, saved: &Value) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_ADMIN_PEOPLE_E2E_URL"]
-async fn complete_admin_people_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_ADMIN_PEOPLE_E2E_URL"]
+async fn complete_admin_people_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_ADMIN_PEOPLE_E2E_URL")
-        .expect("set WEKAN_ADMIN_PEOPLE_E2E_URL to a fresh isolated v11.06 stack");
+        .expect("set WEKAN_ADMIN_PEOPLE_E2E_URL to a fresh isolated v12.57 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -306,8 +306,8 @@ async fn complete_admin_people_lifecycle_matches_wekan_v11_06() {
         ] {
             let error = run(&normal, &server, &args).await.unwrap_err();
             assert_eq!(error.code(), ErrorCode::PermissionDenied);
-            assert_eq!(error.details().http_status, Some(200));
-            assert_eq!(error.details().wekan_status_code, Some(403));
+            assert_eq!(error.details().http_status, Some(403));
+            assert_eq!(error.details().wekan_status_code, None);
         }
         let missing = run(
             &app,
@@ -413,23 +413,30 @@ async fn complete_admin_people_lifecycle_matches_wekan_v11_06() {
                 request = request.json(&body);
             }
             let response = request.send().await.unwrap();
-            assert_eq!(response.status(), 200);
-            assert_eq!(response.json::<Value>().await.unwrap()["statusCode"], 401);
+            assert_eq!(response.status(), 401);
+            assert_eq!(
+                response.json::<Value>().await.unwrap()["error"],
+                "Unauthorized"
+            );
         }
     }
     let error = run(&normal, &server, &["admin", "domain", "list"])
         .await
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::PermissionDenied);
-    assert_eq!(error.details().wekan_status_code, Some(403));
+    assert_eq!(error.details().wekan_status_code, None);
+    assert_eq!(error.details().http_status, Some(403));
     let response = reqwest::get(format!(
         "{}/api/admin/domains",
         server.trim_end_matches('/')
     ))
     .await
     .unwrap();
-    assert_eq!(response.status(), 200);
-    assert_eq!(response.json::<Value>().await.unwrap()["statusCode"], 401);
+    assert_eq!(response.status(), 401);
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["error"],
+        "Unauthorized"
+    );
 
     // Exercise all seven operations through the real binary and native credential store.
     let process_directory = TestDirectory::new("admin-people-process");

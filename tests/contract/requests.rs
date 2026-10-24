@@ -218,6 +218,7 @@ async fn board_lifecycle_uses_verified_paths_and_bodies() {
     Mock::given(method("GET"))
         .and(path("/api/boards_count"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "instance": 0,
             "private": 2,
             "public": 1
         })))
@@ -242,12 +243,8 @@ async fn board_lifecycle_uses_verified_paths_and_bodies() {
         .and(path("/api/boards"))
         .and(body_json(json!({
             "title": "Delivery",
-            "owner": "owner/1",
             "permission": "public",
-            "color": "cleanlight",
-            "isNoComments": true,
-            "isCommentOnly": true,
-            "isWorker": true
+            "color": "cleanlight"
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "_id": "board-1",
@@ -298,15 +295,9 @@ async fn board_lifecycle_uses_verified_paths_and_bodies() {
     client
         .create_board(
             &CreateBoardRequest {
-                is_admin: true,
-                is_active: true,
                 title: "Default board".to_owned(),
-                owner: None,
                 permission: BoardPermission::Private,
                 color: BoardColor::Belize,
-                is_no_comments: false,
-                is_comment_only: false,
-                is_worker: false,
             },
             &user_token(),
         )
@@ -1442,4 +1433,22 @@ async fn registration_server_failures_are_not_retried() {
         .await
         .unwrap_err();
     assert!(matches!(error, ClientError::Server { .. }));
+}
+
+#[test]
+fn card_move_reason_is_native_sparse_text() {
+    assert_eq!(
+        serde_json::to_value(UpdateCardRequest {
+            move_reason: Some("  Move reason  ".into()),
+            ..Default::default()
+        })
+        .unwrap(),
+        json!({"moveReason":"  Move reason  "})
+    );
+    assert!(
+        serde_json::to_value(UpdateCardRequest::default())
+            .unwrap()
+            .get("moveReason")
+            .is_none()
+    );
 }

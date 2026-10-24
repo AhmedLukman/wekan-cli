@@ -55,7 +55,7 @@ to keep this isolation checked on all three platforms.
 
 Live tests are ignored by default. Follow the
 [local Wekan stack guide](docs/local-wekan.md) and use a fresh or dedicated
-Wekan v11.06 instance for tests that mutate data. Never run destructive tests
+Wekan v12.57 instance for tests that mutate data. Never run destructive tests
 against a real instance.
 
 The default E2E test run checks the workflow matrix against the compiled binary's
@@ -65,7 +65,7 @@ and duplicate selections fail before CI starts services.
 
 ## API changes
 
-API commands target Wekan v11.06. Generate the corrected
+API commands target Wekan v12.57. Generate the corrected
 `spec/wekan.corrected.yml` contract using the commands below and verify any
 discrepancy against the matching [Wekan source][wekan-source] and a live server.
 Response objects, including nested objects, must use
@@ -98,13 +98,13 @@ performs both checks as part of API contract validation.
 Optionally generate the corrected human-readable reference with Redocly:
 
 ```console
-npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v11.06 (Corrected)"
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v12.57 (Corrected)"
 ```
 
 To render the upstream specification without corrections instead:
 
 ```console
-npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v11.06 (Upstream)"
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v12.57 (Upstream)"
 ```
 
 Open the generated HTML files locally in a browser. CI generates and validates
@@ -127,4 +127,4 @@ check that:
 [conventional-commits]: https://www.conventionalcommits.org/en/v1.0.0/
 [issues]: https://github.com/AhmedLukman/wekan-cli/issues/new
 [rustup]: https://rustup.rs/
-[wekan-source]: https://github.com/wekan/wekan/tree/v11.06
+[wekan-source]: https://github.com/wekan/wekan/tree/v12.57

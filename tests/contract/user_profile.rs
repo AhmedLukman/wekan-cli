@@ -8,6 +8,49 @@ const DIALOGS: [&str; 3] = [
     "copyChecklistDialog",
 ];
 
+#[tokio::test]
+async fn missing_user_responses_preserve_native_server_and_protocol_failures() {
+    let server = MockServer::start().await;
+    Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path("/api/users/missing"))
+        .respond_with(
+            ResponseTemplate::new(500).set_body_json(json!({"error": "Internal server error"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(wiremock::matchers::method("PUT"))
+        .and(wiremock::matchers::path("/api/users/missing"))
+        .and(wiremock::matchers::body_json(json!({})))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = super::client(&server);
+    let token = super::user_token();
+    let get_error = client.user("missing", &token).await.unwrap_err();
+    assert!(matches!(
+        get_error,
+        ClientError::Server {
+            status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+            server_error: Some(ref error),
+            ..
+        } if error == "Internal server error"
+    ));
+    let update_error = client
+        .update_user_without_action("missing", &token)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        update_error,
+        ClientError::Protocol {
+            success_status_received: true,
+            ..
+        }
+    ));
+    server.verify().await;
+}
+
 fn options() -> Value {
     json!({"boardId":"destination", "swimlaneId":"lane", "listId":"list", "cardId":null})
 }
@@ -110,6 +153,85 @@ async fn reject_at_every_user_record_boundary(
 }
 
 #[tokio::test]
+async fn notification_visibility_time_is_optional_numeric_at_every_user_record_boundary() {
+    for show_at in [
+        None,
+        Some(json!(1_792_645_200_000u64)),
+        Some(json!(0)),
+        Some(json!(-0.5)),
+    ] {
+        let mut notification = json!({"activity":"activity-1", "read":null});
+        if let Some(value) = &show_at {
+            notification["showAt"] = value.clone();
+        }
+        let server = MockServer::start().await;
+        Mock::given(wiremock::matchers::any())
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "_id":"user-1", "profile":{"notifications":[notification]}
+            })))
+            .expect(4)
+            .mount(&server)
+            .await;
+        let client = super::client(&server);
+        let token = super::user_token();
+        let users = [
+            client.current_user(&token).await.unwrap(),
+            client.user("user-1", &token).await.unwrap(),
+            client
+                .update_user_without_action("user-1", &token)
+                .await
+                .unwrap(),
+            match client
+                .user_action("user-1", UserAction::EnableLogin, &token)
+                .await
+                .unwrap()
+            {
+                wekan_cli::client::UserActionResult::LoginChanged(user) => *user,
+                _ => panic!("expected the updated user"),
+            },
+        ];
+        for user in users {
+            assert_eq!(
+                user.profile.notifications.unwrap()[0]
+                    .show_at
+                    .as_ref()
+                    .map(|value| json!(value)),
+                show_at
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn notification_visibility_time_rejects_null_invalid_types_and_unknown_fields() {
+    for invalid in [
+        Value::Null,
+        json!("1792645200000"),
+        json!(false),
+        json!([]),
+        json!({}),
+    ] {
+        reject_at_every_user_record_boundary(
+            json!({"notifications":[{"activity":"activity-1", "showAt":invalid}]}),
+            ResponseDecodeKind::InvalidType,
+            "/profile/notifications/0/showAt",
+        )
+        .await;
+    }
+    reject_at_every_user_record_boundary(
+        json!({"notifications":[{"activity":"activity-1", "showAt":1792645200000u64, "future":"unmapped-secret"}]}),
+        ResponseDecodeKind::UnknownField,
+        "/profile/notifications/0/future",
+    ).await;
+    reject_at_every_user_record_boundary(
+        json!({"notifications":[{"showAt":1792645200000u64}]}),
+        ResponseDecodeKind::MissingField,
+        "/profile/notifications/0/activity",
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn dialog_preferences_reject_unknown_fields_missing_ids_and_invalid_types() {
     for field in DIALOGS {
         let mut unknown = options();
@@ -205,7 +327,15 @@ fn corrected_contract_maps_typed_profile_preferences() {
     let spec: serde_yaml_ng::Value =
         serde_yaml_ng::from_reader(std::fs::File::open(path).unwrap()).unwrap();
     let definitions = &spec["definitions"];
-    let options = &definitions["UserDialogOptions"];
+    let notification = &definitions["VerifiedUsersUserProfileNotification"];
+    assert_eq!(notification["additionalProperties"], false);
+    assert_eq!(notification["properties"]["showAt"]["type"], "number");
+    assert!(notification["properties"]["showAt"]["x-nullable"].is_null());
+    assert_eq!(
+        notification["required"].as_sequence().unwrap(),
+        &vec![serde_yaml_ng::Value::from("activity")]
+    );
+    let options = &definitions["VerifiedUsersUserDialogOptions"];
     assert_eq!(options["additionalProperties"], false);
     let required: Vec<_> = options["required"]
         .as_sequence()
@@ -220,13 +350,13 @@ fn corrected_contract_maps_typed_profile_preferences() {
     assert_eq!(options["properties"]["cardId"]["x-nullable"], true);
     for field in DIALOGS {
         assert_eq!(
-            definitions["UsersProfile"]["properties"][field]["additionalProperties"]["$ref"],
-            "#/definitions/UserDialogOptions"
+            definitions["VerifiedUsersUserProfile"]["properties"][field]["additionalProperties"]["$ref"],
+            "#/definitions/VerifiedUsersUserDialogOptions"
         );
     }
     assert_eq!(
-        definitions["UsersProfile"]["properties"]["listConstraints"]["additionalProperties"]["additionalProperties"]
-            ["type"],
+        definitions["VerifiedUsersUserProfile"]["properties"]["listConstraints"]["additionalProperties"]
+            ["additionalProperties"]["type"],
         "number"
     );
 }

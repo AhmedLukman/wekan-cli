@@ -33,6 +33,7 @@ pub struct CommentDocument {
     pub modified_at: String,
     #[serde(rename(deserialize = "userId", serialize = "author_id"))]
     pub author_id: String,
+    pub sync_comment_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -59,6 +60,34 @@ struct IdResponse {
 }
 
 impl WekanClient {
+    pub async fn update_comment(
+        &self,
+        board_id: &str,
+        card_id: &str,
+        comment_id: &str,
+        request: &CreateCommentRequest,
+        token: &SecretString,
+    ) -> Result<CreateCommentResult, ClientError> {
+        let body = self
+            .execute_success_request(
+                self.http
+                    .put(self.comment_endpoint(board_id, card_id, Some(comment_id))?)
+                    .header(ACCEPT, "application/json")
+                    .bearer_auth(token.expose_secret())
+                    .json(request),
+            )
+            .await?;
+        let response: IdResponse = decode_success(&body, "comment update", true)?;
+        require_non_empty(&response.id, "comment update", "comment id")?;
+        if response.id != comment_id {
+            return Err(protocol_error(
+                "the updated comment ID did not match the requested comment".to_owned(),
+            ));
+        }
+        Ok(CreateCommentResult {
+            comment_id: response.id,
+        })
+    }
     pub async fn card_comments(
         &self,
         board_id: &str,

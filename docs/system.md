@@ -1,6 +1,6 @@
 # Public system status
 
-Read Wekan v11.06's live startup schema-upgrade state:
+Read Wekan v12.57's live startup schema-upgrade state:
 
 ```console
 wekan --server http://localhost:3000 system schema-upgrade-status

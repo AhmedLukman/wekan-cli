@@ -1,3 +1,4 @@
+pub mod inbound_email;
 use reqwest::{Method, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer};
@@ -21,6 +22,15 @@ pub struct IntegrationDocument {
     pub created_at: String,
     pub modified_at: String,
     pub user_id: String,
+    pub notification_delivery: Option<WebhookNotificationDelivery>,
+    pub mattermost_direct_messages: Option<bool>,
+    pub bot: Option<bool>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WebhookNotificationDelivery {
+    pub webhook: Option<super::metadata::WebhookDelivery>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -58,6 +68,53 @@ pub struct UpdateIntegrationRequest {
     pub token: Option<SecretString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub activities: Option<Vec<String>>,
+    #[serde(
+        rename = "notificationDelivery",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_delivery"
+    )]
+    pub notification_delivery: Option<Option<WebhookNotificationDelivery>>,
+}
+
+fn serialize_delivery<S: Serializer>(
+    value: &Option<Option<WebhookNotificationDelivery>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    struct NativeChannel<'a>(&'a super::metadata::WebhookDelivery);
+    impl Serialize for NativeChannel<'_> {
+        fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut map = serializer.serialize_map(None)?;
+            let d = self.0;
+            macro_rules! field {
+                ($key:literal, $field:ident) => {
+                    if let Some(value) = &d.$field {
+                        map.serialize_entry($key, value)?;
+                    }
+                };
+            }
+            field!("text", text);
+            field!("fields", fields);
+            field!("grouping", grouping);
+            field!("schedule", schedule);
+            field!("intervalMinutes", interval_minutes);
+            field!("dailyTime", daily_time);
+            field!("quietStart", quiet_start);
+            field!("quietEnd", quiet_end);
+            field!("timezone", timezone);
+            map.end()
+        }
+    }
+    match value.as_ref().and_then(Option::as_ref) {
+        None => serializer.serialize_none(),
+        Some(delivery) => {
+            let mut map = serializer.serialize_map(None)?;
+            if let Some(webhook) = &delivery.webhook {
+                map.serialize_entry("webhook", &NativeChannel(webhook))?;
+            }
+            map.end()
+        }
+    }
 }
 
 fn serialize_token<S: Serializer>(token: &Option<SecretString>, s: S) -> Result<S::Ok, S::Error> {

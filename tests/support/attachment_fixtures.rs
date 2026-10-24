@@ -45,8 +45,8 @@ pub(crate) enum StoredFile {
 }
 
 pub(crate) fn seed(input: &Value) -> StoredFile {
-    // Test-only persisted metadata and genuine bytes. The pinned REST upload
-    // cannot seed fixtures: it returns 408 before attempting insertion.
+    // Test-only metadata and backing bytes for each storage strategy. JSON
+    // uploads return 408; explicit raw uploads are covered independently.
     if input["storage"] == "fs" {
         fixture_command(
             "wekan",
@@ -90,51 +90,27 @@ pub(crate) fn seed(input: &Value) -> StoredFile {
     }
 }
 
-pub(crate) fn assert_stored_file_deleted(file: &StoredFile) {
-    // Poll only in the live test: v11.06 initiates physical cleanup asynchronously.
-    // Check before board/stack cleanup can independently remove the fixture bytes.
+pub(crate) fn assert_stored_file_retained(file: &StoredFile) {
+    // Recoverable deletion leaves the physical backing store intact.
     match file {
         StoredFile::Filesystem(path) => {
             let result = fixture_command(
                 "wekan",
                 "node",
-                r#"
-              const fs=require('fs'); const deadline=Date.now()+10000;
-              while(fs.existsSync(p.path) && Date.now()<deadline) {
-                await new Promise(resolve=>setTimeout(resolve,100));
-              }
-              console.log(JSON.stringify({exists:fs.existsSync(p.path)}));
-            "#,
+                "console.log(JSON.stringify(require('fs').statSync(p.path).isFile()));",
                 &json!({"path":path}),
             );
-            assert_eq!(
-                result["exists"], false,
-                "attachment file remained at {path} after the 10-second cleanup deadline"
-            );
+            assert_eq!(result, true);
         }
         StoredFile::GridFs(id) => {
             let result = fixture_command(
                 "mongodb",
                 "mongosh",
-                r#"
-              const w=db.getSiblingDB('wekan'); const oid=new ObjectId(p.id);
-              const remaining=async()=>({
-                files:await w.getCollection('attachments.files').countDocuments({_id:oid}),
-                chunks:await w.getCollection('attachments.chunks').countDocuments({files_id:oid})
-              });
-              const deadline=Date.now()+10000; let counts=await remaining();
-              while((counts.files || counts.chunks) && Date.now()<deadline) {
-                await new Promise(resolve=>setTimeout(resolve,100)); counts=await remaining();
-              }
-              print(JSON.stringify(counts));
-            "#,
+                "const w=db.getSiblingDB('wekan'),oid=new ObjectId(p.id);print(JSON.stringify({files:w.getCollection('attachments.files').countDocuments({_id:oid}),chunks:w.getCollection('attachments.chunks').countDocuments({files_id:oid})}));",
                 &json!({"id":id}),
             );
-            assert_eq!(
-                result,
-                json!({"files":0,"chunks":0}),
-                "GridFS bytes remained for {id} after the 10-second cleanup deadline"
-            );
+            assert_eq!(result["files"], 1);
+            assert!(result["chunks"].as_u64().unwrap() > 0);
         }
     }
 }

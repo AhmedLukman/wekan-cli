@@ -49,6 +49,8 @@ pub(super) async fn execute(
 
 fn swimlane_detail(swimlane: SwimlaneDocument) -> SwimlaneDetail {
     SwimlaneDetail {
+        scrum: swimlane.scrum,
+        scrum_revision: swimlane.scrum_revision,
         swimlane_id: swimlane.swimlane_id,
         title: swimlane.title,
         archived: swimlane.archived,

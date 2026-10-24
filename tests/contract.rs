@@ -7,6 +7,8 @@ use wekan_cli::client::{
 };
 use wiremock::MockServer;
 
+#[path = "contract/bot_runs.rs"]
+mod bot_runs;
 #[path = "contract/bulk_cards.rs"]
 mod bulk_cards;
 #[path = "contract/checklists.rs"]
@@ -15,6 +17,8 @@ mod checklists;
 mod compatibility_audit;
 #[path = "contract/coverage.rs"]
 mod coverage;
+#[path = "contract/native_extensions.rs"]
+mod native_extensions;
 #[path = "contract/remaining.rs"]
 mod remaining;
 #[path = "contract/requests.rs"]
@@ -73,15 +77,9 @@ fn create_user_request() -> CreateUserRequest {
 
 fn create_board_request() -> CreateBoardRequest {
     CreateBoardRequest {
-        is_admin: true,
-        is_active: true,
         title: "Delivery".to_owned(),
-        owner: Some("owner/1".to_owned()),
         permission: BoardPermission::Public,
         color: BoardColor::Cleanlight,
-        is_no_comments: true,
-        is_comment_only: true,
-        is_worker: true,
     }
 }
 

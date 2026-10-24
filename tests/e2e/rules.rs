@@ -83,10 +83,10 @@ async fn wait_members(
     panic!("rule member action did not reach expected state");
 }
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_RULE_E2E_URL"]
-async fn complete_rule_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_RULE_E2E_URL"]
+async fn complete_rule_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_RULE_E2E_URL")
-        .expect("set WEKAN_RULE_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_RULE_E2E_URL to an isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -148,7 +148,7 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
         register_live_board_role(&server, &canonical, &token, board, nonce, "readonly").await;
     let (_nd, normal, _) =
         register_live_board_role(&server, &canonical, &token, board, nonce, "normal").await;
-    let (_od, outsider, outsider_id) =
+    let (_od, _outsider, outsider_id) =
         register_live_board_role(&server, &canonical, &token, board, nonce + 1, "normal").await;
     run(
         &app,
@@ -168,6 +168,98 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
     let rule = created["rule_id"].as_str().unwrap();
     let detail = get(&app, &server, board, rule).await;
     assert_eq!(detail["title"], "API rule");
+    assert_eq!(detail["enabled"], true);
+    assert!(detail["extra_triggers"].is_null());
+    assert!(detail["extra_actions"].is_null());
+    for enabled in [false, true] {
+        let definition = json!({"enabled":enabled}).to_string();
+        let updated = run(
+            &app,
+            &server,
+            &[
+                "rule",
+                "update",
+                rule,
+                "--board",
+                board,
+                "--rule",
+                &definition,
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(updated["submitted_fields"], json!(["enabled"]));
+        assert_eq!(get(&app, &server, board, rule).await["enabled"], enabled);
+    }
+    let invalid = run(
+        &app,
+        &server,
+        &[
+            "rule",
+            "update",
+            rule,
+            "--board",
+            board,
+            "--rule",
+            r#"{"enabled":null}"#,
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(invalid.code(), ErrorCode::InvalidInput);
+    assert_eq!(get(&app, &server, board, rule).await["enabled"], true);
+    // Native null is a different request from omission. The typed command
+    // rejects it; the raw escape hatch preserves the pinned server's coercion.
+    let response = reqwest::Client::new()
+        .put(format!("{canonical}api/boards/{board}/rules/{rule}"))
+        .bearer_auth(&token)
+        .json(&json!({"enabled":null}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(get(&app, &server, board, rule).await["enabled"], false);
+    run(
+        &app,
+        &server,
+        &[
+            "rule",
+            "update",
+            rule,
+            "--board",
+            board,
+            "--rule",
+            r#"{"enabled":true}"#,
+        ],
+    )
+    .await
+    .unwrap();
+    assert_eq!(get(&app, &server, board, rule).await["enabled"], true);
+
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        // These are the same producers used by the native Rules UI for
+        // multiple triggers and actions (server/rulesButton.js).
+        let mut session = ddp::Session::login(&server, &token).await;
+        let trigger = session
+            .call("rules.addPart", json!([rule,"trigger",{"activityType":"textContainsTrigger","textContains":"Extra match"}]))
+            .await;
+        let action = session
+            .call("rules.addPart", json!([rule,"action",{"actionType":"addComment","commentText":"Extra action"}]))
+            .await;
+        let shown = get(&app, &server, board, rule).await;
+        assert_eq!(shown["extra_triggers"], json!([{"activity_type":"textContainsTrigger","text_contains":"Extra match"}]));
+        assert_eq!(shown["extra_actions"], json!([{"action_type":"addComment","comment_text":"Extra action"}]));
+        let listed = run(&app, &server, &["rule", "list", "--board", board]).await.unwrap();
+        assert_eq!(listed["rules"], json!([shown]));
+        session.call("rules.removePart", json!([rule,"trigger",trigger["partId"]])).await;
+        session.call("rules.removePart", json!([rule,"action",action["partId"]])).await;
+        session.close().await;
+    })
+    .await
+    .expect("native extra rule parts timed out");
+    let detail = get(&app, &server, board, rule).await;
+    assert!(detail["extra_triggers"].is_null());
+    assert!(detail["extra_actions"].is_null());
     for field in ["list_name", "user_id", "swimlane_name", "card_title"] {
         assert_eq!(detail["trigger"][field], "*");
     }
@@ -362,7 +454,10 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
             let e = run(&app, &server, &args).await.unwrap_err();
             assert_eq!(e.code(), ErrorCode::ServerError);
             assert_eq!(e.details().http_status, Some(500));
-            assert_eq!(e.details().server_error.as_deref(), Some("not-found"));
+            assert_eq!(
+                e.details().server_error.as_deref(),
+                Some("Internal server error")
+            );
         }
     }
     assert_eq!(
@@ -371,7 +466,7 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
             .unwrap()["rule_id"],
         rule
     );
-    for args in [
+    for (case, args) in [
         vec![
             "rule",
             "create",
@@ -382,19 +477,50 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
         ],
         vec!["rule", "update", rule, "--board", board, "--rule", "{}"],
         vec!["rule", "delete", rule, "--board", board, "--yes"],
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (_probe_dir, probe, _) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            board,
+            nonce + 10 + case as u128,
+            "readonly",
+        )
+        .await;
         assert_eq!(
-            run(&reader, &server, &args).await.unwrap_err().code(),
+            run(&probe, &server, &args).await.unwrap_err().code(),
             ErrorCode::PermissionDenied
         );
     }
-    for args in [
+    for (case, args) in [
         vec!["rule", "list", "--board", board],
         vec!["rule", "get", rule, "--board", board],
         vec!["rule", "update", rule, "--board", board, "--rule", "{}"],
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (_probe_dir, probe, probe_id) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            board,
+            nonce + 20 + case as u128,
+            "normal",
+        )
+        .await;
+        run(
+            &app,
+            &server,
+            &["board", "member", "remove", &probe_id, "--board", board],
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            run(&outsider, &server, &args).await.unwrap_err().code(),
+            run(&probe, &server, &args).await.unwrap_err().code(),
             ErrorCode::PermissionDenied
         );
     }
@@ -428,33 +554,44 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
             .as_u16(),
         401
     );
-    let nr = create(
-        &normal,
-        &server,
-        board,
-        json!({"trigger":{"activityType":"button"},"action":{"actionType":"archive"}}),
-    )
-    .await;
-    run(
-        &normal,
-        &server,
-        &[
+    run(&normal, &server, &["rule", "list", "--board", board])
+        .await
+        .unwrap();
+    run(&normal, &server, &["rule", "get", rule, "--board", board])
+        .await
+        .unwrap();
+    for (index, args) in [
+        vec![
             "rule",
-            "update",
-            nr["rule_id"].as_str().unwrap(),
+            "create",
             "--board",
             board,
             "--rule",
-            "{}",
+            r#"{"trigger":{"activityType":"button"},"action":{"actionType":"archive"}}"#,
         ],
-    )
-    .await
-    .unwrap();
-    delete(&normal, &server, board, nr["rule_id"].as_str().unwrap()).await;
+        vec!["rule", "update", rule, "--board", board, "--rule", "{}"],
+        vec!["rule", "delete", rule, "--board", board, "--yes"],
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (_case_dir, case, _) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            board,
+            nonce + 30 + index as u128,
+            "normal",
+        )
+        .await;
+        let error = run(&case, &server, &args).await.unwrap_err();
+        assert_eq!(error.code(), ErrorCode::PermissionDenied);
+        assert_eq!(error.details().http_status, Some(403));
+    }
 
     // All built-in fields are explicit; no opaque payload maps bypass decoding.
-    let full_trigger = json!({"activityType":"button","userId":"*","username":"*","listName":"List","oldListName":"Old","swimlaneName":"Default","cardTitle":"Filter","checklistName":"Checklist","checklistItemName":"Item","labelId":"label","attachmentName":"file","desc":"Description","scheduleKind":"calendar","scheduleType":"weekly","atTime":"25:00","weekday":2,"dayOfMonth":"3","onDate":"2035-01-02","dueCondition":"soon","days":"2","lastRunKey":"old","lastRunAt":"2026-10-15T00:00:00.000Z","buttonType":"board","buttonLabel":"Run"});
-    let full_action = json!({"actionType":"setDateRelative","listName":"List","swimlaneName":"Default","cardName":"Card","fromListName":"Old","checklistName":"Checklist","checkItemName":"Item","checklistItems":"one,two","dateField":"dueAt","unit":"hours","emailTo":"nobody@example.test","emailSubject":"Subject","emailMsg":"Body","selectedColor":"green","labelId":"label","username":"*","sortField":"name","desc":"Description","days":-2});
+    let full_trigger = json!({"activityType":"button","userId":"*","username":"*","listName":"List","oldListName":"Old","swimlaneName":"Default","cardTitle":"Filter","checklistName":"Checklist","checklistItemName":"Item","labelId":"label","attachmentName":"file","desc":"Description","scheduleKind":"calendar","scheduleType":"weekly","atTime":"25:00","weekday":2,"dayOfMonth":"3","onDate":"2035-01-02","dueCondition":"soon","days":"2","lastRunKey":"old","lastRunAt":"2026-10-15T00:00:00.000Z","buttonType":"board","buttonLabel":"Run","advancedFilter":"title:Filter","textContains":"Filter","cron":"0 9 * * 1-5","direction":"right"});
+    let full_action = json!({"actionType":"setDateRelative","listName":"List","swimlaneName":"Default","cardName":"Card","fromListName":"Old","checklistName":"Checklist","checkItemName":"Item","checklistItems":"one,two","dateField":"dueAt","unit":"hours","emailTo":"nobody@example.test","emailSubject":"Subject","emailMsg":"Body","selectedColor":"green","labelId":"label","username":"*","sortField":"name","desc":"Description","days":-2,"includeCardDetails":true,"includeChecklistsAndComments":false,"includeAttachments":true,"integrationId":"integration","commentText":"A comment","listId":"list","swimlaneId":"lane"});
     let full = create(
         &app,
         &server,
@@ -605,9 +742,9 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
         delete(&app, &server, board, id).await;
     }
 
-    // REST stores button fields only on the trigger; UI rendering needs rule metadata.
+    // W11-054 is fixed: REST keeps the denormalized metadata used by UI buttons.
     mongo(&format!(
-        "const r=d.rules.findOne({{_id:{}}});if(r.buttonType!==undefined||r.buttonLabel!==undefined)throw Error('unexpected REST button denormalization');",
+        "const r=d.rules.findOne({{_id:{}}});if(r.buttonType!=='board'||r.buttonLabel!=='Run')throw Error('REST button metadata did not match its trigger');",
         json!(full_id)
     ));
     let client = reqwest::Client::new();
@@ -682,7 +819,9 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
     )
     .await
     .unwrap();
-    assert_eq!(get(&app, &server, board, full_id).await, dangling);
+    let repaired = get(&app, &server, board, full_id).await;
+    assert_eq!(repaired["trigger"], json!({"desc":"no match"}));
+    assert_eq!(repaired["action"], json!({"desc":"no match"}));
     delete(&app, &server, board, full_id).await;
     delete(&app, &server, board, rule).await;
     mongo(&format!(
@@ -790,13 +929,15 @@ async fn complete_rule_lifecycle_matches_wekan_v11_06() {
         }
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
-    // Pinned defect: scheduledRules registers a job, but v11.06 never starts
-    // SyncedCron. Preserve the native non-execution instead of starting it here.
-    assert!(!fired, "pinned scheduler behavior changed; review W11-053");
+    // W11-053 is fixed: the native startup starts the registered minute scanner.
+    assert!(
+        fired,
+        "the native scheduled rule did not run within 90 seconds"
+    );
     let detail = get(&app, &server, board, scheduled_id).await;
-    assert!(detail["trigger"].get("last_run_at").is_none());
-    assert!(detail["trigger"].get("last_run_key").is_none());
-    assert_ne!(
+    assert!(detail["trigger"]["last_run_at"].is_string());
+    assert!(detail["trigger"]["last_run_key"].is_string());
+    assert_eq!(
         run(&app, &server, &["card", "get", &card]).await.unwrap()["color"],
         "purple"
     );

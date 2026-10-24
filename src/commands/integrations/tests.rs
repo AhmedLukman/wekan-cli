@@ -116,7 +116,7 @@ fn document() -> Value {
 #[tokio::test]
 async fn all_commands_map_outputs_and_send_one_native_request() {
     let server = MockServer::start().await;
-    let detail = json!({"integration_id":"i", "enabled":true, "title":null, "integration_type":"outgoing-webhooks", "activities":["all"], "url":"https://8.8.8.8/hook", "board_id":"b", "user_id":"u", "created_at":"2026-10-14T00:00:00.000Z", "modified_at":"2026-10-14T00:00:00.000Z"});
+    let detail = json!({"notification_delivery":null,"mattermost_direct_messages":null,"bot":null,"integration_id":"i", "enabled":true, "title":null, "integration_type":"outgoing-webhooks", "activities":["all"], "url":"https://8.8.8.8/hook", "board_id":"b", "user_id":"u", "created_at":"2026-10-14T00:00:00.000Z", "modified_at":"2026-10-14T00:00:00.000Z"});
     for (args, verb, url, body, response, expected) in [
         (
             vec!["list"],

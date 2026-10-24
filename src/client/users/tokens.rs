@@ -44,10 +44,16 @@ fn deserialize_secret<'de, D: serde::Deserializer<'de>>(d: D) -> Result<SecretSt
     String::deserialize(d).map(SecretString::from)
 }
 
+#[derive(Serialize)]
+struct CreateUserTokenRequest<'a> {
+    reason: &'a str,
+}
+
 impl WekanClient {
     pub async fn create_user_token(
         &self,
         user_id: &str,
+        reason: &str,
         credential: &SecretString,
     ) -> Result<CreatedUserToken, ClientError> {
         let mut endpoint = self.endpoint("api/createtoken", "token creation")?;
@@ -64,7 +70,8 @@ impl WekanClient {
                 self.http
                     .post(endpoint)
                     .header(ACCEPT, "application/json")
-                    .bearer_auth(credential.expose_secret()),
+                    .bearer_auth(credential.expose_secret())
+                    .json(&CreateUserTokenRequest { reason }),
             )
             .await?;
         let response: CreatedUserToken = decode_success(&body, "token creation", true)?;

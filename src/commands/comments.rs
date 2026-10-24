@@ -2,6 +2,7 @@ mod create;
 mod delete;
 mod get;
 mod list;
+mod update;
 
 #[cfg(test)]
 mod tests;
@@ -30,6 +31,9 @@ pub enum CommentCommand {
     /// Create a comment on a card.
     Create(create::CreateArgs),
 
+    /// Replace the text of a card comment.
+    Update(update::UpdateArgs),
+
     /// Permanently delete a card comment.
     Delete(delete::DeleteArgs),
 }
@@ -41,6 +45,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CommentCommand::Update(args) => {
+            update::execute(args, client_factory, credential_store).await
+        }
         CommentCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         CommentCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         CommentCommand::Create(args) => {

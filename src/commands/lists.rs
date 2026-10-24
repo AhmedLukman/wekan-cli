@@ -1,3 +1,4 @@
+mod archive;
 mod create;
 mod delete;
 mod get;
@@ -23,6 +24,10 @@ pub struct ListArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ListCommand {
+    /// Archive a list and its active cards.
+    Archive(archive::ArchiveArgs),
+    /// Restore an archived list through Wekan's native restore operation.
+    Restore(archive::ArchiveArgs),
     /// Copy a list using Wekan's native transfer behavior.
     Copy(transfer::TransferArgs),
     /// Move or reposition a list; Wekan may retain the source or fail after partial changes.
@@ -50,6 +55,12 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        ListCommand::Archive(args) => {
+            archive::execute(args, true, client_factory, credential_store).await
+        }
+        ListCommand::Restore(args) => {
+            archive::execute(args, false, client_factory, credential_store).await
+        }
         ListCommand::Copy(args) => {
             transfer::execute(args, false, client_factory, credential_store).await
         }

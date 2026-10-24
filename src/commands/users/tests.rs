@@ -317,7 +317,7 @@ async fn current_maps_a_remote_user_id_mismatch_to_a_credential_failure() {
 }
 
 #[tokio::test]
-async fn create_reads_the_shared_account_password_and_reports_the_v11_defect() {
+async fn create_reads_the_shared_account_password_and_returns_the_created_id() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/users"))
@@ -327,7 +327,7 @@ async fn create_reads_the_shared_account_password_and_reports_the_v11_defect() {
             "email": "bob@example.com",
             "password": "new-user-password"
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "_id": {} })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "_id": "created-user" })))
         .expect(1)
         .mount(&server)
         .await;
@@ -355,7 +355,7 @@ async fn create_reads_the_shared_account_password_and_reports_the_v11_defect() {
         panic!("expected user creation")
     };
 
-    assert_eq!(created.user_id, None);
+    assert_eq!(created.user_id, "created-user");
     assert_eq!(*secrets.modes.lock().unwrap(), [true]);
 }
 
@@ -413,7 +413,7 @@ async fn user_detail_preserves_profile_settings_and_metadata() {
             "_id":"admin-1", "createdThroughApi":true, "heartbeat":"2030-01-01T00:00:00Z",
             "sessionData":{"totalHits":12}, "importUsernames":["imported"],
             "profile":{"dateFormat":"DD/MM/YYYY", "cardZoom":1.5, "keyboardShortcuts":false,
-                "listWidths":{"board-1":{"list-1":320}}, "notifications":[{"activity":"activity-1","read":null}],
+                "listWidths":{"board-1":{"list-1":320}}, "notifications":[{"activity":"activity-1","read":null,"showAt":1792645200000u64},{"activity":"immediate"}],
                 "listConstraints":{"board-1":{"list-1":550.5}},
                 "moveAndCopyDialog":{"board-1":{"boardId":"board-2","swimlaneId":"lane","listId":"list","cardId":null}},
                 "moveChecklistDialog":{"board-1":{"boardId":"board-2","swimlaneId":"lane","listId":"list","cardId":"card"}},
@@ -432,6 +432,9 @@ async fn user_detail_preserves_profile_settings_and_metadata() {
     )
     .await
     .unwrap();
+    let human = crate::output::render_success(crate::output::OutputFormat::Human, &result);
+    assert!(human.contains("show_at: 1792645200000"));
+    assert!(human.contains("show_at: null"));
     let CommandSuccess::UserCurrent(user) = result else {
         panic!("user")
     };
@@ -468,6 +471,11 @@ async fn user_detail_preserves_profile_settings_and_metadata() {
         value["profile"]["notifications"][0]["activity"],
         "activity-1"
     );
+    assert_eq!(
+        value["profile"]["notifications"][0]["show_at"],
+        json!(1792645200000u64)
+    );
+    assert!(value["profile"]["notifications"][1]["show_at"].is_null());
     assert_eq!(value["profile"]["starred_pages"][0]["title"], "Board");
     let nodes = &value["profile"]["board_workspaces_tree"];
     assert_eq!(nodes[0]["id"], "root");
@@ -491,7 +499,7 @@ async fn digest_creation_reads_secret_stdin_and_sends_a_password_object() {
     let digest = "a".repeat(64);
     Mock::given(method("POST")).and(path("/api/users"))
         .and(body_json(json!({"username":"bob","email":"bob@example.test","password":{"digest":digest,"algorithm":"sha-256"}})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":{}})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"created-user"})))
         .expect(1).mount(&server).await;
     let secrets = FakeSecrets::new(&json!({"digest":digest,"algorithm":"sha-256"}).to_string());
     let result = dispatch(
@@ -583,7 +591,7 @@ async fn deleting_self_removes_only_the_matching_local_credential() {
     let CommandSuccess::UserDeleted(deleted) = success else {
         panic!("expected user deletion")
     };
-    assert!(deleted.deletion_requested);
+    assert!(deleted.deleted);
     assert!(deleted.deleted_current_user);
     assert!(deleted.local_credential_removed);
     assert!(!deleted.credential_stored);

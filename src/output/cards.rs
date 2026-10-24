@@ -182,7 +182,7 @@ pub(super) fn render_card_updated(data: &CardUpdateSuccess) -> String {
         .submitted_fields
         .contains(&crate::command_result::CardSubmittedField::IsOverTime)
     {
-        rendered.push_str("\nWekan v11.06 ignores is_over_time=false and writes the wrong field for true; the card's actual overtime state is unchanged.");
+        rendered.push_str("\nWekan v12.57 ignores is_over_time=false and writes the wrong field for true; the card's actual overtime state is unchanged.");
     }
     rendered
 }

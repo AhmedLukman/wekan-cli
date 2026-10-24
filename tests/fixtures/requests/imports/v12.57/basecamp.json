@@ -1,0 +1,23 @@
+{
+  "basecamp": true,
+  "project": {
+    "id": 1,
+    "name": "Catalog"
+  },
+  "cardTables": [],
+  "todolists": [
+    {
+      "id": 2,
+      "title": "Todo",
+      "todos": [
+        {
+          "id": 3,
+          "title": "Catalog card",
+          "content": "Catalog card",
+          "description": "Details",
+          "completed": false
+        }
+      ]
+    }
+  ]
+}

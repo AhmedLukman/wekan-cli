@@ -49,6 +49,18 @@ pub(super) async fn execute(
 
 fn list_detail(list: ListDocument) -> ListDetail {
     ListDetail {
+        scrum: list.scrum,
+        role_exceptions: list.role_exceptions,
+        sync_source: list.sync_source,
+        scrum_revision: list.scrum_revision,
+        cards_use_list_color: list.cards_use_list_color,
+        linked_board_id: list.linked_board_id,
+        linked_list_id: list.linked_list_id,
+        sync_revision: list.sync_revision,
+        sync_credential_generation: list.sync_credential_generation,
+        sync_credential_fence: list.sync_credential_fence,
+        sync_write_back_error: list.sync_write_back_error,
+        sync_credential_incarnation: list.sync_credential_incarnation,
         list_id: list.list_id,
         title: list.title,
         watchers: list.watchers,

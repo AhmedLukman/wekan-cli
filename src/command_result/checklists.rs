@@ -1,14 +1,11 @@
 use serde::Serialize;
 use serde_json::Number;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct ChecklistSummary {
-    pub checklist_id: String,
-    pub title: String,
-}
+pub type ChecklistSummary = ChecklistDetail;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ChecklistItemSummary {
+    pub due_at: Option<String>,
     pub item_id: String,
     pub title: String,
     pub is_finished: bool,
@@ -16,6 +13,9 @@ pub struct ChecklistItemSummary {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ChecklistDetail {
+    pub last_reset_at: Option<String>,
+    pub reset_interval: Option<String>,
+    pub due_at: Option<String>,
     pub checklist_id: String,
     pub card_id: String,
     pub board_id: Option<String>,

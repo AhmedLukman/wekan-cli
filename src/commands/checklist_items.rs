@@ -61,3 +61,9 @@ fn non_empty(value: &str) -> Result<String, String> {
         Ok(value.to_owned())
     }
 }
+
+fn deadline(value: &str) -> Result<String, String> {
+    time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+        .map(|_| value.to_owned())
+        .map_err(|_| "expected an RFC 3339 date-time with a timezone".to_owned())
+}

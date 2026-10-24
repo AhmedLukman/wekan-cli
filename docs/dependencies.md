@@ -1,7 +1,7 @@
 # Card dependencies
 
 The root `wekan dependency` family manages the five dependency REST operations
-in Wekan v11.06. A dependency is stored on a source card and references a target
+in Wekan v12.57. A dependency is stored on a source card and references a target
 card. The commands require board IDs, with no list selector.
 
 ```console
@@ -49,7 +49,7 @@ so its values can differ from `dependency list` (absent/null properties both
 render as null in card output). Raw card dependency types are
 optional nullable strings; normalized dependency responses require a named type.
 
-An update without metadata sends `{}`. Wekan v11.06 returns HTTP 500 with the
+An update without metadata sends `{}`. Wekan v12.57 returns HTTP 500 with the
 symbolic `bad-request` error. Missing source cards also return HTTP 500 with
 `not-found`; self, missing, or foreign-board POST targets return HTTP 500 with
 `bad-request`. The CLI preserves these statuses and server details rather than

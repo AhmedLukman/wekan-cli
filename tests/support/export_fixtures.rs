@@ -3,35 +3,37 @@ pub fn board() -> Value {
     json!({"_id":"board","title":"Delivery","members":[],"_format":"wekan-board-1.0.0","attachments":[],"lists":[],"swimlanes":[],"customFields":[],"cards":[],"comments":[],"activities":[],"checklists":[],"checklistItems":[],"subtaskItems":[],"rules":[],"triggers":[],"actions":[],"users":[]})
 }
 pub fn external(format: &str) -> Value {
-    match format {
-        "json" => board(),
-        "kanboard" => {
-            json!({"board":{"name":"Delivery"},"columns":[{"title":"Todo"}],"swimlanes":[{"name":"Default"}],"tasks":[{"title":"Ship","description":"Details","column_name":"Todo","swimlane_name":"Default","tags":["label"]}]})
-        }
-        "deck" => {
-            json!({"title":"Delivery","stacks":[{"title":"Todo","cards":[{"title":"Ship","description":"Details","labels":[{"title":"label"}]}]}]})
-        }
+    if format == "json" {
+        return board();
+    }
+    let fixture = match format {
+        "deck" => include_str!("../fixtures/responses/exports/v12.57/deck-minimal.json"),
+        "kanboard" => include_str!("../fixtures/responses/exports/v12.57/kanboard-minimal.json"),
         "openproject" => {
-            json!({"_embedded":{"elements":[{"subject":"Ship","description":{"raw":"Details"},"_links":{"status":{"title":"Todo"}}}]}})
+            include_str!("../fixtures/responses/exports/v12.57/openproject-minimal.json")
         }
-        "github" | "gitea" | "forgejo" => {
-            json!([{"title":"Ship","body":"Details","state":"open","labels":[{"name":"label"}]}])
+        "github" => include_str!("../fixtures/responses/exports/v12.57/github-minimal.json"),
+        "gitlab" => include_str!("../fixtures/responses/exports/v12.57/gitlab-minimal.json"),
+        "gitea" => include_str!("../fixtures/responses/exports/v12.57/gitea-minimal.json"),
+        "forgejo" => include_str!("../fixtures/responses/exports/v12.57/forgejo-minimal.json"),
+        "trello" => include_str!("../fixtures/responses/exports/v12.57/trello-minimal.json"),
+        "jira" => include_str!("../fixtures/responses/exports/v12.57/jira-minimal.json"),
+        "asana" => include_str!("../fixtures/responses/exports/v12.57/asana-minimal.json"),
+        "zenkit" => include_str!("../fixtures/responses/exports/v12.57/zenkit-minimal.json"),
+        "taskwarrior" => {
+            include_str!("../fixtures/responses/exports/v12.57/taskwarrior-minimal.json")
         }
-        "gitlab" => {
-            json!([{"title":"Ship","description":"Details","state":"opened","labels":["label"]}])
+        "nullboard" => include_str!("../fixtures/responses/exports/v12.57/nullboard-minimal.json"),
+        "kanri" => include_str!("../fixtures/responses/exports/v12.57/kanri-minimal.json"),
+        "tasksorg" => include_str!("../fixtures/responses/exports/v12.57/tasksorg-minimal.json"),
+        "superproductivity" => {
+            include_str!("../fixtures/responses/exports/v12.57/superproductivity-minimal.json")
         }
-        "trello" => {
-            json!({"name":"Delivery","prefs":{"background":"blue","permissionLevel":"private"},"labels":[],"lists":[],"cards":[],"checklists":[],"actions":[]})
-        }
-        "jira" => {
-            json!({"board":{"name":"Delivery"},"issues":[{"key":"WEKAN-1","fields":{"summary":"Ship","description":"Details","status":{"name":"Todo"},"labels":["label"]}}]})
-        }
-        "asana" => {
-            json!({"data":[{"name":"Ship","notes":"Details","completed":false,"memberships":[{"section":{"name":"Todo"}}],"tags":[{"name":"label"}]}]})
-        }
-        "zenkit" => {
-            json!({"title":"Delivery","stages":[{"name":"Todo"}],"items":[{"title":"Ship","description":"Details","stage_name":"Todo","tags":["label"]}]})
+        "taiga" => include_str!("../fixtures/responses/exports/v12.57/taiga-minimal.json"),
+        "wrikeworkflow" => {
+            include_str!("../fixtures/responses/exports/v12.57/wrikeworkflow-minimal.json")
         }
         _ => panic!("not JSON"),
-    }
+    };
+    serde_json::from_str(fixture).expect("matching-version native export fixture")
 }

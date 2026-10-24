@@ -191,6 +191,313 @@ const FIELDS: &[(&str, &str, &str)] = &[
     ("cardAgingDays1", "card_aging_days1", "--card-aging-days1"),
     ("cardAgingDays2", "card_aging_days2", "--card-aging-days2"),
     ("cardAgingDays3", "card_aging_days3", "--card-aging-days3"),
+    (
+        "allowsSwimlaneDragging",
+        "allows_swimlane_dragging",
+        "--allows-swimlane-dragging",
+    ),
+    (
+        "allowsListDragging",
+        "allows_list_dragging",
+        "--allows-list-dragging",
+    ),
+    (
+        "allowsCardDragging",
+        "allows_card_dragging",
+        "--allows-card-dragging",
+    ),
+    (
+        "allowsChecklistDragging",
+        "allows_checklist_dragging",
+        "--allows-checklist-dragging",
+    ),
+    (
+        "allowsChecklistItemDragging",
+        "allows_checklist_item_dragging",
+        "--allows-checklist-item-dragging",
+    ),
+    (
+        "allowsSubtaskDragging",
+        "allows_subtask_dragging",
+        "--allows-subtask-dragging",
+    ),
+    (
+        "allowsMinicardCollapse",
+        "allows_minicard_collapse",
+        "--allows-minicard-collapse",
+    ),
+    (
+        "labelsAboveTitleOnMinicard",
+        "labels_above_title_on_minicard",
+        "--labels-above-title-on-minicard",
+    ),
+    (
+        "allowsChecklistDueDate",
+        "allows_checklist_due_date",
+        "--allows-checklist-due-date",
+    ),
+    (
+        "allowsChecklistTitle",
+        "allows_checklist_title",
+        "--allows-checklist-title",
+    ),
+    (
+        "askForMoveReason",
+        "ask_for_move_reason",
+        "--ask-for-move-reason",
+    ),
+    (
+        "allowsCommentsOnMinicard",
+        "allows_comments_on_minicard",
+        "--allows-comments-on-minicard",
+    ),
+    (
+        "allowsSpentTime",
+        "allows_spent_time",
+        "--allows-spent-time",
+    ),
+    (
+        "allowsSpentTimeOnMinicard",
+        "allows_spent_time_on_minicard",
+        "--allows-spent-time-on-minicard",
+    ),
+    (
+        "allowsSwimlaneNameOnMinicard",
+        "allows_swimlane_name_on_minicard",
+        "--allows-swimlane-name-on-minicard",
+    ),
+    ("showLabelText", "show_label_text", "--show-label-text"),
+    ("allowsStickers", "allows_stickers", "--allows-stickers"),
+    (
+        "allowsStickersOnMinicard",
+        "allows_stickers_on_minicard",
+        "--allows-stickers-on-minicard",
+    ),
+    ("allowsLocation", "allows_location", "--allows-location"),
+    (
+        "allowsDependencies",
+        "allows_dependencies",
+        "--allows-dependencies",
+    ),
+    (
+        "allowsDependenciesOnMinicard",
+        "allows_dependencies_on_minicard",
+        "--allows-dependencies-on-minicard",
+    ),
+    ("allowsFlowtime", "allows_flowtime", "--allows-flowtime"),
+    ("allowsPomodoro", "allows_pomodoro", "--allows-pomodoro"),
+    ("allowsVote", "allows_vote", "--allows-vote"),
+    (
+        "allowsVoteOnMinicard",
+        "allows_vote_on_minicard",
+        "--allows-vote-on-minicard",
+    ),
+    ("allowsPoker", "allows_poker", "--allows-poker"),
+    (
+        "allowsPokerOnMinicard",
+        "allows_poker_on_minicard",
+        "--allows-poker-on-minicard",
+    ),
+    (
+        "allowsTextNotes",
+        "allows_text_notes",
+        "--allows-text-notes",
+    ),
+    (
+        "allowsCommentCountOnMinicard",
+        "allows_comment_count_on_minicard",
+        "--allows-comment-count-on-minicard",
+    ),
+    (
+        "allowsIssueTypeOnMinicard",
+        "allows_issue_type_on_minicard",
+        "--allows-issue-type-on-minicard",
+    ),
+    (
+        "allowsCardColorOnCard",
+        "allows_card_color_on_card",
+        "--allows-card-color-on-card",
+    ),
+    (
+        "allowsCardColorOnMinicard",
+        "allows_card_color_on_minicard",
+        "--allows-card-color-on-minicard",
+    ),
+    (
+        "allowsParentCardOnCard",
+        "allows_parent_card_on_card",
+        "--allows-parent-card-on-card",
+    ),
+    (
+        "allowsParentCardOnMinicard",
+        "allows_parent_card_on_minicard",
+        "--allows-parent-card-on-minicard",
+    ),
+    (
+        "allowsLinkedCardOnCard",
+        "allows_linked_card_on_card",
+        "--allows-linked-card-on-card",
+    ),
+    (
+        "allowsLinkedCardOnMinicard",
+        "allows_linked_card_on_minicard",
+        "--allows-linked-card-on-minicard",
+    ),
+    (
+        "allowsCardButtonsOnCard",
+        "allows_card_buttons_on_card",
+        "--allows-card-buttons-on-card",
+    ),
+    (
+        "allowsDescriptionBadgeOnMinicard",
+        "allows_description_badge_on_minicard",
+        "--allows-description-badge-on-minicard",
+    ),
+    (
+        "allowsUnreadCommentsOnMinicard",
+        "allows_unread_comments_on_minicard",
+        "--allows-unread-comments-on-minicard",
+    ),
+    (
+        "allowsCardCollapse",
+        "allows_card_collapse",
+        "--allows-card-collapse",
+    ),
+    (
+        "allowsChecklistTitleOnMinicard",
+        "allows_checklist_title_on_minicard",
+        "--allows-checklist-title-on-minicard",
+    ),
+    (
+        "allowsLabelTextOnCard",
+        "allows_label_text_on_card",
+        "--allows-label-text-on-card",
+    ),
+    (
+        "allowsCardButtonsOnMinicard",
+        "allows_card_buttons_on_minicard",
+        "--allows-card-buttons-on-minicard",
+    ),
+    (
+        "allowsDescriptionBadgeOnCard",
+        "allows_description_badge_on_card",
+        "--allows-description-badge-on-card",
+    ),
+    (
+        "allowsUnreadCommentsOnCard",
+        "allows_unread_comments_on_card",
+        "--allows-unread-comments-on-card",
+    ),
+    (
+        "allowsDueFromTitleOnCard",
+        "allows_due_from_title_on_card",
+        "--allows-due-from-title-on-card",
+    ),
+    (
+        "allowsDueFromTitleOnMinicard",
+        "allows_due_from_title_on_minicard",
+        "--allows-due-from-title-on-minicard",
+    ),
+    (
+        "allowsSimilarCardsOnCard",
+        "allows_similar_cards_on_card",
+        "--allows-similar-cards-on-card",
+    ),
+    (
+        "allowsSimilarCardsOnMinicard",
+        "allows_similar_cards_on_minicard",
+        "--allows-similar-cards-on-minicard",
+    ),
+    (
+        "allowsAtRiskOnCard",
+        "allows_at_risk_on_card",
+        "--allows-at-risk-on-card",
+    ),
+    (
+        "allowsAtRiskOnMinicard",
+        "allows_at_risk_on_minicard",
+        "--allows-at-risk-on-minicard",
+    ),
+    (
+        "allowsSuggestedMembersOnCard",
+        "allows_suggested_members_on_card",
+        "--allows-suggested-members-on-card",
+    ),
+    (
+        "allowsForecastOnCard",
+        "allows_forecast_on_card",
+        "--allows-forecast-on-card",
+    ),
+    (
+        "allowsForecastOnMinicard",
+        "allows_forecast_on_minicard",
+        "--allows-forecast-on-minicard",
+    ),
+    (
+        "allowsChecklistFromDescriptionOnCard",
+        "allows_checklist_from_description_on_card",
+        "--allows-checklist-from-description-on-card",
+    ),
+    (
+        "allowsActionItemsOnCard",
+        "allows_action_items_on_card",
+        "--allows-action-items-on-card",
+    ),
+    (
+        "allowsWhiteboardOnCard",
+        "allows_whiteboard_on_card",
+        "--allows-whiteboard-on-card",
+    ),
+    (
+        "labelsAboveTitleOnCard",
+        "labels_above_title_on_card",
+        "--labels-above-title-on-card",
+    ),
+    (
+        "allowsChecklistDueDateOnMinicard",
+        "allows_checklist_due_date_on_minicard",
+        "--allows-checklist-due-date-on-minicard",
+    ),
+    (
+        "allowsLocationOnMinicard",
+        "allows_location_on_minicard",
+        "--allows-location-on-minicard",
+    ),
+    (
+        "allowsSwimlaneNameOnCard",
+        "allows_swimlane_name_on_card",
+        "--allows-swimlane-name-on-card",
+    ),
+    (
+        "allowsFlowtimeOnMinicard",
+        "allows_flowtime_on_minicard",
+        "--allows-flowtime-on-minicard",
+    ),
+    (
+        "allowsPomodoroOnMinicard",
+        "allows_pomodoro_on_minicard",
+        "--allows-pomodoro-on-minicard",
+    ),
+    (
+        "allowsAttachmentListOnMinicard",
+        "allows_attachment_list_on_minicard",
+        "--allows-attachment-list-on-minicard",
+    ),
+    (
+        "allowsTextNotesOnMinicard",
+        "allows_text_notes_on_minicard",
+        "--allows-text-notes-on-minicard",
+    ),
+    (
+        "allowsCommentCountOnCard",
+        "allows_comment_count_on_card",
+        "--allows-comment-count-on-card",
+    ),
+    (
+        "allowsActivitiesOnMinicard",
+        "allows_activities_on_minicard",
+        "--allows-activities-on-minicard",
+    ),
 ];
 
 async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Result<Value, AppError> {
@@ -249,10 +556,10 @@ async fn wait_for_domains(app: &LiveApp, server: &str, board: &str, expected: &V
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_BOARD_SETTINGS_E2E_URL"]
-async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_BOARD_SETTINGS_E2E_URL"]
+async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_BOARD_SETTINGS_E2E_URL")
-        .expect("set WEKAN_BOARD_SETTINGS_E2E_URL to a fresh isolated v11.06 stack");
+        .expect("set WEKAN_BOARD_SETTINGS_E2E_URL to a fresh isolated v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -323,7 +630,7 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
     let baseline = run(&app, &server, &["card-settings", "get", "--board", &board])
         .await
         .unwrap();
-    assert_eq!(baseline["settings"].as_object().unwrap().len(), 47);
+    assert_eq!(baseline["settings"].as_object().unwrap().len(), 114);
     let saved = stored_board(&board);
     for (wire, snake, _) in FIELDS {
         assert_eq!(baseline["settings"][*snake], saved[*wire], "{wire}");
@@ -339,7 +646,7 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
         ];
         let mut expected = serde_json::Map::new();
         for (i, (wire, snake, flag)) in FIELDS.iter().enumerate() {
-            let value = if i < 44 {
+            let value = if !(44..47).contains(&i) {
                 json!((i + pass) % 2 == 0)
             } else if i == 44 {
                 json!(0)
@@ -352,8 +659,8 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
             expected.insert((*wire).to_owned(), json!({"snake":snake,"value":value}));
         }
         let argv: Vec<_> = args.iter().map(String::as_str).collect();
-        let output = run(&normal, &server, &argv).await.unwrap();
-        assert_eq!(output["submitted_fields"].as_array().unwrap().len(), 47);
+        let output = run(&owner, &server, &argv).await.unwrap();
+        assert_eq!(output["submitted_fields"].as_array().unwrap().len(), 114);
         let saved = stored_board(&board);
         for (wire, entry) in expected {
             assert_eq!(saved[&wire], entry["value"], "{wire}");
@@ -365,6 +672,8 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
         }
     }
 
+    // An ordinary setting remains editable after every optional native flag
+    // has been populated. Verify the persisted values independently of PUT.
     let before = run(&app, &server, &["card-settings", "get", "--board", &board])
         .await
         .unwrap()["settings"]
@@ -383,15 +692,15 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
     )
     .await
     .unwrap();
-    for (_, snake, _) in FIELDS {
-        assert_eq!(
-            changed["settings"][*snake],
-            if *snake == "allows_attachments" {
-                json!(false)
-            } else {
-                before[*snake].clone()
-            }
-        );
+    let saved = stored_board(&board);
+    for (wire, snake, _) in FIELDS {
+        let expected = if *snake == "allows_attachments" {
+            json!(false)
+        } else {
+            before[*snake].clone()
+        };
+        assert_eq!(changed["settings"][*snake], expected, "{wire}");
+        assert_eq!(saved[*wire], expected, "{wire} must remain persisted");
     }
     run(
         &reader,
@@ -462,16 +771,18 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
             .unwrap()["domains"],
         json!([])
     );
-    for user in [&normal, &reader, &owner] {
+    let (_domain_reader_dir, domain_reader, _) =
+        register_live_board_role(&server, &canonical, &token, &board, nonce + 2, "readonly").await;
+    for user in [&normal, &domain_reader, &owner] {
         let denied = run(user, &server, &["domain", "list", "--board", &board])
             .await
             .unwrap_err();
         assert_eq!(denied.code(), ErrorCode::PermissionDenied);
-        assert_eq!(denied.details().http_status, Some(200));
-        assert_eq!(denied.details().wekan_status_code, Some(403));
+        assert_eq!(denied.details().http_status, Some(403));
+        assert_eq!(denied.details().wekan_status_code, None);
     }
 
-    // v11.06 REST cannot seed sharing: setBoardDomains receives no DDP user identity.
+    // v12.57 REST cannot seed sharing: setBoardDomains receives no DDP user identity.
     // Seed only this isolated test's board, then read through the production strict decoder.
     let domains = json!([{"domain":"example.test","isActive":true},{"domain":"inactive.test","isActive":false}]);
     seed_board(&board, json!({"$set":{"domains":domains}}));
@@ -491,12 +802,12 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06() {
             )
             .await
             .unwrap_err();
-            assert_eq!(error.code(), ErrorCode::ProtocolError, "{error:?}");
+            assert_eq!(error.code(), ErrorCode::ServerError, "{error:?}");
             assert_eq!(error.exit_code() as u8, 5);
-            assert_eq!(error.details().http_status, Some(200));
+            assert_eq!(error.details().http_status, Some(500));
             assert_eq!(
                 error.details().server_error.as_deref(),
-                Some("not-authorized")
+                Some("Internal server error")
             );
             assert_eq!(stored_board(&board)["domains"], domains);
             assert_eq!(

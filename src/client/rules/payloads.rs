@@ -30,6 +30,31 @@ pub struct RuleTrigger {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "present_nullable"
     )]
+    pub advanced_filter: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub text_contains: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub cron: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub direction: Option<Option<String>>,
+
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
     pub activity_type: Option<Option<String>>,
     #[serde(
         default,
@@ -185,6 +210,49 @@ pub struct RuleAction {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "present_nullable"
     )]
+    pub include_card_details: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub include_checklists_and_comments: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub include_attachments: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub integration_id: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub comment_text: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub list_id: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub swimlane_id: Option<Option<String>>,
+
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
     pub action_type: Option<Option<String>>,
     #[serde(
         default,
@@ -299,6 +367,31 @@ pub struct RuleAction {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RuleTriggerInput {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub advanced_filter: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub text_contains: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub cron: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub direction: Option<Option<String>>,
+
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -485,6 +578,49 @@ pub struct RuleTriggerInput {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RuleActionInput {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub include_card_details: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub include_checklists_and_comments: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub include_attachments: Option<Option<bool>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub integration_id: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub comment_text: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub list_id: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_nullable"
+    )]
+    pub swimlane_id: Option<Option<String>>,
+
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

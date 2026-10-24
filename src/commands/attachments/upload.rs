@@ -1,14 +1,16 @@
 use crate::{
     client::{
-        WekanClientFactory,
+        ClientError, WekanClientFactory,
         attachments::{MAX_FILE_BYTES, UploadAttachmentRequest, UploadBackgroundRequest},
     },
     command_result::CommandSuccess,
     commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
+        authenticated::AuthenticatedContext,
+        client_error::{map_client_error_with_not_found, server_error_details},
     },
     credentials::CredentialStore,
-    error::AppError,
+    error::{AppError, ErrorCode},
+    exit_code::StableExitCode,
     input::{BinaryInputError, acquire_binary_file},
     redaction::Redactor,
 };
@@ -17,6 +19,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Args)]
 pub struct FileArgs {
+    /// Native upload transport. JSON retains Wekan's HTTP-408 defect; raw sends file bytes with query metadata.
+    #[arg(long,value_parser=["json","raw"],default_value="json")]
+    pub transport: String,
     /// Local file path, or - to read binary contents from stdin.
     pub file: PathBuf,
     /// Stored filename; required for stdin, otherwise defaults to the basename.
@@ -116,19 +121,26 @@ pub(super) async fn execute(
         file_data,
         file_type: a.source.file_type,
     };
-    let response = context
-        .client()
-        .upload_attachment(&request, context.record().token())
-        .await
-        .map_err(|e| {
-            map_client_error_with_not_found(
-                e,
-                &Redactor::with_secret(context.record().token()),
-                "attachment upload",
-                "the target board or card was not found",
-            )
-        })?;
-    Ok(CommandSuccess::AttachmentUploaded(response))
+    let response = if a.source.transport == "raw" {
+        context
+            .client()
+            .upload_attachment_raw(request, context.record().token())
+            .await
+    } else {
+        context
+            .client()
+            .upload_attachment(&request, context.record().token())
+            .await
+    }
+    .map_err(|e| {
+        map_client_error_with_not_found(
+            e,
+            &Redactor::with_secret(context.record().token()),
+            "attachment upload",
+            "the target board or card was not found",
+        )
+    })?;
+    Ok(CommandSuccess::AttachmentUploaded(response.into()))
 }
 
 pub(super) async fn background(
@@ -145,17 +157,56 @@ pub(super) async fn background(
         file_data,
         file_type: a.source.file_type,
     };
-    let response = context
-        .client()
-        .upload_background(&request, context.record().token())
-        .await
-        .map_err(|e| {
-            map_client_error_with_not_found(
-                e,
-                &Redactor::with_secret(context.record().token()),
-                "background upload",
-                "the target board was not found",
-            )
-        })?;
+    let response = if a.source.transport == "raw" {
+        context
+            .client()
+            .upload_background_raw(request, context.record().token())
+            .await
+    } else {
+        context
+            .client()
+            .upload_background(&request, context.record().token())
+            .await
+    }
+    .map_err(|e| map_background_error(e, &Redactor::with_secret(context.record().token())))?;
     Ok(CommandSuccess::BackgroundUploaded(response))
+}
+
+fn map_background_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
+    // W12-006: this helper runs only after the raw attachment has been saved.
+    // The native outer catch incorrectly reports its TypeError as HTTP 401.
+    // Bundling changes the variable name, but preserves the method and error.
+    if let ClientError::Server {
+        status,
+        server_error,
+        server_reason,
+        retry_after_seconds,
+    } = &error
+        && *status == reqwest::StatusCode::UNAUTHORIZED
+        && server_error
+            .as_deref()
+            .is_some_and(|message| message.ends_with(".isBoardAdmin is not a function"))
+    {
+        let mut details = server_error_details(
+            *status,
+            server_error.clone(),
+            server_reason.clone(),
+            *retry_after_seconds,
+            redactor,
+        );
+        details.mutation_attempted = Some(true);
+        details.retry_safe = Some(false);
+        return AppError::new(
+            ErrorCode::ServerError,
+            "Wekan's background helper failed after storing the upload; its native HTTP 401 does not indicate a rejected credential",
+            StableExitCode::Server,
+        )
+        .with_details(details);
+    }
+    map_client_error_with_not_found(
+        error,
+        redactor,
+        "background upload",
+        "the target board was not found",
+    )
 }

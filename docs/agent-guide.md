@@ -1,10 +1,10 @@
 # Using Wekan CLI from an agent
 
 This guide is bundled with the installed `wekan` executable, which targets
-**Wekan v11.06 exactly**. Reading guidance is offline and needs no source
+**Wekan v12.57 exactly**. Reading guidance is offline and needs no source
 checkout, profile, or credentials.
 
-Wekan v11.06 has known upstream defects. Unexpected errors, incomplete results,
+Wekan v12.57 has known upstream defects. Unexpected errors, incomplete results,
 or inconsistent behavior may come from the server. Check the relevant command
 guide and report uncertainty before retrying mutations or attempting workarounds.
 

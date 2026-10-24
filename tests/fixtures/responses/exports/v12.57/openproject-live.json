@@ -1,0 +1,1 @@
+{"_embedded":{"elements":[{"id":1,"subject":"Upgrade card","description":{"raw":""},"createdAt":"2026-10-20T16:54:20.581Z","_links":{"status":{"title":"Todo"},"author":{"title":"upgrade_probe"}},"_embedded":{"activities":[{"_type":"Activity::Comment","comment":{"raw":"Initial comment"},"createdAt":"2026-10-20T16:54:20.912Z","_links":{"user":{"title":"upgrade_probe"}}}]}}]}}

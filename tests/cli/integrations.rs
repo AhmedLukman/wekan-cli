@@ -11,6 +11,14 @@ fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
 #[test]
 fn integration_parser_covers_required_inputs_and_conflicts() {
     for args in [
+        vec!["inbound-email", "submit", "--file", "message.json"],
+        vec![
+            "inbound-email",
+            "bounce",
+            "postmark",
+            "--file",
+            "bounce.json",
+        ],
         vec!["list", "--board", "b"],
         vec!["get", "i", "--board", "b"],
         vec!["create", "--board", "b", "--url", ""],
@@ -65,6 +73,7 @@ fn integration_parser_covers_required_inputs_and_conflicts() {
         parse(&args).unwrap();
     }
     for args in [
+        vec!["inbound-email", "ses", "--file", "message.json"],
         vec!["list"],
         vec!["get", "i"],
         vec!["get", "--board", "b"],

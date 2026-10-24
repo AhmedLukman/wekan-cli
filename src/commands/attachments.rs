@@ -3,6 +3,7 @@ mod download;
 mod export;
 mod get;
 mod list;
+mod recovery;
 #[cfg(test)]
 mod tests;
 mod transfer;
@@ -24,11 +25,11 @@ pub struct AttachmentArgs {
 pub enum AttachmentCommand {
     /// Export a native artifact to a file or validated raw stdout.
     Export(export::ExportArgs),
-    /// List attachments. Wekan v11.06 ignores deeper selectors and returns all board attachments.
+    /// List attachments. Wekan v12.57 ignores deeper selectors and returns all board attachments.
     List(list::ListArgs),
     /// Read attachment metadata and versions.
     Get(get::GetArgs),
-    /// Upload a file or stdin (-). Pinned Wekan JSON uploads return HTTP 408.
+    /// Upload a file or stdin (-) using JSON or native raw bytes.
     Upload(upload::UploadArgs),
     /// Download an attachment to a file or raw stdout (-).
     Download(download::DownloadArgs),
@@ -36,9 +37,13 @@ pub enum AttachmentCommand {
     Copy(transfer::TransferArgs),
     /// Move an attachment to a card. Pinned Wekan JSON moves return HTTP 408.
     Move(transfer::TransferArgs),
-    /// Permanently delete an attachment; requires confirmation or --yes.
+    /// Soft-delete an attachment; requires confirmation or --yes.
     Delete(delete::DeleteArgs),
-    /// Upload and select a board background. Pinned Wekan JSON uploads return HTTP 408.
+    /// List recoverable deleted attachments on a board.
+    ListDeleted(recovery::DeletedArgs),
+    /// Restore a deleted attachment; its previous cover selection stays unset.
+    Restore(recovery::RestoreArgs),
+    /// Upload and select a board background using JSON or native raw bytes.
     UploadBackground(upload::BackgroundArgs),
     /// Download the current board background to a file or raw stdout (-).
     DownloadBackground(download::BackgroundArgs),
@@ -73,6 +78,8 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        AttachmentCommand::ListDeleted(a) => recovery::list(a, factory, store).await,
+        AttachmentCommand::Restore(a) => recovery::restore(a, factory, store).await,
         AttachmentCommand::Export(args) => export::execute(args, factory, store).await,
         AttachmentCommand::List(a) => list::execute(a, factory, store).await,
         AttachmentCommand::Get(a) => get::execute(a, factory, store).await,

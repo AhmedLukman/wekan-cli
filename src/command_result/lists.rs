@@ -1,4 +1,12 @@
+use crate::client::metadata::*;
 use serde::Serialize;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ListArchiveSuccess {
+    pub board_id: String,
+    pub list_id: String,
+    pub archived: bool,
+}
 use serde_json::Number;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -24,6 +32,19 @@ pub struct ListWipLimitDetail {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ListDetail {
+    pub scrum: Option<ScrumList>,
+    pub role_exceptions: Option<std::collections::BTreeMap<String, ListRoleException>>,
+    pub sync_source: Option<Box<ListSyncSource>>,
+
+    pub scrum_revision: Option<serde_json::Number>,
+    pub cards_use_list_color: Option<bool>,
+    pub linked_board_id: Option<String>,
+    pub linked_list_id: Option<String>,
+    pub sync_revision: Option<String>,
+    pub sync_credential_generation: Option<serde_json::Number>,
+    pub sync_credential_fence: Option<String>,
+    pub sync_write_back_error: Option<String>,
+    pub sync_credential_incarnation: Option<String>,
     pub list_id: String,
     pub title: String,
     pub watchers: Option<Vec<String>>,

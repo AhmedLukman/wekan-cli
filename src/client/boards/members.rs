@@ -5,7 +5,7 @@ use serde::Serialize;
 use super::{BoardSummary, ClientError, WekanClient, validate_board_summaries};
 use crate::client::transport::decode_success;
 
-/// Named roles take precedence over individual flags in Wekan v11.06.
+/// Named roles take precedence over individual flags in Wekan v12.57.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardMemberPermissions {

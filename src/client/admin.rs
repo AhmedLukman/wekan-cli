@@ -1,6 +1,8 @@
-//! Global administrator settings for Wekan v11.06.
+//! Global administrator settings for Wekan v12.57.
 pub mod attachment_settings;
+pub mod login_providers;
 pub mod people;
+pub mod problems;
 pub mod settings;
 
 use super::{ClientError, WekanClient, transport::decode_success};

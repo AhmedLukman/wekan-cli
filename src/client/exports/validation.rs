@@ -1,5 +1,5 @@
 //! Reader-based decoding drops each array element before reading the next one.
-use super::{ExportError, ExportFormat, documents::*};
+use super::{ExportError, ExportFormat, documents::*, external_documents::*};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde::{
     Deserialize, Deserializer,
@@ -8,7 +8,7 @@ use serde::{
 use std::{
     fmt,
     fs::File,
-    io::{self, BufReader, Read},
+    io::{self, BufRead, BufReader, Read},
     marker::PhantomData,
 };
 
@@ -59,6 +59,29 @@ pub(super) fn optional<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
 ) -> Result<Option<T>, D::Error> {
     T::deserialize(d).map(Some)
 }
+
+// Serde's derived named structs also accept positional arrays. Native export
+// objects, including empty author objects, must retain their JSON object type.
+pub(super) fn object<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<T, D::Error> {
+    struct Object<T>(PhantomData<T>);
+    impl<'de, T: Deserialize<'de>> Visitor<'de> for Object<T> {
+        type Value = T;
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a JSON object")
+        }
+        fn visit_map<M: de::MapAccess<'de>>(self, map: M) -> Result<T, M::Error> {
+            T::deserialize(de::value::MapAccessDeserializer::new(map))
+        }
+    }
+    d.deserialize_map(Object(PhantomData))
+}
+
+pub(super) fn optional_object<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    object(d).map(Some)
+}
+
 pub(super) fn required_nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     d: D,
 ) -> Result<Option<T>, D::Error> {
@@ -97,25 +120,209 @@ pub(super) fn validate(
         return decode::<SingleAttachmentExport>(file);
     }
     match format {
-        ExportFormat::Json => decode::<BoardExportDocument>(file),
-        ExportFormat::Kanboard => decode::<KanboardExport>(file),
+        ExportFormat::Json | ExportFormat::Wekan => decode::<BoardExportDocument>(file),
+        ExportFormat::Kanboard => decode::<NativeKanboardExport>(file),
         ExportFormat::Github | ExportFormat::Gitea | ExportFormat::Forgejo => {
-            decode::<DiscardVec<GithubIssueExport>>(file)
+            decode::<DiscardVec<NativeGithubExportItem>>(file)
         }
-        ExportFormat::Gitlab => decode::<DiscardVec<GitlabIssueExport>>(file),
-        ExportFormat::Deck => decode::<DeckExport>(file),
-        ExportFormat::Openproject => decode::<OpenprojectExport>(file),
-        ExportFormat::Trello => decode::<TrelloExport>(file),
-        ExportFormat::Jira => decode::<JiraExport>(file),
-        ExportFormat::Asana => decode::<AsanaExport>(file),
-        ExportFormat::Zenkit => decode::<ZenkitExport>(file),
+        ExportFormat::Gitlab => decode::<DiscardVec<NativeGitlabExportItem>>(file),
+        ExportFormat::Deck => decode::<NativeDeckExport>(file),
+        ExportFormat::Openproject => decode::<NativeOpenprojectExport>(file),
+        ExportFormat::Trello => decode::<NativeTrelloExport>(file),
+        ExportFormat::Jira => decode::<NativeJiraExport>(file),
+        ExportFormat::Asana => decode::<NativeAsanaExport>(file),
+        ExportFormat::Zenkit => decode::<NativeZenkitExport>(file),
+        ExportFormat::Taskwarrior => decode::<TaskwarriorExport>(file),
+        ExportFormat::Nullboard => decode::<NullboardExport>(file),
+        ExportFormat::Kanri => decode::<KanriExport>(file),
+        ExportFormat::Tasksorg => decode::<TasksorgExport>(file),
+        ExportFormat::Superproductivity => decode::<SuperproductivityExport>(file),
+        ExportFormat::Taiga => decode::<TaigaExport>(file),
+        ExportFormat::Wrikeworkflow => decode::<WrikeworkflowExport>(file),
         _ => unreachable!("binary exports do not use JSON validation"),
     }
+}
+
+pub(super) fn validate_text(file: &mut File) -> Result<(), ExportError> {
+    for line in BufReader::new(file).lines() {
+        line.map_err(|error| {
+            if error.kind() == io::ErrorKind::InvalidData {
+                ExportError::Client(super::protocol("the export response is not valid UTF-8"))
+            } else {
+                ExportError::Io(error)
+            }
+        })?;
+    }
+    Ok(())
+}
+
+pub(super) fn validate_calendar(file: &mut File) -> Result<(), ExportError> {
+    let mut lines = BufReader::new(file).lines();
+    if lines.next().transpose()?.as_deref() != Some("BEGIN:VCALENDAR") {
+        return Err(super::protocol("the calendar response has no VCALENDAR header").into());
+    }
+    let mut last = String::new();
+    for line in lines {
+        let line = line?;
+        if !line.is_empty() {
+            last = line;
+        }
+    }
+    if last != "END:VCALENDAR" {
+        return Err(super::protocol("the calendar response has no VCALENDAR terminator").into());
+    }
+    Ok(())
+}
+
+pub(super) fn validate_focalboard(file: &mut File) -> Result<(), ExportError> {
+    let mut lines = BufReader::new(file).lines();
+    let header = lines
+        .next()
+        .transpose()?
+        .ok_or_else(|| super::protocol("the Focalboard archive has no header"))?;
+    decode::<FocalboardHeader>(header.as_bytes())?;
+    for line in lines {
+        let line = line?;
+        if !line.is_empty() {
+            decode::<FocalboardRecord>(line.as_bytes())?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn artifact(format: &str, mode: &str) -> Vec<u8> {
+        let extension = if format == "focalboard" {
+            "jsonl"
+        } else {
+            "json"
+        };
+        std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/fixtures/responses/exports/v12.57/{format}-{mode}.{extension}"
+            )),
+        )
+        .unwrap()
+    }
+    fn stage(bytes: &[u8]) -> File {
+        use std::io::{Seek, Write};
+        let mut file = tempfile::tempfile().unwrap();
+        file.write_all(bytes).unwrap();
+        file.rewind().unwrap();
+        file
+    }
+    #[test]
+    fn v12_57_external_exports_accept_native_rich_and_selected_shapes() {
+        for format in [
+            "taskwarrior",
+            "nullboard",
+            "kanri",
+            "tasksorg",
+            "superproductivity",
+            "taiga",
+            "wrikeworkflow",
+            "deck",
+            "kanboard",
+            "openproject",
+            "github",
+            "gitlab",
+            "gitea",
+            "forgejo",
+            "trello",
+            "jira",
+            "asana",
+            "zenkit",
+        ] {
+            for mode in ["live", "rich", "minimal"] {
+                validate(
+                    &mut stage(&artifact(format, mode)),
+                    format.parse().unwrap(),
+                    false,
+                )
+                .unwrap_or_else(|e| panic!("{format} {mode}: {e:?}"));
+            }
+        }
+        for mode in ["live", "rich", "minimal"] {
+            validate_focalboard(&mut stage(&artifact("focalboard", mode)))
+                .unwrap_or_else(|e| panic!("focalboard {mode}: {e:?}"));
+        }
+    }
+    #[test]
+    fn v12_57_external_exports_reject_unknown_and_malformed_fields() {
+        let locations = [
+            ("taskwarrior", "/0"),
+            ("nullboard", "/lists/0"),
+            ("kanri", "/columns/0"),
+            ("tasksorg", "/data/tasks/0/task"),
+            ("superproductivity", "/data/task/entities/card0"),
+            ("taiga", "/user_stories/0"),
+            ("wrikeworkflow", ""),
+        ];
+        for (format, nested) in locations {
+            let original: serde_json::Value =
+                serde_json::from_slice(&artifact(format, "rich")).unwrap();
+            for pointer in if original.is_array() {
+                vec!["/0", nested]
+            } else {
+                vec!["", nested]
+            } {
+                let mut value = original.clone();
+                value
+                    .pointer_mut(pointer)
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap()
+                    .insert("unmappedV12Field".into(), serde_json::json!(true));
+                assert!(
+                    validate(
+                        &mut stage(&serde_json::to_vec(&value).unwrap()),
+                        format.parse().unwrap(),
+                        false
+                    )
+                    .is_err(),
+                    "{format} {pointer}"
+                );
+            }
+        }
+        let original: serde_json::Value =
+            serde_json::from_slice(&artifact("kanri", "rich")).unwrap();
+        for value in [
+            serde_json::json!({}),
+            {
+                let mut v = original.clone();
+                v["title"] = serde_json::json!(42);
+                v
+            },
+            {
+                let mut v = original;
+                v.as_object_mut().unwrap().remove("title");
+                v
+            },
+        ] {
+            assert!(
+                validate(
+                    &mut stage(&serde_json::to_vec(&value).unwrap()),
+                    ExportFormat::Kanri,
+                    false
+                )
+                .is_err()
+            );
+        }
+        let mut lines: Vec<serde_json::Value> = String::from_utf8(artifact("focalboard", "rich"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        lines[1]["data"]["unmappedV12Field"] = serde_json::json!(true);
+        let text = lines
+            .into_iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(validate_focalboard(&mut stage(text.as_bytes())).is_err());
+    }
     #[test]
     fn array_records_are_dropped_before_the_next_record_is_decoded() {
         use std::sync::atomic::{AtomicUsize, Ordering};

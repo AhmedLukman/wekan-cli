@@ -1,13 +1,13 @@
 # Boards
 
-The authenticated `wekan board` family implements the core Wekan v11.06 board
+The authenticated `wekan board` family implements the core Wekan v12.57 board
 lifecycle:
 
 ```text
 wekan board list [--public]
 wekan board count
 wekan board get <BOARD_ID>
-wekan board create --title <TITLE> [--owner <USER_ID>] [--is-admin <true|false>] [--is-active <true|false>] [--permission private|public] [--color <COLOR>] [--no-comments] [--comment-only] [--worker]
+wekan board create --title <TITLE> [--permission private|public|instance] [--color <COLOR>]
 wekan board rename <BOARD_ID> --title <TITLE>
 wekan board copy <BOARD_ID> [--title <TEXT>]
 wekan board delete <BOARD_ID> [--yes]
@@ -31,41 +31,48 @@ user's active, non-archived, non-internal boards. `board list --public` instead
 returns the server-wide public-board projection. Both scopes contain only board
 ID and title and use an empty array when no boards match.
 
-`board count` returns Wekan's server-wide private and public counts. These are
+`board count` returns Wekan's server-wide private, public, and instance counts. These are
 not counts of boards visible to the authenticated caller.
 
 ## Creating and renaming
 
-`--title` must be non-empty. Omitting `--owner` lets Wekan select the
-authenticated caller. Permission defaults to `private`, and color defaults to
-`belize`. Accepted v11.06 colors are `belize`, `nephritis`, `pomegranate`,
+`--title` must be non-empty. The authenticated caller is always the initial
+active board administrator. Permission defaults to `private`, and color defaults to
+`belize`. Accepted v12.57 colors are `belize`, `nephritis`, `pomegranate`,
 `pumpkin`, `wisteria`, `moderatepink`, `strongcyan`, `limegreen`, `midnight`,
 `dark`, `relax`, `corteza`, `appleglasspastel`, `clearblue`, `cleargreen`,
 `clearorange`, `clearpink`, `clearpurple`, `clearred`, `natural`, `modern`,
 `moderndark`, `exodark`, `cleandark`, and `cleanlight`.
 
-`--no-comments`, `--comment-only`, and `--worker` independently set the matching
-role flags on the initial member. `--is-admin` and `--is-active` both default to true. False values use Wekan's
-accepted string representation because its route ignores literal boolean false.
-An inactive initial member may be unable to read the newly created board. `rename` also requires a non-empty title and verifies both
-the ID and title returned by Wekan.
+The former creation options `--owner`, `--is-admin`, `--is-active`,
+`--no-comments`, `--comment-only`, and `--worker` have been removed because
+v12.57 ignores these inputs. Change membership through `board member` commands
+after creation. `rename` requires a non-empty title and verifies both the ID
+and title returned by Wekan.
 
 ## Board detail
 
-`board get` returns the complete normalized v11.06 board model. Names are
+`board get` returns the complete normalized v12.57 board model. Names are
 snake_case, `_id` becomes `board_id`, `backgroundImageURL` becomes
 `background_image_url`, and the model's `type` becomes `board_type`. It includes
 identity, timestamps, ordering, typed members, sharing records, labels,
 watcher records, organization/team/domain records, theme/background values, date defaults,
 card-display controls, and board settings.
 
-Known enum fields accept only their corrected v11.06 values, and timestamp
+Labels preserve optional `due_at` milestone timestamps and `shared_label_id`.
+Members preserve optional `granted_by` group identifiers and `custom_role_id`.
+These nested fields are null in stable output when omitted by Wekan; native
+JSON exports preserve their original names and presence.
+
+Known enum fields accept only their corrected v12.57 values, and timestamp
 fields must contain RFC 3339 date-times. Other values cause a protocol error.
 
-Known omitted scalar fields are JSON `null`, and optional omitted collections
-are empty arrays. Explicitly null collections are rejected because the corrected
-v11.06 contract defines them as arrays. `members` is required and is never
-normalized from null or omission. The board ID and title must be non-empty.
+Known omitted scalar fields are JSON `null`. Omitted `labels`, `watchers`,
+`orgs`, `teams`, `domains`, `import_usernames`, and `custom_theme_colors` become
+empty arrays; explicit nulls for these collections are rejected. Optional
+metadata collections, such as `column_sets` and `wip_limit_groups`, are null
+when absent. `members` is required and is never normalized from null or
+omission. The board ID and title must be non-empty.
 Unknown top-level and nested fields cause a protocol error and are not included
 in JSON or human output. Human detail output groups the modeled fields and
 escapes terminal control characters.
@@ -92,7 +99,7 @@ Their `data` values are:
 
 ```json
 {"scope":"active","boards":[{"board_id":"board-id","title":"Planning"}]}
-{"private":2,"public":1}
+{"private":2,"public":1,"instance":0}
 {"board_id":"board-id","default_swimlane_id":"swimlane-id"}
 {"board_id":"board-id","title":"Renamed"}
 {"board_id":"board-id","deleted":true}
@@ -117,7 +124,7 @@ wekan board card-settings update --board BOARD_ID --allows-attachments false --a
 wekan --output json board card-settings update --board BOARD_ID --card-aging true --card-aging-days1 7 --card-aging-days2 14 --card-aging-days3 28
 ```
 
-All boolean flags accept `<true|false>`:
+All 111 boolean flags accept `<true|false>`:
 
 - `--allows-card-counter-list`
 - `--card-aging`
@@ -163,6 +170,73 @@ All boolean flags accept `<true|false>`:
 - `--allows-due-date-on-minicard`
 - `--allows-subtasks-on-minicard`
 - `--allows-show-lists-on-minicard`
+- `--allows-swimlane-dragging`
+- `--allows-list-dragging`
+- `--allows-card-dragging`
+- `--allows-checklist-dragging`
+- `--allows-checklist-item-dragging`
+- `--allows-subtask-dragging`
+- `--allows-minicard-collapse`
+- `--labels-above-title-on-minicard`
+- `--allows-checklist-due-date`
+- `--allows-checklist-title`
+- `--ask-for-move-reason`
+- `--allows-comments-on-minicard`
+- `--allows-spent-time`
+- `--allows-spent-time-on-minicard`
+- `--allows-swimlane-name-on-minicard`
+- `--show-label-text`
+- `--allows-stickers`
+- `--allows-stickers-on-minicard`
+- `--allows-location`
+- `--allows-dependencies`
+- `--allows-dependencies-on-minicard`
+- `--allows-flowtime`
+- `--allows-pomodoro`
+- `--allows-vote`
+- `--allows-vote-on-minicard`
+- `--allows-poker`
+- `--allows-poker-on-minicard`
+- `--allows-text-notes`
+- `--allows-comment-count-on-minicard`
+- `--allows-issue-type-on-minicard`
+- `--allows-card-color-on-card`
+- `--allows-card-color-on-minicard`
+- `--allows-parent-card-on-card`
+- `--allows-parent-card-on-minicard`
+- `--allows-linked-card-on-card`
+- `--allows-linked-card-on-minicard`
+- `--allows-card-buttons-on-card`
+- `--allows-description-badge-on-minicard`
+- `--allows-unread-comments-on-minicard`
+- `--allows-card-collapse`
+- `--allows-checklist-title-on-minicard`
+- `--allows-label-text-on-card`
+- `--allows-card-buttons-on-minicard`
+- `--allows-description-badge-on-card`
+- `--allows-unread-comments-on-card`
+- `--allows-due-from-title-on-card`
+- `--allows-due-from-title-on-minicard`
+- `--allows-similar-cards-on-card`
+- `--allows-similar-cards-on-minicard`
+- `--allows-at-risk-on-card`
+- `--allows-at-risk-on-minicard`
+- `--allows-suggested-members-on-card`
+- `--allows-forecast-on-card`
+- `--allows-forecast-on-minicard`
+- `--allows-checklist-from-description-on-card`
+- `--allows-action-items-on-card`
+- `--allows-whiteboard-on-card`
+- `--labels-above-title-on-card`
+- `--allows-checklist-due-date-on-minicard`
+- `--allows-location-on-minicard`
+- `--allows-swimlane-name-on-card`
+- `--allows-flowtime-on-minicard`
+- `--allows-pomodoro-on-minicard`
+- `--allows-attachment-list-on-minicard`
+- `--allows-text-notes-on-minicard`
+- `--allows-comment-count-on-card`
+- `--allows-activities-on-minicard`
 
 `--card-aging-days1`, `--card-aging-days2`, and `--card-aging-days3` accept
 integer days from 0 through 9007199254740991 (JavaScript's maximum safe integer).
@@ -170,17 +244,19 @@ Negative, fractional, and larger inputs fail locally. Threshold order is not
 restricted. Flags cannot repeat. Use `wekan api request` for Wekan's broader
 string/JSON input coercions.
 
-Both reads and updates return `board_id` and a complete `settings` object;
-updates also return `submitted_fields` in corrected-contract order. Settings
+Both reads and updates return `board_id` and a complete `settings` object with
+all 111 boolean settings and three aging thresholds, including optional flags
+set through Wekan's board settings interface. Updates also return
+`submitted_fields` in corrected-contract order. Settings
 keys match the snake_case names in `board get`. Omitted response properties
 appear as JSON null; explicit null, incorrect types, and unknown properties
 are protocol errors. Stored numeric thresholds can be fractional or negative
 and are returned without coercion. Human output includes every setting.
 
-Reading uses Wekan's board-access check; updating uses its board-write check.
-Normal members can update settings, read-only members can read them, and site
-administrators pass both checks. Wekan can return HTML permission or
-missing-board errors on these routes; the CLI preserves their HTTP classification.
+Reading uses Wekan's board-access check; updating requires board administration.
+Normal and read-only members can read settings, while board administrators and
+site administrators can update them. Permission and missing-board failures
+preserve Wekan's HTTP classification.
 
 ## Domain sharing
 
@@ -192,22 +268,23 @@ wekan board domain remove example.com --board BOARD_ID
 
 Domain listing uses the dedicated endpoint and requires a **site administrator**,
 including for a public board or a board administered by the caller. It includes
-inactive records in stored order. Regular callers receive Wekan's HTTP 200
-serialized Forbidden error, mapped to `permission_denied` with the embedded 403.
+inactive records in stored order. Regular callers receive HTTP 403, mapped to
+`permission_denied`.
 
 Addition sends the domain unchanged as JSON. Removal encodes the supplied value
 as one path segment and rejects empty values and the exact values `.` and `..`
 before HTTP. Wekan handles trimming, lowercasing, and validation. Removal runs
 directly without confirmation or `--yes`.
 
-**Pinned Wekan v11.06 defect:** valid board/site-administrator domain additions
-and removals fail with HTTP 200 `not-authorized` because `setBoardDomains`
+**Pinned Wekan v12.57 defect:** valid board/site-administrator domain additions
+and removals fail with HTTP 500 because `setBoardDomains`
 receives no DDP user identity. Sharing remains unchanged, including when adding
-an existing domain or removing an absent one. The CLI returns `protocol_error`
-with exit 5 and preserves `http_status`, `server_error`, `server_reason`,
-`server_message`, `server_error_type`, and `server_is_client_safe`.
+an existing domain or removing an absent one. The CLI returns `server_error`
+with exit 5, `http_status: 500`, and `server_error: "Internal server error"`.
+Wekan does not expose the underlying authorization error or its metadata.
 It sends the native request without a workaround or retry.
-See the [pinned route and method implementation](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/server/models/boards.js).
+See the [v12.57 route and method implementation](https://github.com/wekan/wekan/blob/v12.57/server/models/boards.js)
+and [public error mapping](https://github.com/wekan/wekan/blob/v12.57/server/lib/apiResponseHelpers.js).
 
 Domain list success contains `{board_id, domains}`. Each record has `domain`
 and `is_active`. Native successful mutation arrays are modeled as
@@ -251,3 +328,20 @@ Supported global options are `--server <URL>`, `--profile <NAME>`,
 `--output human|json`, `--allow-insecure-http`, and `--help`. Flags do not repeat.
 For modern size/storage metadata and transfers, use the
 [attachment family](attachments.md).
+
+## View settings and card section order
+
+```console
+wekan board view-settings get --board BOARD_ID
+wekan board view-settings update --board BOARD_ID --default-private-view board-view-swimlanes --view-order board-view-swimlanes --view-order board-view-cal
+wekan board view-settings update --board BOARD_ID --view-settings '{"board-view-cal":{"showOnPublic":false,"showOnPrivate":true}}'
+wekan board card-field-order get --board BOARD_ID
+wekan board card-field-order update --board BOARD_ID --field description --field labels --field dates
+wekan board card-field-order update --board BOARD_ID --reset
+```
+
+View updates require at least one of `--view-settings`, `--default-public-view`,
+`--default-private-view`, or repeated `--view-order`. Card order updates require
+repeated `--field` values or `--reset`; these forms conflict. Reads return the
+server's normalized settings and available section keys. Updates use native
+board administrator permissions and preserve Wekan's ordering rules.

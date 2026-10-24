@@ -58,8 +58,11 @@ pub(super) async fn execute(
     Ok(CommandSuccess::ChecklistShown(checklist_detail(checklist)))
 }
 
-fn checklist_detail(document: ChecklistDocument) -> ChecklistDetail {
+pub(super) fn checklist_detail(document: ChecklistDocument) -> ChecklistDetail {
     ChecklistDetail {
+        last_reset_at: document.last_reset_at,
+        reset_interval: document.reset_interval,
+        due_at: document.due_at,
         checklist_id: document.checklist_id,
         card_id: document.card_id,
         board_id: document.board_id,
@@ -76,6 +79,7 @@ fn checklist_detail(document: ChecklistDocument) -> ChecklistDetail {
             .items
             .into_iter()
             .map(|item| crate::command_result::ChecklistItemSummary {
+                due_at: item.due_at,
                 item_id: item.item_id,
                 title: item.title,
                 is_finished: item.is_finished,

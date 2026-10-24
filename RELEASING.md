@@ -22,7 +22,7 @@ In the release-preparation pull request:
   release policy in [SECURITY.md](SECURITY.md).
 - Review the documented command, JSON, error, exit-status, and configuration
   contracts against the [compatibility policy](README.md#compatibility).
-- Keep Wekan compatibility explicit. The current baseline is Wekan v11.06;
+- Keep Wekan compatibility explicit. The current baseline is Wekan v12.57;
   a CLI major version does not establish support for other Wekan versions.
 
 Require green `CI`, `Wekan E2E`, and all five `Release` pull-request artifact
@@ -76,7 +76,7 @@ cargo test --locked --test contract -- --include-ignored
 
 Every compiled live suite selected by the
 [E2E matrix](.github/workflows/e2e.yml) must pass against fresh isolated Wekan
-v11.06 stacks (currently 29 suites). Ordinary `cargo test` skips these suites;
+v12.57 stacks (currently 29 suites). Ordinary `cargo test` skips these suites;
 its E2E inventory tests only check that the workflow selects them all. Follow
 the [local Wekan guide](docs/local-wekan.md) when running suites locally.
 
@@ -211,5 +211,5 @@ cargo install wekan-cli --version 1.0.0 --locked --root $installRoot
 
 Every installed binary must report the chosen version, display help, and
 return valid JSON from `skill list`. Also run an authenticated JSON read, such
-as `--output json board list`, against a disposable Wekan v11.06 stack. Use
+as `--output json board list`, against a disposable Wekan v12.57 stack. Use
 temporary profiles and credentials for this check.

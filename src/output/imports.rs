@@ -46,7 +46,7 @@ pub(super) fn zip(data: &ZipImportSuccess) -> String {
         ("Requested list", &data.list_id),
         ("Requested card", &data.card_id),
         (
-            "Requested checklist (ignored by Wekan v11.06)",
+            "Requested checklist (ignored by Wekan v12.57)",
             &data.checklist_id,
         ),
     ] {

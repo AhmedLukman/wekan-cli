@@ -66,5 +66,6 @@ fn comment_detail(comment: CommentDocument) -> CommentDetail {
         created_at: comment.created_at,
         modified_at: comment.modified_at,
         author_id: comment.author_id,
+        sync_comment_id: comment.sync_comment_id,
     }
 }

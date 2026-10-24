@@ -66,7 +66,7 @@ pub(super) async fn execute(
         UserPassword::Plaintext(secret_input.read_new_account_password(args.password_stdin)?)
     };
     let redactor = Redactor::with_secret(context.record().token()).and_secret(password.secret());
-    context
+    let created = context
         .client()
         .create_user(
             &CreateUserRequest {
@@ -81,6 +81,6 @@ pub(super) async fn execute(
     Ok(CommandSuccess::UserCreated(UserCreateSuccess {
         username: args.username,
         email: args.email,
-        user_id: None,
+        user_id: created.user_id,
     }))
 }

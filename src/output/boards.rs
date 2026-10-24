@@ -34,8 +34,8 @@ pub(super) fn render_board_list(data: &BoardListSuccess) -> String {
 
 pub(super) fn render_board_count(data: &BoardCountSuccess) -> String {
     format!(
-        "Private boards: {}\nPublic boards: {}",
-        data.private, data.public
+        "Private boards: {}\nPublic boards: {}\nInstance boards: {}",
+        data.private, data.public, data.instance
     )
 }
 

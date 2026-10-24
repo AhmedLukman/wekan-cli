@@ -14,6 +14,14 @@ fn import_parser_help_sources_conflicts_and_output_are_explicit() {
         vec!["board", "import", "-"],
         vec!["board", "import-zip", "-", "--board", "b"],
         vec![
+            "board",
+            "import-zip",
+            "-",
+            "--new-board",
+            "--members-mode",
+            "me",
+        ],
+        vec![
             "card",
             "import-ics",
             "-",
@@ -56,6 +64,18 @@ fn import_parser_help_sources_conflicts_and_output_are_explicit() {
     for args in [
         vec!["board", "import"],
         vec!["board", "import-zip", "file"],
+        vec!["board", "import-zip", "file", "--members-mode", "me"],
+        vec!["board", "import-zip", "file", "--board", "b", "--new-board"],
+        vec!["board", "import-zip", "file", "--new-board", "--card", "c"],
+        vec![
+            "board",
+            "import-zip",
+            "file",
+            "--board",
+            "b",
+            "--members-mode",
+            "me",
+        ],
         vec!["card", "import-ics", "file", "--board", "b", "--list", "l"],
         vec!["board", "import", "file", "--source", "unknown"],
         vec!["board", "import", "file", "--timeout", "0"],
@@ -101,6 +121,9 @@ fn import_parser_help_sources_conflicts_and_output_are_explicit() {
     for extra in [
         vec!["--delimiter", ";"],
         vec!["--members-mapping-file", "-"],
+        vec!["--members-mode", "map"],
+        vec!["--members-mode", "placeholder"],
+        vec!["--members-mode", "me"],
     ] {
         no_target_cli(&directory)
             .args(["--output", "json", "board", "import", "missing"])
@@ -193,6 +216,36 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
         .write_stdin("password\n")
         .assert()
         .success();
+    let received_before = server.received_requests().await.unwrap().len();
+    for mode in ["map", "placeholder", "me"] {
+        let output = no_target_cli(&session.0)
+            .args([
+                "--output",
+                "json",
+                "board",
+                "import",
+                "missing-member-mode-file",
+                "--members-mode",
+                mode,
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(error["error"]["code"], "invalid_input");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("--members-mode requires --source")
+        );
+    }
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        received_before,
+        "unsupported member modes must fail before HTTP or input acquisition"
+    );
     let mapping = session.0.0.join("mapping.json");
     std::fs::write(&mapping, b"{\"upstream\":\"local\"}").unwrap();
     for source in [
@@ -222,12 +275,14 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
         } else {
             format!("/api/boards/import/{source}")
         };
+        let mut expected = json!({"board":document,"membersMapping":{"upstream":"local"}});
+        if source == "wekan" {
+            expected["membersMode"] = json!("me");
+        }
         Mock::given(method("POST"))
             .and(path(route))
             .and(header("Authorization", "Bearer import-cli-token"))
-            .and(body_json(
-                json!({"board":document,"membersMapping":{"upstream":"local"}}),
-            ))
+            .and(body_json(expected))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(json!({"_id":format!("new-{source}")})),
             )
@@ -256,6 +311,9 @@ async fn executable_imports_encode_files_stdin_mapping_and_native_results() {
         }
         if source == "csv" {
             command.args(["--delimiter", ";"]);
+        }
+        if source == "wekan" {
+            command.args(["--members-mode", "me"]);
         }
         let output = command.output().unwrap();
         assert!(

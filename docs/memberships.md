@@ -72,12 +72,12 @@ workflow.
 
 Adding requires an active board membership for the target user. Off-board,
 inactive, and nonexistent IDs return HTTP 400. Removing a known former board
-member remains permitted. Wekan v11.06 removal of a nonexistent user fails with
+member remains permitted. Wekan v12.57 removal of a nonexistent user fails with
 HTTP 500 HTML through a model hook; the CLI preserves that server error. Wrong
 list/card selectors and archived cards return HTTP 404 for these mutations.
 Card assignment mutations require Wekan board write access.
 
-For a linked card, Wekan v11.06 changes the source card's assignments but
+For a linked card, Wekan v12.57 changes the source card's assignments but
 returns the link's ID and its own stored arrays copied when the link was created.
 They can remain empty or retain older assignments. Focused lists also return the
 link's stored arrays. These snapshots do not confirm the source card's saved
@@ -95,7 +95,7 @@ subject to the linked-card limitation above.
 Successful commands use `{ "ok": true, "data": ... }`. Representative data:
 
 ```json
-{"board_id":"b","members":[{"user_id":"u","is_admin":false,"is_active":false,"is_no_comments":false,"is_comment_only":false,"is_worker":false,"is_normal_assigned_only":false,"is_comment_assigned_only":false,"is_read_only":true,"is_read_assigned_only":false}]}
+{"board_id":"b","members":[{"user_id":"u","is_admin":false,"is_active":false,"is_no_comments":false,"is_comment_only":false,"is_worker":false,"is_normal_assigned_only":false,"is_comment_assigned_only":false,"is_read_only":true,"is_read_assigned_only":false,"granted_by":null,"custom_role_id":null}]}
 {"board_id":"b","user_id":"u","action":"add","boards":[{"board_id":"b","title":"Planning"}]}
 {"board_id":"b","user_id":"u","affected_documents":1,"submitted_fields":["role"]}
 {"board_id":"b","list_id":"l","card_id":"c","members":["u"]}

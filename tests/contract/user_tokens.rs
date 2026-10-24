@@ -56,14 +56,17 @@ async fn user_token_requests_preserve_exact_native_contracts() {
         .mount(&server)
         .await;
     let created = client
-        .create_user_token("user/one", &credential())
+        .create_user_token("user/one", "integration test", &credential())
         .await
         .unwrap();
     assert_eq!(created.user_id, "user/one");
     assert!(created.auth_token.expose_secret() == "issued-token");
     assert!(!format!("{created:?}").contains("issued-token"));
     let requests = server.received_requests().await.unwrap();
-    assert!(requests[0].body.is_empty());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&requests[0].body).unwrap(),
+        json!({"reason":"integration test"})
+    );
 
     for token in [Some("unchanged token"), None] {
         let body = token.map_or_else(
@@ -108,7 +111,7 @@ async fn response_error(create: bool, response: Value) -> ClientError {
     let client = super::client(&server);
     let error = if create {
         client
-            .create_user_token("u", &credential())
+            .create_user_token("u", "integration test", &credential())
             .await
             .unwrap_err()
     } else {
@@ -194,7 +197,12 @@ async fn user_token_mutations_do_not_retry_or_follow_redirects() {
                 .await;
             let client = super::client(&server);
             if create {
-                assert!(client.create_user_token("u", &credential()).await.is_err());
+                assert!(
+                    client
+                        .create_user_token("u", "integration test", &credential())
+                        .await
+                        .is_err()
+                );
             } else {
                 assert!(
                     client

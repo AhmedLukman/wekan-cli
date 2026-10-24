@@ -125,8 +125,8 @@ async fn board(app: &LiveApp, server: &str) -> (String, String, String, String) 
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_IMPORT_E2E_URL"]
-async fn complete_import_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_IMPORT_E2E_URL"]
+async fn complete_import_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_IMPORT_E2E_URL")
         .expect("set WEKAN_IMPORT_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()
@@ -176,6 +176,79 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
     .await
     .unwrap();
     let mut imported_boards = vec![source_board.clone()];
+    let foreign_user = format!("foreign_import_{nonce}");
+    let mut member_document: Value = serde_json::from_slice(&fs::read(&native).unwrap()).unwrap();
+    member_document["users"] = json!([{
+        "_id": foreign_user,
+        "username": foreign_user,
+        "profile": {"fullname": "Imported person", "initials": "IP"}
+    }]);
+    member_document["members"] = json!([{
+        "userId": foreign_user,
+        "isActive": true,
+        "isAdmin": false
+    }]);
+    for card in member_document["cards"].as_array_mut().unwrap() {
+        card["userId"] = json!(foreign_user);
+        card["members"] = json!([foreign_user]);
+    }
+    let member_file = directory.path().join("member-mode.json");
+    fs::write(&member_file, serde_json::to_vec(&member_document).unwrap()).unwrap();
+    let attachment_auth = directory.path().join("attachment-auth.json");
+    fs::write(
+        &attachment_auth,
+        "{\"token\":\"fixture-attachment-token\"}\r\n",
+    )
+    .unwrap();
+    let error = run(
+        &app,
+        &server,
+        &[
+            "board",
+            "import",
+            member_file.to_str().unwrap(),
+            "--members-mode",
+            "me",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidInput);
+    let CommandSuccess::BoardImported(member_import) = run(
+        &app,
+        &server,
+        &[
+            "board",
+            "import",
+            member_file.to_str().unwrap(),
+            "--source",
+            "wekan",
+            "--members-mode",
+            "me",
+            "--attachment-auth-file",
+            attachment_auth.to_str().unwrap(),
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("member-mode import")
+    };
+    let saved = stored(&member_import.board_id);
+    assert!(!saved["cards"].as_array().unwrap().is_empty());
+    for card in saved["cards"].as_array().unwrap() {
+        assert_eq!(card["members"], json!([user.user_id]));
+    }
+    assert_eq!(saved["board"]["members"].as_array().unwrap().len(), 1);
+    assert_eq!(saved["board"]["members"][0]["userId"], user.user_id);
+    assert_eq!(
+        mongo(
+            "print(JSON.stringify(db.getSiblingDB('wekan').users.countDocuments({_id:p.id})));",
+            &json!({"id":foreign_user}),
+        ),
+        0,
+        "member-mode me must not create a placeholder account"
+    );
+    imported_boards.push(member_import.board_id);
     let mapping = serde_json::to_string(&json!({"upstream":user.user_id})).unwrap();
     for source in [
         "native",
@@ -230,7 +303,7 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
         );
         assert!(!saved["cards"].as_array().unwrap().is_empty(), "{source}");
         if source == "kanboard" {
-            assert_eq!(saved["board"]["title"], "Delivery");
+            assert_eq!(saved["board"]["title"], "Minimal");
         }
         if source == "csv" {
             assert_eq!(saved["cards"][0]["members"], json!([user.user_id]));
@@ -439,8 +512,12 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
             args.extend(["--source", source]);
         }
         let error = run(&app, &server, &args).await.unwrap_err();
-        assert_eq!(error.code(), ErrorCode::ProtocolError);
-        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.code(), ErrorCode::ServerError);
+        assert_eq!(error.details().http_status, Some(500));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("Internal server error")
+        );
         assert!(
             serde_json::to_value(error.details())
                 .unwrap()
@@ -449,66 +526,57 @@ async fn complete_import_lifecycle_matches_wekan_v11_06() {
         );
     }
 
-    // A mapped archive attachment hangs after earlier writes in v11.06.
-    let filename = format!("importhang{nonce}.bin");
-    doc["attachments"] = json!([{"_id":"a","cardId":"c","name":filename,"type":"application/octet-stream","size":3}]);
+    // W11-032 is fixed: native ZIP imports finish, retain bytes, and clean their temporary archive.
+    let filename = format!("importbytes{nonce}.bin");
+    let bytes = [0_u8, 255, 13, 10, 42];
+    doc["attachments"] = json!([{"_id":"a","cardId":"c","name":filename,"type":"application/octet-stream","size":bytes.len()}]);
     archive(
         &zip,
         &doc,
-        Some((&format!("attachments/a-{filename}"), b"abc")),
+        Some((&format!("attachments/a-{filename}"), &bytes)),
     );
     let before = fixture_command(
         "wekan",
         "node",
-        "const fs=require('fs');console.log(JSON.stringify(fs.readdirSync('/tmp').filter(n=>n.startsWith('wekan-import-')&&n.endsWith('.zip'))));",
+        "console.log(JSON.stringify(require('fs').readdirSync('/tmp').filter(n=>n.startsWith('wekan-import-')&&n.endsWith('.zip'))));",
         &json!({}),
     );
-    let error = run(
+    let CommandSuccess::ZipImported(imported) = run(
+        &app,
+        &server,
+        &["board", "import-zip", zip.to_str().unwrap(), "--board", &b],
+    )
+    .await
+    .unwrap() else {
+        panic!("attachment import")
+    };
+    assert_eq!(imported.counts.attachments, 1);
+    let attachment = mongo(
+        "const w=db.getSiblingDB('wekan');const rows=w.attachments.find({'meta.boardId':p.board,name:p.name}).toArray();if(rows.length!==1)throw Error('expected one imported attachment');print(JSON.stringify({_id:rows[0]._id}));",
+        &json!({"board":b,"name":filename}),
+    );
+    let destination = directory.path().join("imported.bin");
+    run(
         &app,
         &server,
         &[
-            "board",
-            "import-zip",
-            zip.to_str().unwrap(),
-            "--board",
-            &b,
-            "--timeout",
-            "3",
+            "attachment",
+            "download",
+            attachment["_id"].as_str().unwrap(),
+            "--destination",
+            destination.to_str().unwrap(),
         ],
     )
     .await
-    .unwrap_err();
-    assert_eq!(error.code(), ErrorCode::TransportError);
-    assert!(
-        serde_json::to_value(error.details())
-            .unwrap()
-            .get("outcome_unknown")
-            .is_none()
-    );
-    // The client deadline does not stop server work. Wait for the attachment
-    // staging write to finish, after the earlier database inserts, before
-    // checking effects or removing the files held by the stuck server call.
-    let staged = fixture_command(
-        "wekan",
-        "node",
-        r#"const fs=require('fs'),path=require('path');const root='/data/files/attachments';const deadline=Date.now()+30000;while(true){const zips=fs.readdirSync('/tmp').filter(n=>n.startsWith('wekan-import-')&&n.endsWith('.zip')&&!p.before.includes(n));const attachments=fs.existsSync(root)?fs.readdirSync(root).filter(n=>n.endsWith('-import-'+p.name)&&fs.statSync(path.join(root,n)).size===3):[];if(zips.length===1&&attachments.length===1){console.log(JSON.stringify({zips,attachments}));break;}if(Date.now()>=deadline)throw new Error('ZIP timeout effects did not reach attachment staging within 30 seconds');await new Promise(resolve=>setTimeout(resolve,100));}"#,
-        &json!({"before":before,"name":filename}),
-    );
-    let saved = stored(&b);
-    assert!(
-        saved["cards"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|c| c["title"] == "Imported card")
-    );
+    .unwrap();
+    assert_eq!(fs::read(destination).unwrap(), bytes);
     let cleanup = fixture_command(
         "wekan",
         "node",
-        r#"const fs=require('fs'),path=require('path');for(const n of p.zips)fs.unlinkSync(path.join('/tmp',n));for(const n of p.attachments)fs.unlinkSync(path.join('/data/files/attachments',n));console.log(JSON.stringify({zips:p.zips.length,attachments:p.attachments.length}));"#,
-        &staged,
+        r#"const fs=require('fs');const additions=()=>fs.readdirSync('/tmp').filter(n=>n.startsWith('wekan-import-')&&n.endsWith('.zip')&&!p.before.includes(n));const deadline=Date.now()+5000;while(additions().length&&Date.now()<deadline)await new Promise(r=>setTimeout(r,100));console.log(JSON.stringify({remaining:additions().length}));"#,
+        &json!({"before":before}),
     );
-    assert_eq!(cleanup, json!({"zips":1,"attachments":1}));
+    assert_eq!(cleanup["remaining"], 0);
 
     let outsider_dir = TestDirectory::new("import-outsider");
     let outsider = App::with_profile_store(

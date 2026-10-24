@@ -142,4 +142,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx --yes @redocly/cli@2.46.0 build-docs "$RUNNER_TEMP/wekan.corrected.yml" --output "$RUNNER_TEMP/wekan.corrected.html" --title "WeKan REST API v11.06 (Corrected)"
+          npx --yes @redocly/cli@2.46.0 build-docs "$RUNNER_TEMP/wekan.corrected.yml" --output "$RUNNER_TEMP/wekan.corrected.html" --title "WeKan REST API v12.57 (Corrected)"

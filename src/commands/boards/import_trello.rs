@@ -38,6 +38,9 @@ pub struct ImportTrelloArgs {
     /// Read member mapping from a regular UTF-8 JSON file (50 MiB). JSON imports only.
     #[arg(long, value_name = "PATH")]
     pub members_mapping_file: Option<PathBuf>,
+    /// Native handling of imported people; applies to JSON and ZIP.
+    #[arg(long, value_parser = ["map", "placeholder", "me"])]
+    pub members_mode: Option<String>,
     /// Authentication form using the stored login token.
     #[arg(long, value_parser = ["bearer", "x-auth-token", "meteor-cookie", "wekan-cookie"], default_value = "bearer")]
     pub auth: String,
@@ -119,6 +122,10 @@ pub(crate) async fn execute(
                 ));
             }
             let body = PreparedImportRequest::new(&BoardImportRequest {
+                options: crate::client::boards::import::BoardImportOptions {
+                    members_mode: args.members_mode.clone(),
+                    ..Default::default()
+                },
                 board,
                 members_mapping,
             })
@@ -146,6 +153,7 @@ pub(crate) async fn execute(
                     input.length,
                     context.record().token(),
                     auth,
+                    args.members_mode.as_deref(),
                     args.input.timeout,
                 )
                 .await

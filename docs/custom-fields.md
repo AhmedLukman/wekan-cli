@@ -1,7 +1,7 @@
 # Custom fields and dropdown items
 
 The `custom-field` family and its `item` subcommands, together with two dedicated
-card commands, cover all ten custom-field REST operations in Wekan v11.06.
+card commands, cover all ten custom-field REST operations in Wekan v12.57.
 
 ```console
 wekan custom-field list --board <BOARD_ID>
@@ -27,8 +27,10 @@ path segments.
 
 ## Definition inputs
 
-`--type` accepts `text`, `number`, `date`, `dropdown`, `checkbox`, `currency`,
-and `stringtemplate`. Creation requires a name and type, and defaults settings
+`--type` accepts `text`, `number`, `date`, `dropdown`, `dropdownMultiSelect`,
+`checkbox`, `currency`, and `stringtemplate`. The multi-select type uses the
+same `dropdownItems` definitions and stores an array of selected item IDs.
+Creation requires a name and type, and defaults settings
 to `{}`. Display flags take explicit `true` or `false` values; omitted flags
 use Wekan's false defaults. Creation has no `--always-on-card`: Wekan initializes
 it false and ignores that property in creation requests.
@@ -41,6 +43,9 @@ it false and ignores that property in creation requests.
 | `dropdownItems` | Array of objects, each requiring string `_id` and `name`, or null |
 | `stringtemplateFormat` | String or null |
 | `stringtemplateSeparator` | String or null |
+| `jiraTimeField` | `original`, `remaining`, or null; identifies Jira time estimates |
+| `jiraEstimateFieldId` | Jira numeric field ID such as `customfield_10001`, or null |
+| `jiraEstimateUnit` | Estimate unit such as `points`, or null |
 
 Unknown keys, a null settings object, malformed JSON, and invalid types fail
 argument parsing. Update replaces the entire supplied settings object; `{}`
@@ -112,7 +117,11 @@ contain `board_id` and `custom_fields` summaries with `custom_field_id`, `name`,
 and `field_type`. Details expose every known property in snake case: IDs,
 name/type, settings, all display controls, and timestamps. Settings expose
 `currency_code`, `dropdown_items` (with `item_id` and `name`),
-`stringtemplate_format`, and `stringtemplate_separator`. `dropdown_items` is an
+`stringtemplate_format`, `stringtemplate_separator`, `jira_time_field`,
+`jira_estimate_field_id`, and `jira_estimate_unit`. Jira imports populate the
+Jira settings on numeric fields; ordinary definitions may omit them. Native
+JSON exports preserve these settings and the `dropdownMultiSelect` wire type.
+`dropdown_items` is an
 array or null. Absent optional
 properties and explicit null settings values both appear as null.
 
@@ -147,7 +156,7 @@ non-terminal invocations require `--yes`. Cancellation succeeds with operation
 `custom_field_delete` or `custom_field_item_delete`. Success contains scope IDs
 and `delete_mode: "hard"`. Dropdown deletion returns the parent field ID.
 Missing targets can produce successful no-ops for deletion, updates, and item
-creation in Wekan v11.06.
+creation in Wekan v12.57.
 
 Deleting a shared definition through one board removes the definition from all
 associated boards and removes its values from their cards. Deleting a dropdown

@@ -21,7 +21,7 @@ use super::{map_client_error, non_empty};
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan v11.06 can select boards where the target is an inactive or non-administrator member. Returned board summaries do not confirm completed transfers. Self-targeting can deactivate your membership when another active board administrator exists. See `wekan skill show users` for details."
+    after_help = "Wekan v12.57 can select boards where the target is an inactive or non-administrator member. Returned board summaries do not confirm completed transfers. Self-targeting can deactivate your membership when another active board administrator exists. See `wekan skill show users` for details."
 )]
 pub struct TakeOwnershipArgs {
     /// Wekan user ID whose board memberships Wekan will select.

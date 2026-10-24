@@ -1,8 +1,8 @@
 use super::support::*;
 
 #[tokio::test]
-#[ignore = "requires an isolated Wekan v11.06 stack and WEKAN_PUBLIC_PROBE_E2E_URL"]
-async fn public_probes_match_wekan_v11_06() {
+#[ignore = "requires an isolated Wekan v12.57 stack and WEKAN_PUBLIC_PROBE_E2E_URL"]
+async fn public_probes_match_wekan_v12_57() {
     let server = env::var("WEKAN_PUBLIC_PROBE_E2E_URL").expect("set WEKAN_PUBLIC_PROBE_E2E_URL");
     let directory = TestDirectory::new("public-probes");
     let app = App::with_profile_store(
@@ -67,7 +67,7 @@ async fn public_probes_match_wekan_v11_06() {
     let CommandSuccess::SchemaUpgradeStatus(state) = &result else {
         panic!("schema status")
     };
-    assert_eq!(state.app_version, "v11.06.0");
+    assert_eq!(state.app_version, "v12.57.0");
     assert!(!state.steps.is_empty());
     let output = wekan_cli::output::render_success(OutputFormat::Json, &result);
     let output: serde_json::Value = serde_json::from_str(&output).unwrap();

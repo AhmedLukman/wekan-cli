@@ -1,5 +1,7 @@
+use crate::client::metadata::*;
 use std::collections::BTreeMap;
 
+pub mod channels;
 pub mod tokens;
 
 use reqwest::header::ACCEPT;
@@ -47,7 +49,9 @@ pub struct UserCardQuery {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct CreateUserResult;
+pub struct CreateUserResult {
+    pub user_id: String,
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -83,6 +87,34 @@ pub type CurrentUserEmail = UserEmail;
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserProfile {
+    pub chat_view_layout: Option<ChatViewLayout>,
+    pub email_to_card: Option<MemberEmailToCard>,
+    pub notification_delivery: Option<Box<MemberNotificationDelivery>>,
+    pub my_dependencies: Option<Vec<PersonalDependency>>,
+
+    pub notify_muted_activities: Option<Vec<String>>,
+    pub notify_override_tray: Option<bool>,
+    pub notify_override_email: Option<bool>,
+    pub webhook_hide_identity: Option<bool>,
+    pub unread_changes_since: Option<String>,
+    pub keep_title_tags: Option<bool>,
+    pub checklist_ding_sound: Option<bool>,
+    pub dismissed_board_announcements: Option<BTreeMap<String, String>>,
+    pub card_label_text_override: Option<bool>,
+    pub show_label_text_override: Option<bool>,
+    pub board_labels: Option<BTreeMap<String, Vec<String>>>,
+    pub hidden_boards: Option<Vec<String>>,
+    pub starred_swimlanes: Option<Vec<String>>,
+    pub starred_lists: Option<Vec<String>>,
+    pub starred_cards: Option<Vec<String>>,
+    pub default_board_template_id: Option<String>,
+    pub default_board_template_board_id: Option<String>,
+    pub board_views: Option<BTreeMap<String, String>>,
+    pub show_board_dependencies: Option<bool>,
+    pub show_my_dependencies: Option<bool>,
+    pub board_visits: Option<BTreeMap<String, String>>,
+    pub dismissed_rule_suggestions: Option<BTreeMap<String, Vec<String>>>,
+    pub date_format_override: Option<bool>,
     pub fullname: Option<String>,
     pub avatar_url: Option<String>,
     pub email_buffer: Option<Vec<Option<String>>>,
@@ -147,6 +179,9 @@ pub struct UserProfile {
     pub date_format: Option<String>,
     pub mobile_mode: Option<bool>,
     pub card_zoom: Option<Number>,
+    pub calendar_system: Option<String>,
+    pub collapsed_cards: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    pub card_last_views: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -172,6 +207,13 @@ pub struct UserWorkspaceNode {
 pub struct UserProfileNotification {
     pub activity: String,
     pub read: Option<String>,
+    /// Milliseconds since Unix epoch; omitted for immediate delivery without quiet hours.
+    #[serde(
+        rename = "showAt",
+        default,
+        deserialize_with = "super::decoding::optional_non_null"
+    )]
+    pub show_at: Option<Number>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -201,6 +243,10 @@ pub struct UserTeam {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CurrentUserBoard {
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub granted_by: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub custom_role_id: Option<String>,
     pub board_id: String,
     pub is_active: Option<bool>,
     pub is_admin: Option<bool>,
@@ -216,13 +262,26 @@ pub struct CurrentUserBoard {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserRecord {
+    pub passkeys: Option<Vec<crate::client::users::channels::Passkey>>,
+    pub sqrl: Option<crate::client::users::channels::SqrlIdentity>,
+    pub web_push_subscriptions: Option<Vec<crate::client::users::channels::PushSubscription>>,
+    pub ntfy: Option<crate::client::users::channels::NtfySettings>,
+    pub notification_delivery_pending: Option<crate::client::users::channels::PendingNotification>,
+
+    pub notification_delivery_revision: Option<String>,
+    pub feature_preview: Option<bool>,
+    pub inactivity_clock_start: Option<String>,
+    pub login_disabled_reason: Option<String>,
+    pub anonymized: Option<bool>,
+    pub anonymized_at: Option<String>,
+
     #[serde(rename = "_id")]
     pub user_id: String,
     pub username: Option<String>,
     #[serde(default, deserialize_with = "deserialize_default_on_null")]
     pub emails: Vec<UserEmail>,
     #[serde(default, deserialize_with = "deserialize_default_on_null")]
-    pub profile: UserProfile,
+    pub profile: Box<UserProfile>,
     pub is_admin: Option<bool>,
     pub login_disabled: Option<bool>,
     pub authentication_method: Option<String>,
@@ -327,17 +386,6 @@ struct CreateUserRequestBody<'a> {
 struct UserActionRequestBody {
     action: &'static str,
 }
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreateUserV1106Response {
-    #[serde(rename = "_id")]
-    _id: EmptyObject,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct EmptyObject {}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -454,8 +502,17 @@ impl WekanClient {
                     .json(&body),
             )
             .await?;
-        let _: CreateUserV1106Response = decode_success(&response, "create-user", true)?;
-        Ok(CreateUserResult)
+        let response: IdResponse = decode_success(&response, "create-user", true)?;
+        if response.id.is_empty() {
+            return Err(ClientError::Protocol {
+                diagnostic: None,
+                message: "the create-user response contained an empty id".to_owned(),
+                success_status_received: true,
+            });
+        }
+        Ok(CreateUserResult {
+            user_id: response.id,
+        })
     }
 
     pub async fn user_boards(

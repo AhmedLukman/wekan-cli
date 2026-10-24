@@ -1,6 +1,6 @@
 # Copy and move
 
-These commands send one native Wekan v11.06 request. They execute directly and
+These commands send one native Wekan v12.57 request. They execute directly and
 support human or JSON output, named profiles, and the usual global options.
 
 ```console
@@ -48,26 +48,17 @@ JSON uses the standard `{ "ok": true, "data": ... }` envelope. Result fields are
 Human output reports the completed copy or move, subject to the accepted-request
 wording for cross-board list moves described below.
 
-Wekan v11.06 reuses an active destination list with the same title when copying
-a list. A same-board list copy can therefore return the source ID and duplicate
-its cards into that same list. List copying selects source cards using the
-source list's stored swimlane; it does not aggregate cards from every swimlane.
-When selected cards need a destination swimlane, omitting `--target-swimlane-id`
-can return HTML HTTP 500 (`Swimlane ID is required`). Empty or no-matching-card
-copies can behave differently. Explicit destination swimlanes avoid that specific
-failure; the CLI sends the requested selectors without adding a destination.
+Wekan v12.57 creates a new list for same-board list copies. Cross-board copies
+can reuse a same-title destination list. Copying includes every source-list card
+across its swimlanes, and an omitted destination swimlane now uses native
+selection rules instead of the old missing-swimlane failure.
 
 Same-board list moves reposition the existing list and can change its stored
-swimlane ID. Cross-board list moves retain the source list, ignore position,
-and return the source list ID. When no same-title destination list exists, a
-requested destination swimlane also filters source cards, potentially selecting
-none. If a same-title destination list already exists, Wekan first attempts to
-move source cards without that filter, even when none match the requested
-swimlane. A later request can therefore move cards left untouched by an earlier
-request that created the destination list. Selected cards can be moved before
-the server throws `Meteor.userId()` outside a DDP invocation and returns HTML
-HTTP 500. Labels on transferred cards map to existing destination labels by
-name; unmatched labels are dropped.
+swimlane ID. Cross-board moves retain the source list and ignore position.
+The old destination-swimlane source filter is fixed, but a populated move still
+moves its first card before `Meteor.userId()` throws outside a DDP invocation,
+returning HTTP 500. Destination lists may already exist after that failure.
+Labels map to existing destination labels by name; unmatched labels are dropped.
 
 A populated cross-board swimlane move can create/reuse destination lists and
 move a card before the same `Meteor.userId()` failure returns HTTP 500. The
@@ -84,12 +75,11 @@ status and error details. The
 CLI does not retry or repair these requests. Acknowledge the failure and inspect
 source and destination state before deciding on another mutation.
 
-Card copying delegates subtasks, checklists/items, and comments to Wekan.
-In v11.06, card/list/swimlane/board copies return HTTP 200 and copy the cards,
-but omit their attachments: the unawaited `copyFile` helper fails with
-`ReferenceError: ReactiveCache is not defined` before creating metadata or
-copying bytes. The source attachments remain readable. A successful copy result
-therefore does not confirm attachment duplication. This server defect is
-regression-tested without a CLI workaround.
+Card copying delegates subtasks, checklists/items, comments, and attachment
+bytes to Wekan. W11-047 is fixed: card, list, swimlane, and board copies await
+attachment copying and create independently downloadable files. Live regressions
+start with an actual native upload and compare every copied file's bytes.
 
-Human copy output states that Wekan v11.06 omits attachments. Cross-board list moves report request acceptance and state that the source list is retained and position ignored; same-board moves retain direct success wording. JSON returns the scoped resource IDs, without a shared warning envelope.
+Cross-board list moves report request acceptance and state that the source list
+is retained and position ignored. JSON returns scoped resource IDs; the CLI does
+not add a shared warning envelope or post-verify completed writes.

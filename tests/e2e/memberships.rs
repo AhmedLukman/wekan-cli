@@ -104,8 +104,8 @@ async fn verify_linked_card_memberships(
     let detail = link.detail().await;
     assert_eq!(detail["card_type"], "cardType-linkedCard");
     assert_eq!(detail["linked_id"], source.card);
-    assert_eq!(detail["members"], json!([admin]));
-    assert_eq!(detail["assignees"], json!([admin]));
+    assert_eq!(detail["members"], json!([]));
+    assert_eq!(detail["assignees"], json!([]));
 
     // W11-043: the awaited mutation targets the source, but the response and
     // focused lists read the link's own arrays. Separate detail reads prove it.
@@ -126,8 +126,8 @@ async fn verify_linked_card_memberships(
                     "user_id": user,
                     "kind": kind,
                     "action": action,
-                    "members": [admin],
-                    "assignees": [admin],
+                    "members": [],
+                    "assignees": [],
                 })
             );
             let source_detail = source.detail().await;
@@ -145,11 +145,11 @@ async fn verify_linked_card_memberships(
             }
             let link_detail = link.detail().await;
             assert_eq!(link_detail["card_id"], linked_id);
-            assert_eq!(link_detail["members"], json!([admin]));
-            assert_eq!(link_detail["assignees"], json!([admin]));
+            assert_eq!(link_detail["members"], json!([]));
+            assert_eq!(link_detail["assignees"], json!([]));
             assert_eq!(
                 link.membership(kind, &["list"]).await.unwrap()[field],
-                json!([admin])
+                json!([])
             );
         }
     }
@@ -167,10 +167,10 @@ const FLAGS: [(&str, &str); 8] = [
 ];
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_MEMBERSHIP_E2E_URL"]
-async fn complete_membership_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_MEMBERSHIP_E2E_URL"]
+async fn complete_membership_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_MEMBERSHIP_E2E_URL")
-        .expect("set WEKAN_MEMBERSHIP_E2E_URL to a fresh isolated Wekan v11.06 stack");
+        .expect("set WEKAN_MEMBERSHIP_E2E_URL to a fresh isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -571,6 +571,20 @@ async fn complete_membership_lifecycle_matches_wekan_v11_06() {
             app: &normal_app,
             ..scope
         };
+        if role == "nocomments" {
+            // v12.57's shared role matrix permits writing while refusing comments.
+            for kind in ["member", "assignee"] {
+                denied_scope
+                    .membership(kind, &["remove", &admin])
+                    .await
+                    .unwrap();
+                denied_scope
+                    .membership(kind, &["add", &admin])
+                    .await
+                    .unwrap();
+            }
+            continue;
+        }
         for kind in ["member", "assignee"] {
             for action in ["add", "remove"] {
                 let error = denied_scope

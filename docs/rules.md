@@ -1,6 +1,6 @@
 # Board automation rules
 
-`wekan rule` manages the five native Wekan v11.06 rule endpoints. A rule links a
+`wekan rule` manages the five native Wekan v12.57 rule endpoints. A rule links a
 trigger to an action. Commands use REST and accept `--output human` or `json`,
 plus the usual server/profile options.
 
@@ -27,7 +27,7 @@ still exceed this limit and fail with `protocol_error` (exit 4).
 Definitions use Wekan camelCase names. Creation requires `trigger` and `action`
 objects with nonempty string `activityType` and `actionType` values. `title` is
 optional; Wekan uses `API rule` for an omitted or empty creation title.
-Updates accept any subset of `title`, `trigger`, and `action`, including `{}`.
+Updates accept any subset of `enabled`, `title`, `trigger`, and `action`, including `{}`. `enabled` accepts a JSON boolean.
 Top-level title must be a string when present; trigger/action must be objects.
 
 For example, save this as `rule.json` to add a member when a card moves to Doing:
@@ -52,20 +52,24 @@ A companion rule removes that member when the card moves away:
 
 ## Supported payload fields
 
-The typed commands map all built-in v11.06 payload fields. Discriminators are
+The typed commands map all built-in v12.57 payload fields. Discriminators are
 strings, so the CLI preserves unknown kind names instead of promising they run.
 Other unmapped fields or object/array values in scalar fields are rejected;
 use `wekan api request` for arbitrary custom payloads.
 
 | Payload | Supported camelCase properties |
 | --- | --- |
-| Trigger matching | `description`, `activityType`, `userId`, `username`, `listName`, `oldListName`, `swimlaneName`, `cardTitle`, `checklistName`, `checklistItemName`, `labelId`, `attachmentName`, `desc` |
-| Trigger schedules | `scheduleKind`, `scheduleType`, `atTime`, `weekday`, `dayOfMonth`, `onDate`, `dueCondition`, `days`, `lastRunKey`, `lastRunAt` |
+| Trigger matching | `description`, `activityType`, `userId`, `username`, `listName`, `oldListName`, `swimlaneName`, `cardTitle`, `checklistName`, `checklistItemName`, `labelId`, `attachmentName`, `desc`, `advancedFilter`, `textContains`, `direction` |
+| Trigger schedules | `scheduleKind`, `scheduleType`, `atTime`, `weekday`, `dayOfMonth`, `onDate`, `dueCondition`, `days`, `lastRunKey`, `lastRunAt`, `cron` |
 | Trigger buttons | `buttonType`, `buttonLabel` |
-| Action | `actionType`, `listName`, `swimlaneName`, `cardName`, `fromListName`, `checklistName`, `checkItemName`, `checklistItems`, `dateField`, `unit`, `emailTo`, `emailSubject`, `emailMsg`, `selectedColor`, `labelId`, `username`, `sortField`, `desc`, `days` |
+| Action | `actionType`, `listName`, `swimlaneName`, `cardName`, `fromListName`, `checklistName`, `checkItemName`, `checklistItems`, `dateField`, `unit`, `emailTo`, `emailSubject`, `emailMsg`, `selectedColor`, `labelId`, `username`, `sortField`, `desc`, `days`, `integrationId`, `commentText`, `listId`, `swimlaneId`, `includeCardDetails`, `includeChecklistsAndComments`, `includeAttachments` |
 
 All payload fields are sparse and nullable. `weekday`, `dayOfMonth`, and `days`
-accept JSON numbers or strings; other listed properties accept strings.
+accept JSON numbers or strings. `includeCardDetails`, `includeChecklistsAndComments`,
+and `includeAttachments` accept booleans; other listed properties accept strings.
+`advancedFilter` is the native Advanced Filter criteria string, `textContains`
+is a substring, and `direction` is the native move direction. `listId` and
+`swimlaneId` select the destination of a `copyCard` action.
 The CLI preserves numeric text without applying Wekan's coercions.
 `lastRunAt` in requests and responses must be a valid Wekan date-time string or
 null. Invalid request timestamps fail with `invalid_input` before credentials or
@@ -81,14 +85,18 @@ Activity kinds are `createCard`, `moveCard`, `archivedCard`, `restoredCard`,
 `completeChecklist`, `uncompleteChecklist`, `addedChecklistItem`,
 `removedChecklistItem`, `checkedItem`, `uncheckedItem`, `addAttachment`,
 `deleteAttachment`, `addedLabel`, and `removedLabel`. `scheduledTrigger` and
-`button` are evaluated separately from activities.
+`button` are evaluated separately from activities. Additional native triggers
+include `advancedFilterTrigger`, `textContainsTrigger`, `moveCardDirection`, and
+`a-dueAt`, `a-startAt`, `a-endAt`, and `a-receivedAt`.
 
 Action kinds are `moveCardToTop`, `moveCardToBottom`, `sendEmail`, `setDate`,
 `updateDate`, `removeDate`, `setDateRelative`, `archive`, `unarchive`, `setColor`,
 `addLabel`, `removeLabel`, `addMember`, `removeMember`, `checkAll`, `uncheckAll`,
 `checkItem`, `uncheckItem`, `addChecklist`, `removeChecklist`,
 `addChecklistWithItems`, `addSwimlane`, `createCard`, `linkCard`,
-`markCardComplete`, `markCardIncomplete`, `sortList`, and `moveAllCardsInList`.
+`markCardComplete`, `markCardIncomplete`, `sortList`, `moveAllCardsInList`,
+`copyCard`, `addAssignee`, `removeAssignee`, `removeAllLabels`, `dispatchBot`,
+and `addComment`.
 
 ## Native behavior and limitations
 
@@ -112,16 +120,14 @@ automatic retry or rollback.
 
 REST overwrites an action's `boardId` with the selected rule board and strips it
 from reads. Cross-board destination selection in the UI is not reproduced by
-these REST endpoints. Button fields persist on the trigger, but REST creation
-does not copy button metadata onto the rule document as the UI creation method
-does. Such definitions do not supply the metadata needed for UI button rendering.
+these REST endpoints. REST creation and updates now synchronize button type and
+label metadata onto the rule document for UI rendering (W11-054 is fixed).
 Manual button execution is a DDP method and has no equivalent in this family.
 
 Scheduled definitions use Wekan's server clock and minute-scanner format.
-However, pinned v11.06 registers the scanner without starting SyncedCron;
-scheduled rules persist but do not execute on the default stack (W11-053).
-The CLI preserves this defect without starting or emulating the scheduler.
-For example, this definition persists with the intended daily schedule:
+The v12.57 startup starts SyncedCron, and native scheduled rules execute on the
+default stack (W11-053 is fixed). The CLI does not start or emulate the scheduler.
+For example, this definition runs with the intended daily schedule:
 
 ```json
 {
@@ -130,7 +136,8 @@ For example, this definition persists with the intended daily schedule:
 }
 ```
 
-Schedule kinds include `calendar`, `due`, and `aging`. Calendar types include
+Schedule kinds include `calendar`, `due`, `aging`, and `cron`. Cron schedules
+use the `cron` string with five fields and are evaluated in UTC. Calendar types include
 `once`, `daily`, `weekday`, `weekly`, and `monthly`; due conditions include
 `set`, `soon`, and `overdue`. The CLI does not evaluate schedules or validate
 server-side matching/action semantics.
@@ -138,11 +145,13 @@ server-side matching/action semantics.
 ## Stable output and deletion
 
 List data contains `board_id` and `rules`. Each rule detail contains `board_id`,
-`rule_id`, `title`, `trigger`, and `action`. Nested keys use snake_case, preserve
+`rule_id`, `title`, `enabled`, `trigger`, `action`, `extra_triggers`, and
+`extra_actions`. The extra arrays expose additional native rule parts when
+present; REST writes operate on the primary trigger and action. Nested keys use snake_case, preserve
 explicit nulls, and omit fields absent from Wekan. Missing referenced documents
 are represented as null. Creation returns `board_id`, `rule_id`, `trigger_id`,
 and `action_id`. Update returns `board_id`, `rule_id`, `submitted_fields`
-(in title/trigger/action order).
+(in title/enabled/trigger/action order).
 Deletion returns `board_id`, `rule_id`, and `deleted: true` after the native
 handler completes removal of the rule and its referenced documents.
 

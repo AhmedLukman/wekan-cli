@@ -1,6 +1,5 @@
 use super::support::*;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use wekan_cli::credentials::CredentialTarget;
 
 fn run(
@@ -63,11 +62,11 @@ async fn assert_token_state(server: &str, user: &str, token: &str, accepted: boo
     // Native insertion/destruction does not await the Accounts database write.
     // Observe eventual persistence only in the test; production never retries.
     for _ in 0..100 {
-        let (_, value) = token_state(server, token).await;
+        let (status, value) = token_state(server, token).await;
         let matches = if accepted {
-            value["_id"].as_str() == Some(user)
+            status == 200 && value["_id"].as_str() == Some(user)
         } else {
-            value["statusCode"] == 401
+            status == 401 && value["error"] == "Unauthorized"
         };
         if matches {
             return;
@@ -98,10 +97,10 @@ fn saved_tokens(user: &str) -> Value {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Compose Wekan v11.06 stack and WEKAN_TOKEN_E2E_URL"]
-async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Compose Wekan v12.57 stack and WEKAN_TOKEN_E2E_URL"]
+async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_TOKEN_E2E_URL")
-        .expect("set WEKAN_TOKEN_E2E_URL to a fresh isolated v11.06 stack");
+        .expect("set WEKAN_TOKEN_E2E_URL to a fresh isolated v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -153,7 +152,14 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         success(&run(
             admin_dir.path(),
             &server,
-            &["user", "token", "create", user],
+            &[
+                "user",
+                "token",
+                "create",
+                user,
+                "--reason",
+                "integration test",
+            ],
             None,
             "json",
         ))
@@ -171,7 +177,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
     assert_token_state(&canonical, &member, second_token, true).await;
     assert_eq!(saved_tokens(&member)["count"], 3);
 
-    // W11-058: raw issued tokens are not matched against stored hashes.
+    // W11-058 survives: a raw issued token is acknowledged but remains usable.
     let raw_delete = run(
         admin_dir.path(),
         &server,
@@ -187,24 +193,6 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
     assert_secret_absent(&raw_delete, first_token);
     assert_secret_absent(&raw_delete, admin_credential.token().expose_secret());
     assert_token_state(&canonical, &member, first_token, true).await;
-    assert_eq!(saved_tokens(&member)["count"], 3);
-
-    // Pass an explicit hash as API input to establish native matching semantics.
-    // The CLI itself performs no hashing or automatic substitution.
-    let hash = base64::Engine::encode(
-        &base64::engine::general_purpose::STANDARD,
-        Sha256::digest(first_token.as_bytes()),
-    );
-    let hash_delete = run(
-        admin_dir.path(),
-        &server,
-        &["user", "token", "delete", &member, "--token-stdin", "--yes"],
-        Some(&hash),
-        "human",
-    );
-    assert!(hash_delete.status.success(), "{}", hash_delete.stderr);
-    assert_secret_absent(&hash_delete, &hash);
-    assert_token_state(&canonical, &member, first_token, false).await;
     assert_token_state(&canonical, &member, second_token, true).await;
     assert_token_state(
         &canonical,
@@ -213,7 +201,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         true,
     )
     .await;
-    assert_eq!(saved_tokens(&member)["count"], 2);
+    assert_eq!(saved_tokens(&member)["count"], 3);
 
     for user in [&member, "missing-token-user"] {
         let output = run(
@@ -226,18 +214,25 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         assert!(success(&output).get("mutation_confirmed").is_none());
         assert_secret_absent(&output, "nonexistent-token");
     }
-    // W11-059: creation returns an unusable token even for a nonexistent user.
+    // W11-059 is fixed: no secret or user is created for an unknown selector.
     assert_eq!(saved_tokens("missing-token-user"), json!({"exists":false}));
-    let missing = issue("missing-token-user");
-    assert!(missing.get("creation_requested").is_none());
-    assert!(missing.get("mutation_confirmed").is_none());
-    assert_token_state(
-        &canonical,
-        "missing-token-user",
-        missing["auth_token"].as_str().unwrap(),
-        false,
-    )
-    .await;
+    let missing = run(
+        admin_dir.path(),
+        &server,
+        &[
+            "user",
+            "token",
+            "create",
+            "missing-token-user",
+            "--reason",
+            "missing-user regression",
+        ],
+        None,
+        "json",
+    );
+    let error = error_json(&missing, 5, "server_error");
+    assert_eq!(error["error"]["details"]["http_status"], 404);
+    assert_eq!(error["error"]["details"]["server_error"], "User not found");
     assert_eq!(saved_tokens("missing-token-user"), json!({"exists":false}));
     let missing_all = run(
         admin_dir.path(),
@@ -256,13 +251,20 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
     assert!(success(&missing_all).get("mutation_confirmed").is_none());
 
     for args in [
-        vec!["user", "token", "create", &member],
+        vec![
+            "user",
+            "token",
+            "create",
+            &member,
+            "--reason",
+            "permission boundary test",
+        ],
         vec!["user", "token", "delete", &member, "--all", "--yes"],
     ] {
         let output = run(member_dir.path(), &server, &args, None, "json");
         let error = error_json(&output, 5, "permission_denied");
-        assert_eq!(error["error"]["details"]["http_status"], 200);
-        assert_eq!(error["error"]["details"]["wekan_status_code"], 403);
+        assert_eq!(error["error"]["details"]["http_status"], 403);
+        assert!(error["error"]["details"].get("wekan_status_code").is_none());
     }
     let no_confirmation = run(
         admin_dir.path(),
@@ -306,7 +308,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         finish_production_cli(child)
     };
     error_json(&invalid_utf8, 2, "invalid_input");
-    assert_eq!(saved_tokens(&member)["count"], 2);
+    assert_eq!(saved_tokens(&member)["count"], 3);
 
     let all = run(
         admin_dir.path(),
@@ -324,10 +326,10 @@ async fn complete_user_token_lifecycle_matches_wekan_v11_06() {
         false,
     )
     .await;
-    // The native empty-string update is cleaned into an omitted token field.
+    // The fixed native delete-all write persists an actual empty array.
     assert_eq!(
         saved_tokens(&member),
-        json!({"type":"undefined","array":false,"count":null})
+        json!({"type":"object","array":true,"count":0})
     );
     assert!(credential(member_dir.path(), &canonical).matches(&member_credential));
 

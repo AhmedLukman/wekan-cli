@@ -1,6 +1,6 @@
 # Bulk cards and labels
 
-These commands use Wekan v11.06's native batch endpoints. Each batch sends one
+These commands use Wekan v12.57's native batch endpoints. Each batch sends one
 request containing 1–500 cards; larger inputs fail locally. All commands support
 the standard global options and human/JSON output.
 
@@ -32,7 +32,7 @@ sets a default; each card's nonempty `swimlaneId` takes precedence. Wekan accept
 strings, and retains only active board members. Values are sent unchanged.
 Author attribution always uses the authenticated session.
 
-Each card needs an effective swimlane. Wekan v11.06 responds with HTTP 500 if
+Each card needs an effective swimlane. Wekan v12.57 responds with HTTP 500 if
 one is absent, potentially after earlier cards were created. The CLI preserves
 that failure and its HTTP status; inspect stored cards before retrying.
 No remote validation or repair precedes the request.
@@ -60,7 +60,8 @@ added-or-reused acknowledgment with `board_id` and `label_id`.
 Board label listing preserves stored order and returns IDs, nullable names, and
 colors. Card label listing returns stored IDs and preserves null elements. Both
 strictly decode the complete underlying document before projection. Board data
-contains `board_id` and `labels` (`label_id`, nullable `name`, `color`); card data
+contains `board_id` and `labels` (`label_id`, nullable `name`, `color`, nullable
+`due_at` milestone timestamp and `shared_label_id`); card data
 contains `board_id`, `list_id`, `card_id`, and `label_ids`.
 
 ## Merge card labels
@@ -96,7 +97,7 @@ identity and expiry. A replaced, removed, or expired credential prevents HTTP
 and leaves the current stored credential untouched.
 
 Wekan deletes matching cards, including archived cards, and cascades their
-comments, checklists, checklist items, and subcards. Wekan v11.06 has an
+comments, checklists, checklist items, and subcards. Wekan v12.57 has an
 attachment-cascade defect: ordinary attachment metadata and file bytes remain
 after successful card deletion, and board attachment listing still returns them.
 The `deleted` array confirms card deletion, not attachment cleanup. The CLI

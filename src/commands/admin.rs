@@ -2,7 +2,9 @@ pub mod attachment_settings;
 pub mod domains;
 mod features;
 mod input;
+mod login_providers;
 pub mod organizations;
+mod problems;
 pub mod settings;
 pub mod teams;
 
@@ -22,6 +24,12 @@ pub struct AdminArgs {
 }
 #[derive(Debug, Subcommand)]
 pub enum AdminCommand {
+    /// Inspect and configure OAuth login providers (site admin).
+    OauthProvider(login_providers::OauthProviderArgs),
+    /// Configure email-code sign-in (site admin).
+    Passwordless(login_providers::PasswordlessArgs),
+    /// Inspect and acknowledge administrator problem reports.
+    Problem(problems::ProblemArgs),
     /// Report primary-email domains and user counts (site admin).
     Domain(domains::DomainArgs),
     /// List organizations and configure their feature flags (site admin).
@@ -41,6 +49,13 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        AdminCommand::OauthProvider(args) => {
+            login_providers::oauth(args.command, factory, store, secrets).await
+        }
+        AdminCommand::Passwordless(args) => {
+            login_providers::passwordless(args.command, factory, store).await
+        }
+        AdminCommand::Problem(args) => problems::execute(args.command, factory, store).await,
         AdminCommand::Domain(args) => domains::execute(args.command, factory, store).await,
         AdminCommand::Org(args) => {
             organizations::execute(args.command, factory, store, confirmation).await

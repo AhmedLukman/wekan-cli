@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_USER_E2E_URL"]
-async fn complete_user_flow_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_USER_E2E_URL"]
+async fn complete_user_flow_matches_wekan_v12_57() {
     let server = env::var("WEKAN_USER_E2E_URL")
-        .expect("set WEKAN_USER_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_USER_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -67,6 +67,53 @@ async fn complete_user_flow_matches_wekan_v11_06() {
     assert_eq!(current.username.as_deref(), Some(admin_username.as_str()));
     assert_eq!(current.is_admin, Some(true));
 
+    // W11-015 is only partly repaired: GET now exposes the lookup exception as
+    // HTTP 500, while PUT still sends undefined data as an empty HTTP 200 body.
+    // Probe the wire independently, then require the production commands to
+    // preserve those responses instead of inventing a not-found result.
+    let http = reqwest::Client::new();
+    let missing_user = format!("wekan_cli_missing_user_{nonce}");
+    let missing_url = format!("{canonical_server}api/users/{missing_user}");
+    let missing_get = http
+        .get(&missing_url)
+        .bearer_auth(&admin_token)
+        .send()
+        .await
+        .expect("missing-user GET must return its native failure");
+    assert_eq!(
+        missing_get.status(),
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert_eq!(
+        missing_get.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({"error": "Internal server error"})
+    );
+    let missing_get_error = execute_live_user(&admin_app, &server, &["get", &missing_user])
+        .await
+        .expect_err("missing-user GET must remain a server error");
+    assert_eq!(missing_get_error.code(), ErrorCode::ServerError);
+    assert_eq!(missing_get_error.details().http_status, Some(500));
+    assert_eq!(
+        missing_get_error.details().server_error.as_deref(),
+        Some("Internal server error")
+    );
+
+    let missing_update = http
+        .put(&missing_url)
+        .bearer_auth(&admin_token)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .expect("missing-user PUT must return its native empty response");
+    assert_eq!(missing_update.status(), reqwest::StatusCode::OK);
+    assert!(missing_update.bytes().await.unwrap().is_empty());
+    let missing_update_error = execute_live_user(&admin_app, &server, &["update", &missing_user])
+        .await
+        .expect_err("missing-user PUT must fail at strict response decoding");
+    assert_eq!(missing_update_error.code(), ErrorCode::ProtocolError);
+    assert_eq!(missing_update_error.details().http_status, Some(200));
+    assert!(missing_update_error.details().server_error.is_none());
+
     for (username, email) in [
         (&owner_username, &owner_email),
         (&member_username, &member_email),
@@ -88,7 +135,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
             panic!("expected create-user output")
         };
 
-        assert_eq!(created.user_id, None);
+        assert!(!created.user_id.is_empty());
     }
 
     let owner_id = wait_for_live_user(&admin_app, &server, &owner_username).await;
@@ -102,36 +149,6 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         panic!("expected user-detail output")
     };
     assert_eq!(owner.user_id, owner_id);
-
-    let http = reqwest::Client::new();
-    let owner_board = live_api_json(
-        &http,
-        &canonical_server,
-        &admin_token,
-        reqwest::Method::POST,
-        "api/boards",
-        Some(serde_json::json!({
-            "title": format!("Owner board {nonce}"),
-            "owner": owner_id,
-            "permission": "private"
-        })),
-    )
-    .await;
-    let owner_board_id = required_id(&owner_board, "owner board");
-
-    let CommandSuccess::UserBoards(admin_view) =
-        execute_live_user(&admin_app, &server, &["boards", &owner_id])
-            .await
-            .expect("site admin must be able to list another user's boards")
-    else {
-        panic!("expected user-board output")
-    };
-    assert!(
-        admin_view
-            .boards
-            .iter()
-            .any(|board| board.board_id == owner_board_id)
-    );
 
     let owner_directory = TestDirectory::new("complete-user-owner");
     let owner_app = App::with_profile_store(
@@ -155,6 +172,43 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         .execute(owner_login.command)
         .await
         .expect("the temporary owner must be able to log in");
+    let owner_token = owner_app
+        .credential_store()
+        .credential
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .3
+        .clone();
+    let owner_board = live_api_json(
+        &http,
+        &canonical_server,
+        &owner_token,
+        reqwest::Method::POST,
+        "api/boards",
+        Some(serde_json::json!({
+            "title": format!("Owner board {nonce}"),
+            "permission": "private"
+        })),
+    )
+    .await;
+    let owner_board_id = required_id(&owner_board, "owner board");
+
+    let CommandSuccess::UserBoards(admin_view) =
+        execute_live_user(&admin_app, &server, &["boards", &owner_id])
+            .await
+            .expect("site admin must be able to list another user's boards")
+    else {
+        panic!("expected user-board output")
+    };
+    assert!(
+        admin_view
+            .boards
+            .iter()
+            .any(|board| board.board_id == owner_board_id)
+    );
+
     let CommandSuccess::UserBoards(self_view) =
         execute_live_user(&owner_app, &server, &["boards", &owner_id])
             .await
@@ -212,7 +266,6 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         "api/boards",
         Some(serde_json::json!({
             "title": format!("Admin card board {nonce}"),
-            "owner": admin_id,
             "permission": "private"
         })),
     )
@@ -260,7 +313,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         ],
     )
     .await
-    .expect("the verified card filters must work against v11.06") else {
+    .expect("the verified card filters must work against v12.57") else {
         panic!("expected user-card output")
     };
     assert!(cards.cards.iter().any(|card| card.card_id == card_id));
@@ -325,34 +378,20 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         "--password-stdin",
     ])
     .unwrap();
-    member_app
+    let rejected = member_app
         .execute(disabled_member_login.command)
         .await
-        .expect("the pinned v11.06 REST-login defect must remain visible");
-    let CommandSuccess::UserCurrent(disabled_after_relogin) =
-        execute_live_user(&member_app, &server, &["current"])
-            .await
-            .expect("the REST login token minted for a login-disabled user must authenticate")
-    else {
-        panic!("expected current-user output")
-    };
-    assert_eq!(disabled_after_relogin.user_id, member_id);
-    assert_eq!(disabled_after_relogin.login_disabled, Some(true));
-
-    let disabled_login_cleanup = Cli::try_parse_from([
-        "wekan",
-        "--server",
-        &server,
-        "auth",
-        "logout",
-        "--local-only",
-        "--yes",
-    ])
-    .unwrap();
-    member_app
-        .execute(disabled_login_cleanup.command)
-        .await
-        .expect("the defect-demonstration credential must be removable");
+        .expect_err("a login-disabled account must not start a REST session");
+    assert_eq!(rejected.code(), ErrorCode::LoginRejected);
+    assert_eq!(rejected.details().http_status, Some(401));
+    assert!(
+        member_app
+            .credential_store()
+            .credential
+            .lock()
+            .unwrap()
+            .is_none()
+    );
 
     let CommandSuccess::UserLoginChanged(enabled) =
         execute_live_user(&admin_app, &server, &["enable-login", &member_id])
@@ -361,7 +400,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
     else {
         panic!("expected enable-login output")
     };
-    assert_eq!(enabled.user.login_disabled, None);
+    assert_eq!(enabled.user.login_disabled, Some(false));
     let member_relogin = Cli::try_parse_from([
         "wekan",
         "--server",
@@ -385,7 +424,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         panic!("expected current-user output")
     };
     assert_eq!(member_after.user_id, member_id);
-    assert_eq!(member_after.login_disabled, None);
+    assert_eq!(member_after.login_disabled, Some(false));
 
     // Separate native array predicates also select an inactive non-admin target
     // when another member administers the board. Keep this behavior visible.
@@ -490,7 +529,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
         else {
             panic!("expected user-delete output")
         };
-        assert!(deleted.deletion_requested);
+        assert!(deleted.deleted);
         assert!(!deleted.deleted_current_user);
         wait_for_live_user_absent(&admin_app, &server, user_id).await;
     }
@@ -542,7 +581,7 @@ async fn complete_user_flow_matches_wekan_v11_06() {
     else {
         panic!("expected self-delete output")
     };
-    assert!(self_deleted.deletion_requested);
+    assert!(self_deleted.deleted);
     assert!(self_deleted.deleted_current_user);
     assert!(self_deleted.local_credential_removed);
     assert!(!self_deleted.credential_stored);

@@ -1,9 +1,38 @@
+use crate::client::metadata::*;
 use serde::Serialize;
 use serde_json::Number;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct UserProfileDetail {
+    pub chat_view_layout: Option<ChatViewLayout>,
+    pub email_to_card: Option<MemberEmailToCard>,
+    pub notification_delivery: Option<Box<MemberNotificationDelivery>>,
+    pub my_dependencies: Option<Vec<PersonalDependency>>,
+
+    pub notify_muted_activities: Option<Vec<String>>,
+    pub notify_override_tray: Option<bool>,
+    pub notify_override_email: Option<bool>,
+    pub webhook_hide_identity: Option<bool>,
+    pub unread_changes_since: Option<String>,
+    pub keep_title_tags: Option<bool>,
+    pub checklist_ding_sound: Option<bool>,
+    pub dismissed_board_announcements: Option<BTreeMap<String, String>>,
+    pub card_label_text_override: Option<bool>,
+    pub show_label_text_override: Option<bool>,
+    pub board_labels: Option<BTreeMap<String, Vec<String>>>,
+    pub hidden_boards: Option<Vec<String>>,
+    pub starred_swimlanes: Option<Vec<String>>,
+    pub starred_lists: Option<Vec<String>>,
+    pub starred_cards: Option<Vec<String>>,
+    pub default_board_template_id: Option<String>,
+    pub default_board_template_board_id: Option<String>,
+    pub board_views: Option<BTreeMap<String, String>>,
+    pub show_board_dependencies: Option<bool>,
+    pub show_my_dependencies: Option<bool>,
+    pub board_visits: Option<BTreeMap<String, String>>,
+    pub dismissed_rule_suggestions: Option<BTreeMap<String, Vec<String>>>,
+    pub date_format_override: Option<bool>,
     pub full_name: Option<String>,
     pub avatar_url: Option<String>,
     pub email_buffer: Option<Vec<Option<String>>>,
@@ -68,6 +97,9 @@ pub struct UserProfileDetail {
     pub date_format: Option<String>,
     pub mobile_mode: Option<bool>,
     pub card_zoom: Option<Number>,
+    pub calendar_system: Option<String>,
+    pub collapsed_cards: Option<BTreeMap<String, BTreeMap<String, bool>>>,
+    pub card_last_views: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
@@ -90,6 +122,7 @@ pub struct UserWorkspaceNodeDetail {
 pub struct UserProfileNotificationDetail {
     pub activity: String,
     pub read: Option<String>,
+    pub show_at: Option<Number>,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]

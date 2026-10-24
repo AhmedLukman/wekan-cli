@@ -16,13 +16,15 @@ use crate::{
 };
 use clap::Args;
 
-pub const BOARD_FORMATS: [&str; 17] = [
+pub const BOARD_FORMATS: [&str; 48] = [
     "json",
     "csv",
     "tsv",
     "xlsx",
     "pdf",
     "zip",
+    "ics",
+    "scsv",
     "kanboard",
     "deck",
     "openproject",
@@ -34,6 +36,35 @@ pub const BOARD_FORMATS: [&str; 17] = [
     "jira",
     "asana",
     "zenkit",
+    "markdown",
+    "leo",
+    "todotxt",
+    "taskwarrior",
+    "focalboard",
+    "todoist",
+    "planner",
+    "meistertask",
+    "obsidian",
+    "linear",
+    "ticktick",
+    "clickup",
+    "nullboard",
+    "kanri",
+    "pivotal",
+    "redmine",
+    "tasksorg",
+    "monday",
+    "businessmap",
+    "superproductivity",
+    "taiga",
+    "vikunja",
+    "wrike",
+    "wrikeworkflow",
+    "teamwork",
+    "quire",
+    "notion",
+    "opml",
+    "orgmode",
 ];
 pub const CARD_FIELDS: [&str; 16] = [
     "labels",
@@ -53,7 +84,7 @@ pub const CARD_FIELDS: [&str; 16] = [
     "dependencies",
     "sort",
 ];
-pub const BOARD_FIELDS: [&str; 19] = [
+pub const BOARD_FIELDS: [&str; 20] = [
     "card-details",
     "board-header",
     "activities",
@@ -73,6 +104,7 @@ pub const BOARD_FIELDS: [&str; 19] = [
     "locations",
     "dependencies",
     "sort",
+    "scrum",
 ];
 
 #[derive(Debug, Args)]
@@ -125,7 +157,7 @@ pub struct LocaleArgs {
     #[arg(long)]
     pub language: Option<String>,
     /// Requested native date format.
-    #[arg(long, value_parser = ["YYYY-MM-DD", "DD-MM-YYYY", "MM-DD-YYYY"])]
+    #[arg(long, value_parser = ["YYYY-MM-DD", "DD-MM-YYYY", "MM-DD-YYYY", "YYYY-MM-DD-date-only", "DD-MM-YYYY-date-only", "MM-DD-YYYY-date-only"])]
     pub date_format: Option<String>,
     /// Native timezone string (at most 64 characters); empty means UTC.
     #[arg(long, value_parser = timezone)]
@@ -221,6 +253,19 @@ pub(crate) async fn execute(
         timeout: delivery.timeout,
     };
     let response = match &target {
+        ExportTarget::Chart {
+            board_id,
+            chart_key,
+        } => {
+            client
+                .export_board_chart(board_id, chart_key, options, staged.as_file_mut())
+                .await
+        }
+        ExportTarget::AllBoards => {
+            client
+                .export_all_boards(options, staged.as_file_mut())
+                .await
+        }
         ExportTarget::Board { board_id } => {
             client
                 .export_board(board_id, options, staged.as_file_mut())

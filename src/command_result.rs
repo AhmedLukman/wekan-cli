@@ -47,11 +47,11 @@ pub use boards::{
     BoardMemberUpdateSuccess,
 };
 pub use cards::{
-    CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess, CardDeleteMode,
-    CardDeleteSuccess, CardDetail, CardDetailCustomField, CardDetailCustomFieldValue,
-    CardDetailDependency, CardDetailLocation, CardDetailPoker, CardDetailSticker,
-    CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess, CardSubmittedField,
-    CardSummary, CardUpdateSuccess,
+    BotRunReport, BotRunStatus, CardArchiveSuccess, CardCollectionSuccess, CardCreateSuccess,
+    CardDeleteMode, CardDeleteSuccess, CardDetail, CardDetailCustomField,
+    CardDetailCustomFieldValue, CardDetailDependency, CardDetailLocation, CardDetailPoker,
+    CardDetailSticker, CardDetailStickerHighlight, CardDetailVote, CardRestoreSuccess,
+    CardSubmittedField, CardSummary, CardUpdateSuccess,
 };
 pub use cards::{
     CardAssigneeCollectionSuccess, CardMemberCollectionSuccess, CardMembershipKind,
@@ -85,8 +85,9 @@ pub use dependencies::{
     DependencyUpdateSuccess,
 };
 pub use lists::{
-    ListCollectionSuccess, ListCreateSuccess, ListDeleteMode, ListDeleteSuccess, ListDetail,
-    ListSummary, ListUpdateSuccess, ListUpdatedField, ListWipLimitDetail,
+    ListArchiveSuccess, ListCollectionSuccess, ListCreateSuccess, ListDeleteMode,
+    ListDeleteSuccess, ListDetail, ListSummary, ListUpdateSuccess, ListUpdatedField,
+    ListWipLimitDetail,
 };
 pub use profiles::{ProfileItem, ProfileListSuccess, ProfileRemoveSuccess};
 pub use swimlanes::{
@@ -120,6 +121,9 @@ pub use swimlanes::SwimlaneTransferSuccess;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum CommandSuccess {
+    BotRunReported(BotRunReport),
+    InboundEmailSubmitted(InboundEmailReceipt),
+    EmailBounceSubmitted(BounceReceipt),
     SkillList(SkillListSuccess),
     SkillShown(SkillShowSuccess),
     AuthPreflight(AuthPreflightSuccess),
@@ -131,6 +135,11 @@ pub enum CommandSuccess {
     IcsImported(IcsImportSuccess),
     Exported(ExportSuccess),
     AdminDomains(AdminDomainCollectionSuccess),
+    OauthProviderSettings(Box<OauthProviderSettings>),
+    PasswordlessSettings(PasswordlessSettings),
+    ProblemsOverview(ProblemsOverview),
+    ProblemStream(ProblemPage),
+    ProblemAcknowledged(ProblemAcknowledgment),
     AdminOrganizations(AdminOrganizationCollectionSuccess),
     AdminTeams(AdminTeamCollectionSuccess),
     AdminOrganizationUpdated(Box<AdminOrganizationUpdateSuccess>),
@@ -147,6 +156,8 @@ pub enum CommandSuccess {
     RuleUpdated(RuleUpdateSuccess),
     RuleDeleted(RuleDeleteSuccess),
     BoardCardSettings(BoardCardSettingsSuccess),
+    BoardViewSettings(BoardViewSettingsSuccess),
+    BoardCardFieldOrder(BoardCardFieldOrderSuccess),
     BoardCardSettingsUpdated(BoardCardSettingsUpdateSuccess),
     BoardDomains(BoardDomainCollectionSuccess),
     BoardDomainChanged(BoardDomainMutationSuccess),
@@ -181,11 +192,14 @@ pub enum CommandSuccess {
     DependencyDeleted(DependencyDeleteSuccess),
     AttachmentList(AttachmentCollectionSuccess),
     AttachmentShown(crate::client::attachments::AttachmentInfo),
-    AttachmentUploaded(crate::client::attachments::AttachmentUploadResponse),
+    AttachmentUploaded(attachments::AttachmentUploadSuccess),
     BackgroundUploaded(crate::client::attachments::BackgroundUploadResponse),
     AttachmentCopied(crate::client::attachments::AttachmentCopyResponse),
     AttachmentMoved(crate::client::attachments::AttachmentMoveResponse),
     AttachmentDeleted(crate::client::attachments::AttachmentDeleteResponse),
+    AttachmentSoftDeleted(AttachmentSoftDeleteSuccess),
+    AttachmentRestored(AttachmentRestoreSuccess),
+    DeletedAttachments(DeletedAttachmentCollectionSuccess),
     AttachmentDownloaded(AttachmentDownloadSuccess),
     ApiResponse(ApiResponseSuccess),
     Cancelled(CancellationSuccess),
@@ -215,6 +229,8 @@ pub enum CommandSuccess {
     ListShown(ListDetail),
     ListCreated(ListCreateSuccess),
     ListUpdated(ListUpdateSuccess),
+    ListArchived(ListArchiveSuccess),
+    ListRestored(ListArchiveSuccess),
     ListDeleted(ListDeleteSuccess),
     CardCollection(CardCollectionSuccess),
     CardShown(Box<CardDetail>),
@@ -226,6 +242,7 @@ pub enum CommandSuccess {
     ChecklistCollection(ChecklistCollectionSuccess),
     ChecklistShown(ChecklistDetail),
     ChecklistCreated(ChecklistCreateSuccess),
+    ChecklistUpdated(ChecklistCreateSuccess),
     ChecklistDeleted(ChecklistDeleteSuccess),
     ChecklistItemShown(ChecklistItemDetail),
     ChecklistItemCreated(ChecklistItemCreateSuccess),
@@ -244,6 +261,7 @@ pub enum CommandSuccess {
     CommentCollection(CommentCollectionSuccess),
     CommentShown(CommentDetail),
     CommentCreated(CommentCreateSuccess),
+    CommentUpdated(CommentCreateSuccess),
     CommentDeleted(CommentDeleteSuccess),
     SwimlaneCollection(SwimlaneCollectionSuccess),
     SwimlaneShown(SwimlaneDetail),

@@ -10,6 +10,19 @@ pub use tokens::{UserTokenCreateSuccess, UserTokenDeleteScope, UserTokenDeleteSu
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserDetail {
+    pub passkeys: Option<Vec<crate::client::users::channels::Passkey>>,
+    pub sqrl: Option<crate::client::users::channels::SqrlIdentity>,
+    pub web_push_subscriptions: Option<Vec<crate::client::users::channels::PushSubscription>>,
+    pub ntfy: Option<crate::client::users::channels::NtfySettings>,
+    pub notification_delivery_pending: Option<crate::client::users::channels::PendingNotification>,
+
+    pub notification_delivery_revision: Option<String>,
+    pub feature_preview: Option<bool>,
+    pub inactivity_clock_start: Option<String>,
+    pub login_disabled_reason: Option<String>,
+    pub anonymized: Option<bool>,
+    pub anonymized_at: Option<String>,
+
     pub profile: Box<UserProfileDetail>,
     pub created_through_api: Option<bool>,
     pub heartbeat: Option<String>,
@@ -51,6 +64,8 @@ pub struct UserTeam {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserBoardMembership {
+    pub granted_by: Option<Vec<String>>,
+    pub custom_role_id: Option<String>,
     pub board_id: String,
     pub is_active: Option<bool>,
     pub is_admin: Option<bool>,
@@ -103,7 +118,7 @@ pub struct UserBoardsSuccess {
 pub struct UserCreateSuccess {
     pub username: String,
     pub email: String,
-    pub user_id: Option<String>,
+    pub user_id: String,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -129,7 +144,7 @@ pub struct UserLoginChangeSuccess {
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct UserDeleteSuccess {
     pub user_id: String,
-    pub deletion_requested: bool,
+    pub deleted: bool,
     pub deleted_current_user: bool,
     pub credential_stored: bool,
     pub local_credential_removed: bool,

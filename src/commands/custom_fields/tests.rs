@@ -449,7 +449,7 @@ async fn commands_preserve_inputs_and_report_submitted_fields_and_error_details(
 #[tokio::test]
 async fn detail_maps_every_setting_and_escapes_nested_terminal_controls() {
     let server = MockServer::start().await;
-    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"field-1","boardIds":["board-1"],"name":"Name\n\u{1b}","type":"dropdown","settings":{"currencyCode":"USD","dropdownItems":[{"_id":"item-1","name":"N\u{1b}"}],"stringtemplateFormat":"x","stringtemplateSeparator":" "},"showOnCard":false,"automaticallyOnCard":true,"alwaysOnCard":false,"showLabelOnMiniCard":true,"showSumAtTopOfList":false,"modifiedAt":"2030-01-01T00:00:00Z"}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"field-1","boardIds":["board-1"],"name":"Name\n\u{1b}","type":"dropdownMultiSelect","settings":{"currencyCode":"USD","dropdownItems":[{"_id":"item-1","name":"N\u{1b}"}],"stringtemplateFormat":"x","stringtemplateSeparator":" ","jiraTimeField":"original","jiraEstimateFieldId":"customfield_10001","jiraEstimateUnit":"points"},"showOnCard":false,"automaticallyOnCard":true,"alwaysOnCard":false,"showLabelOnMiniCard":true,"showSumAtTopOfList":false,"modifiedAt":"2030-01-01T00:00:00Z"}))).mount(&server).await;
     let result = dispatch(
         command("custom-field", &["get", "field-1", "--board", "board-1"]),
         &factory(&server),
@@ -463,7 +463,13 @@ async fn detail_maps_every_setting_and_escapes_nested_terminal_controls() {
         &result,
     ))
     .unwrap();
-    assert_eq!(data["data"]["field_type"], "dropdown");
+    assert_eq!(data["data"]["field_type"], "dropdownMultiSelect");
+    assert_eq!(data["data"]["settings"]["jira_time_field"], "original");
+    assert_eq!(
+        data["data"]["settings"]["jira_estimate_field_id"],
+        "customfield_10001"
+    );
+    assert_eq!(data["data"]["settings"]["jira_estimate_unit"], "points");
     assert_eq!(
         data["data"]["settings"]["dropdown_items"][0]["item_id"],
         "item-1"

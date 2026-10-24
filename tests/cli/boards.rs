@@ -20,12 +20,12 @@ fn board_help_lists_the_core_lifecycle() {
         .assert()
         .success()
         .stdout(predicate::str::contains("--title <TITLE>"))
-        .stdout(predicate::str::contains("--owner <OWNER>"))
+        .stdout(predicate::str::contains("--owner <OWNER>").not())
         .stdout(predicate::str::contains("--permission <PERMISSION>"))
         .stdout(predicate::str::contains("--color <COLOR>"))
-        .stdout(predicate::str::contains("--no-comments"))
-        .stdout(predicate::str::contains("--comment-only"))
-        .stdout(predicate::str::contains("--worker"));
+        .stdout(predicate::str::contains("--no-comments").not())
+        .stdout(predicate::str::contains("--comment-only").not())
+        .stdout(predicate::str::contains("--worker").not());
 }
 
 #[test]

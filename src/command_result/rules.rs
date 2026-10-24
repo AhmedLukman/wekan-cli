@@ -4,6 +4,15 @@ use serde::Serialize;
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RuleTriggerDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub advanced_filter: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_contains: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cron: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<Option<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub activity_type: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<Option<String>>,
@@ -57,6 +66,11 @@ pub struct RuleTriggerDetail {
 impl From<crate::client::rules::RuleTrigger> for RuleTriggerDetail {
     fn from(d: crate::client::rules::RuleTrigger) -> Self {
         Self {
+            advanced_filter: d.advanced_filter,
+            text_contains: d.text_contains,
+            cron: d.cron,
+            direction: d.direction,
+
             activity_type: d.activity_type,
             description: d.description,
             user_id: d.user_id,
@@ -88,6 +102,21 @@ impl From<crate::client::rules::RuleTrigger> for RuleTriggerDetail {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RuleActionDetail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_card_details: Option<Option<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_checklists_and_comments: Option<Option<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_attachments: Option<Option<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub integration_id: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment_text: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_id: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub swimlane_id: Option<Option<String>>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action_type: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,6 +159,14 @@ pub struct RuleActionDetail {
 impl From<crate::client::rules::RuleAction> for RuleActionDetail {
     fn from(d: crate::client::rules::RuleAction) -> Self {
         Self {
+            include_card_details: d.include_card_details,
+            include_checklists_and_comments: d.include_checklists_and_comments,
+            include_attachments: d.include_attachments,
+            integration_id: d.integration_id,
+            comment_text: d.comment_text,
+            list_id: d.list_id,
+            swimlane_id: d.swimlane_id,
+
             action_type: d.action_type,
             list_name: d.list_name,
             swimlane_name: d.swimlane_name,
@@ -155,6 +192,9 @@ impl From<crate::client::rules::RuleAction> for RuleActionDetail {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RuleDetail {
+    pub enabled: bool,
+    pub extra_triggers: Option<Vec<RuleTriggerDetail>>,
+    pub extra_actions: Option<Vec<RuleActionDetail>>,
     pub board_id: String,
     pub rule_id: String,
     pub title: String,
@@ -164,6 +204,13 @@ pub struct RuleDetail {
 impl RuleDetail {
     pub(crate) fn from_document(board_id: String, d: RuleDocument) -> Self {
         Self {
+            enabled: d.enabled,
+            extra_triggers: d
+                .extra_triggers
+                .map(|items| items.into_iter().map(Into::into).collect()),
+            extra_actions: d
+                .extra_actions
+                .map(|items| items.into_iter().map(Into::into).collect()),
             board_id,
             rule_id: d.rule_id,
             title: d.title,
@@ -187,6 +234,7 @@ pub struct RuleCreateSuccess {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuleSubmittedField {
+    Enabled,
     Title,
     Trigger,
     Action,

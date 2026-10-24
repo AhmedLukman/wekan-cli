@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_BOARD_E2E_URL"]
-async fn complete_board_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_BOARD_E2E_URL"]
+async fn complete_board_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_BOARD_E2E_URL")
-        .expect("set WEKAN_BOARD_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_BOARD_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -107,20 +107,11 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     };
 
     let private_title = format!("Private lifecycle {nonce}");
-    let CommandSuccess::BoardCreated(private_created) = execute_live_board(
-        &app,
-        &server,
-        &[
-            "create",
-            "--title",
-            &private_title,
-            "--no-comments",
-            "--comment-only",
-            "--worker",
-        ],
-    )
-    .await
-    .expect("private board creation must succeed") else {
+    let CommandSuccess::BoardCreated(private_created) =
+        execute_live_board(&app, &server, &["create", "--title", &private_title])
+            .await
+            .expect("private board creation must succeed")
+    else {
         panic!("expected create-board output")
     };
     assert!(!private_created.board_id.is_empty());
@@ -128,14 +119,12 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
 
     let public_title = format!("Public lifecycle {nonce}");
     let CommandSuccess::BoardCreated(public_created) = execute_live_board(
-        &app,
+        &owner_app,
         &server,
         &[
             "create",
             "--title",
             &public_title,
-            "--owner",
-            &owner_id,
             "--permission",
             "public",
             "--color",
@@ -143,7 +132,7 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
         ],
     )
     .await
-    .expect("public board creation for an explicit owner must succeed") else {
+    .expect("public board creation by its owner must succeed") else {
         panic!("expected create-board output")
     };
 
@@ -199,9 +188,9 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     assert_eq!(private_board.color.as_deref(), Some("belize"));
     assert_eq!(private_board.members.len(), 1);
     assert!(private_board.watchers.is_empty());
-    assert_eq!(private_board.members[0].is_no_comments, Some(true));
-    assert_eq!(private_board.members[0].is_comment_only, Some(true));
-    assert_eq!(private_board.members[0].is_worker, Some(true));
+    assert_eq!(private_board.members[0].is_no_comments, Some(false));
+    assert_eq!(private_board.members[0].is_comment_only, Some(false));
+    assert_eq!(private_board.members[0].is_worker, Some(false));
     assert_eq!(private_board.subtasks_default_board_id, None);
     assert_eq!(private_board.subtasks_default_list_id, None);
     assert_eq!(private_board.date_settings_default_board_id, None);
@@ -259,11 +248,11 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     );
     let denied_public_list = execute_live_board(&owner_app, &server, &["list", "--public"])
         .await
-        .expect_err("Wekan v11.06 restricts the public-board catalog to site admins");
+        .expect_err("Wekan v12.57 restricts the public-board catalog to site admins");
     assert_eq!(denied_public_list.code(), ErrorCode::PermissionDenied);
     let denied_count = execute_live_board(&owner_app, &server, &["count"])
         .await
-        .expect_err("Wekan v11.06 restricts aggregate board counts to site admins");
+        .expect_err("Wekan v12.57 restricts aggregate board counts to site admins");
     assert_eq!(denied_count.code(), ErrorCode::PermissionDenied);
     let CommandSuccess::BoardShown(owner_public_board) =
         execute_live_board(&owner_app, &server, &["get", &public_created.board_id])
@@ -274,12 +263,41 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     };
     assert_eq!(owner_public_board.title, public_title);
 
-    let denied_get = execute_live_board(&owner_app, &server, &["get", &private_created.board_id])
+    // A refused board-management attempt can disable its actor in v12.57.
+    // Keep those disposable actors separate from the owner lifecycle.
+    let (_read_probe_dir, read_probe, _) = register_live_board_role(
+        &server,
+        &canonical_server,
+        &admin_token,
+        &public_created.board_id,
+        nonce + 1,
+        "normal",
+    )
+    .await;
+    let (_rename_probe_dir, rename_probe, _) = register_live_board_role(
+        &server,
+        &canonical_server,
+        &admin_token,
+        &public_created.board_id,
+        nonce + 2,
+        "normal",
+    )
+    .await;
+    let (_delete_probe_dir, delete_probe, _) = register_live_board_role(
+        &server,
+        &canonical_server,
+        &admin_token,
+        &public_created.board_id,
+        nonce + 3,
+        "normal",
+    )
+    .await;
+    let denied_get = execute_live_board(&read_probe, &server, &["get", &private_created.board_id])
         .await
         .expect_err("an unrelated ordinary user must not read a private board");
     assert_eq!(denied_get.code(), ErrorCode::PermissionDenied);
     let denied_rename = execute_live_board(
-        &owner_app,
+        &rename_probe,
         &server,
         &[
             "rename",
@@ -292,7 +310,7 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
     .expect_err("an unrelated ordinary user must not rename a private board");
     assert_eq!(denied_rename.code(), ErrorCode::PermissionDenied);
     let denied_delete = execute_live_board(
-        &owner_app,
+        &delete_probe,
         &server,
         &["delete", &private_created.board_id, "--yes"],
     )
@@ -420,10 +438,10 @@ async fn complete_board_lifecycle_matches_wekan_v11_06() {
         .await
         .expect_err("a deleted board must be reported as missing");
     assert_eq!(missing_board.code(), ErrorCode::NotFound);
-    assert_eq!(missing_board.details().http_status, Some(200));
-    assert_eq!(missing_board.details().wekan_status_code, Some(404));
+    assert_eq!(missing_board.details().http_status, Some(404));
+    assert_eq!(missing_board.details().wekan_status_code, None);
     assert_eq!(
-        missing_board.details().server_reason.as_deref(),
+        missing_board.details().server_error.as_deref(),
         Some("Board not found")
     );
     assert!(

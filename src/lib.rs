@@ -30,7 +30,14 @@ use crate::{
 
 /// Parse the process arguments, execute one command, render its result, and
 /// return the stable process exit code.
-pub async fn run() -> ExitCode {
+pub fn run() -> impl std::future::Future<Output = ExitCode> {
+    // Keep the complete command/result state off the process entry future's stack.
+    // Nesting it in Tokio's main future exceeds the Windows startup stack once
+    // the native response models grow, even for help and argument errors.
+    Box::pin(run_command())
+}
+
+async fn run_command() -> ExitCode {
     let args: Vec<OsString> = env::args_os().collect();
     let cli = match Cli::try_parse_from(&args) {
         Ok(cli) => cli,

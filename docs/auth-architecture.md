@@ -29,7 +29,7 @@ flowchart LR
     end
 
     input[(Terminal or stdin)]
-    wekan[(Wekan v11.06 REST API)]
+    wekan[(Wekan v12.57 REST API)]
     vault[(Native credential store)]
     profiles[(Versioned local profile store)]
 
@@ -143,7 +143,7 @@ sequenceDiagram
     participant Vault as Native credential store
     participant Password as Password provider
     participant Client as Wekan client
-    participant Wekan as Wekan v11.06
+    participant Wekan as Wekan v12.57
 
     Caller->>CLI: auth register + identity + target selectors
     CLI->>CLI: Parse arguments and select output format
@@ -205,7 +205,7 @@ sequenceDiagram
     participant Vault as Native credential store
     participant Secrets as Secret input provider
     participant Client as Wekan client
-    participant Wekan as Wekan v11.06
+    participant Wekan as Wekan v12.57
 
     Caller->>Handler: auth login + one identity + resolved target
     Handler->>Factory: Create client and enforce network policy
@@ -241,7 +241,7 @@ sequenceDiagram
     participant Factory as Client factory
     participant Vault as Native credential store
     participant Client as Wekan client
-    participant Wekan as Wekan v11.06
+    participant Wekan as Wekan v12.57
 
     Caller->>App: auth status + resolved target
     App->>Handler: StatusArgs + focused factory and vault capability
@@ -259,7 +259,7 @@ sequenceDiagram
     Handler-->>Caller: Secret-free status envelope
 ```
 
-A missing or expired record stops before HTTP. Wekan v11.06 serializes an
+A missing or expired record stops before HTTP. Wekan v12.57 serializes an
 invalid-token error with `statusCode: 401` inside HTTP 200; the client preserves
 both statuses and the handler returns `authentication_rejected`. Status never
 saves, removes, or repairs a credential. An expired or rejected entry must be
@@ -275,7 +275,7 @@ sequenceDiagram
     participant Factory as Client factory
     participant Vault as Native credential store
     participant Client as Wekan client
-    participant Wekan as Wekan v11.06
+    participant Wekan as Wekan v12.57
 
     Caller->>Handler: auth logout [--all]
     Handler->>Factory: Create client and enforce network policy

@@ -1,3 +1,4 @@
+use crate::client::metadata::*;
 use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,7 @@ mod copy;
 pub mod domains;
 mod export;
 pub mod import;
+pub mod presentation;
 pub mod trello_import;
 pub use copy::CopyBoardRequest;
 pub mod labels;
@@ -23,6 +25,7 @@ pub enum BoardPermission {
     #[default]
     Private,
     Public,
+    Instance,
 }
 
 impl BoardPermission {
@@ -30,6 +33,7 @@ impl BoardPermission {
         match self {
             Self::Private => "private",
             Self::Public => "public",
+            Self::Instance => "instance",
         }
     }
 }
@@ -158,35 +162,9 @@ impl BoardWatchLevel {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBoardRequest {
-    #[serde(
-        skip_serializing_if = "is_true",
-        serialize_with = "serialize_owner_flag"
-    )]
-    pub is_admin: bool,
-    #[serde(
-        skip_serializing_if = "is_true",
-        serialize_with = "serialize_owner_flag"
-    )]
-    pub is_active: bool,
     pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub owner: Option<String>,
     pub permission: BoardPermission,
     pub color: BoardColor,
-    #[serde(skip_serializing_if = "is_false")]
-    pub is_no_comments: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    pub is_comment_only: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    pub is_worker: bool,
-}
-
-const fn is_false(value: &bool) -> bool {
-    !*value
-}
-
-const fn is_true(value: &bool) -> bool {
-    *value
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -209,6 +187,7 @@ pub struct DeleteBoardResult {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BoardCounts {
+    pub instance: u64,
     pub private: u64,
     pub public: u64,
 }
@@ -227,6 +206,10 @@ pub struct BoardSummary {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct BoardMember {
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub granted_by: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub custom_role_id: Option<String>,
     pub user_id: String,
     pub is_admin: bool,
     pub is_active: bool,
@@ -255,6 +238,10 @@ pub struct BoardWatcher {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct BoardLabel {
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub due_at: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub shared_label_id: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "label_id"))]
     pub label_id: String,
     pub name: Option<String>,
@@ -299,6 +286,113 @@ pub struct BoardDomain {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct BoardDocument {
+    pub scrum: Option<Box<ScrumSettings>>,
+    pub scrum_import_losses: Option<Vec<ScrumImportLoss>>,
+    pub announcement: Option<BoardAnnouncement>,
+    pub wip_limit_groups: Option<Vec<BoardWipGroup>>,
+    pub email_to_card: Option<Box<BoardEmailToCard>>,
+    pub notification_delivery: Option<Box<NotificationDelivery>>,
+    pub column_sets: Option<Vec<BoardColumnSet>>,
+
+    pub scrum_revision: Option<serde_json::Number>,
+    pub allows_instance_editing: Option<bool>,
+    pub import_run_id: Option<String>,
+    pub sync_effects_enabled: Option<bool>,
+    pub map_image_attachment_id: Option<String>,
+    pub auto_archive_inactive_days: Option<Number>,
+    pub rules_visible_to_members: Option<bool>,
+    pub card_field_order: Option<Vec<String>>,
+    pub minicard_field_order: Option<Vec<String>>,
+    pub notify_override_tray: Option<bool>,
+    pub notify_override_email: Option<bool>,
+    pub due_reminder_days: Option<Vec<Number>>,
+    pub due_reminder_webhook: Option<bool>,
+    pub labels_above_title_on_card: Option<bool>,
+    pub allows_checklist_due_date_on_minicard: Option<bool>,
+    pub allows_location_on_minicard: Option<bool>,
+    pub allows_swimlane_name_on_card: Option<bool>,
+    pub allows_flowtime_on_minicard: Option<bool>,
+    pub allows_pomodoro_on_minicard: Option<bool>,
+    pub allows_attachment_list_on_minicard: Option<bool>,
+    pub allows_text_notes_on_minicard: Option<bool>,
+    pub allows_comment_count_on_card: Option<bool>,
+    pub allows_activities_on_minicard: Option<bool>,
+    pub allows_card_buttons_on_minicard: Option<bool>,
+    pub allows_description_badge_on_card: Option<bool>,
+    pub allows_unread_comments_on_card: Option<bool>,
+    pub allows_due_from_title_on_card: Option<bool>,
+    pub allows_due_from_title_on_minicard: Option<bool>,
+    pub allows_similar_cards_on_card: Option<bool>,
+    pub allows_similar_cards_on_minicard: Option<bool>,
+    pub allows_at_risk_on_card: Option<bool>,
+    pub allows_at_risk_on_minicard: Option<bool>,
+    pub allows_suggested_members_on_card: Option<bool>,
+    pub allows_forecast_on_card: Option<bool>,
+    pub allows_forecast_on_minicard: Option<bool>,
+    pub allows_checklist_from_description_on_card: Option<bool>,
+    pub allows_action_items_on_card: Option<bool>,
+    pub allows_whiteboard_on_card: Option<bool>,
+    pub shared_list_headers: Option<bool>,
+    pub board_view_settings: Option<
+        std::collections::BTreeMap<
+            String,
+            crate::client::boards::presentation::StoredBoardViewVisibility,
+        >,
+    >,
+    pub board_view_order: Option<Vec<String>>,
+    pub date_format_override: Option<bool>,
+    pub date_format: Option<String>,
+    pub ask_for_move_reason: Option<bool>,
+    pub subtasks_default_swimlane_id: Option<String>,
+    pub allows_swimlane_dragging: Option<bool>,
+    pub allows_list_dragging: Option<bool>,
+    pub allows_card_dragging: Option<bool>,
+    pub allows_checklist_dragging: Option<bool>,
+    pub allows_checklist_item_dragging: Option<bool>,
+    pub allows_subtask_dragging: Option<bool>,
+    pub allows_minicard_collapse: Option<bool>,
+    pub labels_above_title_on_minicard: Option<bool>,
+    pub allows_checklist_due_date: Option<bool>,
+    pub allows_checklist_title: Option<bool>,
+    pub allows_comments_on_minicard: Option<bool>,
+    pub show_label_text: Option<bool>,
+    pub allows_swimlane_name_on_minicard: Option<bool>,
+    pub allows_spent_time: Option<bool>,
+    pub allows_spent_time_on_minicard: Option<bool>,
+    pub allows_stickers: Option<bool>,
+    pub allows_stickers_on_minicard: Option<bool>,
+    pub allows_location: Option<bool>,
+    pub allows_dependencies: Option<bool>,
+    pub allows_dependencies_on_minicard: Option<bool>,
+    pub allows_flowtime: Option<bool>,
+    pub allows_pomodoro: Option<bool>,
+    pub allows_vote: Option<bool>,
+    pub allows_vote_on_minicard: Option<bool>,
+    pub allows_poker: Option<bool>,
+    pub allows_poker_on_minicard: Option<bool>,
+    pub allows_text_notes: Option<bool>,
+    pub allows_comment_count_on_minicard: Option<bool>,
+    pub allows_card_collapse: Option<bool>,
+    pub allows_checklist_title_on_minicard: Option<bool>,
+    pub allows_label_text_on_card: Option<bool>,
+    pub allows_card_color_on_card: Option<bool>,
+    pub allows_card_color_on_minicard: Option<bool>,
+    pub allows_parent_card_on_card: Option<bool>,
+    pub allows_parent_card_on_minicard: Option<bool>,
+    pub allows_linked_card_on_card: Option<bool>,
+    pub allows_linked_card_on_minicard: Option<bool>,
+    pub allows_card_buttons_on_card: Option<bool>,
+    pub allows_description_badge_on_minicard: Option<bool>,
+    pub allows_unread_comments_on_minicard: Option<bool>,
+    pub allows_issue_type_on_minicard: Option<bool>,
+    pub sticky_list_headers: Option<bool>,
+    pub list_width_resize_locked: Option<bool>,
+    pub swimlane_height_resize_locked: Option<bool>,
+    pub default_public_board_view: Option<String>,
+    pub default_private_board_view: Option<String>,
+    pub same_width_for_all_lists: Option<bool>,
+    pub same_width_for_all_lists_value: Option<Number>,
+    pub key: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "board_id"))]
     pub board_id: String,
     pub title: String,
@@ -601,6 +695,11 @@ fn validate_board_summaries(
 fn validate_board_document(board: BoardDocument) -> Result<BoardDocument, ClientError> {
     require_non_empty(&board.board_id, "board", "board id")?;
     require_non_empty(&board.title, "board", "title")?;
+    for label in &board.labels {
+        if let Some(value) = &label.due_at {
+            validate_date_time(value, "label dueAt")?;
+        }
+    }
     for (field, value) in [
         ("archivedAt", board.archived_at.as_deref()),
         ("createdAt", board.created_at.as_deref()),
@@ -637,11 +736,4 @@ fn require_non_empty(value: &str, operation: &str, field: &str) -> Result<(), Cl
     } else {
         Ok(())
     }
-}
-
-fn serialize_owner_flag<S: serde::Serializer>(
-    value: &bool,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(if *value { "true" } else { "false" })
 }

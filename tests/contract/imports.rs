@@ -1,9 +1,9 @@
 use super::{client, client_from_url, user_token};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 use wekan_cli::client::{
     ClientError,
-    boards::import::{BoardImportRequest, ImportSource, ZipImportTarget},
+    boards::import::{BoardImportOptions, BoardImportRequest, ImportSource, ZipImportTarget},
     cards::import::IcsImportRequest,
     imports::PreparedImportRequest,
 };
@@ -18,6 +18,7 @@ fn counts() -> Value {
 
 fn board_request() -> PreparedImportRequest<BoardImportRequest> {
     PreparedImportRequest::new(&BoardImportRequest {
+        options: Default::default(),
         board: json!({}),
         members_mapping: None,
     })
@@ -91,6 +92,7 @@ async fn all_board_sources_use_native_paths_and_preserve_wrapped_documents() {
             .import_board(
                 source,
                 PreparedImportRequest::new(&BoardImportRequest {
+                    options: Default::default(),
                     board: document.clone(),
                     members_mapping: Some([("source".into(), "local".into())].into()),
                 })
@@ -101,6 +103,101 @@ async fn all_board_sources_use_native_paths_and_preserve_wrapped_documents() {
             .await
             .unwrap();
         assert_eq!(result.board_id, "new");
+    }
+}
+
+#[tokio::test]
+async fn binary_board_imports_preserve_native_envelopes_and_member_options() {
+    let server = MockServer::start().await;
+    let bytes = [0, 255, 10];
+    let mapping: Option<BTreeMap<String, String>> =
+        Some([("source".into(), "local".into())].into());
+    for (source, mut request, envelope) in [
+        (
+            ImportSource::Excel,
+            BoardImportRequest::excel(&bytes, mapping.clone()),
+            "excelBase64",
+        ),
+        (
+            ImportSource::Plane,
+            BoardImportRequest::xlsx(&bytes, mapping.clone()),
+            "xlsxBase64",
+        ),
+        (
+            ImportSource::Plane,
+            BoardImportRequest::zip(&bytes, mapping.clone()),
+            "zipBase64",
+        ),
+        (
+            ImportSource::Notion,
+            BoardImportRequest::zip(&bytes, mapping.clone()),
+            "zipBase64",
+        ),
+        (
+            ImportSource::Vikunja,
+            BoardImportRequest::zip(&bytes, mapping),
+            "zipBase64",
+        ),
+    ] {
+        server.reset().await;
+        request.options.members_mode = Some("me".into());
+        Mock::given(method("POST"))
+            .and(path(format!("/api/boards/import/{}", source.as_str())))
+            .and(header("Authorization", "Bearer user-token"))
+            .and(header("Content-Type", "application/json"))
+            .and(body_json(json!({
+                "board": {envelope: "AP8K"},
+                "membersMapping": {"source": "local"},
+                "membersMode": "me"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"new"})))
+            .expect(1)
+            .mount(&server)
+            .await;
+        client(&server)
+            .import_board(
+                Some(source),
+                PreparedImportRequest::new(&request).unwrap(),
+                &user_token(),
+                None,
+            )
+            .await
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn explicit_wekan_source_preserves_each_member_mode_in_the_body() {
+    let server = MockServer::start().await;
+    let document = json!({"cards":[],"lists":[]});
+    for mode in ["map", "placeholder", "me"] {
+        server.reset().await;
+        Mock::given(method("POST"))
+            .and(path("/api/boards/import/wekan"))
+            .and(header("Authorization", "Bearer user-token"))
+            .and(header("Content-Type", "application/json"))
+            .and(body_json(json!({"board":document,"membersMode":mode})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"_id":"new"})))
+            .expect(1)
+            .mount(&server)
+            .await;
+        client(&server)
+            .import_board(
+                Some(ImportSource::Wekan),
+                PreparedImportRequest::new(&BoardImportRequest {
+                    options: BoardImportOptions {
+                        members_mode: Some(mode.into()),
+                        ..Default::default()
+                    },
+                    board: document.clone(),
+                    members_mapping: None,
+                })
+                .unwrap(),
+                &user_token(),
+                None,
+            )
+            .await
+            .unwrap();
     }
 }
 
@@ -342,4 +439,59 @@ async fn zip_timeout_diagnostics_do_not_contain_query_credentials() {
     let diagnostic = format!("{error:?}");
     assert!(!diagnostic.contains("authToken"));
     assert!(!diagnostic.contains("secret"));
+}
+
+#[tokio::test]
+async fn new_board_zip_import_preserves_selectors_and_rejects_unmapped_or_invalid_acknowledgments()
+{
+    use wekan_cli::client::boards::import::NewBoardZipImportTarget;
+    let server = MockServer::start().await;
+    let target = NewBoardZipImportTarget {
+        fields: vec!["people".into(), "attachments".into()],
+        members_mode: Some("me".into()),
+    };
+    let responses = [
+        json!({"ok":true,"boardId":"created"}),
+        json!({"ok":true,"boardId":"created","future":{}}),
+        json!({"ok":true,"boardId":"created","counts":counts()}),
+        json!({"ok":true}),
+        json!({"ok":true,"boardId":7}),
+        json!({"ok":false,"boardId":"created"}),
+        json!({"ok":true,"boardId":""}),
+    ];
+    for (index, response) in responses.into_iter().enumerate() {
+        server.reset().await;
+        Mock::given(method("POST"))
+            .and(path("/api/import/zip"))
+            .and(query_param("newBoard", "1"))
+            .and(query_param("membersMode", "me"))
+            .and(query_param("fields", "people,attachments"))
+            .and(header("Authorization", "Bearer user-token"))
+            .and(header("Content-Type", "application/zip"))
+            .and(body_bytes(b"PK\0\xff".to_vec()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let response = client(&server)
+            .import_zip_new_board(
+                &target,
+                std::io::Cursor::new(b"PK\0\xff".to_vec()),
+                4,
+                &user_token(),
+                false,
+                None,
+            )
+            .await;
+        if index == 0 {
+            assert_eq!(response.unwrap().board_id, "created");
+        } else {
+            assert!(
+                matches!(response, Err(ClientError::Protocol { .. })),
+                "{index}"
+            );
+        }
+        let request = server.received_requests().await.unwrap().pop().unwrap();
+        assert!(!request.url.query_pairs().any(|(key, _)| key == "boardId"));
+    }
 }

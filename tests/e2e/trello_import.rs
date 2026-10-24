@@ -63,8 +63,8 @@ fn imported(result: CommandSuccess) -> TrelloImportResult {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_TRELLO_IMPORT_E2E_URL"]
-async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_TRELLO_IMPORT_E2E_URL"]
+async fn complete_trello_import_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_TRELLO_IMPORT_E2E_URL")
         .expect("set WEKAN_TRELLO_IMPORT_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()
@@ -205,10 +205,36 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
     assert_eq!(bytes, json!(b"Trello attachment\0\xff\r\n".to_vec()));
     created.extend(result.board_ids);
 
-    // A failing later step leaves a board behind even though its ID is absent.
+    // Invalid collection shapes are rejected before creating any boards.
+    let mut invalid = document(&format!("Rejected Trello {nonce}"), &username);
+    invalid["lists"] = Value::Null;
+    archive(&zip, &[invalid], false);
+    let rejected = run(
+        &app,
+        &server,
+        &[
+            "board",
+            "import-trello",
+            zip.to_str().unwrap(),
+            "--format",
+            "zip",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(rejected.details().http_status, Some(400));
+    assert_eq!(
+        mongo(
+            "print(JSON.stringify(db.getSiblingDB('wekan').boards.countDocuments({title:p.title})));",
+            json!({"title":format!("Rejected Trello {nonce}")})
+        ),
+        0
+    );
+
+    // A valid outer shape can still fail at a later writer after board creation.
     let partial_name = format!("Partial Trello {nonce}");
     let mut bad = document(&partial_name, &username);
-    bad["lists"] = Value::Null;
+    bad["lists"] = json!([null]);
     for mixed in [true, false] {
         let mut boards = if mixed {
             vec![document(&format!("Mixed success {nonce}"), &username)]
@@ -216,8 +242,8 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
             vec![]
         };
         boards.push(bad.clone());
-        boards.push(json!({"name":42,"cards":[]}));
-        boards.push(json!({"name":true,"cards":[]}));
+        boards.push(json!({"name":42,"cards":[],"lists":[]}));
+        boards.push(json!({"name":true,"cards":[],"lists":[]}));
         archive(&zip, &boards, false);
         let error = run(
             &app,
@@ -281,7 +307,7 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
     }
     for body in [Value::Object(Default::default()), json!([])] {
         // Composite failed names reach strict decoding instead of being dropped.
-        archive(&zip, &[json!({"name":body,"cards":[]})], false);
+        archive(&zip, &[json!({"name":body,"cards":[],"lists":[]})], false);
         let error = run(
             &app,
             &server,
@@ -431,7 +457,7 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
     );
     for format in ["json", "zip"] {
         let name = format!("Ordinary Trello {format} {nonce}");
-        let board = document(&name, &ordinary_username);
+        let board = document(&name, "original-external-member");
         let input = if format == "json" {
             fs::write(&file, serde_json::to_vec(&board).unwrap()).unwrap();
             &file
@@ -449,6 +475,8 @@ async fn complete_trello_import_lifecycle_matches_wekan_v11_06() {
                     input.to_str().unwrap(),
                     "--format",
                     format,
+                    "--members-mode",
+                    "me",
                 ],
             )
             .await

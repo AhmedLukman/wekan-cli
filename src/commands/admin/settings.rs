@@ -99,7 +99,7 @@ pub enum SettingsCommand {
     "support_page_public",
     "support_title",
     "support_page_text",
-]).required(true).multiple(true)), after_help = "Only the v11.06 REST allowlist is supported; SMTP/mailServer is excluded. Omitted fields remain unchanged. JSON source options conflict with all setting flags.")]
+]).required(true).multiple(true)), after_help = "Only the v12.57 REST allowlist is supported; SMTP/mailServer is excluded. Omitted fields remain unchanged. JSON source options conflict with all setting flags.")]
 pub struct UpdateArgs {
     #[command(flatten)]
     source: input::SourceArgs,

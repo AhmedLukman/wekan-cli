@@ -98,11 +98,16 @@ impl WekanClient {
         length: u64,
         token: &SecretString,
         auth: TrelloImportAuth,
+        members_mode: Option<&str>,
         timeout: Option<Duration>,
     ) -> Result<TrelloImportResponse, ClientError> {
+        let mut endpoint = self.boards_api_endpoint("import-trello", "Trello import")?;
+        if let Some(mode) = members_mode {
+            endpoint.query_pairs_mut().append_pair("membersMode", mode);
+        }
         let request = self
             .http
-            .post(self.boards_api_endpoint("import-trello", "Trello import")?)
+            .post(endpoint)
             .header(CONTENT_TYPE, "application/zip")
             .header(CONTENT_LENGTH, length)
             .body(reqwest::Body::wrap_stream(ReaderStream::new(reader)));

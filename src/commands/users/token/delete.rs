@@ -24,7 +24,7 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "The native v11.06 operation receives the token unchanged. Local credentials are retained."
+    after_help = "Wekan v12.57 acknowledges raw-token deletion without revoking that session (W11-058). Tokens are sent unchanged; local credentials are retained."
 )]
 pub struct DeleteArgs {
     /// Wekan user ID whose tokens should be deleted.

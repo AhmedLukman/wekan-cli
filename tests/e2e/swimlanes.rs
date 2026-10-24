@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_SWIMLANE_E2E_URL"]
-async fn complete_swimlane_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_SWIMLANE_E2E_URL"]
+async fn complete_swimlane_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_SWIMLANE_E2E_URL")
-        .expect("set WEKAN_SWIMLANE_E2E_URL to an isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_SWIMLANE_E2E_URL to an isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()

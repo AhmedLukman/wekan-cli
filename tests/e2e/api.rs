@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "requires a fresh user-started Wekan v11.06 stack and WEKAN_API_E2E_URL"]
-async fn raw_api_escape_hatch_matches_wekan_v11_06() {
+#[ignore = "requires a fresh user-started Wekan v12.57 stack and WEKAN_API_E2E_URL"]
+async fn raw_api_escape_hatch_matches_wekan_v12_57() {
     let server = env::var("WEKAN_API_E2E_URL")
-        .expect("set WEKAN_API_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_API_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")
@@ -151,15 +151,18 @@ async fn raw_api_escape_hatch_matches_wekan_v11_06() {
     .await;
     wait_for_live_raw_checklist_absent(&app, &server, &checklist_path, &checklist_id).await;
 
-    let no_auth = execute_live_api_output(
+    let (exit, stdout, stderr) = execute_live_api_result(
         &app,
         &server,
         &["request", "GET", "/api/boards", "--no-auth"],
         OutputFormat::Json,
     )
     .await;
-    let no_auth: serde_json::Value = serde_json::from_slice(&no_auth).unwrap();
-    assert_eq!(no_auth["data"]["http_status"], 200);
+    assert_ne!(exit, std::process::ExitCode::SUCCESS);
+    assert!(stdout.is_empty());
+    let rejected: serde_json::Value = serde_json::from_slice(&stderr).unwrap();
+    assert_eq!(rejected["error"]["code"], "authentication_rejected");
+    assert_eq!(rejected["error"]["details"]["http_status"], 401);
 
     let export_path = format!(
         "/api/boards/{}/lists/{}/cards/{}/exportPDF",

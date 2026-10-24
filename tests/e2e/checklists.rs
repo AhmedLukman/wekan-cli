@@ -107,10 +107,10 @@ impl Target<'_> {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_CHECKLIST_E2E_URL"]
-async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_CHECKLIST_E2E_URL"]
+async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_CHECKLIST_E2E_URL")
-        .expect("set WEKAN_CHECKLIST_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_CHECKLIST_E2E_URL to an isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -571,95 +571,106 @@ async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
         );
     }
 
+    let mut permission_nonce = nonce + 100;
     for role in ["normal", "readonly", "commentonly", "worker", "nocomments"] {
-        let (_directory, role_app, _) =
-            register_live_board_role(&server, &canonical, &token, &board.board_id, nonce, role)
-                .await;
+        let (_directory, role_app, _) = register_live_board_role(
+            &server,
+            &canonical,
+            &token,
+            &board.board_id,
+            permission_nonce,
+            role,
+        )
+        .await;
+        permission_nonce += 1;
         let role_target = Target {
             app: &role_app,
             server: &server,
             board: &board.board_id,
             card: &card.card_id,
         };
-        if role == "normal" || role == "readonly" {
+        if matches!(role, "normal" | "readonly") {
             role_target.checklist(&["list"]).await.unwrap();
             role_target.detail(checklist).await;
             role_target
                 .item_detail(checklist, &original, "Renamed", true)
                 .await;
-            let creator = if role == "readonly" {
-                assert_eq!(
-                    role_target.checklist(&["create"]).await.unwrap_err().code(),
-                    ErrorCode::PermissionDenied
-                );
-                &target
-            } else {
-                &role_target
-            };
-            let CommandSuccess::ChecklistCreated(role_checklist) =
-                creator.checklist(&["create"]).await.unwrap()
-            else {
-                panic!("expected role checklist");
-            };
-            role_target.detail(&role_checklist.checklist_id).await;
-            let CommandSuccess::ChecklistItemCreated(role_item) = role_target
-                .item(
-                    &role_checklist.checklist_id,
-                    &["create", "--title", "Role item"],
-                )
-                .await
-                .unwrap()
-            else {
-                panic!("expected role item");
-            };
-            role_target
-                .item_detail(
-                    &role_checklist.checklist_id,
-                    &role_item.item_id,
-                    "Role item",
-                    false,
-                )
-                .await;
-            role_target
-                .item(
-                    &role_checklist.checklist_id,
-                    &["update", &role_item.item_id, "--is-finished", "true"],
-                )
-                .await
-                .unwrap();
-            role_target
-                .item(
-                    &role_checklist.checklist_id,
-                    &["delete", &role_item.item_id, "--yes"],
-                )
-                .await
-                .unwrap();
-            role_target
-                .checklist(&["delete", &role_checklist.checklist_id, "--yes"])
-                .await
-                .unwrap();
         } else {
-            for args in [
-                vec!["list"],
-                vec!["get", checklist],
-                vec!["create"],
-                vec!["delete", checklist, "--yes"],
+            for result in [
+                role_target.checklist(&["list"]).await,
+                role_target.checklist(&["get", checklist]).await,
+                role_target.item(checklist, &["get", &original]).await,
             ] {
-                let error = role_target.checklist(&args).await.unwrap_err();
+                let error = result.unwrap_err();
                 assert_eq!(error.code(), ErrorCode::PermissionDenied, "{role}");
                 assert_eq!(error.details().http_status, Some(403));
             }
-            for args in [
-                vec!["get", &original],
-                vec!["create", "--title", "Denied"],
-                vec!["update", &original],
-                vec!["delete", &original, "--yes"],
+        }
+        if role == "normal" || role == "nocomments" {
+            let CommandSuccess::ChecklistCreated(made) =
+                role_target.checklist(&["create"]).await.unwrap()
+            else {
+                panic!("checklist");
+            };
+            let CommandSuccess::ChecklistItemCreated(item) = role_target
+                .item(&made.checklist_id, &["create", "--title", "Role item"])
+                .await
+                .unwrap()
+            else {
+                panic!("item");
+            };
+            target
+                .item_detail(&made.checklist_id, &item.item_id, "Role item", false)
+                .await;
+            role_target
+                .item(
+                    &made.checklist_id,
+                    &["update", &item.item_id, "--is-finished", "true"],
+                )
+                .await
+                .unwrap();
+            role_target
+                .item(&made.checklist_id, &["delete", &item.item_id, "--yes"])
+                .await
+                .unwrap();
+            role_target
+                .checklist(&["delete", &made.checklist_id, "--yes"])
+                .await
+                .unwrap();
+        } else {
+            // Denied native writes can disable their actor. Each permission case
+            // receives a disposable account, with no reset of security state.
+            for (item_operation, args) in [
+                (false, vec!["create"]),
+                (false, vec!["delete", checklist, "--yes"]),
+                (true, vec!["create", "--title", "Denied"]),
+                (true, vec!["update", &original]),
+                (true, vec!["delete", &original, "--yes"]),
             ] {
-                assert_eq!(
-                    role_target.item(checklist, &args).await.unwrap_err().code(),
-                    ErrorCode::PermissionDenied,
-                    "{role}"
-                );
+                let (_case_directory, case_app, _) = register_live_board_role(
+                    &server,
+                    &canonical,
+                    &token,
+                    &board.board_id,
+                    permission_nonce,
+                    role,
+                )
+                .await;
+                permission_nonce += 1;
+                let case = Target {
+                    app: &case_app,
+                    server: &server,
+                    board: &board.board_id,
+                    card: &card.card_id,
+                };
+                let error = if item_operation {
+                    case.item(checklist, &args).await
+                } else {
+                    case.checklist(&args).await
+                }
+                .unwrap_err();
+                assert_eq!(error.code(), ErrorCode::PermissionDenied, "{role} {args:?}");
+                assert_eq!(error.details().http_status, Some(403), "{role} {args:?}");
             }
         }
     }
@@ -688,7 +699,7 @@ async fn complete_checklist_lifecycle_matches_wekan_v11_06() {
         activities_before,
         "direct REST item deletion bypasses activity cleanup hooks"
     );
-    // v11.06 checklist deletion does not cascade to its item documents.
+    // v12.57 checklist deletion does not cascade to its item documents.
     let survivor = target
         .detail(checklist)
         .await

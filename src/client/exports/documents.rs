@@ -1,13 +1,229 @@
-//! Explicit projected response objects for Wekan v11.06 exports.
+//! Explicit projected response objects for Wekan v12.57 exports.
 //! Derived from the corrected contract; schemaless built-in rule/activity fields
 //! are verified against the pinned producers, not captured in a flattened map.
 #![allow(dead_code)] // Validation-only DTO values are dropped after each record.
-use super::validation::{Base64, Date, DiscardVec, Never, optional, required_nullable};
+use super::validation::{Base64, Date, DiscardVec, optional, required_nullable};
+use crate::client::checklists::ChecklistItemSummary;
+use crate::client::metadata::*;
 use serde::Deserialize;
+use serde_json::Number;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct BoardExportDocument {
+    #[serde(rename = "scrumTransfer", default, deserialize_with = "optional")]
+    _scrum_transfer: Option<super::scrum_transfer::ScrumTransfer>,
+    #[serde(rename = "scrumTransferLosses", default, deserialize_with = "optional")]
+    _scrum_transfer_losses: Option<Vec<ScrumImportLoss>>,
+    #[serde(rename = "scrum", default)]
+    _scrum: Option<ScrumSettings>,
+    #[serde(rename = "scrumImportLosses", default)]
+    _scrum_import_losses: Option<Vec<ScrumImportLoss>>,
+    #[serde(rename = "announcement", default)]
+    _announcement: Option<BoardAnnouncement>,
+    #[serde(rename = "wipLimitGroups", default)]
+    _wip_limit_groups: Option<Vec<BoardWipGroup>>,
+    #[serde(rename = "emailToCard", default)]
+    _email_to_card: Option<BoardEmailToCard>,
+    #[serde(rename = "notificationDelivery", default)]
+    _notification_delivery: Option<NotificationDelivery>,
+    #[serde(rename = "columnSets", default)]
+    _column_sets: Option<Vec<BoardColumnSet>>,
+    #[serde(rename = "scrumRevision", default)]
+    _scrum_revision: Option<serde_json::Number>,
+    #[serde(rename = "allowsInstanceEditing", default)]
+    _allows_instance_editing: Option<bool>,
+    #[serde(rename = "importRunId", default)]
+    _import_run_id: Option<String>,
+    #[serde(rename = "syncEffectsEnabled", default)]
+    _sync_effects_enabled: Option<bool>,
+    #[serde(rename = "mapImageAttachmentId", default)]
+    _map_image_attachment_id: Option<String>,
+    #[serde(rename = "autoArchiveInactiveDays", default)]
+    _auto_archive_inactive_days: Option<serde_json::Number>,
+    #[serde(rename = "rulesVisibleToMembers", default)]
+    _rules_visible_to_members: Option<bool>,
+    #[serde(rename = "cardFieldOrder", default)]
+    _card_field_order: Option<Vec<String>>,
+    #[serde(rename = "minicardFieldOrder", default)]
+    _minicard_field_order: Option<Vec<String>>,
+    #[serde(rename = "notifyOverrideTray", default)]
+    _notify_override_tray: Option<bool>,
+    #[serde(rename = "notifyOverrideEmail", default)]
+    _notify_override_email: Option<bool>,
+    #[serde(rename = "dueReminderDays", default)]
+    _due_reminder_days: Option<Vec<Number>>,
+    #[serde(rename = "dueReminderWebhook", default)]
+    _due_reminder_webhook: Option<bool>,
+    #[serde(rename = "labelsAboveTitleOnCard", default)]
+    _labels_above_title_on_card: Option<bool>,
+    #[serde(rename = "allowsChecklistDueDateOnMinicard", default)]
+    _allows_checklist_due_date_on_minicard: Option<bool>,
+    #[serde(rename = "allowsLocationOnMinicard", default)]
+    _allows_location_on_minicard: Option<bool>,
+    #[serde(rename = "allowsSwimlaneNameOnCard", default)]
+    _allows_swimlane_name_on_card: Option<bool>,
+    #[serde(rename = "allowsFlowtimeOnMinicard", default)]
+    _allows_flowtime_on_minicard: Option<bool>,
+    #[serde(rename = "allowsPomodoroOnMinicard", default)]
+    _allows_pomodoro_on_minicard: Option<bool>,
+    #[serde(rename = "allowsAttachmentListOnMinicard", default)]
+    _allows_attachment_list_on_minicard: Option<bool>,
+    #[serde(rename = "allowsTextNotesOnMinicard", default)]
+    _allows_text_notes_on_minicard: Option<bool>,
+    #[serde(rename = "allowsCommentCountOnCard", default)]
+    _allows_comment_count_on_card: Option<bool>,
+    #[serde(rename = "allowsActivitiesOnMinicard", default)]
+    _allows_activities_on_minicard: Option<bool>,
+    #[serde(rename = "allowsCardButtonsOnMinicard", default)]
+    _allows_card_buttons_on_minicard: Option<bool>,
+    #[serde(rename = "allowsDescriptionBadgeOnCard", default)]
+    _allows_description_badge_on_card: Option<bool>,
+    #[serde(rename = "allowsUnreadCommentsOnCard", default)]
+    _allows_unread_comments_on_card: Option<bool>,
+    #[serde(rename = "allowsDueFromTitleOnCard", default)]
+    _allows_due_from_title_on_card: Option<bool>,
+    #[serde(rename = "allowsDueFromTitleOnMinicard", default)]
+    _allows_due_from_title_on_minicard: Option<bool>,
+    #[serde(rename = "allowsSimilarCardsOnCard", default)]
+    _allows_similar_cards_on_card: Option<bool>,
+    #[serde(rename = "allowsSimilarCardsOnMinicard", default)]
+    _allows_similar_cards_on_minicard: Option<bool>,
+    #[serde(rename = "allowsAtRiskOnCard", default)]
+    _allows_at_risk_on_card: Option<bool>,
+    #[serde(rename = "allowsAtRiskOnMinicard", default)]
+    _allows_at_risk_on_minicard: Option<bool>,
+    #[serde(rename = "allowsSuggestedMembersOnCard", default)]
+    _allows_suggested_members_on_card: Option<bool>,
+    #[serde(rename = "allowsForecastOnCard", default)]
+    _allows_forecast_on_card: Option<bool>,
+    #[serde(rename = "allowsForecastOnMinicard", default)]
+    _allows_forecast_on_minicard: Option<bool>,
+    #[serde(rename = "allowsChecklistFromDescriptionOnCard", default)]
+    _allows_checklist_from_description_on_card: Option<bool>,
+    #[serde(rename = "allowsActionItemsOnCard", default)]
+    _allows_action_items_on_card: Option<bool>,
+    #[serde(rename = "allowsWhiteboardOnCard", default)]
+    _allows_whiteboard_on_card: Option<bool>,
+    #[serde(rename = "sharedListHeaders", default)]
+    _shared_list_headers: Option<bool>,
+    #[serde(rename = "boardViewSettings", default)]
+    _board_view_settings: Option<
+        std::collections::BTreeMap<
+            String,
+            crate::client::boards::presentation::StoredBoardViewVisibility,
+        >,
+    >,
+    #[serde(rename = "boardViewOrder", default)]
+    _board_view_order: Option<Vec<String>>,
+    #[serde(rename = "dateFormatOverride", default)]
+    _date_format_override: Option<bool>,
+    #[serde(rename = "dateFormat", default)]
+    _date_format: Option<String>,
+    #[serde(rename = "askForMoveReason", default)]
+    _ask_for_move_reason: Option<bool>,
+    #[serde(rename = "subtasksDefaultSwimlaneId", default)]
+    _subtasks_default_swimlane_id: Option<String>,
+    #[serde(rename = "allowsSwimlaneDragging", default)]
+    _allows_swimlane_dragging: Option<bool>,
+    #[serde(rename = "allowsListDragging", default)]
+    _allows_list_dragging: Option<bool>,
+    #[serde(rename = "allowsCardDragging", default)]
+    _allows_card_dragging: Option<bool>,
+    #[serde(rename = "allowsChecklistDragging", default)]
+    _allows_checklist_dragging: Option<bool>,
+    #[serde(rename = "allowsChecklistItemDragging", default)]
+    _allows_checklist_item_dragging: Option<bool>,
+    #[serde(rename = "allowsSubtaskDragging", default)]
+    _allows_subtask_dragging: Option<bool>,
+    #[serde(rename = "allowsMinicardCollapse", default)]
+    _allows_minicard_collapse: Option<bool>,
+    #[serde(rename = "labelsAboveTitleOnMinicard", default)]
+    _labels_above_title_on_minicard: Option<bool>,
+    #[serde(rename = "allowsChecklistDueDate", default)]
+    _allows_checklist_due_date: Option<bool>,
+    #[serde(rename = "allowsChecklistTitle", default)]
+    _allows_checklist_title: Option<bool>,
+    #[serde(rename = "allowsCommentsOnMinicard", default)]
+    _allows_comments_on_minicard: Option<bool>,
+    #[serde(rename = "showLabelText", default)]
+    _show_label_text: Option<bool>,
+    #[serde(rename = "allowsSwimlaneNameOnMinicard", default)]
+    _allows_swimlane_name_on_minicard: Option<bool>,
+    #[serde(rename = "allowsSpentTime", default)]
+    _allows_spent_time: Option<bool>,
+    #[serde(rename = "allowsSpentTimeOnMinicard", default)]
+    _allows_spent_time_on_minicard: Option<bool>,
+    #[serde(rename = "allowsStickers", default)]
+    _allows_stickers: Option<bool>,
+    #[serde(rename = "allowsStickersOnMinicard", default)]
+    _allows_stickers_on_minicard: Option<bool>,
+    #[serde(rename = "allowsLocation", default)]
+    _allows_location: Option<bool>,
+    #[serde(rename = "allowsDependencies", default)]
+    _allows_dependencies: Option<bool>,
+    #[serde(rename = "allowsDependenciesOnMinicard", default)]
+    _allows_dependencies_on_minicard: Option<bool>,
+    #[serde(rename = "allowsFlowtime", default)]
+    _allows_flowtime: Option<bool>,
+    #[serde(rename = "allowsPomodoro", default)]
+    _allows_pomodoro: Option<bool>,
+    #[serde(rename = "allowsVote", default)]
+    _allows_vote: Option<bool>,
+    #[serde(rename = "allowsVoteOnMinicard", default)]
+    _allows_vote_on_minicard: Option<bool>,
+    #[serde(rename = "allowsPoker", default)]
+    _allows_poker: Option<bool>,
+    #[serde(rename = "allowsPokerOnMinicard", default)]
+    _allows_poker_on_minicard: Option<bool>,
+    #[serde(rename = "allowsTextNotes", default)]
+    _allows_text_notes: Option<bool>,
+    #[serde(rename = "allowsCommentCountOnMinicard", default)]
+    _allows_comment_count_on_minicard: Option<bool>,
+    #[serde(rename = "allowsCardCollapse", default)]
+    _allows_card_collapse: Option<bool>,
+    #[serde(rename = "allowsChecklistTitleOnMinicard", default)]
+    _allows_checklist_title_on_minicard: Option<bool>,
+    #[serde(rename = "allowsLabelTextOnCard", default)]
+    _allows_label_text_on_card: Option<bool>,
+    #[serde(rename = "allowsCardColorOnCard", default)]
+    _allows_card_color_on_card: Option<bool>,
+    #[serde(rename = "allowsCardColorOnMinicard", default)]
+    _allows_card_color_on_minicard: Option<bool>,
+    #[serde(rename = "allowsParentCardOnCard", default)]
+    _allows_parent_card_on_card: Option<bool>,
+    #[serde(rename = "allowsParentCardOnMinicard", default)]
+    _allows_parent_card_on_minicard: Option<bool>,
+    #[serde(rename = "allowsLinkedCardOnCard", default)]
+    _allows_linked_card_on_card: Option<bool>,
+    #[serde(rename = "allowsLinkedCardOnMinicard", default)]
+    _allows_linked_card_on_minicard: Option<bool>,
+    #[serde(rename = "allowsCardButtonsOnCard", default)]
+    _allows_card_buttons_on_card: Option<bool>,
+    #[serde(rename = "allowsDescriptionBadgeOnMinicard", default)]
+    _allows_description_badge_on_minicard: Option<bool>,
+    #[serde(rename = "allowsUnreadCommentsOnMinicard", default)]
+    _allows_unread_comments_on_minicard: Option<bool>,
+    #[serde(rename = "allowsIssueTypeOnMinicard", default)]
+    _allows_issue_type_on_minicard: Option<bool>,
+    #[serde(rename = "stickyListHeaders", default)]
+    _sticky_list_headers: Option<bool>,
+    #[serde(rename = "listWidthResizeLocked", default)]
+    _list_width_resize_locked: Option<bool>,
+    #[serde(rename = "swimlaneHeightResizeLocked", default)]
+    _swimlane_height_resize_locked: Option<bool>,
+    #[serde(rename = "defaultPublicBoardView", default)]
+    _default_public_board_view: Option<String>,
+    #[serde(rename = "defaultPrivateBoardView", default)]
+    _default_private_board_view: Option<String>,
+    #[serde(rename = "sameWidthForAllLists", default)]
+    _same_width_for_all_lists: Option<bool>,
+    #[serde(rename = "sameWidthForAllListsValue", default)]
+    _same_width_for_all_lists_value: Option<serde_json::Number>,
+    #[serde(rename = "key", default)]
+    _key: Option<String>,
+    #[serde(rename = "stars", default)]
+    _stars: Option<serde_json::Number>,
     #[serde(rename = "_id")]
     __id: String,
     #[serde(rename = "title")]
@@ -381,19 +597,6 @@ pub(super) struct BoardExportDocument {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct KanboardExport {
-    #[serde(rename = "board")]
-    _board: KanboardExportBoard,
-    #[serde(rename = "columns")]
-    _columns: DiscardVec<KanboardExportColumnsItem>,
-    #[serde(rename = "swimlanes")]
-    _swimlanes: DiscardVec<KanboardExportSwimlanesItem>,
-    #[serde(rename = "tasks")]
-    _tasks: DiscardVec<KanboardExportTasksItem>,
-}
-
-#[derive(Deserialize)]
 #[serde(untagged)]
 pub(super) enum SingleAttachmentExport {
     Choice0(SingleAttachmentExportChoice0),
@@ -402,99 +605,11 @@ pub(super) enum SingleAttachmentExport {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct GithubIssueExport {
-    #[serde(rename = "title", deserialize_with = "required_nullable")]
-    _title: Option<String>,
-    #[serde(rename = "body")]
-    _body: String,
-    #[serde(rename = "state")]
-    _state: GithubIssueExportState,
-    #[serde(rename = "labels")]
-    _labels: DiscardVec<GithubIssueExportLabelsItem>,
-    #[serde(rename = "due_date", default, deserialize_with = "optional")]
-    _due_date: Option<Date>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct GitlabIssueExport {
-    #[serde(rename = "title", deserialize_with = "required_nullable")]
-    _title: Option<String>,
-    #[serde(rename = "description")]
-    _description: String,
-    #[serde(rename = "state")]
-    _state: GitlabIssueExportState,
-    #[serde(rename = "labels")]
-    _labels: DiscardVec<String>,
-    #[serde(rename = "due_date", default, deserialize_with = "optional")]
-    _due_date: Option<Date>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DeckExport {
-    #[serde(rename = "title")]
-    _title: String,
-    #[serde(rename = "stacks")]
-    _stacks: DiscardVec<DeckExportStacksItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExport {
-    #[serde(rename = "_embedded")]
-    __embedded: OpenprojectExportEmbedded,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TrelloExport {
-    #[serde(rename = "name")]
-    _name: String,
-    #[serde(rename = "prefs")]
-    _prefs: TrelloExportPrefs,
-    #[serde(rename = "labels")]
-    _labels: DiscardVec<TrelloExportLabelsItem>,
-    #[serde(rename = "lists")]
-    _lists: DiscardVec<TrelloExportListsItem>,
-    #[serde(rename = "cards")]
-    _cards: DiscardVec<TrelloExportCardsItem>,
-    #[serde(rename = "checklists")]
-    _checklists: DiscardVec<Never>,
-    #[serde(rename = "actions")]
-    _actions: DiscardVec<Never>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct JiraExport {
-    #[serde(rename = "board")]
-    _board: JiraExportBoard,
-    #[serde(rename = "issues")]
-    _issues: DiscardVec<JiraExportIssuesItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AsanaExport {
-    #[serde(rename = "data")]
-    _data: DiscardVec<AsanaExportDataItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ZenkitExport {
-    #[serde(rename = "title")]
-    _title: String,
-    #[serde(rename = "stages")]
-    _stages: DiscardVec<ZenkitExportStagesItem>,
-    #[serde(rename = "items")]
-    _items: DiscardVec<ZenkitExportItemsItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(super) struct BoardLabel {
+    #[serde(rename = "dueAt", default, deserialize_with = "optional")]
+    _due_at: Option<Date>,
+    #[serde(rename = "sharedLabelId", default, deserialize_with = "optional")]
+    _shared_label_id: Option<String>,
     #[serde(rename = "_id")]
     __id: String,
     #[serde(rename = "name", default, deserialize_with = "optional")]
@@ -506,6 +621,10 @@ pub(super) struct BoardLabel {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct BoardMember {
+    #[serde(rename = "grantedBy", default, deserialize_with = "optional")]
+    _granted_by: Option<Vec<String>>,
+    #[serde(rename = "customRoleId", default, deserialize_with = "optional")]
+    _custom_role_id: Option<String>,
     #[serde(rename = "userId")]
     _user_id: String,
     #[serde(rename = "isAdmin")]
@@ -551,6 +670,8 @@ pub(super) enum BoardExportDocumentPermission {
     Choice0,
     #[serde(rename = "public")]
     Choice1,
+    #[serde(rename = "instance")]
+    Instance,
 }
 
 #[derive(Deserialize)]
@@ -688,6 +809,32 @@ pub(super) struct ExportAttachment {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportList {
+    #[serde(rename = "scrum", default)]
+    _scrum: Option<ScrumList>,
+    #[serde(rename = "roleExceptions", default)]
+    _role_exceptions: Option<std::collections::BTreeMap<String, ListRoleException>>,
+    #[serde(rename = "syncSource", default)]
+    _sync_source: Option<ListSyncSource>,
+    #[serde(rename = "scrumRevision", default)]
+    _scrum_revision: Option<serde_json::Number>,
+    #[serde(rename = "cardsUseListColor", default)]
+    _cards_use_list_color: Option<bool>,
+    #[serde(rename = "linkedBoardId", default)]
+    _linked_board_id: Option<String>,
+    #[serde(rename = "linkedListId", default)]
+    _linked_list_id: Option<String>,
+    #[serde(rename = "syncRevision", default)]
+    _sync_revision: Option<String>,
+    #[serde(rename = "syncCredentialGeneration", default)]
+    _sync_credential_generation: Option<serde_json::Number>,
+    #[serde(rename = "syncCredentialFence", default)]
+    _sync_credential_fence: Option<String>,
+    #[serde(rename = "syncWriteBackError", default)]
+    _sync_write_back_error: Option<String>,
+    #[serde(rename = "syncCredentialIncarnation", default)]
+    _sync_credential_incarnation: Option<String>,
+    #[serde(rename = "boardId", default)]
+    _board_id: Option<String>,
     #[serde(rename = "title")]
     _title: String,
     #[serde(rename = "starred", default, deserialize_with = "optional")]
@@ -731,6 +878,12 @@ pub(super) struct ExportList {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportSwimlane {
+    #[serde(rename = "scrum", default)]
+    _scrum: Option<ScrumSwimlane>,
+    #[serde(rename = "scrumRevision", default)]
+    _scrum_revision: Option<serde_json::Number>,
+    #[serde(rename = "boardId", default)]
+    _board_id: Option<String>,
     #[serde(rename = "title")]
     _title: String,
     #[serde(rename = "archived")]
@@ -774,6 +927,14 @@ pub(super) struct ExportCustomField {
     _show_label_on_mini_card: bool,
     #[serde(rename = "showSumAtTopOfList")]
     _show_sum_at_top_of_list: bool,
+    #[serde(rename = "cardKinds", default, deserialize_with = "optional")]
+    _card_kinds: Option<Vec<String>>,
+    #[serde(rename = "readOnly", default, deserialize_with = "optional")]
+    _read_only: Option<bool>,
+    #[serde(rename = "adminOnly", default, deserialize_with = "optional")]
+    _admin_only: Option<bool>,
+    #[serde(rename = "sort", default, deserialize_with = "optional")]
+    _sort: Option<Number>,
     #[serde(rename = "createdAt", default, deserialize_with = "optional")]
     _created_at: Option<Option<Date>>,
     #[serde(rename = "modifiedAt")]
@@ -785,6 +946,72 @@ pub(super) struct ExportCustomField {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportCard {
+    #[serde(rename = "scrum", default)]
+    _scrum: Option<ScrumCard>,
+    #[serde(rename = "drawings", default)]
+    _drawings: Option<Vec<CardDrawing>>,
+    #[serde(rename = "customFieldLinks", default)]
+    _custom_field_links: Option<Vec<CardCustomFieldLink>>,
+    #[serde(rename = "syncLastSource", default)]
+    _sync_last_source: Option<CardSyncLastSource>,
+    #[serde(rename = "email", default)]
+    _email: Option<CardEmail>,
+    #[serde(rename = "scrumRevision", default)]
+    _scrum_revision: Option<serde_json::Number>,
+    #[serde(rename = "parentIds", default)]
+    _parent_ids: Option<Vec<String>>,
+    #[serde(rename = "mapX", default)]
+    _map_x: Option<serde_json::Number>,
+    #[serde(rename = "mapY", default)]
+    _map_y: Option<serde_json::Number>,
+    #[serde(rename = "columnSetValues", default)]
+    _column_set_values: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(rename = "cardKind", default)]
+    _card_kind: Option<String>,
+    #[serde(rename = "lastRecurrenceAt", default)]
+    _last_recurrence_at: Option<String>,
+    #[serde(rename = "syncSourceKey", default)]
+    _sync_source_key: Option<String>,
+    #[serde(rename = "syncLabelIds", default)]
+    _sync_label_ids: Option<Vec<String>>,
+    #[serde(rename = "syncIssueState", default)]
+    _sync_issue_state: Option<String>,
+    #[serde(rename = "syncClosedByWeKan", default)]
+    _sync_closed_by_we_kan: Option<bool>,
+    #[serde(rename = "syncExternalId", default)]
+    _sync_external_id: Option<String>,
+    #[serde(rename = "syncSourceType", default)]
+    _sync_source_type: Option<String>,
+    #[serde(rename = "attachedCardIds", default)]
+    _attached_card_ids: Option<Vec<String>>,
+    #[serde(rename = "flowStartAt", default)]
+    _flow_start_at: Option<String>,
+    #[serde(rename = "flowUserId", default)]
+    _flow_user_id: Option<String>,
+    #[serde(rename = "pomodoroStartAt", default)]
+    _pomodoro_start_at: Option<String>,
+    #[serde(rename = "pomodoroPhase", default)]
+    _pomodoro_phase: Option<String>,
+    #[serde(rename = "pomodoroUserId", default)]
+    _pomodoro_user_id: Option<String>,
+    #[serde(rename = "showListOnCard", default)]
+    _show_list_on_card: Option<bool>,
+    #[serde(rename = "checklists", default)]
+    _checklists: Option<Vec<crate::client::checklists::ChecklistDocument>>,
+    #[serde(rename = "listEnteredAt", default)]
+    _list_entered_at: Option<String>,
+    #[serde(rename = "recurrenceInterval", default)]
+    _recurrence_interval: Option<String>,
+    #[serde(rename = "lastMoveReason", default)]
+    _last_move_reason: Option<String>,
+    #[serde(rename = "flowInterruptions", default)]
+    _flow_interruptions: Option<serde_json::Number>,
+    #[serde(rename = "pomodoroCount", default)]
+    _pomodoro_count: Option<serde_json::Number>,
+    #[serde(rename = "pomodoroWorkMinutes", default)]
+    _pomodoro_work_minutes: Option<serde_json::Number>,
+    #[serde(rename = "boardId", default)]
+    _board_id: Option<String>,
     #[serde(rename = "title", default, deserialize_with = "optional")]
     _title: Option<Option<String>>,
     #[serde(rename = "archived")]
@@ -906,6 +1133,8 @@ pub(super) struct ExportCard {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportComment {
+    #[serde(rename = "syncCommentId", default, deserialize_with = "optional")]
+    _sync_comment_id: Option<String>,
     #[serde(rename = "cardId")]
     _card_id: String,
     #[serde(rename = "text")]
@@ -925,6 +1154,10 @@ pub(super) struct ExportComment {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportActivity {
+    #[serde(rename = "incarnation", default, deserialize_with = "optional")]
+    _incarnation: Option<String>,
+    #[serde(rename = "moveReason", default, deserialize_with = "optional")]
+    _move_reason: Option<String>,
     #[serde(rename = "_id")]
     __id: String,
     #[serde(rename = "userId", default, deserialize_with = "optional")]
@@ -1019,6 +1252,14 @@ pub(super) struct ExportActivitySource {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Checklists {
+    #[serde(rename = "lastResetAt", default)]
+    _last_reset_at: Option<String>,
+    #[serde(rename = "resetInterval", default)]
+    _reset_interval: Option<String>,
+    #[serde(rename = "dueAt", default)]
+    _due_at: Option<String>,
+    #[serde(rename = "items", default)]
+    _items: Option<Vec<ChecklistItemSummary>>,
     #[serde(rename = "cardId")]
     _card_id: String,
     #[serde(rename = "boardId", default, deserialize_with = "optional")]
@@ -1060,6 +1301,12 @@ pub(super) struct Checklists {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ChecklistItems {
+    #[serde(rename = "assigneeId", default, deserialize_with = "optional")]
+    _assignee_id: Option<String>,
+    #[serde(rename = "linkedCardId", default, deserialize_with = "optional")]
+    _linked_card_id: Option<String>,
+    #[serde(rename = "dueAt", default)]
+    _due_at: Option<String>,
     #[serde(rename = "title")]
     _title: String,
     #[serde(rename = "sort")]
@@ -1085,6 +1332,70 @@ pub(super) struct ChecklistItems {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Cards {
+    #[serde(rename = "scrum", default)]
+    _scrum: Option<ScrumCard>,
+    #[serde(rename = "drawings", default)]
+    _drawings: Option<Vec<CardDrawing>>,
+    #[serde(rename = "customFieldLinks", default)]
+    _custom_field_links: Option<Vec<CardCustomFieldLink>>,
+    #[serde(rename = "syncLastSource", default)]
+    _sync_last_source: Option<CardSyncLastSource>,
+    #[serde(rename = "email", default)]
+    _email: Option<CardEmail>,
+    #[serde(rename = "scrumRevision", default)]
+    _scrum_revision: Option<serde_json::Number>,
+    #[serde(rename = "parentIds", default)]
+    _parent_ids: Option<Vec<String>>,
+    #[serde(rename = "mapX", default)]
+    _map_x: Option<serde_json::Number>,
+    #[serde(rename = "mapY", default)]
+    _map_y: Option<serde_json::Number>,
+    #[serde(rename = "columnSetValues", default)]
+    _column_set_values: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(rename = "cardKind", default)]
+    _card_kind: Option<String>,
+    #[serde(rename = "lastRecurrenceAt", default)]
+    _last_recurrence_at: Option<String>,
+    #[serde(rename = "syncSourceKey", default)]
+    _sync_source_key: Option<String>,
+    #[serde(rename = "syncLabelIds", default)]
+    _sync_label_ids: Option<Vec<String>>,
+    #[serde(rename = "syncIssueState", default)]
+    _sync_issue_state: Option<String>,
+    #[serde(rename = "syncClosedByWeKan", default)]
+    _sync_closed_by_we_kan: Option<bool>,
+    #[serde(rename = "syncExternalId", default)]
+    _sync_external_id: Option<String>,
+    #[serde(rename = "syncSourceType", default)]
+    _sync_source_type: Option<String>,
+    #[serde(rename = "attachedCardIds", default)]
+    _attached_card_ids: Option<Vec<String>>,
+    #[serde(rename = "flowStartAt", default)]
+    _flow_start_at: Option<String>,
+    #[serde(rename = "flowUserId", default)]
+    _flow_user_id: Option<String>,
+    #[serde(rename = "pomodoroStartAt", default)]
+    _pomodoro_start_at: Option<String>,
+    #[serde(rename = "pomodoroPhase", default)]
+    _pomodoro_phase: Option<String>,
+    #[serde(rename = "pomodoroUserId", default)]
+    _pomodoro_user_id: Option<String>,
+    #[serde(rename = "showListOnCard", default)]
+    _show_list_on_card: Option<bool>,
+    #[serde(rename = "checklists", default)]
+    _checklists: Option<Vec<crate::client::checklists::ChecklistDocument>>,
+    #[serde(rename = "listEnteredAt", default)]
+    _list_entered_at: Option<String>,
+    #[serde(rename = "recurrenceInterval", default)]
+    _recurrence_interval: Option<String>,
+    #[serde(rename = "lastMoveReason", default)]
+    _last_move_reason: Option<String>,
+    #[serde(rename = "flowInterruptions", default)]
+    _flow_interruptions: Option<serde_json::Number>,
+    #[serde(rename = "pomodoroCount", default)]
+    _pomodoro_count: Option<serde_json::Number>,
+    #[serde(rename = "pomodoroWorkMinutes", default)]
+    _pomodoro_work_minutes: Option<serde_json::Number>,
     #[serde(rename = "title", default, deserialize_with = "optional")]
     _title: Option<Option<String>>,
     #[serde(rename = "archived")]
@@ -1208,6 +1519,14 @@ pub(super) struct Cards {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportRule {
+    #[serde(rename = "enabled", default, deserialize_with = "optional")]
+    _enabled: Option<bool>,
+    #[serde(rename = "extraTriggerIds", default, deserialize_with = "optional")]
+    _extra_trigger_ids: Option<Vec<String>>,
+    #[serde(rename = "extraActionIds", default, deserialize_with = "optional")]
+    _extra_action_ids: Option<Vec<String>>,
+    #[serde(rename = "description", default, deserialize_with = "optional")]
+    _description: Option<String>,
     #[serde(rename = "title")]
     _title: String,
     #[serde(rename = "triggerId")]
@@ -1229,6 +1548,15 @@ pub(super) struct ExportRule {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportTrigger {
+    #[serde(rename = "advancedFilter", default, deserialize_with = "optional")]
+    _advanced_filter: Option<Option<String>>,
+    #[serde(rename = "textContains", default, deserialize_with = "optional")]
+    _text_contains: Option<Option<String>>,
+    #[serde(rename = "cron", default, deserialize_with = "optional")]
+    _cron: Option<Option<String>>,
+    #[serde(rename = "direction", default, deserialize_with = "optional")]
+    _direction: Option<Option<String>>,
+
     #[serde(rename = "_id")]
     __id: String,
     #[serde(rename = "createdAt", default, deserialize_with = "optional")]
@@ -1292,6 +1620,25 @@ pub(super) struct ExportTrigger {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportAction {
+    #[serde(rename = "includeCardDetails", default, deserialize_with = "optional")]
+    _include_card_details: Option<Option<bool>>,
+    #[serde(
+        rename = "includeChecklistsAndComments",
+        default,
+        deserialize_with = "optional"
+    )]
+    _include_checklists_and_comments: Option<Option<bool>>,
+    #[serde(rename = "includeAttachments", default, deserialize_with = "optional")]
+    _include_attachments: Option<Option<bool>>,
+    #[serde(rename = "integrationId", default, deserialize_with = "optional")]
+    _integration_id: Option<Option<String>>,
+    #[serde(rename = "commentText", default, deserialize_with = "optional")]
+    _comment_text: Option<Option<String>>,
+    #[serde(rename = "listId", default, deserialize_with = "optional")]
+    _list_id: Option<Option<String>>,
+    #[serde(rename = "swimlaneId", default, deserialize_with = "optional")]
+    _swimlane_id: Option<Option<String>>,
+
     #[serde(rename = "_id")]
     __id: String,
     #[serde(rename = "createdAt", default, deserialize_with = "optional")]
@@ -1357,44 +1704,6 @@ pub(super) struct ExportUser {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct KanboardExportBoard {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct KanboardExportColumnsItem {
-    #[serde(rename = "title")]
-    _title: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct KanboardExportSwimlanesItem {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct KanboardExportTasksItem {
-    #[serde(rename = "title", deserialize_with = "required_nullable")]
-    _title: Option<String>,
-    #[serde(rename = "description")]
-    _description: String,
-    #[serde(rename = "column_name")]
-    _column_name: String,
-    #[serde(rename = "swimlane_name")]
-    _swimlane_name: String,
-    #[serde(rename = "date_due", default, deserialize_with = "optional")]
-    _date_due: Option<Date>,
-    #[serde(rename = "tags")]
-    _tags: DiscardVec<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(super) struct SingleAttachmentExportChoice0 {
     #[serde(rename = "_id")]
     __id: String,
@@ -1413,154 +1722,6 @@ pub(super) struct SingleAttachmentExportChoice0 {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SingleAttachmentExportChoice1 {}
-
-#[derive(Deserialize)]
-pub(super) enum GithubIssueExportState {
-    #[serde(rename = "open")]
-    Choice0,
-    #[serde(rename = "closed")]
-    Choice1,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct GithubIssueExportLabelsItem {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-pub(super) enum GitlabIssueExportState {
-    #[serde(rename = "opened")]
-    Choice0,
-    #[serde(rename = "closed")]
-    Choice1,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DeckExportStacksItem {
-    #[serde(rename = "title")]
-    _title: String,
-    #[serde(rename = "cards")]
-    _cards: DiscardVec<DeckExportStacksItemCardsItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExportEmbedded {
-    #[serde(rename = "elements")]
-    _elements: DiscardVec<OpenprojectExportEmbeddedElementsItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TrelloExportPrefs {
-    #[serde(rename = "background")]
-    _background: TrelloExportPrefsBackground,
-    #[serde(rename = "permissionLevel")]
-    _permission_level: TrelloExportPrefsPermissionLevel,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TrelloExportLabelsItem {
-    #[serde(rename = "id")]
-    _id: String,
-    #[serde(rename = "name", default, deserialize_with = "optional")]
-    _name: Option<Option<String>>,
-    #[serde(rename = "color")]
-    _color: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TrelloExportListsItem {
-    #[serde(rename = "id")]
-    _id: String,
-    #[serde(rename = "name")]
-    _name: String,
-    #[serde(rename = "closed")]
-    _closed: bool,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TrelloExportCardsItem {
-    #[serde(rename = "id")]
-    _id: String,
-    #[serde(rename = "name", deserialize_with = "required_nullable")]
-    _name: Option<String>,
-    #[serde(rename = "desc")]
-    _desc: String,
-    #[serde(rename = "idList", deserialize_with = "required_nullable")]
-    _id_list: Option<String>,
-    #[serde(rename = "due", deserialize_with = "required_nullable")]
-    _due: Option<Date>,
-    #[serde(rename = "closed")]
-    _closed: bool,
-    #[serde(rename = "idLabels")]
-    _id_labels: DiscardVec<Option<String>>,
-    #[serde(rename = "idMembers")]
-    _id_members: DiscardVec<String>,
-    #[serde(rename = "idChecklists")]
-    _id_checklists: DiscardVec<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct JiraExportBoard {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct JiraExportIssuesItem {
-    #[serde(rename = "key")]
-    _key: String,
-    #[serde(rename = "fields")]
-    _fields: JiraExportIssuesItemFields,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AsanaExportDataItem {
-    #[serde(rename = "name", deserialize_with = "required_nullable")]
-    _name: Option<String>,
-    #[serde(rename = "notes")]
-    _notes: String,
-    #[serde(rename = "completed")]
-    _completed: bool,
-    #[serde(rename = "due_on", default, deserialize_with = "optional")]
-    _due_on: Option<Date>,
-    #[serde(rename = "memberships")]
-    _memberships: DiscardVec<AsanaExportDataItemMembershipsItem>,
-    #[serde(rename = "tags")]
-    _tags: DiscardVec<AsanaExportDataItemTagsItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ZenkitExportStagesItem {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ZenkitExportItemsItem {
-    #[serde(rename = "title", deserialize_with = "required_nullable")]
-    _title: Option<String>,
-    #[serde(rename = "description")]
-    _description: String,
-    #[serde(rename = "stage_name")]
-    _stage_name: String,
-    #[serde(rename = "due", default, deserialize_with = "optional")]
-    _due: Option<Date>,
-    #[serde(rename = "tags")]
-    _tags: DiscardVec<String>,
-}
 
 #[derive(Deserialize)]
 pub(super) enum BoardWatcherLevel {
@@ -1593,6 +1754,8 @@ pub(super) enum ExportCustomFieldType {
     Choice2,
     #[serde(rename = "dropdown")]
     Choice3,
+    #[serde(rename = "dropdownMultiSelect")]
+    DropdownMultiSelect,
     #[serde(rename = "checkbox")]
     Choice4,
     #[serde(rename = "currency")]
@@ -1604,6 +1767,12 @@ pub(super) enum ExportCustomFieldType {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct CustomFieldsSettings {
+    #[serde(rename = "jiraTimeField", default, deserialize_with = "optional")]
+    _jira_time_field: Option<Option<String>>,
+    #[serde(rename = "jiraEstimateFieldId", default, deserialize_with = "optional")]
+    _jira_estimate_field_id: Option<Option<String>>,
+    #[serde(rename = "jiraEstimateUnit", default, deserialize_with = "optional")]
+    _jira_estimate_unit: Option<Option<String>>,
     #[serde(rename = "currencyCode", default, deserialize_with = "optional")]
     _currency_code: Option<Option<String>>,
     #[serde(rename = "dropdownItems", default, deserialize_with = "optional")]
@@ -1814,73 +1983,6 @@ pub(super) struct ExportUserProfile {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct DeckExportStacksItemCardsItem {
-    #[serde(rename = "title", deserialize_with = "required_nullable")]
-    _title: Option<String>,
-    #[serde(rename = "description")]
-    _description: String,
-    #[serde(rename = "duedate", default, deserialize_with = "optional")]
-    _duedate: Option<Date>,
-    #[serde(rename = "labels")]
-    _labels: DiscardVec<DeckExportStacksItemCardsItemLabelsItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExportEmbeddedElementsItem {
-    #[serde(rename = "subject", deserialize_with = "required_nullable")]
-    _subject: Option<String>,
-    #[serde(rename = "description")]
-    _description: OpenprojectExportEmbeddedElementsItemDescription,
-    #[serde(rename = "dueDate", default, deserialize_with = "optional")]
-    _due_date: Option<Date>,
-    #[serde(rename = "_links")]
-    __links: OpenprojectExportEmbeddedElementsItemLinks,
-}
-
-#[derive(Deserialize)]
-pub(super) enum TrelloExportPrefsBackground {
-    #[serde(rename = "blue")]
-    Choice0,
-}
-
-#[derive(Deserialize)]
-pub(super) enum TrelloExportPrefsPermissionLevel {
-    #[serde(rename = "private")]
-    Choice0,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct JiraExportIssuesItemFields {
-    #[serde(rename = "summary", deserialize_with = "required_nullable")]
-    _summary: Option<String>,
-    #[serde(rename = "description")]
-    _description: String,
-    #[serde(rename = "status")]
-    _status: JiraExportIssuesItemFieldsStatus,
-    #[serde(rename = "labels")]
-    _labels: DiscardVec<String>,
-    #[serde(rename = "duedate", default, deserialize_with = "optional")]
-    _duedate: Option<Date>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AsanaExportDataItemMembershipsItem {
-    #[serde(rename = "section")]
-    _section: AsanaExportDataItemMembershipsItemSection,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AsanaExportDataItemTagsItem {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(super) struct CustomFieldsSettingsDropdownitems {
     #[serde(rename = "_id")]
     __id: String,
@@ -1894,46 +1996,4 @@ pub(super) enum CardsStickersHighlight {
     Choice0,
     #[serde(rename = "round")]
     Choice1,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DeckExportStacksItemCardsItemLabelsItem {
-    #[serde(rename = "title")]
-    _title: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExportEmbeddedElementsItemDescription {
-    #[serde(rename = "raw")]
-    _raw: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExportEmbeddedElementsItemLinks {
-    #[serde(rename = "status")]
-    _status: OpenprojectExportEmbeddedElementsItemLinksStatus,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct JiraExportIssuesItemFieldsStatus {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AsanaExportDataItemMembershipsItemSection {
-    #[serde(rename = "name")]
-    _name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct OpenprojectExportEmbeddedElementsItemLinksStatus {
-    #[serde(rename = "title")]
-    _title: String,
 }

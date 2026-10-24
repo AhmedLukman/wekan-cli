@@ -1,3 +1,4 @@
+use crate::client::metadata::*;
 use reqwest::{StatusCode, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -6,6 +7,7 @@ use serde_json::Number;
 use super::{ClientError, WekanClient, transport::decode_success};
 
 mod archival;
+pub mod bot_runs;
 mod copy;
 mod export;
 pub mod import;
@@ -201,6 +203,39 @@ pub struct CardPoker {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct CardDocument {
+    pub scrum: Option<Box<ScrumCard>>,
+    pub drawings: Option<Vec<CardDrawing>>,
+    pub custom_field_links: Option<Vec<CardCustomFieldLink>>,
+    pub sync_last_source: Option<Box<CardSyncLastSource>>,
+    pub email: Option<Box<CardEmail>>,
+
+    pub scrum_revision: Option<serde_json::Number>,
+    pub parent_ids: Option<Vec<String>>,
+    pub map_x: Option<serde_json::Number>,
+    pub map_y: Option<serde_json::Number>,
+    pub column_set_values: Option<std::collections::BTreeMap<String, String>>,
+    pub card_kind: Option<String>,
+    pub last_recurrence_at: Option<String>,
+    pub sync_source_key: Option<String>,
+    pub sync_label_ids: Option<Vec<String>>,
+    pub sync_issue_state: Option<String>,
+    pub sync_closed_by_we_kan: Option<bool>,
+    pub sync_external_id: Option<String>,
+    pub sync_source_type: Option<String>,
+    pub attached_card_ids: Option<Vec<String>>,
+    pub flow_start_at: Option<String>,
+    pub flow_user_id: Option<String>,
+    pub pomodoro_start_at: Option<String>,
+    pub pomodoro_phase: Option<String>,
+    pub pomodoro_user_id: Option<String>,
+    pub show_list_on_card: Option<bool>,
+    pub checklists: Option<Vec<crate::client::checklists::ChecklistDocument>>,
+    pub list_entered_at: Option<String>,
+    pub recurrence_interval: Option<String>,
+    pub last_move_reason: Option<String>,
+    pub flow_interruptions: Option<Number>,
+    pub pomodoro_count: Option<Number>,
+    pub pomodoro_work_minutes: Option<Number>,
     #[serde(rename(deserialize = "_id", serialize = "card_id"))]
     pub card_id: String,
     pub title: Option<String>,
@@ -317,6 +352,8 @@ pub struct CreateCardRequest {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCardRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub move_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -590,6 +627,10 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
     validate_date_time(&card.modified_at, "modifiedAt", "card")?;
     validate_date_time(&card.date_last_activity, "dateLastActivity", "card")?;
     for (field, value) in [
+        ("listEnteredAt", card.list_entered_at.as_deref()),
+        ("lastRecurrenceAt", card.last_recurrence_at.as_deref()),
+        ("flowStartAt", card.flow_start_at.as_deref()),
+        ("pomodoroStartAt", card.pomodoro_start_at.as_deref()),
         ("archivedAt", card.archived_at.as_deref()),
         ("deletedAt", card.deleted_at.as_deref()),
         ("receivedAt", card.received_at.as_deref()),
@@ -750,7 +791,7 @@ mod tests {
     use super::{CardDocument, CardSummary, is_valid_card_color};
 
     #[test]
-    fn color_validation_matches_wekan_v11_06() {
+    fn color_validation_matches_wekan_v12_57() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_card_color(value));
         }

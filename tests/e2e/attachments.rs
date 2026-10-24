@@ -1,7 +1,31 @@
-use super::support::attachment_fixtures::{assert_stored_file_deleted, fixture_command, seed};
+use super::support::attachment_fixtures::{assert_stored_file_retained, fixture_command, seed};
 use super::support::*;
 use serde_json::json;
 use wekan_cli::command_result::AttachmentScope;
+
+const PNG_BASE64: &str =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlZkAAAAASUVORK5CYII=";
+
+async fn wait_for_attachment_validation_log(marker: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        let logs = Command::new("docker")
+            .args(["compose", "logs", "--no-color", "wekan"])
+            .output()
+            .expect("the deferred attachment validator log must be readable");
+        assert!(logs.status.success());
+        if String::from_utf8_lossy(&logs.stdout).contains(marker)
+            || String::from_utf8_lossy(&logs.stderr).contains(marker)
+        {
+            return;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the native attachment validator did not report its outcome: {marker}"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}
 
 async fn run(
     app: &App<CapturingStore, FixedPassword, FileProfileStore>,
@@ -51,7 +75,7 @@ async fn verify_legacy_attachment_permissions(
             response.headers()["content-type"]
                 .to_str()
                 .unwrap()
-                .starts_with("text/html")
+                .starts_with("application/json")
         );
     }
     let missing = execute_live_board(
@@ -131,11 +155,237 @@ async fn verify_legacy_attachment_permissions(
     );
 }
 
+async fn verify_raw_background_partial_failure(
+    app: &super::support::live::LiveApp,
+    server: &str,
+    board: &str,
+    directory: &Path,
+    nonce: u128,
+) {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let encoded = PNG_BASE64;
+    let bytes = STANDARD.decode(encoded).unwrap();
+    let source = directory.join("background.png");
+    fs::write(&source, &bytes).unwrap();
+    let user_id = app
+        .credential_store()
+        .credential
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .2
+        .clone();
+    let before = fixture_command(
+        "mongodb",
+        "mongosh",
+        "print(JSON.stringify(db.getSiblingDB('wekan').boards.findOne({_id:p.board},{backgroundImageId:1,backgroundImageURL:1})));",
+        &json!({"board":board}),
+    );
+    let mut saved_uploads = Vec::new();
+    for explicit_type in [false, true] {
+        // Stay within v12.57's 30-character filename cap so its unrelated
+        // rename/deferred-validator path does not alter this MIME fixture.
+        let name = format!("bg-{nonce}-{explicit_type}.png");
+        let mut args = vec![
+            "upload-background",
+            source.to_str().unwrap(),
+            "--board",
+            board,
+            "--file-name",
+            &name,
+            "--transport",
+            "raw",
+        ];
+        if explicit_type {
+            args.extend(["--file-type", "image/png"]);
+        }
+        // W12-006: the native route saves the file before the background helper fails.
+        let error = run(app, server, OutputFormat::Json, &args)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            (error.code(), error.details().http_status),
+            (ErrorCode::ServerError, Some(401)),
+            "raw background explicit MIME={explicit_type}: {error:?}"
+        );
+        assert!(
+            error
+                .details()
+                .server_error
+                .as_deref()
+                .is_some_and(|message| message.contains("isBoardAdmin is not a function")),
+            "raw background explicit MIME={explicit_type}: {error:?}"
+        );
+        assert_eq!(error.details().mutation_attempted, Some(true));
+        assert_eq!(error.details().retry_safe, Some(false));
+        assert!(!error.message().contains("logout"));
+        assert!(!error.message().contains("log in again"));
+        // The raw branch's outer catch misclassifies the helper error as 401.
+        // The exact credential used for the failed upload remains valid.
+        let CommandSuccess::UserCurrent(current) = execute_live_user(app, server, &["current"])
+            .await
+            .unwrap_or_else(|error| {
+                panic!("same credential after explicit MIME={explicit_type}: {error:?}")
+            })
+        else {
+            panic!("current user")
+        };
+        assert_eq!(current.user_id, user_id);
+        let saved = fixture_command(
+            "mongodb",
+            "mongosh",
+            "const w=db.getSiblingDB('wekan');print(JSON.stringify({attachments:w.attachments.find({'meta.boardId':p.board,name:p.name}).toArray(),board:w.boards.findOne({_id:p.board},{backgroundImageId:1,backgroundImageURL:1})}));",
+            &json!({"board":board,"name":name}),
+        );
+        assert_eq!(saved["board"], before);
+        let attachments = saved["attachments"].as_array().unwrap();
+        assert_eq!(attachments.len(), 1);
+        let attachment = &attachments[0];
+        assert_eq!(attachment["type"], "image/png");
+        assert_eq!(attachment["isImage"], true);
+        assert_eq!(attachment["size"], bytes.len());
+        saved_uploads.push(attachment.clone());
+    }
+    for attachment in saved_uploads {
+        // addFile awaits persistence, but onAfterUpload defers content validation
+        // (attachments.server.js). Its final success log proves its file reads
+        // have finished; deleting the bytes earlier races the native scanner.
+        let path = attachment["versions"]["original"]["path"].as_str().unwrap();
+        let marker = format!("Validation of uploaded file successful: file {path}");
+        wait_for_attachment_validation_log(&marker).await;
+        let persisted = fixture_command(
+            "mongodb",
+            "mongosh",
+            "print(JSON.stringify(db.getSiblingDB('wekan').attachments.findOne({_id:p.id,'meta.boardId':p.board})));",
+            &json!({"id":attachment["_id"],"board":board}),
+        );
+        assert_eq!(persisted["_id"], attachment["_id"]);
+        assert_eq!(persisted["type"], "image/png");
+        assert_eq!(persisted["isImage"], true);
+        let attachment = persisted;
+        // Check actual backing bytes, then remove only this failed upload's files.
+        let removed = fixture_command(
+            "wekan",
+            "node",
+            "const fs=require('fs'),path=require('path');const original=p.attachment.versions.original.path;if(!fs.readFileSync(original).equals(Buffer.from(p.encoded,'base64')))throw Error('background bytes changed');for(const v of Object.values(p.attachment.versions)){if(!v.path)continue;const file=path.resolve(v.path);if(!file.startsWith('/data/files/attachments/'))throw Error('unexpected attachment storage path');fs.rmSync(file,{force:true});}console.log('true');",
+            &json!({"attachment":attachment,"encoded":encoded}),
+        );
+        assert_eq!(removed, true);
+        let removed = fixture_command(
+            "mongodb",
+            "mongosh",
+            "const w=db.getSiblingDB('wekan'),selector={_id:p.id,'meta.boardId':p.board,name:p.name};const removed=w.attachments.deleteOne(selector).deletedCount;print(JSON.stringify({removed,remaining:w.attachments.countDocuments(selector)}));",
+            &json!({"id":attachment["_id"],"board":board,"name":attachment["name"]}),
+        );
+        assert_eq!(removed, json!({"removed":1,"remaining":0}));
+    }
+}
+
+async fn verify_raw_upload_rename_validation_failure(
+    app: &super::support::live::LiveApp,
+    server: &str,
+    scope: (&str, &str, &str, &str),
+    directory: &Path,
+    nonce: u128,
+) {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let (board, swimlane, list, card) = scope;
+    let source = directory.join("renamed-upload.png");
+    fs::write(&source, STANDARD.decode(PNG_BASE64).unwrap()).unwrap();
+    let name = format!("raw-card-{nonce}-renamed-upload.png");
+    assert!(name.len() > 30);
+    let CommandSuccess::AttachmentUploaded(upload) = run(
+        app,
+        server,
+        OutputFormat::Json,
+        &[
+            "upload",
+            source.to_str().unwrap(),
+            "--board",
+            board,
+            "--swimlane-id",
+            swimlane,
+            "--list",
+            list,
+            "--card",
+            card,
+            "--file-name",
+            &name,
+            "--file-type",
+            "image/png",
+            "--transport",
+            "raw",
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("raw upload")
+    };
+    assert_eq!(upload.file_name, name);
+    assert!(upload.request_accepted);
+    assert!(!upload.upload_confirmed);
+    assert_eq!(upload.server_message, "Attachment uploaded successfully");
+    let result = CommandSuccess::AttachmentUploaded(upload.clone());
+    let output: serde_json::Value = serde_json::from_str(&wekan_cli::output::render_success(
+        OutputFormat::Json,
+        &result,
+    ))
+    .unwrap();
+    assert_eq!(output["data"]["request_accepted"], true);
+    assert_eq!(output["data"]["upload_confirmed"], false);
+    assert!(output["data"].get("message").is_none());
+    assert!(
+        wekan_cli::output::render_success(OutputFormat::Human, &result)
+            .contains("final availability is unconfirmed")
+    );
+    // W12-007: upload returns its new ID before the deferred validator rejects
+    // the stale pre-rename path and removes the persisted attachment document.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        let count = fixture_command(
+            "mongodb",
+            "mongosh",
+            "print(JSON.stringify(db.getSiblingDB('wekan').attachments.countDocuments({_id:p.id,'meta.boardId':p.board})));",
+            &json!({"id":upload.attachment_id,"board":board}),
+        );
+        if count == 0 {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the native validator did not remove renamed upload {}",
+            upload.attachment_id
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let missing = run(
+        app,
+        server,
+        OutputFormat::Json,
+        &["get", &upload.attachment_id],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
+    wait_for_attachment_validation_log(&format!("-import-{name}'")).await;
+    // Removal also misses the renamed physical file. Verify its bytes before
+    // removing this upload's orphan by its returned immutable attachment ID.
+    let orphan = fixture_command(
+        "wekan",
+        "node",
+        "const fs=require('fs'),path=require('path'),root='/data/files/attachments';const prefix=p.id+'-original-';const files=fs.readdirSync(root).filter(name=>name.startsWith(prefix));const matching=files.filter(name=>fs.readFileSync(path.join(root,name)).equals(Buffer.from(p.encoded,'base64'))).length;for(const name of files)fs.rmSync(path.join(root,name));console.log(JSON.stringify({files:files.length,matching,remaining:fs.readdirSync(root).filter(name=>name.startsWith(prefix)).length}));",
+        &json!({"id":upload.attachment_id,"encoded":PNG_BASE64}),
+    );
+    assert_eq!(orphan, json!({"files":1,"matching":1,"remaining":0}));
+}
+
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_ATTACHMENT_E2E_URL"]
-async fn complete_attachment_flow_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_ATTACHMENT_E2E_URL"]
+async fn complete_attachment_flow_matches_wekan_v12_57() {
     let server = env::var("WEKAN_ATTACHMENT_E2E_URL")
-        .expect("set WEKAN_ATTACHMENT_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_ATTACHMENT_E2E_URL to an isolated Wekan v12.57 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -350,6 +600,21 @@ async fn complete_attachment_flow_matches_wekan_v11_06() {
         assert!(rendered.contains("url_download"));
     }
     verify_legacy_attachment_permissions(&app, &server, &board.board_id, nonce).await;
+    verify_raw_background_partial_failure(&app, &server, &board.board_id, directory.path(), nonce)
+        .await;
+    verify_raw_upload_rename_validation_failure(
+        &app,
+        &server,
+        (
+            &board.board_id,
+            &board.default_swimlane_id,
+            &list.list_id,
+            &card.card_id,
+        ),
+        directory.path(),
+        nonce,
+    )
+    .await;
     for flags in [
         vec![],
         vec!["--swimlane-id", "nonexistent"],
@@ -461,23 +726,80 @@ async fn complete_attachment_flow_matches_wekan_v11_06() {
         };
         assert_eq!(collection.count, 2);
     }
-    for (id, stored) in &stored_files {
-        let CommandSuccess::AttachmentDeleted(result) =
-            run(&app, &server, OutputFormat::Json, &["delete", id, "--yes"])
+    for (index, (id, stored)) in stored_files.iter().enumerate() {
+        let mut args = vec!["delete", id, "--yes"];
+        if index == 1 {
+            args.extend(["--board", &board.board_id]);
+        }
+        let deleted = run(&app, &server, OutputFormat::Json, &args).await.unwrap();
+        if index == 0 {
+            let CommandSuccess::AttachmentDeleted(result) = deleted else {
+                panic!("legacy deletion")
+            };
+            assert_eq!(&result.attachment_id, id);
+        } else {
+            let CommandSuccess::AttachmentSoftDeleted(result) = deleted else {
+                panic!("scoped deletion")
+            };
+            assert!(result.deleted);
+        }
+        assert_stored_file_retained(stored);
+        // Soft deletion retains metadata and bytes; restoration recovers the original file.
+        let CommandSuccess::AttachmentShown(info) =
+            run(&app, &server, OutputFormat::Json, &["get", id])
                 .await
                 .unwrap()
         else {
-            panic!("delete")
+            panic!("retained metadata")
         };
-        assert_eq!(&result.attachment_id, id);
-        assert_eq!(
-            run(&app, &server, OutputFormat::Json, &["get", id])
-                .await
-                .unwrap_err()
-                .code(),
-            ErrorCode::NotFound
-        );
-        assert_stored_file_deleted(stored);
+        assert_eq!(info.file_size, bytes.len() as u64);
+        let CommandSuccess::DeletedAttachments(deleted) = run(
+            &app,
+            &server,
+            OutputFormat::Json,
+            &["list-deleted", "--board", &board.board_id],
+        )
+        .await
+        .unwrap() else {
+            panic!("deleted collection")
+        };
+        assert_eq!(deleted.count, 1);
+        assert_eq!(deleted.attachments[0].attachment_id, *id);
+        let CommandSuccess::AttachmentRestored(restored) = run(
+            &app,
+            &server,
+            OutputFormat::Json,
+            &["restore", id, "--board", &board.board_id],
+        )
+        .await
+        .unwrap() else {
+            panic!("restoration")
+        };
+        assert!(restored.restored);
+        let raw = run(
+            &app,
+            &server,
+            OutputFormat::Raw,
+            &["download", id, "--destination", "-"],
+        )
+        .await
+        .unwrap();
+        let mut recovered = Vec::new();
+        write_success(OutputFormat::Raw, raw, &mut recovered, &mut Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(recovered, bytes);
+        let CommandSuccess::DeletedAttachments(deleted) = run(
+            &app,
+            &server,
+            OutputFormat::Json,
+            &["list-deleted", "--board", &board.board_id],
+        )
+        .await
+        .unwrap() else {
+            panic!("restored collection")
+        };
+        assert!(deleted.attachments.is_empty());
     }
     execute_live_board(&app, &server, &["delete", &board.board_id, "--yes"])
         .await

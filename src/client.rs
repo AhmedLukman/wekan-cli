@@ -19,6 +19,7 @@ pub use decoding::{ResponseDecodeKind, ResponseDiagnostic};
 pub(crate) use strings::trim_javascript_whitespace;
 pub mod error;
 pub mod lists;
+pub mod metadata;
 mod raw;
 pub mod swimlanes;
 pub mod system;

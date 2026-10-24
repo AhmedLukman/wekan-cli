@@ -433,9 +433,73 @@ pub struct MigrationUpdate {
     pub cpu_threshold: Option<CpuThreshold>,
 }
 
+/// Wekan v12.57 models/attachmentStorageSettings.js WebDAV storage configuration.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct WebdavDocument {
+    #[serde(default, deserialize_with = "present")]
+    pub enabled: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    pub read: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    pub write: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    pub endpoint: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    pub username: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    pub bucket: Option<String>,
+    pub password: MaskedSecret,
+    pub password_set: bool,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct WebdavUpdate {
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enabled: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub read: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub write: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub endpoint: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub username: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bucket: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<StorageSecret>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct StorageConfigDocument {
+    #[serde(default, deserialize_with = "present_object")]
+    pub webdav: Option<WebdavDocument>,
     #[serde(default, deserialize_with = "present_object")]
     pub filesystem: Option<FilesystemDocument>,
     #[serde(default, deserialize_with = "present_object")]
@@ -451,6 +515,12 @@ pub struct StorageConfigDocument {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct StorageConfigUpdate {
+    #[serde(
+        default,
+        deserialize_with = "present_object",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub webdav: Option<WebdavUpdate>,
     #[serde(
         default,
         deserialize_with = "present_object",
@@ -492,6 +562,7 @@ pub enum StorageBackend {
     S3,
     Azure,
     Gcs,
+    Webdav,
 }
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -561,7 +632,8 @@ impl std::str::FromStr for StorageBackend {
             "s3" => Ok(Self::S3),
             "azure" => Ok(Self::Azure),
             "gcs" => Ok(Self::Gcs),
-            _ => Err("expected fs, gridfs, s3, azure, or gcs"),
+            "webdav" => Ok(Self::Webdav),
+            _ => Err("expected fs, gridfs, s3, azure, gcs, or webdav"),
         }
     }
 }
@@ -570,6 +642,13 @@ impl UpdateAttachmentSettings {
     pub(crate) fn redaction_secrets(&self) -> Vec<secrecy::SecretString> {
         let mut secrets = Vec::new();
         if let Some(config) = &self.storage_config {
+            if let Some(secret) = config
+                .webdav
+                .as_ref()
+                .and_then(|provider| provider.password.as_ref())
+            {
+                secrets.push(secret.0.clone());
+            }
             if let Some(provider) = &config.s3 {
                 if let Some(secret) = &provider.secret_access_key {
                     secrets.push(secret.0.clone());

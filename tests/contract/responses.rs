@@ -5,7 +5,7 @@ use std::{
 };
 
 use secrecy::ExposeSecret;
-use serde_json::json;
+use serde_json::{Value, json};
 use wekan_cli::client::{
     BoardType, BoardWatchLevel, ClientError, CreateCardRequest, CreateCommentRequest,
     CreateListRequest, CreateSwimlaneRequest, UpdateCardRequest, UpdateListRequest,
@@ -210,7 +210,7 @@ pub(super) fn complete_card_response() -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn comment_responses_decode_complete_and_compact_v11_06_shapes() {
+async fn comment_responses_decode_complete_and_compact_v12_57_shapes() {
     let server = MockServer::start().await;
     let base = "/api/boards/board-1/cards/card-1/comments";
     Mock::given(method("GET"))
@@ -703,7 +703,7 @@ async fn compact_user_responses_reject_unmapped_fields() {
 }
 
 #[tokio::test]
-async fn list_responses_decode_the_complete_v11_06_shapes() {
+async fn list_responses_decode_the_complete_v12_57_shapes() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/lists"))
@@ -1428,7 +1428,7 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
 }
 
 #[tokio::test]
-async fn swimlane_responses_decode_complete_and_optional_v11_06_shapes() {
+async fn swimlane_responses_decode_complete_and_optional_v12_57_shapes() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/swimlanes"))
@@ -1785,7 +1785,7 @@ async fn error_envelopes_reject_unmapped_fields_in_production_paths() {
 }
 
 #[tokio::test]
-async fn board_document_decodes_the_complete_v11_06_shape() {
+async fn board_document_decodes_the_complete_v12_57_shape() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1"))
@@ -1798,8 +1798,10 @@ async fn board_document_decodes_the_complete_v11_06_shape() {
             "createdAt": "2026-08-27T01:00:00.000Z",
             "modifiedAt": "2026-08-28T02:00:00.000Z",
             "stars": 3,
-            "labels": [{"_id": "label-1", "name": "Urgent", "color": "red"}],
+            "labels": [{"_id": "label-1", "name": "Urgent", "color": "red", "dueAt":"2030-01-02T03:04:05Z", "sharedLabelId":"shared-1"}],
             "members": [{
+                "grantedBy": ["team:team-1", "org:org-1"],
+                "customRoleId": "role-1",
                 "userId": "user-1",
                 "isAdmin": true,
                 "isActive": true,
@@ -1955,6 +1957,173 @@ async fn board_document_accepts_verified_null_default_board_and_list_ids() {
     assert_eq!(board.subtasks_default_list_id, None);
     assert_eq!(board.date_settings_default_board_id, None);
     assert_eq!(board.date_settings_default_list_id, None);
+}
+
+#[tokio::test]
+async fn board_labels_and_members_map_optional_metadata_without_relaxing_nested_types() {
+    let server = MockServer::start().await;
+    let base = json!({"_id":"board-1","title":"Board","labels":[{"_id":"label-1","name":"Milestone","color":"red"}],"members":[{"userId":"user-1","isAdmin":false,"isActive":true}]});
+    for present in [false, true] {
+        server.reset().await;
+        let mut response = base.clone();
+        if present {
+            response["labels"][0]["dueAt"] = json!("2030-01-02T03:04:05Z");
+            response["labels"][0]["sharedLabelId"] = json!("shared-1");
+            response["members"][0]["grantedBy"] = json!(["team:team-1", "org:org-1"]);
+            response["members"][0]["customRoleId"] = json!("role-1");
+        }
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let board = client(&server)
+            .board("board-1", &user_token())
+            .await
+            .unwrap();
+        assert_eq!(
+            board.labels[0].due_at.as_deref(),
+            present.then_some("2030-01-02T03:04:05Z")
+        );
+        assert_eq!(
+            board.labels[0].shared_label_id.as_deref(),
+            present.then_some("shared-1")
+        );
+        assert_eq!(
+            board.members[0].custom_role_id.as_deref(),
+            present.then_some("role-1")
+        );
+        assert_eq!(
+            board.members[0].granted_by,
+            present.then(|| vec!["team:team-1".to_owned(), "org:org-1".to_owned()])
+        );
+    }
+    for (collection, field, extra_invalid) in [
+        (
+            "labels",
+            "dueAt",
+            vec![json!("not-a-date"), json!("2030-02-30T00:00:00Z")],
+        ),
+        ("labels", "sharedLabelId", vec![json!(2)]),
+        ("members", "customRoleId", vec![json!(2)]),
+        (
+            "members",
+            "grantedBy",
+            vec![json!("team:t"), json!([null]), json!([2]), json!([{}])],
+        ),
+    ] {
+        for value in [Value::Null, json!(true), json!({"unmapped":"secret-value"})]
+            .into_iter()
+            .chain(extra_invalid)
+        {
+            server.reset().await;
+            let mut response = base.clone();
+            response[collection][0][field] = value;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = client(&server)
+                .board("board-1", &user_token())
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                ClientError::Protocol {
+                    success_status_received: true,
+                    ..
+                }
+            ));
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
+    for collection in ["labels", "members"] {
+        server.reset().await;
+        let mut response = base.clone();
+        response[collection][0]["unmapped"] = json!("secret-value");
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(
+            client(&server)
+                .board("board-1", &user_token())
+                .await
+                .is_err()
+        );
+    }
+}
+
+#[tokio::test]
+async fn user_board_roles_preserve_group_origins_and_custom_roles_strictly() {
+    let server = MockServer::start().await;
+    let base =
+        json!({"_id":"user-1","boards":[{"boardId":"board-1","isActive":true,"isAdmin":false}]});
+    for present in [false, true] {
+        server.reset().await;
+        let mut response = base.clone();
+        if present {
+            response["boards"][0]["grantedBy"] = json!(["team:team-1"]);
+            response["boards"][0]["customRoleId"] = json!("role-1");
+        }
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let user = client(&server).current_user(&user_token()).await.unwrap();
+        assert_eq!(
+            user.boards[0].custom_role_id.as_deref(),
+            present.then_some("role-1")
+        );
+        assert_eq!(
+            user.boards[0].granted_by,
+            present.then(|| vec!["team:team-1".to_owned()])
+        );
+    }
+    for (field, invalid) in [
+        (
+            "grantedBy",
+            vec![
+                Value::Null,
+                json!(true),
+                json!("team:team-1"),
+                json!([null]),
+                json!([2]),
+                json!([{}]),
+            ],
+        ),
+        (
+            "customRoleId",
+            vec![Value::Null, json!(true), json!(2), json!([]), json!({})],
+        ),
+        ("unmapped", vec![json!("secret-value")]),
+    ] {
+        for value in invalid {
+            server.reset().await;
+            let mut response = base.clone();
+            response["boards"][0][field] = value;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let error = client(&server)
+                .current_user(&user_token())
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                ClientError::Protocol {
+                    success_status_received: true,
+                    ..
+                }
+            ));
+            assert!(!format!("{error:?}").contains("secret-value"));
+        }
+    }
 }
 
 #[tokio::test]
@@ -2114,7 +2283,7 @@ async fn board_document_rejects_values_outside_the_corrected_scalar_contract() {
 }
 
 #[tokio::test]
-async fn board_document_rejects_missing_required_v11_06_fields() {
+async fn board_document_rejects_missing_required_v12_57_fields() {
     for response in [
         json!({"_id": "board-1", "title": "Board"}),
         json!({"_id": "board-1", "title": "Board", "members": null}),
@@ -2198,6 +2367,7 @@ async fn board_projection_and_mutation_responses_reject_unmapped_fields() {
     Mock::given(method("GET"))
         .and(path("/api/boards_count"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "instance": 0,
             "private": 2,
             "public": 1,
             "futureCount": 3
@@ -2311,11 +2481,11 @@ async fn board_responses_reject_malformed_and_oversized_bodies_and_preserve_embe
 }
 
 #[tokio::test]
-async fn create_user_accepts_the_known_v11_06_empty_object_id() {
+async fn create_user_maps_the_created_user_id() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/users"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "_id": {} })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "_id": "user-1" })))
         .expect(1)
         .mount(&server)
         .await;
@@ -2324,14 +2494,16 @@ async fn create_user_accepts_the_known_v11_06_empty_object_id() {
         .create_user(&create_user_request(), &user_token())
         .await
         .unwrap();
-    assert_eq!(result, wekan_cli::client::CreateUserResult);
+    assert_eq!(result.user_id, "user-1");
 }
 
 #[tokio::test]
-async fn create_user_rejects_responses_outside_the_exact_v11_06_shape() {
+async fn create_user_rejects_unmapped_missing_and_invalid_ids() {
     for response in [
         json!({ "_id": { "unexpected": true } }),
-        json!({ "_id": "user-1" }),
+        json!({ "_id": {} }),
+        json!({ "_id": "" }),
+        json!({}),
         json!({ "_id": {}, "unexpected": true }),
     ] {
         let server = MockServer::start().await;

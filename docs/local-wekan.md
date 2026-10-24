@@ -1,6 +1,6 @@
 # Local Wekan development stack
 
-The root [`compose.yaml`](../compose.yaml) runs a reproducible Wekan `v11.06`
+The root [`compose.yaml`](../compose.yaml) runs a reproducible Wekan `v12.57`
 instance for local CLI development and integration testing. The container images
 are pinned by both version tag and digest so every developer runs the same
 versions.
@@ -13,7 +13,7 @@ This stack is development infrastructure, not a production deployment.
 | --- | --- |
 | `mongodb` | Runs MongoDB `7.0.39` as the single-node `rs0` replica set required by Wekan's reactive data features. Its database is stored in the `wekan-db-data` volume and is not exposed to the host. |
 | `mongodb-init` | Initializes the replica set when needed, then waits until MongoDB elects a writable primary. It exits after initialization succeeds. |
-| `wekan` | Runs Wekan `v11.06` with its REST API enabled. It starts only after MongoDB is healthy and replica-set initialization succeeds. Uploaded files are stored in the `wekan-files` volume. |
+| `wekan` | Runs Wekan `v12.57` with its REST API enabled. It starts only after MongoDB is healthy and replica-set initialization succeeds. Uploaded files are stored in the `wekan-files` volume. |
 
 Wekan is bound to `127.0.0.1`, so it is available only from the local machine.
 The default URL is <http://localhost:3000>.
@@ -87,7 +87,7 @@ repository root and set `COMPOSE_PROJECT_NAME` to match the isolated stack:
 ```powershell
 $env:COMPOSE_PROJECT_NAME = "wekan-test-1"
 $env:WEKAN_E2E_URL = "http://localhost:3101"
-cargo test --test e2e auth::authentication_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --test e2e auth::authentication_flow_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 The ignored core-board lifecycle test requires a fresh isolated stack. Point it
@@ -95,7 +95,7 @@ at that stack and run only the dedicated test:
 
 ```powershell
 $env:WEKAN_BOARD_E2E_URL = "http://localhost:3101"
-cargo test --test e2e complete_board_lifecycle_matches_wekan_v11_06 -- --ignored --nocapture
+cargo test --test e2e complete_board_lifecycle_matches_wekan_v12_57 -- --ignored --nocapture
 ```
 
 Adding `--volumes` deletes only the selected project's database and uploaded
@@ -109,7 +109,7 @@ addition/removal to verify Wekan's returned arrays describe the link:
 
 ```powershell
 $env:WEKAN_MEMBERSHIP_E2E_URL = "http://localhost:3101"
-cargo test --locked --test e2e memberships::complete_membership_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e memberships::complete_membership_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 ## Native credential-store authentication races
@@ -135,10 +135,9 @@ docker compose down --volumes
 
 The dedicated lifecycle test covers all ten operations, nested copies,
 position inputs, archived-card lookup, permissions, and partial move defects.
-Independent list-move fixtures distinguish new destinations with matching or
-nonmatching source swimlane filters from existing same-title destinations that
-bypass that filter. Copy results verify completed-action output and returned
-IDs even when Wekan omits copied attachments.
+Independent list-move fixtures cover new and existing destinations and the
+remaining partial-mutation behavior. Copy results verify returned IDs and
+independently downloaded attachment bytes for board, card, list and lane copies.
 It independently checks every sibling's persisted sort value and polls the
 asynchronous extra-default-lane insertion before verifying swimlane ordering.
 Run it against an isolated stack and set `COMPOSE_PROJECT_NAME` to that stack
@@ -147,20 +146,20 @@ when using database/file fixtures:
 ```powershell
 $env:COMPOSE_PROJECT_NAME = "wekan-test-1"
 $env:WEKAN_TRANSFER_E2E_URL = "http://localhost:3101"
-cargo test --locked --test e2e transfers::complete_copy_move_and_card_read_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e transfers::complete_copy_move_and_card_read_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 ## Board card settings and domain sharing
 
-The dedicated lifecycle covers all 47 settings, partial updates, stored numeric
+The dedicated lifecycle covers all 114 settings, partial updates, stored numeric
 values, permission boundaries, and native domain reads/writes. It requires a
 fresh isolated stack and MongoDB fixtures for existing sharing records, since
-Wekan v11.06 domain writes fail with `not-authorized`.
+Wekan v12.57 domain writes fail with `not-authorized`.
 
 ```powershell
 $env:COMPOSE_PROJECT_NAME = "wekan-test-1"
 $env:WEKAN_BOARD_SETTINGS_E2E_URL = "http://localhost:3101"
-cargo test --locked --test e2e board_settings::complete_board_settings_and_domain_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e board_settings::complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 ## Stop or reset the stack
@@ -197,7 +196,7 @@ $env:WEKAN_PORT = "3107"
 $env:COMPOSE_PROJECT_NAME = "wekan-attachment-tests"
 docker compose up -d --wait
 $env:WEKAN_ATTACHMENT_E2E_URL = "http://localhost:3107"
-cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 Use the matching Compose project and URL; this suite mutates the isolated stack.
@@ -217,7 +216,7 @@ $env:WEKAN_PORT = "3183"
 $env:COMPOSE_PROJECT_NAME = "wekan-token-tests"
 docker compose up -d --wait
 $env:WEKAN_TOKEN_E2E_URL = "http://localhost:3183"
-cargo test --locked --test e2e user_tokens::complete_user_token_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e user_tokens::complete_user_token_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 The suite is included in the E2E workflow matrix and cleans up its local vault
@@ -255,7 +254,7 @@ $env:WEKAN_PORT = "3103"
 $env:COMPOSE_PROJECT_NAME = "wekan-checklist-tests"
 docker compose up -d --wait
 $env:WEKAN_CHECKLIST_E2E_URL = "http://localhost:3103"
-cargo test --locked --test e2e checklists::complete_checklist_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e checklists::complete_checklist_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 This suite is also registered in the Wekan E2E workflow's isolated-stack matrix.
@@ -282,7 +281,7 @@ $env:WEKAN_PORT = "3114"
 $env:COMPOSE_PROJECT_NAME = "wekan-custom-field-tests"
 docker compose up -d --wait
 $env:WEKAN_CUSTOM_FIELD_E2E_URL = "http://localhost:3114"
-cargo test --locked --test e2e custom_fields::complete_custom_field_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e custom_fields::complete_custom_field_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 ## Integration and webhook-subscription lifecycle
@@ -300,7 +299,7 @@ $env:WEKAN_PORT = "3107"
 $env:COMPOSE_PROJECT_NAME = "wekan-integration-tests"
 docker compose up -d --wait
 $env:WEKAN_INTEGRATION_E2E_URL = "http://localhost:3107"
-cargo test --locked --test e2e integrations::complete_integration_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e integrations::complete_integration_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -319,7 +318,7 @@ $env:WEKAN_PORT = "3011"
 $env:COMPOSE_PROJECT_NAME = "wekan-dependency-tests"
 docker compose up -d --wait
 $env:WEKAN_DEPENDENCY_E2E_URL = "http://localhost:3011"
-cargo test --locked --test e2e dependencies::complete_dependency_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e dependencies::complete_dependency_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 ## Bulk card and label lifecycle
@@ -339,7 +338,7 @@ $env:WEKAN_PORT = "3116"
 $env:COMPOSE_PROJECT_NAME = "wekan-bulk-label-tests"
 docker compose up -d --wait
 $env:WEKAN_BULK_CARD_E2E_URL = "http://localhost:3116"
-cargo test --locked --test e2e bulk_cards::complete_bulk_card_and_label_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e bulk_cards::complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 ```
 
 
@@ -361,7 +360,7 @@ $env:WEKAN_PORT = "3117"
 $env:COMPOSE_PROJECT_NAME = "wekan-rule-tests"
 docker compose up -d --wait
 $env:WEKAN_RULE_E2E_URL = "http://localhost:3117"
-cargo test --locked --test e2e rules::complete_rule_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e rules::complete_rule_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -379,7 +378,7 @@ $env:COMPOSE_PROJECT_NAME = "wekan-admin-settings-test"
 $env:WEKAN_PORT = "3118"
 docker compose up -d --wait
 $env:WEKAN_ADMIN_SETTINGS_E2E_URL = "http://localhost:3118"
-cargo test --locked --test e2e admin_settings::complete_admin_settings_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e admin_settings::complete_admin_settings_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -399,7 +398,7 @@ $env:COMPOSE_PROJECT_NAME = "wekan-admin-people-test"
 $env:WEKAN_PORT = "3119"
 docker compose up -d --wait
 $env:WEKAN_ADMIN_PEOPLE_E2E_URL = "http://localhost:3119"
-cargo test --locked --test e2e admin_people::complete_admin_people_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e admin_people::complete_admin_people_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -426,26 +425,28 @@ $env:COMPOSE_PROJECT_NAME = "wekan-export-tests"
 $env:WEKAN_PORT = "3120"
 docker compose up -d --wait
 $env:WEKAN_EXPORT_E2E_URL = "http://localhost:3120"
-cargo test --locked --test e2e exports::complete_export_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e exports::complete_export_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
 ## Import lifecycle
 
 The import suite exercises all four REST operations and every explicit source
-against an isolated Wekan v11.06 stack. It verifies source document wrapping,
+against an isolated Wekan v12.57 stack. It verifies source document wrapping,
 CSV/XLSX input, member mapping, duplicate imports, ZIP scopes and field selection,
 and ICS event contents/dates against independently queried persisted records.
-It also records native HTTP-200 errors, permission/missing-target failures, and
-the ZIP attachment hang with partial writes and fixture-owned temporary-file
-cleanup. It is included in the isolated-stack CI matrix.
+It also records native permission/missing-target failures and verifies that
+ZIP attachment import completes, preserves its bytes and cleans temporary
+archives. The catalog suite covers all 49 sources. Native ZIP round-trip and
+new-board failures have explicit assertions in the export suite. All suites
+are included in the isolated-stack CI matrix.
 
 ```powershell
 $env:COMPOSE_PROJECT_NAME = "wekan-import-tests"
 $env:WEKAN_PORT = "3121"
 docker compose up -d --wait
 $env:WEKAN_IMPORT_E2E_URL = "http://localhost:3121"
-cargo test --locked --test e2e imports::complete_import_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e imports::complete_import_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -458,7 +459,7 @@ $env:COMPOSE_PROJECT_NAME = "wekan-trello-tests"
 $env:WEKAN_PORT = "3127"
 docker compose up -d --wait
 $env:WEKAN_TRELLO_IMPORT_E2E_URL = "http://localhost:3127"
-cargo test --locked --test e2e trello_import::complete_trello_import_lifecycle_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e trello_import::complete_trello_import_lifecycle_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```
 
@@ -479,8 +480,8 @@ $env:COMPOSE_PROJECT_NAME = "wekan-coverage-tests"
 $env:WEKAN_PORT = "3122"
 docker compose up -d --wait
 $env:WEKAN_PUBLIC_PROBE_E2E_URL = "http://localhost:3122"
-cargo test --locked --test e2e public_probes::public_probes_match_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e public_probes::public_probes_match_wekan_v12_57 -- --ignored --exact --nocapture
 $env:WEKAN_ATTACHMENT_E2E_URL = "http://localhost:3122"
-cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v11_06 -- --ignored --exact --nocapture
+cargo test --locked --test e2e attachments::complete_attachment_flow_matches_wekan_v12_57 -- --ignored --exact --nocapture
 docker compose down --volumes
 ```

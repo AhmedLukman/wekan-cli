@@ -3,6 +3,9 @@ use super::support::*;
 use reqwest::Method;
 use serde_json::{Value, json};
 
+#[path = "historical_defects.rs"]
+mod historical_defects;
+
 type LiveApp = App<CapturingStore, FixedPassword, FileProfileStore>;
 
 async fn profile_preferences(
@@ -40,7 +43,7 @@ async fn profile_preferences(
                 .await,
             json!(1)
         );
-        // This native v11.06 method checks Number and writes listConstraints.
+        // This native v12.57 method checks Number and writes listConstraints.
         session
             .call(
                 "applyListWidthToStorage",
@@ -180,10 +183,10 @@ async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Value {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_AUDIT_E2E_URL"]
-async fn audit_regressions_match_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_AUDIT_E2E_URL"]
+async fn audit_regressions_match_wekan_v12_57() {
     let server = env::var("WEKAN_AUDIT_E2E_URL")
-        .expect("set WEKAN_AUDIT_E2E_URL to a fresh isolated v11.06 stack");
+        .expect("set WEKAN_AUDIT_E2E_URL to a fresh isolated v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -471,19 +474,29 @@ async fn audit_regressions_match_wekan_v11_06() {
     assert!(created.get("created").is_none());
     wait_for_live_user(&app, &server, &username).await;
     let before = run(&app, &server, &["user", "list"]).await;
-    let duplicate = run(
-        &app,
-        &server,
-        &[
-            "user",
-            "create",
-            "--username",
-            &username,
-            "--password-stdin",
-        ],
-    )
-    .await;
-    assert!(duplicate.get("mutation_confirmed").is_none());
+    let duplicate = app
+        .execute(
+            Cli::try_parse_from([
+                "wekan",
+                "--server",
+                &server,
+                "user",
+                "create",
+                "--username",
+                &username,
+                "--password-stdin",
+            ])
+            .unwrap()
+            .command,
+        )
+        .await
+        .expect_err("duplicate identities must fail instead of returning an empty ID");
+    assert_eq!(duplicate.code(), ErrorCode::ServerError);
+    assert_eq!(duplicate.details().http_status, Some(500));
+    assert_eq!(
+        duplicate.details().server_error.as_deref(),
+        Some("Internal server error")
+    );
     assert_eq!(
         run(&app, &server, &["user", "list"]).await["users"],
         before["users"]
@@ -545,31 +558,55 @@ async fn audit_regressions_match_wekan_v11_06() {
     assert_eq!(missing.details().server_error, None);
     assert_eq!(missing.details().server_reason, None);
 
-    // Keep the pinned list-copy failure observable; the CLI must not supply a hidden destination.
-    let failure = http
+    // W11-061 is fixed: an omitted destination lane supports a same-board copy.
+    let copied = http
         .post(format!("{canonical}api/boards/{board}/lists/{list}/copy"))
         .bearer_auth(&token)
         .json(&json!({"toBoardId":board}))
         .send()
         .await
         .unwrap();
-    assert_eq!(failure.status(), 500);
-    assert!(
-        failure.headers()["content-type"]
-            .to_str()
-            .unwrap()
-            .contains("text/html")
-    );
+    assert_eq!(copied.status(), 200);
+    let copied: Value = copied.json().await.unwrap();
+    let copied_id = copied["_id"].as_str().unwrap();
+    assert_ne!(copied_id, list);
+    let CommandSuccess::ListShown(copied_list) = app
+        .execute(
+            Cli::try_parse_from(["wekan", "list", "get", copied_id, "--board", board])
+                .unwrap()
+                .command,
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("copied list")
+    };
+    assert_eq!(copied_list.board_id, board);
     for (method, path, body) in [
         (Method::POST, "api/deletetoken", json!({"userId":4})),
         (Method::PUT, "api/admin/attachment-settings", json!([])),
     ] {
-        let result = live_api_json(&http, &canonical, &token, method, path, Some(body)).await;
-        assert_eq!(result["errorType"], "Match.Error");
-        assert_eq!(result["path"], "");
-        assert_eq!(result["sanitizedError"]["error"], 400);
-        assert!(result.get("error").is_none());
+        let response = http
+            .request(method, format!("{canonical}{path}"))
+            .bearer_auth(&token)
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 500);
+        assert_eq!(
+            response.json::<Value>().await.unwrap(),
+            json!({"error":"Internal server error"})
+        );
     }
+    Box::pin(historical_defects::verify(
+        &app,
+        &server,
+        &canonical,
+        &token,
+        (board, lane, list),
+    ))
+    .await;
     Box::pin(profile_preferences(
         &app,
         &server,

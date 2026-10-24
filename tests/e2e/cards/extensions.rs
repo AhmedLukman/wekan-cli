@@ -70,10 +70,41 @@ pub(super) async fn verify_complete_create_and_update(
         panic!("expected card creation");
     };
     let card_id = &created.card_id;
+
+    let mut custom_values = Vec::new();
+    for (name, kind, value) in [
+        ("Text", "text", serde_json::json!("hello")),
+        ("Number", "number", serde_json::json!(2.5)),
+        ("Boolean", "checkbox", serde_json::json!(false)),
+        ("Multiple", "dropdown", serde_json::json!(["a", null, "b"])),
+        ("Empty", "text", serde_json::Value::Null),
+    ] {
+        let cli = Cli::try_parse_from([
+            "wekan",
+            "--server",
+            server,
+            "custom-field",
+            "create",
+            "--board",
+            &board.board_id,
+            "--name",
+            name,
+            "--type",
+            kind,
+        ])
+        .unwrap();
+        let CommandSuccess::CustomFieldCreated(field) = app.execute(cli.command).await.unwrap()
+        else {
+            panic!("custom-field fixture");
+        };
+        custom_values.push(serde_json::json!({"_id":field.custom_field_id,"value":value}));
+    }
+    let custom_values = serde_json::to_string(&custom_values).unwrap();
+
     update(app, server, &board.board_id, &list.list_id, card_id, &[
         "--vote", r#"{"question":"Ship?","positive":["ignored"],"negative":["ignored"],"end":"2030-01-02T03:04:05Z","public":true,"allowNonBoardMembers":true}"#,
         "--poker", r#"{"question":true,"one":["ignored"],"two":["ignored"],"three":["ignored"],"five":["ignored"],"eight":["ignored"],"thirteen":["ignored"],"twenty":["ignored"],"forty":["ignored"],"oneHundred":["ignored"],"unsure":["ignored"],"end":"2030-01-02T03:04:05Z","allowNonBoardMembers":true,"estimation":3}"#,
-        "--custom-fields", r#"[{"_id":"text","value":"hello"},{"_id":"number","value":2.5},{"_id":"bool","value":false},{"_id":"multi","value":["a",null,"b"]},{"_id":"empty","value":null},{"_id":null}]"#,
+        "--custom-fields", &custom_values,
         "--stickers", r#"[{"icon":"star","name":"Milestone","highlight":"round","position":2}]"#,
         "--locations", r#"[{"_id":"office","name":"Office","address":"Nairobi","latitude":-1.28,"longitude":36.82}]"#,
     ]).await;
@@ -102,13 +133,12 @@ pub(super) async fn verify_complete_create_and_update(
     );
     assert_eq!(poker.allow_non_board_members, Some(true));
     assert_eq!(poker.estimation, Some(serde_json::Number::from(3)));
-    assert_eq!(detail.custom_fields.len(), 6);
+    assert_eq!(detail.custom_fields.len(), 5);
     assert_eq!(
         serde_json::to_value(&detail.custom_fields[3].value).unwrap(),
         serde_json::json!(["a", null, "b"])
     );
     assert!(detail.custom_fields[4].value.is_none());
-    assert!(detail.custom_fields[5].custom_field_id.is_none());
     assert_eq!(vote.end.as_deref(), Some("2030-01-02T03:04:05.000Z"));
     assert_eq!(poker.end.as_deref(), Some("2030-01-02T03:04:05.000Z"));
     assert_eq!(detail.stickers[0].icon.as_deref(), Some("star"));
@@ -290,6 +320,8 @@ pub(super) async fn verify_complete_create_and_update(
             &swimlane.swimlane_id,
             "--list-id",
             &destination_list.list_id,
+            "--move-reason",
+            "  Native move reason  ",
             "--due-complete",
             "true",
             "--stickers",
@@ -308,6 +340,10 @@ pub(super) async fn verify_complete_create_and_update(
     )
     .await;
     assert_eq!(moved.swimlane_id, swimlane.swimlane_id);
+    assert_eq!(
+        moved.last_move_reason.as_deref(),
+        Some("Native move reason")
+    );
     assert_eq!(moved.due_complete, cleared.due_complete);
     assert!(moved.stickers.is_empty() && moved.locations.is_empty());
     assert_eq!(

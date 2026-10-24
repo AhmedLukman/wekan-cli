@@ -154,6 +154,89 @@ struct ErrorBody<'a> {
 
 pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String {
     match (format, success) {
+        (OutputFormat::Human, CommandSuccess::BotRunReported(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BotRunReported(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::InboundEmailSubmitted(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::InboundEmailSubmitted(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::EmailBounceSubmitted(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::EmailBounceSubmitted(data)) => {
+            render_json_success(data)
+        }
+
+        (OutputFormat::Human, CommandSuccess::OauthProviderSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::OauthProviderSettings(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::PasswordlessSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::PasswordlessSettings(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::ProblemsOverview(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ProblemsOverview(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ProblemStream(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ProblemStream(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ProblemAcknowledged(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ProblemAcknowledged(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::AttachmentSoftDeleted(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentSoftDeleted(data)) => {
+            render_json_success(data)
+        }
+        (OutputFormat::Human, CommandSuccess::AttachmentRestored(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::AttachmentRestored(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::DeletedAttachments(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::DeletedAttachments(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardViewSettings(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardViewSettings(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::BoardCardFieldOrder(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::BoardCardFieldOrder(data)) => {
+            render_json_success(data)
+        }
+        (
+            OutputFormat::Human,
+            CommandSuccess::ListArchived(data) | CommandSuccess::ListRestored(data),
+        ) => formatting::render_object(data),
+        (
+            OutputFormat::Json,
+            CommandSuccess::ListArchived(data) | CommandSuccess::ListRestored(data),
+        ) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ChecklistUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::ChecklistUpdated(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::CommentUpdated(data)) => {
+            formatting::render_object(data)
+        }
+        (OutputFormat::Json, CommandSuccess::CommentUpdated(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SkillList(data)) => skills::list(data),
         (OutputFormat::Json, CommandSuccess::SkillList(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SkillShown(data)) => {
@@ -293,24 +376,15 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             render_json_success(data)
         }
         (OutputFormat::Human, CommandSuccess::BoardCopied(data)) => {
-            format!(
-                "Board copied:\nWekan v11.06 omits attachments.\n{}",
-                formatting::render_object(data)
-            )
+            format!("Board copied:\n{}", formatting::render_object(data))
         }
         (OutputFormat::Json, CommandSuccess::BoardCopied(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::CardCopied(data)) => {
-            format!(
-                "Card copied:\nWekan v11.06 omits attachments.\n{}",
-                formatting::render_object(data)
-            )
+            format!("Card copied:\n{}", formatting::render_object(data))
         }
         (OutputFormat::Json, CommandSuccess::CardCopied(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::ListCopied(data)) => {
-            format!(
-                "List copied:\nWekan v11.06 omits attachments.\n{}",
-                formatting::render_object(data)
-            )
+            format!("List copied:\n{}", formatting::render_object(data))
         }
         (OutputFormat::Human, CommandSuccess::ListMoved(data)) => {
             format!(
@@ -328,10 +402,7 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             CommandSuccess::ListCopied(data) | CommandSuccess::ListMoved(data),
         ) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::SwimlaneCopied(data)) => {
-            format!(
-                "Swimlane copied:\nWekan v11.06 omits attachments.\n{}",
-                formatting::render_object(data)
-            )
+            format!("Swimlane copied:\n{}", formatting::render_object(data))
         }
         (OutputFormat::Human, CommandSuccess::SwimlaneMoved(data)) => {
             format!("Swimlane moved:\n{}", formatting::render_object(data))
@@ -422,7 +493,10 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         (OutputFormat::Human, CommandSuccess::AttachmentShown(data)) => attachments::detail(data),
         (OutputFormat::Json, CommandSuccess::AttachmentShown(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::AttachmentUploaded(data)) => {
-            format!("Attachment uploaded:\n{}", attachments::detail(data))
+            format!(
+                "Attachment upload accepted; final availability is unconfirmed:\n{}",
+                attachments::detail(data)
+            )
         }
         (OutputFormat::Json, CommandSuccess::AttachmentUploaded(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BackgroundUploaded(data)) => {

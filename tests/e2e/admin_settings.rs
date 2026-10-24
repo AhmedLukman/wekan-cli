@@ -95,10 +95,10 @@ fn production_admin(directory: &Path, server: &str, args: &[&str], stdin: &str) 
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_ADMIN_SETTINGS_E2E_URL"]
-async fn complete_admin_settings_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_ADMIN_SETTINGS_E2E_URL"]
+async fn complete_admin_settings_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_ADMIN_SETTINGS_E2E_URL")
-        .expect("set WEKAN_ADMIN_SETTINGS_E2E_URL to a fresh isolated v11.06 stack");
+        .expect("set WEKAN_ADMIN_SETTINGS_E2E_URL to a fresh isolated v12.57 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -182,8 +182,8 @@ async fn complete_admin_settings_lifecycle_matches_wekan_v11_06() {
             }
             let error = run(&normal, &server, &args).await.unwrap_err();
             assert_eq!(error.code(), ErrorCode::PermissionDenied);
-            assert_eq!(error.details().http_status, Some(200));
-            assert_eq!(error.details().wekan_status_code, Some(403));
+            assert_eq!(error.details().http_status, Some(403));
+            assert_eq!(error.details().wekan_status_code, None);
         }
     }
     // Every REST-allowlisted field, including both boolean states, travels through flags.

@@ -2,7 +2,7 @@
 
 The singular `wekan list` family covers core list operations plus native
 copying, moving, and repositioning. See [copy and move](copy-and-move.md) for
-transfer syntax, returned IDs, and Wekan v11.06's partial mutation behavior.
+transfer syntax, returned IDs, and Wekan v12.57's partial mutation behavior.
 
 ## Commands
 
@@ -15,9 +15,9 @@ wekan list delete <LIST_ID> --board <BOARD_ID> [--yes]
 ```
 
 Titles and identifiers must remain non-empty after trimming where applicable.
-Wekan v11.06 truncates update titles after the first 1000 JavaScript UTF-16 code
+Wekan v12.57 truncates update titles after the first 1000 JavaScript UTF-16 code
 units; the CLI submits longer titles unchanged so that pinned behavior remains
-visible. Update colors use Wekan v11.06's list palette; custom colors have
+visible. Update colors use Wekan v12.57's list palette; custom colors have
 exactly six hexadecimal digits after `#`. Wekan can return `color: ""` for a
 persisted unset color; `list get` preserves that response form, while the
 update flag accepts only named palette colors or `#rrggbb`. Any combination of WIP options is accepted. Wekan replaces the whole
@@ -49,7 +49,7 @@ has the shape:
 particular, `_id` becomes `list_id`, `_updatedAt` becomes `position_updated_at`,
 and `type` becomes `list_type`. Optional scalars use their value or JSON null;
 `list_type` remains an open string. Unknown top-level or WIP fields, invalid
-timestamps, invalid nonempty colors, widths outside 100–1000, and empty required
+timestamps, invalid nonempty colors, widths outside 100â€“1000, and empty required
 identifiers cause `protocol_error`. `watchers` is `null` when absent and preserves an array when present,
 including `[]` after the last watcher is removed.
 
@@ -71,7 +71,7 @@ An update reports its accepted fields in the fixed order `title`, `color`,
 
 ## Soft deletion
 
-Wekan v11.06 does not physically remove a list. It stamps the list and its live
+Wekan v12.57 does not physically remove a list. It stamps the list and its live
 cards with deletion metadata in one batch. Because cards are affected,
 `list delete` requires interactive confirmation or command-local `--yes`.
 
@@ -82,7 +82,7 @@ previously live list was found. Delete data includes `board_id` and `list_id`.
 Declining deletion returns the shared cancellation result with operation
 `list_delete`.
 
-Wekan v11.06 has two related read quirks. Its board-list collection filters
+Wekan v12.57 has two related read quirks. Its board-list collection filters
 archived lists but not soft-deleted lists and omits deletion metadata from each
 summary, so a deleted list may remain in `list list` output. Its missing
 single-list route returns an empty HTTP 200 response; the CLI normalizes that to
@@ -90,3 +90,10 @@ the stable `not_found` error.
 
 Copy/move command syntax, position inputs, typed acknowledgments, and pinned
 server behavior are documented in [copy and move](copy-and-move.md).
+
+## Archiving and restoring
+
+`wekan list archive LIST_ID --board BOARD_ID` archives a list through its native
+operation. `wekan list restore LIST_ID --board BOARD_ID` restores it. Archived
+lists are excluded from active reads; restoring makes the list readable again.
+Both operations report the returned list ID and archive state.

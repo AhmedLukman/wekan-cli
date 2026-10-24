@@ -24,6 +24,7 @@ pub struct CommentDetail {
     pub created_at: String,
     pub modified_at: String,
     pub author_id: String,
+    pub sync_comment_id: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize)]

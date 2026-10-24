@@ -15,6 +15,9 @@ use crate::{
 #[derive(Debug, Args)]
 #[command(next_help_heading = "Fields")]
 pub struct CreateArgs {
+    /// Item deadline with an explicit timezone.
+    #[arg(long, value_parser = super::deadline)]
+    pub due_at: Option<String>,
     /// Wekan board ID.
     #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
@@ -46,6 +49,7 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
     let request = CreateChecklistItemRequest {
+        due_at: args.due_at,
         title: args.title,
         sort: args.sort_json.or_else(|| {
             args.sort.map(|value| {

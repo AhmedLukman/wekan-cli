@@ -1,9 +1,45 @@
 # Administrator commands
 
-The `admin` family covers every administrator REST operation in Wekan v11.06.
+The `admin` family covers every administrator REST operation in Wekan v12.57.
 All operations require a site administrator and use the selected profile's stored
 credentials. Global settings and attachment-storage commands are described in
 [administrator settings](admin-settings.md).
+
+## OAuth providers and passwordless sign-in
+
+```console
+wekan admin oauth-provider get
+wekan admin oauth-provider update google --enabled true --id CLIENT_ID --secret-file oauth-secret.txt
+wekan admin passwordless update --enabled true
+```
+
+Provider keys are `google`, `github`, `facebook`, `twitter`, `meteor-developer`,
+`weibo`, and `meetup`. Updates require both `--enabled true|false` and `--id`;
+an empty ID clears it. `--secret-file PATH` and `--secret-stdin` conflict.
+Omitting the secret or supplying an empty secret preserves the stored value.
+Optional `--login-style popup|redirect|""` changes the provider override;
+`--global-login-style` changes the shared default, and
+`--merge-existing-users true|false` controls account merging.
+
+Results report configuration sources and secret-presence flags. An unset
+configuration source may omit its native value; the CLI represents this as
+null. Passwordless results report the source and value for email-code sign-in.
+Secret values are excluded from output and diagnostics.
+
+## Problem reports
+
+```console
+wekan admin problem list
+wekan admin problem get security --limit 50 --skip 0 --search export
+wekan admin problem acknowledge security
+```
+
+Problem streams are `security`, `speed`, `tests`, `cpu`, `ram`, `disk`,
+`database`, `integrity`, and `mail`; `get` additionally accepts read-only `api`
+usage. Pagination uses `--limit 1..200` and nonnegative `--skip`, with optional
+case-insensitive `--search`. Acknowledgment marks existing problems as seen.
+Results preserve typed overview entries, stream counts, event rows, and native
+acknowledgment results.
 
 ## Domains and resource listings
 
@@ -71,9 +107,9 @@ types, missing required fields, and invalid timestamps produce `protocol_error`.
 The domain count and bulk update count must be nonnegative integers. Each command
 sends one request, without a read-before-write merge or automatic retry.
 
-Wekan v11.06 can return authorization errors inside HTTP 200 responses. The CLI
-preserves both the HTTP status and embedded Wekan status/error metadata while
-redacting stored tokens. Individual updates to absent IDs return empty HTTP 200
+Wekan v12.57 returns native HTTP 401/403 for administrator authorization
+failures. The CLI retains status and error metadata while redacting stored
+tokens. Individual updates to absent IDs still return empty HTTP 200
 bodies: the CLI reports `protocol_error` without inventing a successful update
 or a server 404.
 

@@ -50,7 +50,7 @@ fn export_help_and_required_arguments_match_resource_commands() {
 fn invalid_options_are_rejected_before_target_or_credentials() {
     let directory = TestDirectory::new("invalid-export");
     for extra in [
-        vec!["--format", "kanboard", "--field", "people"],
+        vec!["--format", "ics", "--field", "people"],
         vec!["--format", "csv", "--card", "c"],
         vec!["--format", "csv", "--attachments", "false"],
         vec!["--format", "tsv", "--delimiter", ";"],

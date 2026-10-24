@@ -32,7 +32,7 @@ pub struct DeleteArgs {
     #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
-    /// Wekan list ID. Supplying the wrong list can trigger a Wekan v11.06 cascade defect.
+    /// Wekan list ID. Supplying the wrong list can trigger a Wekan v12.57 cascade defect.
     #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 

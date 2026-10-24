@@ -69,7 +69,7 @@ Create accepts `--description`, repeated `--member` and `--assignee`, and
 timestamps, date-only and textual dates, and numeric epoch milliseconds. Repeated member and assignee flags supply the complete
 initial arrays. Swimlane ID is required. Omitting title uses Wekan's empty default; empty text is allowed. `--null-title` and `--null-description`
 send explicit null and conflict with their text forms. `--linked-id` selects an existing source card. Wekan checks read access to the source board
-and ignores other content fields when creating a linked card. Wekan v11.06
+and ignores other content fields when creating a linked card. Wekan v12.57
 silently ignores `parentId` in the body of this single-card creation endpoint, so the
 CLI does not expose it.
 
@@ -87,6 +87,7 @@ Update accepts:
 - `--is-over-time <true|false>`;
 - `--due-complete <true|false>` and `--archive <true|false>`;
 - `--swimlane-id` and `--list-id` for movement within the source board;
+- `--move-reason` supplies the reason for a native list or board move; the server trims it and limits it to 1000 UTF-16 code units;
 - `--new-board-id`, `--new-swimlane-id`, and `--new-list-id` for movement
   between boards; and
 - `--vote`, `--poker`, `--custom-fields`, `--stickers`, and `--locations`
@@ -95,13 +96,14 @@ Update accepts:
 At least one update field is required. Set and clear forms conflict. IDs and
 text are treated separately: IDs cannot be empty after trimming. Text is sent
 unchanged, so whitespace can trigger Wekan's text-clearing behavior. Empty text
-and null are ignored by the update route's truthiness checks. Colors use Wekan v11.06's card palette or
+and null are ignored by the update route's truthiness checks. Colors use Wekan v12.57's card palette or
 exactly `#rrggbb`.
 
-Update values intentionally mirror broken Wekan v11.06 behavior. Wekan
+Update values intentionally mirror broken Wekan v12.57 behavior. Wekan
 truncates titles after the first 1000 JavaScript UTF-16 code units. It silently
-ignores `sort: 0`, `spentTime: 0`, and `isOverTime: false`; a request containing
-only those values can therefore return not found. It acknowledges
+ignores `sort: 0` and `isOverTime: false`; a request containing
+only those values can therefore return not found. `spentTime: 0` is accepted and
+persisted, and explicit null or empty date values clear their respective dates. It acknowledges
 `isOverTime: true`, but targets the wrong document-field spelling, so the
 card's real `is_overtime` value does not change in the pinned live stack.
 
@@ -109,7 +111,7 @@ Update results report submitted fields in this fixed order, regardless of option
 `title`, `sort`, `parent_id`, `description`, `color`, `label_ids`, `requested_by`,
 `assigned_by`, `received_at`, `start_at`, `due_at`, `end_at`, `spent_time`,
 `is_over_time`, `members`, `assignees`, `due_complete`, `swimlane_id`, `list_id`,
-`new_board_id`, `new_swimlane_id`, `new_list_id`, `archive`, `vote`, `poker`,
+`new_board_id`, `new_swimlane_id`, `new_list_id`, `move_reason`, `archive`, `vote`, `poker`,
 `custom_fields`, `stickers`, `locations`. These are the fields
 sent to Wekan.
 
@@ -174,7 +176,7 @@ that combine fields. Its restore behavior differs: the update endpoint selects
 by board and card ID independently of the supplied list, while the dedicated
 restore endpoint requires the correct list.
 
-Wekan v11.06 returns HTTP 500 with an HTML body for a missing card, wrong list,
+Wekan v12.57 returns HTTP 500 with an HTML body for a missing card, wrong list,
 wrong existing board, or wrong archived state, including repeated archive or
 restore. The CLI preserves this as `server_error` with `http_status: 500`
 and does not retry.
@@ -206,7 +208,7 @@ missing required fields, invalid types or timestamps, and mismatched IDs or
 states cause `protocol_error`.
 
 These objects appear under the usual `{"ok":true,"data":...}` envelope.
-`card get` returns the complete supported Wekan v11.06 card document in snake
+`card get` returns the complete supported Wekan v12.57 card document in snake
 case; `_id` becomes `card_id` and `type` becomes `card_type`. Omitted collections become arrays except `watchers`, which is `null`
 when absent and preserves `[]` when present and empty. Omitted optional scalars become
 JSON `null`. The card, custom-field, sticker, location, dependency, vote, and
@@ -216,7 +218,7 @@ members), or null union. Known IDs,
 timestamps, colors, card types, sticker highlights, nested values, and required
 types are also validated.
 
-A missing scoped card produces an empty HTTP 200 response in Wekan v11.06. The
+A missing scoped card produces an empty HTTP 200 response in Wekan v12.57. The
 CLI normalizes that response to `not_found`.
 
 ## Hard deletion warning
@@ -228,7 +230,7 @@ returns the requested ID, including for an absent card. Therefore
 `deletion_requested: true` means Wekan accepted the request; it does not prove that the
 card previously existed or was removed.
 
-Always supply the card's actual list ID. Wekan v11.06 looks up the card by board
+Always supply the card's actual list ID. Wekan v12.57 looks up the card by board
 and card ID before cascading child deletion, but includes the list ID only when
 removing the card itself. A wrong list ID can therefore delete the card's child
 resources while leaving the card intact. The CLI mirrors the endpoint and does
@@ -239,3 +241,21 @@ empty custom-field IDs generated by Wekan, and null label-array elements.
 Response objects still reject unmapped fields and invalid known types.
 
 Card updates report request acceptance and expose `submitted_fields`, not applied fields. Human output explains ineffective overtime changes when requested. Deletion reports request acceptance and returns `deletion_requested: true` because missing cards and wrong-list requests can leave the card intact.
+
+## Bot run reports
+
+```console
+wekan card bot-run report RUN_ID --board BOARD_ID --card CARD_ID --file report.json
+```
+
+`--file PATH|-` supplies a typed JSON report. Optional native keys are `status`,
+`text`, `tool`, `question`, `options`, `tokens`, and `costUsd`. Status values are
+`queued`, `running`, `awaiting_input`, `review`, `done`, `failed`, and `stopped`.
+Each option requires `value` and optionally includes `label`. Unknown fields or
+invalid types are rejected before sending. `status` and `options` cannot be null.
+Explicit nulls in `text`, `tool`, `question`, `tokens`, `costUsd`, and an option's
+`label` are forwarded unchanged. In particular, Wekan converts null numeric
+totals to zero; omitting those totals leaves them unchanged. An omitted option
+label defaults to its value; null suppresses that fallback.
+The native route checks the bot run,
+card scope, and caller authorization and returns the run ID and stored status.

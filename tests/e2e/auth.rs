@@ -1,9 +1,11 @@
 use super::support::*;
+#[path = "auth/notifications.rs"]
+mod notifications;
 #[tokio::test]
-#[ignore = "requires an isolated Compose Wekan v11.06 stack and WEKAN_E2E_URL"]
-async fn authentication_flow_matches_wekan_v11_06() {
+#[ignore = "requires an isolated Compose Wekan v12.57 stack and WEKAN_E2E_URL"]
+async fn authentication_flow_matches_wekan_v12_57() {
     let server = env::var("WEKAN_E2E_URL")
-        .expect("set WEKAN_E2E_URL to the user-started Wekan v11.06 server URL");
+        .expect("set WEKAN_E2E_URL to the user-started Wekan v12.57 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")
@@ -42,7 +44,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     let registration = app
         .execute(cli.command)
         .await
-        .expect("registration must succeed against Wekan v11.06");
+        .expect("registration must succeed against Wekan v12.57");
     let CommandSuccess::Registration(registration) = registration else {
         panic!("expected registration output")
     };
@@ -126,7 +128,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     .expect("the username login command must parse");
     app.execute(username_login.command)
         .await
-        .expect("username login must succeed against Wekan v11.06");
+        .expect("username login must succeed against Wekan v12.57");
     let (_, username_server, username_user_id, username_token, _) = app
         .credential_store()
         .credential
@@ -167,7 +169,7 @@ async fn authentication_flow_matches_wekan_v11_06() {
     .expect("the email login command must parse");
     app.execute(email_login.command)
         .await
-        .expect("email login must succeed against Wekan v11.06");
+        .expect("email login must succeed against Wekan v12.57");
     let status_cli = Cli::try_parse_from([
         "wekan",
         "--server",
@@ -201,8 +203,10 @@ async fn authentication_flow_matches_wekan_v11_06() {
     assert_eq!(email_user_id, user_id);
     assert_token_authenticates(&email_server, &email_user_id, &email_token).await;
 
+    notifications::verify(&app, &server, &email_token, nonce).await;
+
     // Seed only this test's newly registered account. These persisted shapes
-    // follow v11.06 models/users.js:624-637 and the notification UI's Date/null
+    // follow v12.57 models/users.js:624-637 and the notification UI's Date/null
     // updates. Use the real REST serializer and production auth-status decoder.
     let selector = serde_json::json!({"_id": user_id, "username": username});
     let script = format!(
@@ -409,8 +413,8 @@ async fn authentication_flow_matches_wekan_v11_06() {
         .await
         .expect_err("an invalid stored token must be rejected");
     assert_eq!(invalid_status.code(), ErrorCode::AuthenticationRejected);
-    assert_eq!(invalid_status.details().http_status, Some(200));
-    assert_eq!(invalid_status.details().wekan_status_code, Some(401));
+    assert_eq!(invalid_status.details().http_status, Some(401));
+    assert_eq!(invalid_status.details().wekan_status_code, None);
 
     let invalid_logout_cli = Cli::try_parse_from([
         "wekan",
@@ -491,12 +495,12 @@ async fn authentication_flow_matches_wekan_v11_06() {
 }
 
 #[tokio::test]
-#[ignore = "requires a user-started Wekan v11.06 stack and WEKAN_E2E_URL"]
-async fn named_profile_authentication_flow_matches_wekan_v11_06() {
+#[ignore = "requires a user-started Wekan v12.57 stack and WEKAN_E2E_URL"]
+async fn named_profile_authentication_flow_matches_wekan_v12_57() {
     const PROFILE_NAME: &str = "live-e2e";
 
     let server = env::var("WEKAN_E2E_URL")
-        .expect("set WEKAN_E2E_URL to the user-started Wekan v11.06 server URL");
+        .expect("set WEKAN_E2E_URL to the user-started Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -551,7 +555,7 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
     let registration = app
         .execute(register_cli.command)
         .await
-        .expect("registration through a named profile must succeed against Wekan v11.06");
+        .expect("registration through a named profile must succeed against Wekan v12.57");
     let CommandSuccess::Registration(registration) = registration else {
         panic!("expected registration output")
     };
@@ -619,13 +623,13 @@ async fn named_profile_authentication_flow_matches_wekan_v11_06() {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a dedicated Wekan v11.06 stack and WEKAN_OS_E2E_URL"]
+#[ignore = "destructive: requires a dedicated Wekan v12.57 stack and WEKAN_OS_E2E_URL"]
 async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     const PARALLELISM: usize = 24;
     const RACE_ROUNDS: usize = 12;
 
     let server = env::var("WEKAN_OS_E2E_URL")
-        .expect("set WEKAN_OS_E2E_URL to a dedicated Wekan v11.06 server URL");
+        .expect("set WEKAN_OS_E2E_URL to a dedicated Wekan v12.57 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")
@@ -827,8 +831,8 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(remote_logout["data"]["local_credential_removed"], true);
     assert!(store.load(&credential_target).unwrap().is_none());
     let (current_http, current_body) = token_state(&canonical_server, &current_token).await;
-    assert_eq!(current_http, 200);
-    assert_eq!(current_body["statusCode"], 401);
+    assert_eq!(current_http, 401);
+    assert_eq!(current_body["error"], "Unauthorized");
     let (older_http, older_body) = token_state(&canonical_server, &registration_token).await;
     assert_eq!(older_http, 200);
     assert_eq!(older_body["_id"], registration_record.user_id());
@@ -869,12 +873,10 @@ async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     assert_eq!(all_logout["data"]["remote_logout_completed"], true);
     for token in [&registration_token, &cli_all_token, &independent_token] {
         let (status, body) = token_state(&canonical_server, token).await;
-        assert_eq!(status, 200);
-        assert_eq!(body["statusCode"], 401);
+        assert_eq!(status, 401);
+        assert_eq!(body["error"], "Unauthorized");
     }
-    println!(
-        "live status behavior: login=200, authenticated user=200, revoked token=200 with embedded statusCode=401"
-    );
+    println!("live status behavior: login=200, authenticated user=200, revoked token=401");
 
     success_json(&run_production_cli(
         config_directory.path(),

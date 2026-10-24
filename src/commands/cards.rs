@@ -1,4 +1,5 @@
 mod archive;
+mod bot_runs;
 mod bulk;
 mod copy;
 mod count;
@@ -36,6 +37,7 @@ pub struct CardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CardCommand {
+    BotRun(bot_runs::BotRunArgs),
     /// Import iCalendar events as cards into a board list and swimlane.
     ImportIcs(import_ics::ImportIcsArgs),
     /// Export a native artifact to a file or validated raw stdout.
@@ -85,6 +87,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        CardCommand::BotRun(args) => {
+            bot_runs::dispatch(args.command, client_factory, credential_store).await
+        }
         CardCommand::ImportIcs(args) => {
             import_ics::execute(args, client_factory, credential_store).await
         }

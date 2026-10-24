@@ -89,13 +89,12 @@ impl RootCommand {
 
     pub(crate) fn export_delivery(&self) -> Option<&exports::DeliveryArgs> {
         match self {
-            Self::Board(a) => {
-                if let boards::BoardCommand::Export(e) = &a.command {
-                    Some(&e.delivery)
-                } else {
-                    None
-                }
-            }
+            Self::Board(a) => match &a.command {
+                boards::BoardCommand::Export(e) => Some(&e.delivery),
+                boards::BoardCommand::ExportAll(e) => Some(&e.delivery),
+                boards::BoardCommand::Chart(a) => a.delivery(),
+                _ => None,
+            },
             Self::Card(a) => {
                 if let cards::CardCommand::Export(e) = &a.command {
                     Some(&e.delivery)

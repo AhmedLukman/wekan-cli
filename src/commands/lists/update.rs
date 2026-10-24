@@ -38,7 +38,7 @@ pub struct UpdateArgs {
     #[arg(value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
-    /// New title. Wekan v11.06 truncates values longer than 1000 UTF-16 code units.
+    /// New title. Wekan v12.57 truncates values longer than 1000 UTF-16 code units.
     #[arg(long, value_parser = trimmed_non_empty)]
     pub title: Option<String>,
 

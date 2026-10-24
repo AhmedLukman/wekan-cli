@@ -1,0 +1,17 @@
+{
+  "googletasks": true,
+  "lists": [
+    {
+      "id": "list",
+      "title": "Todo",
+      "tasks": [
+        {
+          "id": "card",
+          "title": "Catalog card",
+          "status": "needsAction",
+          "position": "0001"
+        }
+      ]
+    }
+  ]
+}

@@ -67,6 +67,9 @@ pub(super) async fn execute(
 
 fn checklist_item_detail(document: ChecklistItemDocument) -> ChecklistItemDetail {
     ChecklistItemDetail {
+        assignee_id: document.assignee_id,
+        linked_card_id: document.linked_card_id,
+        due_at: document.due_at,
         item_id: document.item_id,
         title: document.title,
         sort: document.sort,

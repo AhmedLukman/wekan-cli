@@ -1,3 +1,4 @@
+use crate::client::metadata::*;
 use reqwest::{StatusCode, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -6,7 +7,9 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::{ClientError, WekanClient, transport::decode_success};
 
+mod archival;
 mod transfer;
+pub use archival::ListArchiveResponse;
 pub use transfer::TransferListRequest;
 
 pub const LIST_COLORS: &[&str] = &[
@@ -63,6 +66,19 @@ pub struct ListWipLimit {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct ListDocument {
+    pub scrum: Option<ScrumList>,
+    pub role_exceptions: Option<std::collections::BTreeMap<String, ListRoleException>>,
+    pub sync_source: Option<Box<ListSyncSource>>,
+
+    pub scrum_revision: Option<serde_json::Number>,
+    pub cards_use_list_color: Option<bool>,
+    pub linked_board_id: Option<String>,
+    pub linked_list_id: Option<String>,
+    pub sync_revision: Option<String>,
+    pub sync_credential_generation: Option<serde_json::Number>,
+    pub sync_credential_fence: Option<String>,
+    pub sync_write_back_error: Option<String>,
+    pub sync_credential_incarnation: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "list_id"))]
     pub list_id: String,
     pub title: String,
@@ -393,7 +409,7 @@ mod tests {
     use super::{ListDocument, ListSummary, is_valid_list_color, validate_list_document};
 
     #[test]
-    fn color_validation_matches_wekan_v11_06() {
+    fn color_validation_matches_wekan_v12_57() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_list_color(value));
         }

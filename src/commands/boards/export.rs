@@ -51,9 +51,14 @@ impl ExportArgs {
             || self.list.is_some()
             || self.card.is_some()
             || self.checklist.is_some();
-        if scoped && !matches!(self.format.as_str(), "json" | "xlsx" | "pdf" | "zip") {
+        if scoped
+            && !matches!(
+                self.format.as_str(),
+                "json" | "xlsx" | "pdf" | "zip" | "ics"
+            )
+        {
             return Err(AppError::invalid_input(
-                "scope selectors require json, xlsx, pdf or zip format",
+                "scope selectors require json, xlsx, pdf, zip or ics format",
             ));
         }
         if self.attachments.is_some() && self.format != "json" {
@@ -69,8 +74,8 @@ impl ExportArgs {
                 "locale options require xlsx or pdf format",
             ));
         }
-        if !self.fields.is_empty() && self.format == "kanboard" {
-            return Err(AppError::invalid_input("kanboard does not support --field"));
+        if !self.fields.is_empty() && self.format == "ics" {
+            return Err(AppError::invalid_input("ics does not support --field"));
         }
         Ok(())
     }
@@ -92,6 +97,7 @@ pub(crate) async fn execute(
         language: args.locale.language,
         date_format: args.locale.date_format,
         timezone: args.locale.timezone,
+        ..Default::default()
     };
     let format: ExportFormat = args.format.parse().expect("validated export format");
     exports::execute(

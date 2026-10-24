@@ -15,6 +15,12 @@ use crate::{
 #[derive(Debug, Args)]
 #[command(next_help_heading = "Fields")]
 pub struct UpdateArgs {
+    /// Set the item deadline.
+    #[arg(long, value_parser = super::deadline, conflicts_with = "clear_due_at")]
+    pub due_at: Option<String>,
+    /// Remove the item deadline.
+    #[arg(long)]
+    pub clear_due_at: bool,
     /// Wekan board ID.
     #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
@@ -50,12 +56,20 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
     let request = UpdateChecklistItemRequest {
+        due_at: if args.clear_due_at {
+            Some(None)
+        } else {
+            args.due_at.map(Some)
+        },
         title: args.title,
         is_finished: args
             .is_finished_json
             .or_else(|| args.is_finished.map(ChecklistItemFinishedInput::Boolean)),
     };
     let mut submitted_fields = Vec::new();
+    if request.due_at.is_some() {
+        submitted_fields.push(ChecklistItemSubmittedField::DueAt);
+    }
     if request.title.is_some() {
         submitted_fields.push(ChecklistItemSubmittedField::Title);
     }

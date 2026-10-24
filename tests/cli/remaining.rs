@@ -147,7 +147,7 @@ async fn system_cli_reports_typed_failure_states_and_protocol_errors() {
         if format == "json" {
             let decoded: Value = serde_json::from_str(&stdout).unwrap();
             assert_eq!(decoded["ok"], true);
-            assert_eq!(decoded["data"]["app_version"], "v11.06.0");
+            assert_eq!(decoded["data"]["app_version"], "v12.57.0");
         }
     }
     server.reset().await;

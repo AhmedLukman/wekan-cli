@@ -29,7 +29,7 @@ async fn run(app: &App<CapturingStore, Secrets>, server: &str, args: &[&str]) ->
 }
 
 fn seed_workspace_tree(user_id: &str, tree: &serde_json::Value) {
-    // v11.06 models/users.js:539-553 stores nodes as blackbox objects;
+    // v12.57 models/users.js:539-553 stores nodes as blackbox objects;
     // server/models/users.js:761-765 persists setWorkspacesTree without filtering them.
     // Seed only this isolated test's account, then use Wekan's real REST serializer.
     let selector = json!({"_id":user_id});
@@ -145,8 +145,8 @@ async fn verify_workspace_tree_decoding(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_COMPATIBILITY_E2E_URL"]
-async fn audited_behavior_gaps_match_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_COMPATIBILITY_E2E_URL"]
+async fn audited_behavior_gaps_match_wekan_v12_57() {
     let server = env::var("WEKAN_COMPATIBILITY_E2E_URL").unwrap();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -315,6 +315,33 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
     };
     assert_eq!(detail.starred, None);
 
+    let mut field_ids = Vec::new();
+    for name in ["Object coercion", "Mixed coercion"] {
+        let CommandSuccess::CustomFieldCreated(field) = run(
+            &app,
+            &server,
+            &[
+                "custom-field",
+                "create",
+                "--board",
+                &board.board_id,
+                "--name",
+                name,
+                "--type",
+                "text",
+            ],
+        )
+        .await
+        else {
+            panic!("custom field");
+        };
+        field_ids.push(field.custom_field_id);
+    }
+    let value_fields = serde_json::json!([
+        {"_id":field_ids[0],"value":{"key":true}},
+        {"_id":field_ids[1],"value":[1,true,null,{"x":1},"word"]}
+    ])
+    .to_string();
     for title_args in [vec![], vec!["--title", ""], vec!["--null-title"]] {
         let mut args = vec![
             "card",
@@ -359,11 +386,38 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
         );
         assert_eq!(detail.description, None);
         assert_eq!(detail.due_at.as_deref(), Some("2030-01-02T00:00:00.000Z"));
-        run(&app, &server, &["card", "update", &card.card_id, "--board", &board.board_id, "--list", &list.list_id,
-            "--description", " ", "--requested-by", " ", "--assigned-by", " ", "--title", " ",
-            "--custom-fields", r#"[{}, {"_id":"object","value":{"key":true}}, {"_id":"mixed","value":[1,true,null,{"x":1},"word"]}]"#,
-            "--labels", "[null]", "--locations", r#"[{"latitude":"1.25","longitude":true}]"#,
-            "--stickers", r#"[{"position":"2"}]"#, "--due-at", "253402300800000"]).await;
+        run(
+            &app,
+            &server,
+            &[
+                "card",
+                "update",
+                &card.card_id,
+                "--board",
+                &board.board_id,
+                "--list",
+                &list.list_id,
+                "--description",
+                " ",
+                "--requested-by",
+                " ",
+                "--assigned-by",
+                " ",
+                "--title",
+                " ",
+                "--custom-fields",
+                &value_fields,
+                "--labels",
+                "[null]",
+                "--locations",
+                r#"[{"latitude":"1.25","longitude":true}]"#,
+                "--stickers",
+                r#"[{"position":"2"}]"#,
+                "--due-at",
+                "253402300800000",
+            ],
+        )
+        .await;
         let CommandSuccess::CardShown(detail) = run(
             &app,
             &server,
@@ -381,7 +435,10 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
         else {
             panic!("readback")
         };
-        assert_eq!(detail.custom_fields[0].custom_field_id.as_deref(), Some(""));
+        assert_eq!(
+            detail.custom_fields[0].custom_field_id.as_deref(),
+            Some(field_ids[0].as_str())
+        );
         assert_eq!(detail.label_ids, vec![None]);
         assert_eq!(
             detail.due_at.as_deref(),
@@ -398,8 +455,8 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
         assert!(detail.requested_by.as_deref().is_none_or(str::is_empty));
         assert!(detail.assigned_by.as_deref().is_none_or(str::is_empty));
         let value = serde_json::to_value(&detail.custom_fields).unwrap();
-        assert_eq!(value[1]["value"], "");
-        assert_eq!(value[2]["value"], json!(["1", "true", null, "word"]));
+        assert_eq!(value[0]["value"], "");
+        assert_eq!(value[1]["value"], json!(["1", "true", null, "word"]));
     }
     let CommandSuccess::CardCollection(cards) = run(
         &app,
@@ -494,63 +551,7 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
         panic!("digest user")
     };
     assert_eq!(digest_user.user_id, created_id.unwrap());
-    let CommandSuccess::BoardCreated(restricted) = run(
-        &app,
-        &server,
-        &[
-            "board",
-            "create",
-            "--title",
-            "Non-admin owner",
-            "--owner",
-            digest_id,
-            "--is-admin",
-            "false",
-        ],
-    )
-    .await
-    else {
-        panic!("owner")
-    };
     let token = login["token"].as_str().unwrap();
-    let detail: serde_json::Value = http
-        .get(format!("{server}/api/boards/{}", restricted.board_id))
-        .bearer_auth(token)
-        .send()
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
-    assert_eq!(detail["members"][0]["isAdmin"], false);
-    let CommandSuccess::BoardCreated(inactive) = run(
-        &app,
-        &server,
-        &[
-            "board",
-            "create",
-            "--title",
-            "Inactive owner",
-            "--owner",
-            digest_id,
-            "--is-active",
-            "false",
-        ],
-    )
-    .await
-    else {
-        panic!("owner")
-    };
-    let denied = http
-        .get(format!("{server}/api/boards/{}", inactive.board_id))
-        .bearer_auth(token)
-        .send()
-        .await
-        .unwrap();
-    let status = denied.status();
-    let body: serde_json::Value = denied.json().await.unwrap();
-    assert!(status == 403 || body["statusCode"] == 403);
-
     let admin_token = app
         .credential_store()
         .credential
@@ -560,6 +561,30 @@ async fn audited_behavior_gaps_match_wekan_v11_06() {
         .unwrap()
         .3
         .clone();
+    // W11-013/014: legacy owner/role inputs cannot assign a board to another
+    // account or deactivate its authenticated initial administrator in v12.57.
+    for supplied_owner in [digest_id, "missing-owner"] {
+        let response = http.post(format!("{server}/api/boards")).bearer_auth(&admin_token)
+            .json(&json!({"title":"Initial ownership regression","owner":supplied_owner,"isAdmin":false,"isActive":false,"isNoComments":true,"isCommentOnly":true,"isWorker":true}))
+            .send().await.unwrap();
+        assert_eq!(response.status(), 200);
+        let response: serde_json::Value = response.json().await.unwrap();
+        let board_id = response["_id"].as_str().unwrap();
+        let CommandSuccess::BoardShown(detail) =
+            run(&app, &server, &["board", "get", board_id]).await
+        else {
+            panic!("board");
+        };
+        assert_eq!(detail.members.len(), 1);
+        assert_eq!(detail.members[0].user_id, admin_id);
+        assert!(detail.members[0].is_active && detail.members[0].is_admin);
+        assert!(
+            detail.members[0].is_no_comments == Some(false)
+                && detail.members[0].is_comment_only == Some(false)
+                && detail.members[0].is_worker == Some(false)
+        );
+        run(&app, &server, &["board", "delete", board_id, "--yes"]).await;
+    }
     let added = http
         .post(format!(
             "{server}/api/boards/{}/members/{digest_id}/add",

@@ -1,0 +1,245 @@
+{
+  "format": "wekan-scrum-2",
+  "settings": {
+    "enabled": false,
+    "productGoal": "",
+    "definitionOfDone": "",
+    "estimateSource": "poker",
+    "estimateCustomFieldId": null,
+    "estimateUnit": "points",
+    "completionPolicy": "dueComplete",
+    "productOwnerId": null,
+    "scrumMasterId": null,
+    "developerIds": [],
+    "workingDays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "visibility": {}
+  },
+  "sprints": [
+    {
+      "_id": "sprint1",
+      "name": "Sprint",
+      "goal": "Goal",
+      "plannedStart": "2026-10-01T08:00:00.000Z",
+      "plannedEnd": "2026-10-02T08:00:00.000Z",
+      "capacity": 10,
+      "capacityUnit": "points",
+      "provenance": {
+        "system": "jira",
+        "projectId": "project1",
+        "recordId": "external1",
+        "sourceTimestamp": "2026-10-01T08:00:00.000Z",
+        "unit": "points"
+      },
+      "createdAt": "2026-10-01T08:00:00.000Z",
+      "createdBy": "user1",
+      "updatedAt": "2026-10-02T08:00:00.000Z",
+      "updatedBy": "user1",
+      "state": "closed",
+      "startedAt": "2026-10-01T08:00:00.000Z",
+      "completedAt": "2026-10-02T08:00:00.000Z",
+      "rolloverSprintId": null,
+      "startSnapshot": {
+        "at": "2026-10-01T08:00:00.000Z",
+        "unit": "points",
+        "estimateSource": "poker",
+        "workingDays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "estimateCustomFieldId": null,
+        "completionPolicy": "dueComplete",
+        "cards": [
+          {
+            "cardId": "card1",
+            "listId": "list1",
+            "estimate": 5,
+            "done": false,
+            "archived": false
+          },
+          {
+            "cardId": "card2",
+            "listId": "list1",
+            "estimate": null,
+            "done": true,
+            "archived": true
+          }
+        ],
+        "missingEstimates": 1,
+        "totalEstimate": 5,
+        "partial": true
+      },
+      "closeSnapshot": {
+        "at": "2026-10-02T08:00:00.000Z",
+        "unit": "points",
+        "estimateSource": "poker",
+        "workingDays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "estimateCustomFieldId": null,
+        "completionPolicy": "dueComplete",
+        "cards": [
+          {
+            "cardId": "card1",
+            "listId": "list1",
+            "estimate": 5,
+            "done": false,
+            "archived": false
+          },
+          {
+            "cardId": "card2",
+            "listId": "list1",
+            "estimate": null,
+            "done": true,
+            "archived": true
+          }
+        ],
+        "missingEstimates": 1,
+        "totalEstimate": 5,
+        "partial": true
+      }
+    },
+    {
+      "_id": "sprint2",
+      "name": "Cancelled",
+      "state": "cancelled",
+      "cancelledAt": "2026-10-02T08:00:00.000Z",
+      "cancellationReason": "Cancelled"
+    }
+  ],
+  "releases": [
+    {
+      "_id": "release1",
+      "name": "Release",
+      "goal": "Goal",
+      "notes": "Notes",
+      "state": "released",
+      "plannedStart": "2026-10-01T08:00:00.000Z",
+      "plannedEnd": "2026-10-02T08:00:00.000Z",
+      "releasedAt": "2026-10-02T08:00:00.000Z",
+      "provenance": {
+        "system": "jira",
+        "projectId": "project1",
+        "recordId": "external1",
+        "sourceTimestamp": "2026-10-01T08:00:00.000Z",
+        "unit": "points"
+      },
+      "createdAt": "2026-10-01T08:00:00.000Z",
+      "createdBy": "user1",
+      "updatedAt": "2026-10-02T08:00:00.000Z",
+      "updatedBy": "user1"
+    }
+  ],
+  "events": [
+    {
+      "_id": "event1",
+      "sprintId": "sprint1",
+      "kind": "daily",
+      "startsAt": "2026-10-01T08:00:00.000Z",
+      "name": "Daily",
+      "notes": "Notes",
+      "timeboxMinutes": 15,
+      "followUpCardIds": [
+        "card1"
+      ],
+      "provenance": {
+        "system": "jira",
+        "projectId": "project1",
+        "recordId": "external1",
+        "sourceTimestamp": "2026-10-01T08:00:00.000Z",
+        "unit": "points"
+      },
+      "createdAt": "2026-10-01T08:00:00.000Z",
+      "createdBy": "user1",
+      "updatedAt": "2026-10-02T08:00:00.000Z",
+      "updatedBy": "user1"
+    }
+  ],
+  "cards": [
+    {
+      "_id": "card1",
+      "scrum": {
+        "sprintId": "sprint1",
+        "pastSprintIds": [
+          "sprint2"
+        ],
+        "backlogRank": 1,
+        "issueType": "Story",
+        "acceptanceCriteria": "Done",
+        "releaseId": "release1"
+      }
+    }
+  ],
+  "lists": [
+    {
+      "_id": "list1",
+      "scrum": {
+        "category": "todo"
+      }
+    }
+  ],
+  "swimlanes": [
+    {
+      "_id": "lane1",
+      "scrum": {
+        "sprintId": "sprint1",
+        "releaseId": "release1",
+        "purpose": "Sprint"
+      }
+    }
+  ],
+  "dailyObservations": [
+    {
+      "sprintId": "sprint1",
+      "startedAt": "2026-10-01T08:00:00.000Z",
+      "day": "2026-10-01",
+      "capturedAt": "2026-10-01T12:00:00.000Z",
+      "snapshot": {
+        "at": "2026-10-01T12:00:00.000Z",
+        "unit": "points",
+        "estimateSource": "poker",
+        "workingDays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "estimateCustomFieldId": null,
+        "completionPolicy": "dueComplete",
+        "cards": [
+          {
+            "cardId": "card1",
+            "listId": "list1",
+            "estimate": 5,
+            "done": false,
+            "archived": false
+          },
+          {
+            "cardId": "card2",
+            "listId": "list1",
+            "estimate": null,
+            "done": true,
+            "archived": true
+          }
+        ],
+        "missingEstimates": 1,
+        "totalEstimate": 5,
+        "partial": true
+      },
+      "consistency": "observed"
+    }
+  ]
+}

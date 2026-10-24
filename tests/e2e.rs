@@ -8,6 +8,8 @@ mod board_settings;
 mod boards;
 #[path = "e2e/cards.rs"]
 mod cards;
+#[path = "e2e/catalog.rs"]
+mod catalog;
 #[path = "e2e/checklists.rs"]
 mod checklists;
 #[path = "e2e/comments.rs"]
@@ -20,6 +22,8 @@ mod compatibility_audit;
 mod inventory;
 #[path = "e2e/lists.rs"]
 mod lists;
+#[path = "e2e/native_hooks.rs"]
+mod native_hooks;
 #[path = "e2e/public_probes.rs"]
 mod public_probes;
 #[path = "support/mod.rs"]
@@ -28,6 +32,8 @@ mod support;
 mod swimlanes;
 #[path = "e2e/transfers.rs"]
 mod transfers;
+#[path = "e2e/upgrade.rs"]
+mod upgrade;
 #[path = "e2e/user_tokens.rs"]
 mod user_tokens;
 #[path = "e2e/users.rs"]

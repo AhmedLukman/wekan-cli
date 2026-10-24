@@ -1,3 +1,4 @@
+use crate::client::metadata::*;
 use reqwest::{StatusCode, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,9 @@ pub struct SwimlaneSummary {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct SwimlaneDocument {
+    pub scrum: Option<ScrumSwimlane>,
+
+    pub scrum_revision: Option<serde_json::Number>,
     #[serde(rename(deserialize = "_id", serialize = "swimlane_id"))]
     pub swimlane_id: String,
     pub title: String,
@@ -342,7 +346,7 @@ mod tests {
     use super::{SwimlaneDocument, SwimlaneSummary, is_valid_swimlane_color};
 
     #[test]
-    fn color_validation_matches_wekan_v11_06() {
+    fn color_validation_matches_wekan_v12_57() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_swimlane_color(value));
         }

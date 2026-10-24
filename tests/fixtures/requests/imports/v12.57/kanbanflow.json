@@ -1,0 +1,22 @@
+{
+  "kanbanflow": true,
+  "board": {
+    "_id": "board",
+    "name": "Catalog",
+    "columns": [
+      {
+        "uniqueId": "list",
+        "name": "Todo"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "_id": "card",
+      "name": "Catalog card",
+      "columnId": "list"
+    }
+  ],
+  "users": [],
+  "comments": {}
+}

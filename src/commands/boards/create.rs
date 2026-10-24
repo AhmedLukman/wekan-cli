@@ -16,6 +16,7 @@ use super::trimmed_non_empty;
 pub(super) enum BoardPermissionArg {
     Private,
     Public,
+    Instance,
 }
 
 impl From<BoardPermissionArg> for BoardPermission {
@@ -23,6 +24,7 @@ impl From<BoardPermissionArg> for BoardPermission {
         match value {
             BoardPermissionArg::Private => Self::Private,
             BoardPermissionArg::Public => Self::Public,
+            BoardPermissionArg::Instance => Self::Instance,
         }
     }
 }
@@ -95,18 +97,6 @@ pub struct CreateArgs {
     #[arg(long, value_parser = trimmed_non_empty)]
     pub title: String,
 
-    /// User ID for the initial member; defaults to the caller.
-    #[arg(long, value_parser = trimmed_non_empty)]
-    pub owner: Option<String>,
-
-    /// Whether the initial member administers the board.
-    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
-    pub is_admin: bool,
-
-    /// Whether the initial member is active; false can make the board inaccessible.
-    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
-    pub is_active: bool,
-
     /// Board visibility.
     #[arg(long, value_enum, default_value = "private")]
     pub(super) permission: BoardPermissionArg,
@@ -114,18 +104,6 @@ pub struct CreateArgs {
     /// Board theme color.
     #[arg(long, value_enum, default_value = "belize")]
     pub(super) color: BoardColorArg,
-
-    /// Set the initial member's no-comments flag.
-    #[arg(long)]
-    pub no_comments: bool,
-
-    /// Set the initial member's comment-only flag.
-    #[arg(long)]
-    pub comment_only: bool,
-
-    /// Set the initial member's worker flag.
-    #[arg(long)]
-    pub worker: bool,
 }
 
 pub(super) async fn execute(
@@ -140,14 +118,8 @@ pub(super) async fn execute(
         .create_board(
             &CreateBoardRequest {
                 title: args.title,
-                owner: args.owner,
-                is_admin: args.is_admin,
-                is_active: args.is_active,
                 permission: args.permission.into(),
                 color: args.color.into(),
-                is_no_comments: args.no_comments,
-                is_comment_only: args.comment_only,
-                is_worker: args.worker,
             },
             context.record().token(),
         )

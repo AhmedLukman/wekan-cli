@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_COMMENT_E2E_URL"]
-async fn complete_comment_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_COMMENT_E2E_URL"]
+async fn complete_comment_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_COMMENT_E2E_URL")
-        .expect("set WEKAN_COMMENT_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_COMMENT_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -155,6 +155,30 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     assert_eq!(detail.card_id, card.card_id);
     assert_eq!(detail.text, "Initial comment");
     assert_eq!(detail.parent_id, None);
+    assert_eq!(detail.sync_comment_id, None);
+    super::support::attachment_fixtures::fixture_command(
+        "mongodb",
+        "mongosh",
+        "db.getSiblingDB('wekan').card_comments.updateOne({_id:p.id},{$set:{syncCommentId:'external-comment',webhookResponseRevision:'private-revision',webhookResponsePending:{checksum:'private-receipt'}}});print('{}');",
+        &serde_json::json!({"id":created.comment_id}),
+    );
+    let CommandSuccess::CommentShown(synced) = execute_live_comment(
+        &app,
+        &server,
+        &[
+            "get",
+            &created.comment_id,
+            "--board",
+            &board.board_id,
+            "--card",
+            &card.card_id,
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("synced comment")
+    };
+    assert_eq!(synced.sync_comment_id.as_deref(), Some("external-comment"));
 
     let raw_created = live_api_json(
         &http,
@@ -321,71 +345,48 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     assert_eq!(missing.details().server_reason, None);
 
     let nonexistent_card_id = format!("missing-card-{nonce}");
-    let CommandSuccess::CommentCollection(empty) = execute_live_comment(
-        &app,
+    let (_boundary_probe_dir, boundary_probe, _) = register_live_board_role(
         &server,
-        &[
+        &canonical_server,
+        &admin_token,
+        &board.board_id,
+        nonce + 10,
+        "normal",
+    )
+    .await;
+
+    for arguments in [
+        vec![
             "list",
             "--board",
             &board.board_id,
             "--card",
             &nonexistent_card_id,
         ],
-    )
-    .await
-    .expect("Wekan lists a nonexistent card as an empty comment collection") else {
-        panic!("expected empty comment collection")
-    };
-    assert!(empty.comments.is_empty());
-    let CommandSuccess::CommentCreated(orphan) = execute_live_comment(
-        &app,
-        &server,
-        &[
+        vec![
             "create",
             "--board",
             &board.board_id,
             "--card",
             &nonexistent_card_id,
             "--text",
-            "Orphan comment defect probe",
+            "Missing card regression",
         ],
-    )
-    .await
-    .expect("Wekan v11.06 permits comment creation for a nonexistent card") else {
-        panic!("expected orphan comment creation output")
-    };
-    let CommandSuccess::CommentShown(orphan_detail) = execute_live_comment(
-        &app,
-        &server,
-        &[
-            "get",
-            "--board",
-            &board.board_id,
-            "--card",
-            &nonexistent_card_id,
-            &orphan.comment_id,
-        ],
-    )
-    .await
-    .expect("the orphan comment must remain readable") else {
-        panic!("expected orphan comment detail")
-    };
-    assert_eq!(orphan_detail.card_id, nonexistent_card_id);
-    execute_live_comment(
-        &app,
-        &server,
-        &[
-            "delete",
-            "--board",
-            &board.board_id,
-            "--card",
-            &nonexistent_card_id,
-            &orphan.comment_id,
-            "--yes",
-        ],
-    )
-    .await
-    .expect("the orphan comment cleanup must succeed");
+    ] {
+        let actor = if arguments[0] == "create" {
+            &boundary_probe
+        } else {
+            &app
+        };
+        let error = execute_live_comment(actor, &server, &arguments)
+            .await
+            .expect_err("a nonexistent card must reject comment listing and insertion");
+        assert_eq!(error.details().http_status, Some(404));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("Card not found")
+        );
+    }
 
     let (_normal_directory, normal_app, _) = register_live_board_role(
         &server,
@@ -433,15 +434,23 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
     )
     .await;
 
-    for (role, role_app) in [("normal", &normal_app), ("read-only", &read_only_app)] {
-        execute_live_comment(
+    for (role, role_app) in [
+        ("normal", &normal_app),
+        ("comment-only", &comment_only_app),
+        ("worker", &worker_app),
+    ] {
+        let listing = execute_live_comment(
             role_app,
             &server,
             &["list", "--board", &board.board_id, "--card", &card.card_id],
         )
-        .await
-        .unwrap_or_else(|error| panic!("{role} comment listing must succeed: {error:?}"));
-        execute_live_comment(
+        .await;
+        if role == "normal" {
+            listing.unwrap();
+        } else {
+            assert_eq!(listing.unwrap_err().code(), ErrorCode::PermissionDenied);
+        }
+        let detail = execute_live_comment(
             role_app,
             &server,
             &[
@@ -453,8 +462,12 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
                 &created.comment_id,
             ],
         )
-        .await
-        .unwrap_or_else(|error| panic!("{role} comment lookup must succeed: {error:?}"));
+        .await;
+        if role == "normal" {
+            detail.unwrap();
+        } else {
+            assert_eq!(detail.unwrap_err().code(), ErrorCode::PermissionDenied);
+        }
         let CommandSuccess::CommentCreated(role_comment) = execute_live_comment(
             role_app,
             &server,
@@ -472,7 +485,7 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
         .unwrap_or_else(|error| panic!("{role} comment creation must succeed: {error:?}")) else {
             panic!("expected {role} comment creation output")
         };
-        execute_live_comment(
+        let deletion = execute_live_comment(
             role_app,
             &server,
             &[
@@ -485,13 +498,31 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
                 "--yes",
             ],
         )
-        .await
-        .unwrap_or_else(|error| panic!("{role} own-comment deletion must succeed: {error:?}"));
+        .await;
+        if role == "normal" {
+            deletion.unwrap();
+        } else {
+            assert_eq!(deletion.unwrap_err().code(), ErrorCode::PermissionDenied);
+            execute_live_comment(
+                &app,
+                &server,
+                &[
+                    "delete",
+                    &role_comment.comment_id,
+                    "--board",
+                    &board.board_id,
+                    "--card",
+                    &card.card_id,
+                    "--yes",
+                ],
+            )
+            .await
+            .unwrap();
+        }
     }
 
     for (role, role_app) in [
-        ("comment-only", &comment_only_app),
-        ("worker", &worker_app),
+        ("read-only", &read_only_app),
         ("no-comments", &no_comments_app),
     ] {
         for arguments in [
@@ -514,10 +545,14 @@ async fn complete_comment_lifecycle_matches_wekan_v11_06() {
                 "Denied comment",
             ],
         ] {
-            let error = execute_live_comment(role_app, &server, &arguments)
-                .await
-                .unwrap_err();
-            assert_eq!(error.code(), ErrorCode::PermissionDenied, "{role}");
+            let result = execute_live_comment(role_app, &server, &arguments).await;
+            if arguments[0] == "create" || role == "no-comments" {
+                let error = result.unwrap_err();
+                assert_eq!(error.code(), ErrorCode::PermissionDenied, "{role}");
+                assert_eq!(error.details().http_status, Some(403));
+            } else {
+                result.unwrap();
+            }
         }
     }
 

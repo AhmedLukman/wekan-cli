@@ -1,5 +1,6 @@
 pub(crate) mod attachment_fixtures;
 pub(crate) mod ddp;
+pub(crate) mod live;
 
 pub(crate) use std::{
     env, fs,
@@ -680,7 +681,7 @@ pub(crate) async fn live_api_json(
         .send()
         .await
         .expect("the live setup or cleanup request must complete");
-    assert!(response.status().is_success());
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
     let value: serde_json::Value = response
         .json()
         .await
@@ -738,12 +739,15 @@ pub(crate) async fn assert_token_is_rejected(canonical_server: &str, token: &str
         .await
         .expect("the rejected-token request must complete");
 
-    assert!(response.status().is_success());
+    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
     let body: serde_json::Value = response
         .json()
         .await
         .expect("the rejected-token response must be JSON");
-    assert_eq!(body["statusCode"], 401);
+    assert!(
+        body.get("error").is_some(),
+        "the rejected-token response must explain the failure"
+    );
 }
 
 #[derive(Debug)]

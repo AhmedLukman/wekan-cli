@@ -1,0 +1,15 @@
+{
+  "board": { "name": "Jira custom-field metadata regression" },
+  "wekanScrumMapping": { "estimateFieldId": "customfield_10001", "estimateUnit": "points" },
+  "issues": [
+    {
+      "key": "META-1",
+      "fields": {
+        "summary": "Jira estimates",
+        "status": { "name": "Todo" },
+        "customfield_10001": 5,
+        "timetracking": { "originalEstimateSeconds": 7200, "remainingEstimateSeconds": 3600 }
+      }
+    }
+  ]
+}

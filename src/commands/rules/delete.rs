@@ -22,7 +22,7 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Deletion requires confirmation or --yes and removes the rule together with its referenced trigger/action. Missing or wrongly scoped rules retain Wekan v11.06 HTTP 500 errors."
+    after_help = "Deletion requires confirmation or --yes and removes the rule together with its referenced trigger/action. Missing or wrongly scoped rules retain Wekan v12.57 HTTP 500 errors."
 )]
 pub struct DeleteArgs {
     #[command(flatten)]

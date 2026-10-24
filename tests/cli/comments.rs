@@ -11,7 +11,7 @@ fn comment_help_exposes_the_supported_lifecycle_and_text_field() {
         .stdout(predicate::str::contains("get"))
         .stdout(predicate::str::contains("create"))
         .stdout(predicate::str::contains("delete"))
-        .stdout(predicate::str::contains("update").not())
+        .stdout(predicate::str::contains("update"))
         .stderr(predicate::str::is_empty());
 
     wekan()

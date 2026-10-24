@@ -37,7 +37,7 @@ has the shape:
 }
 ```
 
-`swimlane get` maps the complete supported Wekan v11.06 document to
+`swimlane get` maps the complete supported Wekan v12.57 document to
 snake-case output. Wekan's `_id` becomes `swimlane_id` and `type` becomes
 `swimlane_type`. Optional archive/update dates, sort, color and height are
 present as their value or JSON `null`. Dates, colors, Wekan's `-1` or
@@ -60,7 +60,7 @@ An update reports the one supported field explicitly:
 
 ## Hard deletion
 
-Wekan v11.06 physically removes the swimlane. When fewer than two matching live
+Wekan v12.57 physically removes the swimlane. When fewer than two matching live
 lists exist, its removal hook physically removes those lists and their cards;
 otherwise it removes cards assigned to the swimlane and leaves the lists.
 Because those effects are destructive, `swimlane delete` requires interactive

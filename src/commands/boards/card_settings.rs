@@ -37,6 +37,48 @@ pub struct Target {
 
 #[derive(Debug, Args)]
 #[command(group(clap::ArgGroup::new("settings").required(true).multiple(true).args([
+    "allows_swimlane_dragging",
+    "allows_list_dragging",
+    "allows_card_dragging",
+    "allows_checklist_dragging",
+    "allows_checklist_item_dragging",
+    "allows_subtask_dragging",
+    "allows_minicard_collapse",
+    "labels_above_title_on_minicard",
+    "allows_checklist_due_date",
+    "allows_checklist_title",
+    "ask_for_move_reason",
+    "allows_comments_on_minicard",
+    "allows_spent_time",
+    "allows_spent_time_on_minicard",
+    "allows_swimlane_name_on_minicard",
+    "show_label_text",
+    "allows_stickers",
+    "allows_stickers_on_minicard",
+    "allows_location",
+    "allows_dependencies",
+    "allows_dependencies_on_minicard",
+    "allows_flowtime",
+    "allows_pomodoro",
+    "allows_vote",
+    "allows_vote_on_minicard",
+    "allows_poker",
+    "allows_poker_on_minicard",
+    "allows_text_notes",
+    "allows_comment_count_on_minicard",
+    "allows_issue_type_on_minicard",
+    "allows_card_color_on_card",
+    "allows_card_color_on_minicard",
+    "allows_parent_card_on_card",
+    "allows_parent_card_on_minicard",
+    "allows_linked_card_on_card",
+    "allows_linked_card_on_minicard",
+    "allows_card_buttons_on_card",
+    "allows_description_badge_on_minicard",
+    "allows_unread_comments_on_minicard",
+    "allows_card_collapse",
+    "allows_checklist_title_on_minicard",
+    "allows_label_text_on_card",
     "allows_card_counter_list",
     "card_aging",
     "allows_board_member_list",
@@ -84,8 +126,160 @@ pub struct Target {
     "card_aging_days1",
     "card_aging_days2",
     "card_aging_days3",
+    "allows_card_buttons_on_minicard",
+    "allows_description_badge_on_card",
+    "allows_unread_comments_on_card",
+    "allows_due_from_title_on_card",
+    "allows_due_from_title_on_minicard",
+    "allows_similar_cards_on_card",
+    "allows_similar_cards_on_minicard",
+    "allows_at_risk_on_card",
+    "allows_at_risk_on_minicard",
+    "allows_suggested_members_on_card",
+    "allows_forecast_on_card",
+    "allows_forecast_on_minicard",
+    "allows_checklist_from_description_on_card",
+    "allows_action_items_on_card",
+    "allows_whiteboard_on_card",
+    "labels_above_title_on_card",
+    "allows_checklist_due_date_on_minicard",
+    "allows_location_on_minicard",
+    "allows_swimlane_name_on_card",
+    "allows_flowtime_on_minicard",
+    "allows_pomodoro_on_minicard",
+    "allows_attachment_list_on_minicard",
+    "allows_text_notes_on_minicard",
+    "allows_comment_count_on_card",
+    "allows_activities_on_minicard",
 ])), after_help = "Supply at least one setting. Boolean flags require true or false; aging thresholds require nonnegative integer days. Raw API requests can expose Wekan's permissive coercions.")]
 pub struct UpdateArgs {
+    /// Update allows swimlane dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_swimlane_dragging: Option<bool>,
+    /// Update allows list dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_list_dragging: Option<bool>,
+    /// Update allows card dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_dragging: Option<bool>,
+    /// Update allows checklist dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_dragging: Option<bool>,
+    /// Update allows checklist item dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_item_dragging: Option<bool>,
+    /// Update allows subtask dragging.
+    #[arg(long, help_heading = "Display controls")]
+    allows_subtask_dragging: Option<bool>,
+    /// Update allows minicard collapse.
+    #[arg(long, help_heading = "Display controls")]
+    allows_minicard_collapse: Option<bool>,
+    /// Update labels above title on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    labels_above_title_on_minicard: Option<bool>,
+    /// Update allows checklist due date.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_due_date: Option<bool>,
+    /// Update allows checklist title.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_title: Option<bool>,
+    /// Update ask for move reason.
+    #[arg(long, help_heading = "Display controls")]
+    ask_for_move_reason: Option<bool>,
+    /// Update allows comments on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_comments_on_minicard: Option<bool>,
+    /// Update allows spent time.
+    #[arg(long, help_heading = "Display controls")]
+    allows_spent_time: Option<bool>,
+    /// Update allows spent time on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_spent_time_on_minicard: Option<bool>,
+    /// Update allows swimlane name on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_swimlane_name_on_minicard: Option<bool>,
+    /// Update show label text.
+    #[arg(long, help_heading = "Display controls")]
+    show_label_text: Option<bool>,
+    /// Update allows stickers.
+    #[arg(long, help_heading = "Display controls")]
+    allows_stickers: Option<bool>,
+    /// Update allows stickers on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_stickers_on_minicard: Option<bool>,
+    /// Update allows location.
+    #[arg(long, help_heading = "Display controls")]
+    allows_location: Option<bool>,
+    /// Update allows dependencies.
+    #[arg(long, help_heading = "Display controls")]
+    allows_dependencies: Option<bool>,
+    /// Update allows dependencies on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_dependencies_on_minicard: Option<bool>,
+    /// Update allows flowtime.
+    #[arg(long, help_heading = "Display controls")]
+    allows_flowtime: Option<bool>,
+    /// Update allows pomodoro.
+    #[arg(long, help_heading = "Display controls")]
+    allows_pomodoro: Option<bool>,
+    /// Update allows vote.
+    #[arg(long, help_heading = "Display controls")]
+    allows_vote: Option<bool>,
+    /// Update allows vote on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_vote_on_minicard: Option<bool>,
+    /// Update allows poker.
+    #[arg(long, help_heading = "Display controls")]
+    allows_poker: Option<bool>,
+    /// Update allows poker on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_poker_on_minicard: Option<bool>,
+    /// Update allows text notes.
+    #[arg(long, help_heading = "Display controls")]
+    allows_text_notes: Option<bool>,
+    /// Update allows comment count on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_comment_count_on_minicard: Option<bool>,
+    /// Update allows issue type on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_issue_type_on_minicard: Option<bool>,
+    /// Update allows card color on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_color_on_card: Option<bool>,
+    /// Update allows card color on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_color_on_minicard: Option<bool>,
+    /// Update allows parent card on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_parent_card_on_card: Option<bool>,
+    /// Update allows parent card on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_parent_card_on_minicard: Option<bool>,
+    /// Update allows linked card on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_linked_card_on_card: Option<bool>,
+    /// Update allows linked card on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_linked_card_on_minicard: Option<bool>,
+    /// Update allows card buttons on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_buttons_on_card: Option<bool>,
+    /// Update allows description badge on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_description_badge_on_minicard: Option<bool>,
+    /// Update allows unread comments on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_unread_comments_on_minicard: Option<bool>,
+    /// Update allows card collapse.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_collapse: Option<bool>,
+    /// Update allows checklist title on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_title_on_minicard: Option<bool>,
+    /// Update allows label text on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_label_text_on_card: Option<bool>,
+
     #[command(flatten)]
     target: Target,
     /// Show card counters on lists.
@@ -229,6 +423,81 @@ pub struct UpdateArgs {
     /// Idle days for aging tier 3 (0–9007199254740991).
     #[arg(long, value_parser = days, help_heading = "Card aging")]
     card_aging_days3: Option<u64>,
+    /// Show card buttons on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_card_buttons_on_minicard: Option<bool>,
+    /// Show description badge on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_description_badge_on_card: Option<bool>,
+    /// Show unread comments on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_unread_comments_on_card: Option<bool>,
+    /// Show due from title on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_due_from_title_on_card: Option<bool>,
+    /// Show due from title on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_due_from_title_on_minicard: Option<bool>,
+    /// Show similar cards on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_similar_cards_on_card: Option<bool>,
+    /// Show similar cards on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_similar_cards_on_minicard: Option<bool>,
+    /// Show at risk on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_at_risk_on_card: Option<bool>,
+    /// Show at risk on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_at_risk_on_minicard: Option<bool>,
+    /// Show suggested members on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_suggested_members_on_card: Option<bool>,
+    /// Show forecast on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_forecast_on_card: Option<bool>,
+    /// Show forecast on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_forecast_on_minicard: Option<bool>,
+    /// Show checklist from description on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_from_description_on_card: Option<bool>,
+    /// Show action items on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_action_items_on_card: Option<bool>,
+    /// Show whiteboard on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_whiteboard_on_card: Option<bool>,
+    /// Place labels above the title on opened cards.
+    #[arg(long, help_heading = "Display controls")]
+    labels_above_title_on_card: Option<bool>,
+    /// Show checklist due date on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_checklist_due_date_on_minicard: Option<bool>,
+    /// Show location on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_location_on_minicard: Option<bool>,
+    /// Show swimlane name on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_swimlane_name_on_card: Option<bool>,
+    /// Show flowtime on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_flowtime_on_minicard: Option<bool>,
+    /// Show pomodoro on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_pomodoro_on_minicard: Option<bool>,
+    /// Show attachment list on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_attachment_list_on_minicard: Option<bool>,
+    /// Show text notes on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_text_notes_on_minicard: Option<bool>,
+    /// Show comment count on card.
+    #[arg(long, help_heading = "Display controls")]
+    allows_comment_count_on_card: Option<bool>,
+    /// Show activities on minicard.
+    #[arg(long, help_heading = "Display controls")]
+    allows_activities_on_minicard: Option<bool>,
 }
 
 fn days(value: &str) -> Result<u64, String> {
@@ -269,6 +538,133 @@ pub(super) async fn dispatch(
         }
         CardSettingsCommand::Update(args) => {
             let mut submitted_fields = Vec::new();
+            if args.allows_swimlane_dragging.is_some() {
+                submitted_fields.push(Field::AllowsSwimlaneDragging);
+            }
+            if args.allows_list_dragging.is_some() {
+                submitted_fields.push(Field::AllowsListDragging);
+            }
+            if args.allows_card_dragging.is_some() {
+                submitted_fields.push(Field::AllowsCardDragging);
+            }
+            if args.allows_checklist_dragging.is_some() {
+                submitted_fields.push(Field::AllowsChecklistDragging);
+            }
+            if args.allows_checklist_item_dragging.is_some() {
+                submitted_fields.push(Field::AllowsChecklistItemDragging);
+            }
+            if args.allows_subtask_dragging.is_some() {
+                submitted_fields.push(Field::AllowsSubtaskDragging);
+            }
+            if args.allows_minicard_collapse.is_some() {
+                submitted_fields.push(Field::AllowsMinicardCollapse);
+            }
+            if args.labels_above_title_on_minicard.is_some() {
+                submitted_fields.push(Field::LabelsAboveTitleOnMinicard);
+            }
+            if args.allows_checklist_due_date.is_some() {
+                submitted_fields.push(Field::AllowsChecklistDueDate);
+            }
+            if args.allows_checklist_title.is_some() {
+                submitted_fields.push(Field::AllowsChecklistTitle);
+            }
+            if args.ask_for_move_reason.is_some() {
+                submitted_fields.push(Field::AskForMoveReason);
+            }
+            if args.allows_comments_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsCommentsOnMinicard);
+            }
+            if args.allows_spent_time.is_some() {
+                submitted_fields.push(Field::AllowsSpentTime);
+            }
+            if args.allows_spent_time_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsSpentTimeOnMinicard);
+            }
+            if args.allows_swimlane_name_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsSwimlaneNameOnMinicard);
+            }
+            if args.show_label_text.is_some() {
+                submitted_fields.push(Field::ShowLabelText);
+            }
+            if args.allows_stickers.is_some() {
+                submitted_fields.push(Field::AllowsStickers);
+            }
+            if args.allows_stickers_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsStickersOnMinicard);
+            }
+            if args.allows_location.is_some() {
+                submitted_fields.push(Field::AllowsLocation);
+            }
+            if args.allows_dependencies.is_some() {
+                submitted_fields.push(Field::AllowsDependencies);
+            }
+            if args.allows_dependencies_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsDependenciesOnMinicard);
+            }
+            if args.allows_flowtime.is_some() {
+                submitted_fields.push(Field::AllowsFlowtime);
+            }
+            if args.allows_pomodoro.is_some() {
+                submitted_fields.push(Field::AllowsPomodoro);
+            }
+            if args.allows_vote.is_some() {
+                submitted_fields.push(Field::AllowsVote);
+            }
+            if args.allows_vote_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsVoteOnMinicard);
+            }
+            if args.allows_poker.is_some() {
+                submitted_fields.push(Field::AllowsPoker);
+            }
+            if args.allows_poker_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsPokerOnMinicard);
+            }
+            if args.allows_text_notes.is_some() {
+                submitted_fields.push(Field::AllowsTextNotes);
+            }
+            if args.allows_comment_count_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsCommentCountOnMinicard);
+            }
+            if args.allows_issue_type_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsIssueTypeOnMinicard);
+            }
+            if args.allows_card_color_on_card.is_some() {
+                submitted_fields.push(Field::AllowsCardColorOnCard);
+            }
+            if args.allows_card_color_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsCardColorOnMinicard);
+            }
+            if args.allows_parent_card_on_card.is_some() {
+                submitted_fields.push(Field::AllowsParentCardOnCard);
+            }
+            if args.allows_parent_card_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsParentCardOnMinicard);
+            }
+            if args.allows_linked_card_on_card.is_some() {
+                submitted_fields.push(Field::AllowsLinkedCardOnCard);
+            }
+            if args.allows_linked_card_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsLinkedCardOnMinicard);
+            }
+            if args.allows_card_buttons_on_card.is_some() {
+                submitted_fields.push(Field::AllowsCardButtonsOnCard);
+            }
+            if args.allows_description_badge_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsDescriptionBadgeOnMinicard);
+            }
+            if args.allows_unread_comments_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsUnreadCommentsOnMinicard);
+            }
+            if args.allows_card_collapse.is_some() {
+                submitted_fields.push(Field::AllowsCardCollapse);
+            }
+            if args.allows_checklist_title_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsChecklistTitleOnMinicard);
+            }
+            if args.allows_label_text_on_card.is_some() {
+                submitted_fields.push(Field::AllowsLabelTextOnCard);
+            }
+
             if args.allows_card_counter_list.is_some() {
                 submitted_fields.push(Field::AllowsCardCounterList);
             }
@@ -410,7 +806,125 @@ pub(super) async fn dispatch(
             if args.card_aging_days3.is_some() {
                 submitted_fields.push(Field::CardAgingDays3);
             }
+            if args.allows_card_buttons_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsCardButtonsOnMinicard);
+            }
+            if args.allows_description_badge_on_card.is_some() {
+                submitted_fields.push(Field::AllowsDescriptionBadgeOnCard);
+            }
+            if args.allows_unread_comments_on_card.is_some() {
+                submitted_fields.push(Field::AllowsUnreadCommentsOnCard);
+            }
+            if args.allows_due_from_title_on_card.is_some() {
+                submitted_fields.push(Field::AllowsDueFromTitleOnCard);
+            }
+            if args.allows_due_from_title_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsDueFromTitleOnMinicard);
+            }
+            if args.allows_similar_cards_on_card.is_some() {
+                submitted_fields.push(Field::AllowsSimilarCardsOnCard);
+            }
+            if args.allows_similar_cards_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsSimilarCardsOnMinicard);
+            }
+            if args.allows_at_risk_on_card.is_some() {
+                submitted_fields.push(Field::AllowsAtRiskOnCard);
+            }
+            if args.allows_at_risk_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsAtRiskOnMinicard);
+            }
+            if args.allows_suggested_members_on_card.is_some() {
+                submitted_fields.push(Field::AllowsSuggestedMembersOnCard);
+            }
+            if args.allows_forecast_on_card.is_some() {
+                submitted_fields.push(Field::AllowsForecastOnCard);
+            }
+            if args.allows_forecast_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsForecastOnMinicard);
+            }
+            if args.allows_checklist_from_description_on_card.is_some() {
+                submitted_fields.push(Field::AllowsChecklistFromDescriptionOnCard);
+            }
+            if args.allows_action_items_on_card.is_some() {
+                submitted_fields.push(Field::AllowsActionItemsOnCard);
+            }
+            if args.allows_whiteboard_on_card.is_some() {
+                submitted_fields.push(Field::AllowsWhiteboardOnCard);
+            }
+            if args.labels_above_title_on_card.is_some() {
+                submitted_fields.push(Field::LabelsAboveTitleOnCard);
+            }
+            if args.allows_checklist_due_date_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsChecklistDueDateOnMinicard);
+            }
+            if args.allows_location_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsLocationOnMinicard);
+            }
+            if args.allows_swimlane_name_on_card.is_some() {
+                submitted_fields.push(Field::AllowsSwimlaneNameOnCard);
+            }
+            if args.allows_flowtime_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsFlowtimeOnMinicard);
+            }
+            if args.allows_pomodoro_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsPomodoroOnMinicard);
+            }
+            if args.allows_attachment_list_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsAttachmentListOnMinicard);
+            }
+            if args.allows_text_notes_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsTextNotesOnMinicard);
+            }
+            if args.allows_comment_count_on_card.is_some() {
+                submitted_fields.push(Field::AllowsCommentCountOnCard);
+            }
+            if args.allows_activities_on_minicard.is_some() {
+                submitted_fields.push(Field::AllowsActivitiesOnMinicard);
+            }
             let request = UpdateBoardCardSettingsRequest {
+                allows_swimlane_dragging: args.allows_swimlane_dragging,
+                allows_list_dragging: args.allows_list_dragging,
+                allows_card_dragging: args.allows_card_dragging,
+                allows_checklist_dragging: args.allows_checklist_dragging,
+                allows_checklist_item_dragging: args.allows_checklist_item_dragging,
+                allows_subtask_dragging: args.allows_subtask_dragging,
+                allows_minicard_collapse: args.allows_minicard_collapse,
+                labels_above_title_on_minicard: args.labels_above_title_on_minicard,
+                allows_checklist_due_date: args.allows_checklist_due_date,
+                allows_checklist_title: args.allows_checklist_title,
+                ask_for_move_reason: args.ask_for_move_reason,
+                allows_comments_on_minicard: args.allows_comments_on_minicard,
+                allows_spent_time: args.allows_spent_time,
+                allows_spent_time_on_minicard: args.allows_spent_time_on_minicard,
+                allows_swimlane_name_on_minicard: args.allows_swimlane_name_on_minicard,
+                show_label_text: args.show_label_text,
+                allows_stickers: args.allows_stickers,
+                allows_stickers_on_minicard: args.allows_stickers_on_minicard,
+                allows_location: args.allows_location,
+                allows_dependencies: args.allows_dependencies,
+                allows_dependencies_on_minicard: args.allows_dependencies_on_minicard,
+                allows_flowtime: args.allows_flowtime,
+                allows_pomodoro: args.allows_pomodoro,
+                allows_vote: args.allows_vote,
+                allows_vote_on_minicard: args.allows_vote_on_minicard,
+                allows_poker: args.allows_poker,
+                allows_poker_on_minicard: args.allows_poker_on_minicard,
+                allows_text_notes: args.allows_text_notes,
+                allows_comment_count_on_minicard: args.allows_comment_count_on_minicard,
+                allows_issue_type_on_minicard: args.allows_issue_type_on_minicard,
+                allows_card_color_on_card: args.allows_card_color_on_card,
+                allows_card_color_on_minicard: args.allows_card_color_on_minicard,
+                allows_parent_card_on_card: args.allows_parent_card_on_card,
+                allows_parent_card_on_minicard: args.allows_parent_card_on_minicard,
+                allows_linked_card_on_card: args.allows_linked_card_on_card,
+                allows_linked_card_on_minicard: args.allows_linked_card_on_minicard,
+                allows_card_buttons_on_card: args.allows_card_buttons_on_card,
+                allows_description_badge_on_minicard: args.allows_description_badge_on_minicard,
+                allows_unread_comments_on_minicard: args.allows_unread_comments_on_minicard,
+                allows_card_collapse: args.allows_card_collapse,
+                allows_checklist_title_on_minicard: args.allows_checklist_title_on_minicard,
+                allows_label_text_on_card: args.allows_label_text_on_card,
+
                 allows_card_counter_list: args.allows_card_counter_list,
                 card_aging: args.card_aging,
                 allows_board_member_list: args.allows_board_member_list,
@@ -459,6 +973,32 @@ pub(super) async fn dispatch(
                 card_aging_days1: args.card_aging_days1,
                 card_aging_days2: args.card_aging_days2,
                 card_aging_days3: args.card_aging_days3,
+                allows_card_buttons_on_minicard: args.allows_card_buttons_on_minicard,
+                allows_description_badge_on_card: args.allows_description_badge_on_card,
+                allows_unread_comments_on_card: args.allows_unread_comments_on_card,
+                allows_due_from_title_on_card: args.allows_due_from_title_on_card,
+                allows_due_from_title_on_minicard: args.allows_due_from_title_on_minicard,
+                allows_similar_cards_on_card: args.allows_similar_cards_on_card,
+                allows_similar_cards_on_minicard: args.allows_similar_cards_on_minicard,
+                allows_at_risk_on_card: args.allows_at_risk_on_card,
+                allows_at_risk_on_minicard: args.allows_at_risk_on_minicard,
+                allows_suggested_members_on_card: args.allows_suggested_members_on_card,
+                allows_forecast_on_card: args.allows_forecast_on_card,
+                allows_forecast_on_minicard: args.allows_forecast_on_minicard,
+                allows_checklist_from_description_on_card: args
+                    .allows_checklist_from_description_on_card,
+                allows_action_items_on_card: args.allows_action_items_on_card,
+                allows_whiteboard_on_card: args.allows_whiteboard_on_card,
+                labels_above_title_on_card: args.labels_above_title_on_card,
+                allows_checklist_due_date_on_minicard: args.allows_checklist_due_date_on_minicard,
+                allows_location_on_minicard: args.allows_location_on_minicard,
+                allows_swimlane_name_on_card: args.allows_swimlane_name_on_card,
+                allows_flowtime_on_minicard: args.allows_flowtime_on_minicard,
+                allows_pomodoro_on_minicard: args.allows_pomodoro_on_minicard,
+                allows_attachment_list_on_minicard: args.allows_attachment_list_on_minicard,
+                allows_text_notes_on_minicard: args.allows_text_notes_on_minicard,
+                allows_comment_count_on_card: args.allows_comment_count_on_card,
+                allows_activities_on_minicard: args.allows_activities_on_minicard,
             };
             let settings = context
                 .client()

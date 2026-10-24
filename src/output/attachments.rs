@@ -3,7 +3,7 @@ use crate::command_result::{AttachmentCollectionSuccess, AttachmentScope};
 pub(super) fn list(data: &AttachmentCollectionSuccess) -> String {
     let mut lines = Vec::new();
     if data.requested_scope != AttachmentScope::Board {
-        lines.push("Warning: Wekan v11.06 ignores swimlane/list/card selectors; these are all board attachments.".to_owned());
+        lines.push("Warning: Wekan v12.57 ignores swimlane/list/card selectors; these are all board attachments.".to_owned());
     }
     lines.push(format!("{} attachment(s)", data.count));
     for attachment in &data.attachments {

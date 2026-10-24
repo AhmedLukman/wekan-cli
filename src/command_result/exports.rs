@@ -13,7 +13,8 @@ impl Eq for StagedExport {}
 #[derive(Debug, Eq, PartialEq, Serialize)]
 pub struct ExportSuccess {
     pub resource: ExportResource,
-    pub board_id: String,
+    pub board_id: Option<String>,
+    pub chart_key: Option<String>,
     pub list_id: Option<String>,
     pub card_id: Option<String>,
     pub attachment_id: Option<String>,
@@ -30,6 +31,8 @@ pub struct ExportSuccess {
 #[serde(rename_all = "snake_case")]
 pub enum ExportResource {
     Board,
+    Boards,
+    Chart,
     Card,
     Attachment,
 }
@@ -40,17 +43,37 @@ impl ExportSuccess {
         destination: String,
         response: ExportMetadata,
     ) -> Self {
-        let (resource, board_id, list_id, card_id, attachment_id) = match target {
-            ExportTarget::Board { board_id } => (ExportResource::Board, board_id, None, None, None),
+        let (resource, board_id, list_id, card_id, attachment_id, chart_key) = match target {
+            ExportTarget::AllBoards => (ExportResource::Boards, None, None, None, None, None),
+            ExportTarget::Chart {
+                board_id,
+                chart_key,
+            } => (
+                ExportResource::Chart,
+                Some(board_id),
+                None,
+                None,
+                None,
+                Some(chart_key),
+            ),
+            ExportTarget::Board { board_id } => (
+                ExportResource::Board,
+                Some(board_id),
+                None,
+                None,
+                None,
+                None,
+            ),
             ExportTarget::Card {
                 board_id,
                 list_id,
                 card_id,
             } => (
                 ExportResource::Card,
-                board_id,
+                Some(board_id),
                 Some(list_id),
                 Some(card_id),
+                None,
                 None,
             ),
             ExportTarget::Attachment {
@@ -58,15 +81,17 @@ impl ExportSuccess {
                 attachment_id,
             } => (
                 ExportResource::Attachment,
-                board_id,
+                Some(board_id),
                 None,
                 None,
                 Some(attachment_id),
+                None,
             ),
         };
         Self {
             resource,
             board_id,
+            chart_key,
             list_id,
             card_id,
             attachment_id,

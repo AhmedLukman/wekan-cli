@@ -13,6 +13,9 @@ pub struct CreateArgs {
     /// Wekan user ID for which to issue a token.
     #[arg(value_parser = super::super::non_empty)]
     user_id: String,
+    /// Required administrator audit reason for issuing this user's token.
+    #[arg(long, value_parser = reason)]
+    reason: String,
 }
 
 pub(super) async fn execute(
@@ -23,7 +26,7 @@ pub(super) async fn execute(
     let context = AuthenticatedContext::load(factory, store)?;
     let response = context
         .client()
-        .create_user_token(&args.user_id, context.record().token())
+        .create_user_token(&args.user_id, &args.reason, context.record().token())
         .await
         .map_err(|e| {
             map_client_error(
@@ -35,4 +38,13 @@ pub(super) async fn execute(
     Ok(CommandSuccess::UserTokenCreated(
         UserTokenCreateSuccess::new(response.user_id, response.auth_token),
     ))
+}
+
+fn reason(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        Err("a nonempty token issuance reason is required".into())
+    } else {
+        Ok(value.into())
+    }
 }

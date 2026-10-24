@@ -9,7 +9,13 @@ when the profile is decoded for `auth status`. `list_constraints` retains
 dynamic board/list IDs with numeric values; fractions, zero, and negative
 numbers are preserved without applying anonymous-browser storage limits.
 
-The `wekan user` family covers the complete Wekan v11.06 `/api/user`,
+Profile notifications expose `activity`, nullable `read`, and nullable `show_at`.
+`show_at` preserves Wekan's numeric milliseconds since Unix epoch for scheduled
+tray delivery or quiet hours. It is null when Wekan omits `showAt` for immediate
+delivery without quiet hours. An explicit upstream null or a nonnumeric `showAt`
+is a protocol error.
+
+The `wekan user` family covers the complete Wekan v12.57 `/api/user`,
 `/api/users`, and API token REST slice: ten operations across seven paths. Every command
 requires an existing profile and a stored credential whose expiry is still in the future.
 
@@ -25,7 +31,7 @@ wekan user take-ownership <USER_ID> [--yes]
 wekan user disable-login <USER_ID> [--yes]
 wekan user enable-login <USER_ID>
 wekan user delete <USER_ID> [--yes]
-wekan user token create <USER_ID>
+wekan user token create <USER_ID> --reason <TEXT>
 wekan user token delete <USER_ID> (--token-stdin | --all) [--yes]
 ```
 
@@ -44,8 +50,7 @@ boards readable by the caller where the caller is a card member, assignee,
 requester, or assigner. `--due` requires a due date. `--from` and `--to` accept
 timestamps, date-only and textual dates interpreted by Wekan. Either bound
 enables due-date filtering; a reversed valid range returns an empty array. Missing or
-invalid authentication is an HTTP 401 response on this route, unlike the
-HTTP-200 embedded authentication error returned by `GET /api/user`.
+invalid authentication returns HTTP 401 on both this route and `GET /api/user`.
 
 `list`, `get`, `update`, `create`, `take-ownership`, `disable-login`, `enable-login`,
 `delete`, and both `token` commands require a Wekan site administrator. `get` accepts a user ID or
@@ -73,8 +78,7 @@ Supply at least one nonempty `--username` or `--email`. Both may be supplied;
 an omitted complement is sent as an explicit empty string, as required by the
 pinned route for username-only and email-only accounts.
 
-Successful creation reports the supplied username and email. Wekan v11.06
-returns `_id: {}`, so the CLI exposes `user_id: null`:
+Successful creation reports the supplied username, email, and the created user ID:
 
 ```json
 {
@@ -82,7 +86,7 @@ returns `_id: {}`, so the CLI exposes `user_id: null`:
   "data": {
     "username": "bob",
     "email": "bob@example.com",
-    "user_id": null
+    "user_id": "created-user-id"
   }
 }
 ```
@@ -90,7 +94,7 @@ returns `_id: {}`, so the CLI exposes `user_id: null`:
 ## Administrative actions and safety
 
 `take-ownership` sends Wekan's explicit `takeOwnership` action and returns
-selected board summaries. Wekan v11.06 selects boards containing the target
+selected board summaries. Wekan v12.57 selects boards containing the target
 user's membership and any administrator membership; those can be different
 members. The target can therefore be inactive or a non-administrator. The
 server replaces that membership's user ID with the caller's ID, preserving its
@@ -99,19 +103,15 @@ confirm completed transfers: Wekan starts the changes without awaiting them.
 Inspect membership readback before relying on the result.
 
 Self-targeting is sent after confirmation. When
-another active board administrator exists, Wekan v11.06 can deactivate the
+another active board administrator exists, Wekan v12.57 can deactivate the
 caller's membership; the CLI preserves that upstream defect.
 
 `disable-login` sends `disableLogin`, sets the target's `loginDisabled` field,
 and clears their existing Wekan sessions. Self-targeting is sent after
 confirmation; Wekan's pinned route returns the unchanged user and does not
-disable the caller. Wekan v11.06's REST login handler does not inspect
-`loginDisabled`, so
-correct credentials can still create a new REST session; this is documented as
-an upstream defect rather than reported as confirmed access prevention.
-`enable-login` sends `enableLogin` and needs no confirmation. Wekan v11.06
-omits `loginDisabled` from the returned and later user documents after enabling
-login, so the CLI outputs `login_disabled: null`.
+disable the caller. Disabled accounts cannot start new REST sessions.
+`enable-login` sends `enableLogin` and needs no confirmation. It returns
+`login_disabled: false` after enabling the account.
 
 Ownership transfer, login disabling, and deletion prompt interactively and
 default to no. Non-interactive and JSON invocations must pass command-local
@@ -134,7 +134,7 @@ that partial result from a failure before the HTTP request.
 
 ## API tokens
 
-`user token create <USER_ID>` sends one bodyless `POST /api/createtoken/{user}`.
+`user token create <USER_ID> --reason <TEXT>` sends one JSON `POST /api/createtoken/{user}` containing the required administrative audit reason. Wekan rejects unknown users with HTTP 404 before issuing a token.
 It returns `user_id` and `auth_token` in the standard success envelope. Human
 output reports that Wekan returned a token and prints the secret. There is no returned
 expiry, token listing, token import, or automatic credential storage. The request
@@ -154,19 +154,15 @@ The server's message can contain the target secret; the CLI redacts both that
 secret and its authentication credential in the message and in error details.
 Debug output never reveals tokens. Human rendering escapes terminal controls.
 
-Wekan v11.06 has two verified limitations:
-
-- **Single-token deletion acknowledges raw tokens without revoking them.** Its
-  Accounts implementation compares the supplied string with stored `hashedToken`
-  or legacy `token` fields without hashing it. A supplied stored hash matches;
-  the CLI forwards input unchanged and never computes or substitutes a hash.
-  Nonexistent tokens and users also receive successful responses.
-- **Creation for a nonexistent user returns an unusable token.** The response
-  does not prove that the user exists or that a session was persisted.
+Single-token deletion sends the supplied token unchanged. W11-058 remains:
+Wekan acknowledges a raw issued token without revoking it because its account
+API compares that value directly with stored hashes. Other sessions remain
+valid. Nonexistent tokens and users also receive an acknowledgment. The CLI
+does not hash, retry, or substitute a delete-all request.
 
 Delete-all revokes every existing session for the selected user, including the
 caller's own session when targeting itself. Live readback confirms the saved
-token field is removed; ordinary password login can create a new session afterward.
+token array is empty; ordinary password login can create a new session afterward.
 These commands retain profiles and local vault entries. To remove a credential
 that was revoked remotely, run `wekan auth logout --local-only --yes`, then log in.
 Self-targeted delete-all holds the selected credential's mutation lock through
@@ -177,10 +173,11 @@ Examples (PowerShell):
 
 ```powershell
 # This success output contains the issued secret.
-$issued = wekan --output json user token create $userId | ConvertFrom-Json
+$issued = wekan --output json user token create $userId --reason "Automation access" | ConvertFrom-Json
 $issued.data.auth_token
 
-# Native single-token request: a raw issued token does not match in v11.06.
+# Request deletion of the raw issued token; Wekan v12.57 acknowledges it
+# without revoking it (W11-058).
 $issued.data.auth_token | wekan user token delete $userId --token-stdin --yes
 
 # Revoke all existing sessions for the target user.
@@ -198,8 +195,11 @@ resource-focused shape. Stable scalar/output names include `user_id`, `username`
 `full_name`, `emails`, `is_admin`, `login_disabled`, `authentication_method`,
 `created_at`, `modified_at`, and `last_connection_date`, plus typed organization,
 team, and board-role memberships. The complete `profile` is always an object
-with snake_case keys. `created_through_api`, `heartbeat`,
+with snake_case keys. `created_through_api`, `heartbeat`, `feature_preview`, `inactivity_clock_start`,
+`login_disabled_reason`, `anonymized`, `anonymized_at`, `notification_delivery_revision`,
 `session_data.total_hits`, and `import_usernames` retain mapped metadata.
+Board-role memberships include `granted_by` group grants and `custom_role_id`;
+both are null when absent.
 
 Optional scalars are null. Top-level collections are arrays; optional arrays
 and maps inside `profile`, including workspace `children`, are null when absent.
@@ -211,7 +211,7 @@ Collection data is `{"users":[...]}` for `user list`, `{"cards":[...]}` for
 `user cards`, and `{"user_id":"...","boards":[...]}` for `user boards`.
 Login actions return `{"action":"disabled|enabled","user":{...}}`.
 Ownership transfer returns `from_user_id`, `to_user_id`, and the affected `boards`.
-Deletion returns `user_id`, `deletion_requested`, `deleted_current_user`,
+Deletion returns `user_id`, `deleted`, `deleted_current_user`,
 `credential_stored`, and `local_credential_removed`; the last three describe
 self-delete cleanup.
 Verified HTTP or embedded status 403 maps to `permission_denied`.
@@ -226,4 +226,13 @@ credential. Invalid or rejected bearer credentials remain
 `server_error`, `server_reason`, `server_message`, `server_error_type`, and
 `server_is_client_safe` fields.
 
-Creation and deletion report accepted requests because duplicate creation and missing-user deletion can change no accounts. Token creation reports a returned token; single-token deletion reports acceptance and explains raw-token matching. Login disabling describes the returned flag and the REST-login defect. Delete-all and ownership transfer retain direct success wording. User deletion returns `deletion_requested` instead of `deleted`.
+Creation returns the created user ID; deletion returns `deleted: true` after
+the native endpoint confirms a matched user. Deleting a missing user returns
+HTTP 404. Missing-user lookup still returns safe HTTP 500 and `server_error`;
+an update against a missing user returns an empty HTTP 200 body, which strict
+typed decoding reports as `protocol_error` with the native status retained
+(W11-015). These responses are not generalized to a not-found result.
+Token creation returns the issued secret; single-token deletion reports request
+acceptance and explains W11-058. Login disabling now blocks REST sign-in.
+Ownership transfer reports a requested action because the native ownership
+change remains unawaited.

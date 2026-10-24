@@ -2,6 +2,9 @@ use super::support::*;
 use serde_json::{Value, json};
 use wekan_cli::command_result::{CustomFieldDetail, CustomFieldSubmittedField};
 
+#[path = "custom_fields/metadata.rs"]
+mod metadata;
+
 struct Target<'a> {
     app: &'a App<CapturingStore, FixedPassword, FileProfileStore>,
     server: &'a str,
@@ -108,10 +111,10 @@ fn assert_missing_definition_metadata(error: &AppError) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v11.06 stack and WEKAN_CUSTOM_FIELD_E2E_URL"]
-async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_CUSTOM_FIELD_E2E_URL"]
+async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_CUSTOM_FIELD_E2E_URL")
-        .expect("set WEKAN_CUSTOM_FIELD_E2E_URL to an isolated Wekan v11.06 stack");
+        .expect("set WEKAN_CUSTOM_FIELD_E2E_URL to an isolated Wekan v12.57 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -216,10 +219,13 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         "checkbox",
         "currency",
         "stringtemplate",
+        "dropdownMultiSelect",
     ] {
         let settings = match field_type {
             "currency" => r#"{"currencyCode":"USD"}"#,
-            "dropdown" => r#"{"dropdownItems":[{"_id":"initial","name":"Initial"}]}"#,
+            "dropdown" | "dropdownMultiSelect" => {
+                r#"{"dropdownItems":[{"_id":"initial","name":"Initial"}]}"#
+            }
             "stringtemplate" => r#"{"stringtemplateFormat":"{$a}","stringtemplateSeparator":", "}"#,
             _ => "{}",
         };
@@ -256,6 +262,9 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         assert!(!detail.always_on_card);
         assert!(!detail.show_sum_at_top_of_list);
         assert!(detail.created_at.is_some());
+        assert!(detail.settings.jira_time_field.is_none());
+        assert!(detail.settings.jira_estimate_field_id.is_none());
+        assert!(detail.settings.jira_estimate_unit.is_none());
         fields.push(created.custom_field_id);
     }
     let text = &fields[0];
@@ -264,7 +273,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
     else {
         panic!("expected collection")
     };
-    assert_eq!(collection.custom_fields.len(), 7);
+    assert_eq!(collection.custom_fields.len(), 8);
     for (index, summary) in collection.custom_fields.iter().enumerate() {
         assert_eq!(summary.custom_field_id, fields[index]);
     }
@@ -356,13 +365,15 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         panic!("expected field creation")
     };
     for id in addressable_ids {
-        target
+        let error = target
             .item(
                 &addressable_field.custom_field_id,
                 &["update", id, "--name", "Changed"],
             )
             .await
-            .unwrap();
+            .expect_err("W12-001: positional dropdown updates fail in the v12.57 field guard");
+        assert_eq!(error.code(), ErrorCode::ServerError);
+        assert_eq!(error.details().http_status, Some(500));
     }
     let items = target
         .detail(&addressable_field.custom_field_id)
@@ -377,7 +388,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             .collect::<Vec<_>>(),
         addressable_ids
     );
-    assert!(items.iter().all(|item| item.name == "Changed"));
+    assert!(items.iter().all(|item| item.name == "Option"));
     for (index, id) in addressable_ids.iter().enumerate() {
         target
             .item(&addressable_field.custom_field_id, &["delete", id, "--yes"])
@@ -458,6 +469,9 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         assert!(detail.settings.dropdown_items.is_none());
         assert!(detail.settings.stringtemplate_format.is_none());
         assert!(detail.settings.stringtemplate_separator.is_none());
+        assert!(detail.settings.jira_time_field.is_none());
+        assert!(detail.settings.jira_estimate_field_id.is_none());
+        assert!(detail.settings.jira_estimate_unit.is_none());
         let rendered: Value = serde_json::from_str(&wekan_cli::output::render_success(
             OutputFormat::Json,
             &CommandSuccess::CustomFieldShown(detail),
@@ -470,6 +484,9 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
                 "dropdown_items": null,
                 "stringtemplate_format": null,
                 "stringtemplate_separator": null,
+                "jira_time_field": null,
+                "jira_estimate_field_id": null,
+                "jira_estimate_unit": null,
             })
         );
     }
@@ -537,13 +554,15 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
         .item(dropdown, &["update", &items[1].item_id])
         .await
         .unwrap();
-    target
+    let error = target
         .item(
             dropdown,
             &["update", &items[1].item_id, "--name", "Renamed"],
         )
         .await
-        .unwrap();
+        .expect_err("W12-001: a matched name update returns HTTP 500");
+    assert_eq!(error.code(), ErrorCode::ServerError);
+    assert_eq!(error.details().http_status, Some(500));
     assert_eq!(
         target
             .detail(dropdown)
@@ -552,7 +571,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             .dropdown_items
             .unwrap()[1]
             .name,
-        "Renamed"
+        "Ready"
     );
     for _ in 0..2 {
         let result = target
@@ -1022,7 +1041,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
             ],
         ] {
             let result = role_target.run(&args).await;
-            if role == "normal" {
+            if matches!(role, "normal" | "nocomments") {
                 result.unwrap();
             } else {
                 assert_eq!(
@@ -1147,4 +1166,5 @@ async fn complete_custom_field_lifecycle_matches_wekan_v11_06() {
     execute_live_board(&app, &server, &["delete", &second.board_id, "--yes"])
         .await
         .unwrap();
+    metadata::verify(&server).await;
 }

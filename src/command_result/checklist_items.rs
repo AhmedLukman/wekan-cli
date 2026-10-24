@@ -3,6 +3,9 @@ use serde_json::Number;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ChecklistItemDetail {
+    pub assignee_id: Option<String>,
+    pub linked_card_id: Option<String>,
+    pub due_at: Option<String>,
     pub item_id: String,
     pub title: String,
     pub sort: Number,
@@ -51,6 +54,7 @@ pub enum ChecklistItemDeleteMode {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChecklistItemSubmittedField {
+    DueAt,
     Title,
     IsFinished,
 }

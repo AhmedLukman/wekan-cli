@@ -15,6 +15,11 @@ use super::{
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct ChecklistItemDocument {
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub assignee_id: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub linked_card_id: Option<String>,
+    pub due_at: Option<String>,
     #[serde(rename(deserialize = "_id", serialize = "item_id"))]
     pub item_id: String,
     pub title: String,
@@ -22,7 +27,7 @@ pub struct ChecklistItemDocument {
     pub is_finished: bool,
     pub checklist_id: String,
     pub card_id: String,
-    /// Denormalized metadata; v11.06 REST card moves can leave the source board ID.
+    /// Denormalized metadata; v12.57 REST card moves can leave the source board ID.
     pub board_id: Option<String>,
     pub user_id: Option<String>,
     pub created_at: Option<String>,
@@ -46,6 +51,8 @@ pub enum ChecklistItemFinishedInput {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CreateChecklistItemRequest {
+    #[serde(rename = "dueAt", skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort: Option<ChecklistItemSortInput>,
@@ -54,6 +61,8 @@ pub struct CreateChecklistItemRequest {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateChecklistItemRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -124,6 +133,9 @@ impl WekanClient {
             ));
         }
         require_date(&item.modified_at)?;
+        if let Some(date) = &item.due_at {
+            require_date(date)?;
+        }
         if let Some(date) = &item.created_at {
             require_date(date)?;
         }

@@ -16,6 +16,7 @@ use wiremock::{
 
 fn document() -> PreparedImportRequest<BoardImportRequest> {
     PreparedImportRequest::new(&BoardImportRequest {
+        options: Default::default(),
         board: json!({"name":"Delivery","extension":{"keep":true}}),
         members_mapping: Some([("source".into(), "local".into())].into()),
     })
@@ -82,7 +83,7 @@ async fn exact_requests_preserve_prefix_content_mapping_bytes_and_each_auth_form
             .mount(&server)
             .await;
         let result = client_from_url(&format!("{}/wekan/", server.uri()))
-            .import_trello_zip(Cursor::new(bytes), 6, &token, auth, None)
+            .import_trello_zip(Cursor::new(bytes), 6, &token, auth, None, None)
             .await
             .unwrap();
         assert_eq!(result.errors, Some(vec![]));
@@ -142,6 +143,7 @@ async fn response_shapes_are_strict_and_scalar_failed_names_keep_their_types() {
                     &user_token(),
                     TrelloImportAuth::Bearer,
                     None,
+                    None,
                 )
                 .await
         } else {
@@ -162,6 +164,7 @@ async fn response_shapes_are_strict_and_scalar_failed_names_keep_their_types() {
             1,
             &user_token(),
             TrelloImportAuth::Bearer,
+            None,
             None,
         )
         .await
@@ -275,4 +278,33 @@ fn coverage_row_lists_every_parser_option_and_variant() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn trello_zip_members_mode_uses_the_native_query_without_changing_bytes() {
+    let server = MockServer::start().await;
+    let bytes = b"PK\0\xff".to_vec();
+    Mock::given(method("POST"))
+        .and(path("/import-trello"))
+        .and(wiremock::matchers::query_param("membersMode", "me"))
+        .and(header("authorization", "Bearer user-token"))
+        .and(body_bytes(bytes.clone()))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"boardIds":["b"],"errors":[]})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = client(&server)
+        .import_trello_zip(
+            Cursor::new(bytes),
+            4,
+            &user_token(),
+            TrelloImportAuth::Bearer,
+            Some("me"),
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.board_ids, vec!["b"]);
 }

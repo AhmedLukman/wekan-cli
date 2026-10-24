@@ -96,7 +96,7 @@ fn built_in_trigger_description_round_trips_and_custom_properties_still_reject()
         let request: CreateRuleRequest = serde_json::from_value(input.clone()).unwrap();
         assert_eq!(serde_json::to_value(request).unwrap(), input);
         let document: RuleDocument = serde_json::from_value(
-            json!({"_id":"rule-1","title":"Rule","trigger":{"description":value},"action":{}}),
+            json!({"_id":"rule-1","title":"Rule","enabled":true,"trigger":{"description":value},"action":{}}),
         )
         .unwrap();
         assert_eq!(
@@ -130,6 +130,14 @@ fn generated_contract_preserves_verified_audit_corrections() {
         .filter(|operation| operation.get("operationId").is_some())
         .collect();
     let operation = |id: &str| *operations.iter().find(|o| o["operationId"] == id).unwrap();
+    let body = |id: &str| {
+        &operation(id)["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|parameter| parameter["in"] == "body")
+            .unwrap()["schema"]
+    };
     for id in [
         "login",
         "update_attachment_settings",
@@ -167,13 +175,13 @@ fn generated_contract_preserves_verified_audit_corrections() {
         "update_global_settings",
         "post_users",
         "put_user",
-        "edit_board_card_settings",
+        "update_board_card_settings",
         "import_ics",
-        "create_board",
-        "update_board_title",
-        "add_board_label",
-        "copy_board",
-        "update_board_member_permissions",
+        "post_boards",
+        "put_board_title",
+        "put_board_labels",
+        "post_board_copy",
+        "post_board_member",
     ] {
         assert!(
             operation(id)["consumes"]
@@ -189,7 +197,7 @@ fn generated_contract_preserves_verified_audit_corrections() {
         "copy_attachment",
         "move_attachment",
     ] {
-        for media in ["text/plain", "application/octet-stream"] {
+        for media in ["application/json", "text/plain", "application/octet-stream"] {
             assert!(
                 operation(id)["consumes"]
                     .as_array()
@@ -199,78 +207,324 @@ fn generated_contract_preserves_verified_audit_corrections() {
             );
         }
     }
-    let definitions = &spec["definitions"];
+    // The Rust byte vectors use a custom base64 serializer: schemas must
+    // describe their JSON wire form rather than their in-memory array type.
+    for schema in [
+        &body("upload_attachment")["properties"]["fileData"],
+        &body("upload_board_background")["properties"]["fileData"],
+        &spec["definitions"]["VerifiedAttachmentsUploadAttachmentRequest"]["properties"]["fileData"],
+        &spec["definitions"]["VerifiedAttachmentsUploadBackgroundRequest"]["properties"]["fileData"],
+    ] {
+        assert_eq!(schema["type"], "string");
+        assert_eq!(schema["format"], "byte");
+        assert!(schema.get("items").is_none());
+    }
+    let native_enabled = &body("edit_board_rule")["properties"]["enabled"];
+    assert_eq!(native_enabled["x-nullable"], true);
+    assert!(
+        native_enabled["description"]
+            .as_str()
+            .unwrap()
+            .contains("null as false")
+    );
+    let typed_enabled =
+        &spec["definitions"]["VerifiedRulesUpdateRuleRequest"]["properties"]["enabled"];
+    assert_eq!(typed_enabled["type"], "boolean");
+    assert_ne!(typed_enabled["x-nullable"], true);
     let types = |schema: &Value, name: &str| {
         schema["type"] == name
             || schema["x-oneOf"]
                 .as_array()
-                .is_some_and(|a| a.iter().any(|v| v["type"] == name))
+                .is_some_and(|variants| variants.iter().any(|variant| variant["type"] == name))
     };
-    for (definition, field, kind) in [
-        ("ChecklistItemCreateRequest", "sort", "object"),
-        ("BoardTitleResponse", "title", "number"),
-        ("CardUpdateRequest", "archive", "array"),
-        ("ChecklistItemUpdateRequest", "isFinished", "number"),
-        ("CustomFieldUpdateRequest", "name", "boolean"),
-        ("CardLocationRequest", "latitude", "array"),
-        ("CardCopyRequest", "position", "object"),
-        ("RestSettingsUpdate", "productName", "number"),
+    // Native raw inputs retain their verified coercions. Typed command inputs
+    // deliberately accept their narrower, explicit Rust types.
+    for (id, field, kind) in [
+        ("post_board_card_checklist_items", "sort", "object"),
+        ("put_board_list_card", "archive", "array"),
+        ("put_board_card_checklist_item", "isFinished", "number"),
+        ("put_board_customField", "name", "boolean"),
+        ("post_board_list_card_copy", "position", "object"),
+        ("update_global_settings", "productName", "number"),
     ] {
-        assert!(
-            types(&definitions[definition]["properties"][field], kind),
-            "{definition}.{field}"
-        );
+        assert!(types(&body(id)["properties"][field], kind), "{id}.{field}");
     }
+    assert!(types(
+        &body("put_board_list_card")["properties"]["locations"]["items"]["properties"]["latitude"],
+        "array"
+    ));
+    assert!(types(
+        &operation("put_board_title")["responses"]["200"]["schema"]["properties"]["title"],
+        "number"
+    ));
+    assert!(
+        body("put_board_list_card")["properties"]["spentTime"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("zero")
+    );
+    let definitions = &spec["definitions"];
+    let settings = &definitions["VerifiedAdminSettingsGlobalSettingsDocument"];
     for (wire, _, _, _) in super::admin_fixtures::GLOBAL_FIELDS {
         assert_eq!(
-            definitions["RestSettings"]["properties"][*wire]["x-nullable"] == true,
+            settings["properties"][*wire]["x-nullable"] == true,
             *wire != "defaultAuthenticationMethod",
             "{wire}"
         );
     }
-    assert_eq!(definitions["RestSettings"]["additionalProperties"], false);
+    assert_eq!(settings["additionalProperties"], false);
+    assert_eq!(body("update_global_settings")["additionalProperties"], true);
     assert_eq!(
-        definitions["RestSettingsUpdate"]["additionalProperties"],
+        definitions["VerifiedIntegrationsIntegrationDocument"]["properties"]["title"]["x-nullable"],
         true
     );
-    assert_eq!(
-        definitions["Integration"]["properties"]["title"]["x-nullable"],
-        true
-    );
-    assert!(
-        definitions["RuleResponse"]["properties"]["trigger"]["properties"]
-            .get("description")
-            .is_some()
-    );
-    assert!(
-        definitions["UpdateUserActionRequest"]
-            .get("required")
-            .is_none()
-    );
+    for field in [
+        "description",
+        "advancedFilter",
+        "textContains",
+        "direction",
+        "cron",
+    ] {
+        assert!(
+            definitions["VerifiedRulesPayloadsRuleTrigger"]["properties"]
+                .get(field)
+                .is_some(),
+            "{field}"
+        );
+    }
+    assert!(body("put_user").get("required").is_none());
     assert_eq!(
         operation("put_user")["responses"]["200"]["x-wekan-empty-body"],
         true
     );
     for id in ["update_admin_org_features", "update_admin_team_features"] {
-        let body = operation(id)["parameters"]
+        let parameter = operation(id)["parameters"]
             .as_array()
             .unwrap()
             .iter()
             .find(|p| p["in"] == "body")
             .unwrap();
-        assert_eq!(body["required"], false);
+        assert_eq!(parameter["required"], false);
+    }
+    // v12.57 no longer discloses native Match.Error internals.
+    for id in ["post_deletetoken", "update_attachment_settings"] {
+        assert_eq!(operation(id)["x-wekan-type-check-error"]["status"], 500);
+        assert_eq!(
+            operation(id)["x-wekan-type-check-error"]["schema"]["properties"]["error"]["enum"],
+            json!(["Internal server error"])
+        );
+    }
+    assert!(definitions.get("NativeMatchError").is_none());
+    let known_defects: std::collections::BTreeSet<_> = operations
+        .iter()
+        .filter_map(|operation| operation["x-wekan-defects"].as_array())
+        .flatten()
+        .map(|defect| defect["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(known_defects.len(), 52);
+    assert!(known_defects.contains("W11-015"));
+    assert!(!known_defects.contains("W11-005"));
+    assert!(!known_defects.contains("W11-053"));
+    assert!(known_defects.contains("W12-005"));
+    assert!(known_defects.contains("W12-006"));
+    assert_eq!(
+        operation("get_user")["responses"]["500"]["schema"]["properties"]["error"]["enum"],
+        json!(["Internal server error"])
+    );
+    for name in [
+        "VerifiedCustom_fieldsCustomFieldType",
+        "VerifiedExportsDocumentsExportCustomFieldType",
+    ] {
+        let values = definitions[name]["enum"].as_array().unwrap();
+        assert!(values.contains(&json!("dropdownMultiSelect")));
+        assert!(!values.contains(&json!("dropdownmultiselect")));
+        assert_eq!(values.len(), 8);
+    }
+    for name in [
+        "VerifiedCustom_fieldsCustomFieldSettings",
+        "VerifiedExportsDocumentsCustomFieldsSettings",
+    ] {
+        let schema = &definitions[name];
+        assert_eq!(schema["additionalProperties"], false);
+        for field in ["jiraTimeField", "jiraEstimateFieldId", "jiraEstimateUnit"] {
+            assert_eq!(schema["properties"][field]["type"], "string");
+            assert_eq!(schema["properties"][field]["x-nullable"], true);
+        }
+    }
+    let report = &definitions["VerifiedCardsBot_runsBotRunUpdate"]["properties"];
+    for field in ["status", "options"] {
+        assert!(report[field].get("x-nullable").is_none());
+    }
+    for field in ["text", "tool", "question", "tokens", "costUsd"] {
+        assert_eq!(report[field]["x-nullable"], true);
+    }
+    let report_body = body("report_card_bot_run");
+    for field in ["status", "options"] {
+        assert!(report_body["properties"][field].get("x-nullable").is_none());
+    }
+    for id in ["post_board_custom-fields", "put_board_customField"] {
+        let request = body(id);
+        assert!(
+            request["properties"]["type"]["enum"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("dropdownMultiSelect"))
+        );
+        for field in ["jiraTimeField", "jiraEstimateFieldId", "jiraEstimateUnit"] {
+            assert_eq!(
+                request["properties"]["settings"]["properties"][field]["type"],
+                "string"
+            );
+            assert_eq!(
+                request["properties"]["settings"]["properties"][field]["x-nullable"],
+                true
+            );
+        }
+    }
+    for id in ["upload_attachment", "upload_board_background"] {
+        assert!(
+            operation(id)["x-wekan-defects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|defect| defect["id"] == "W12-007"
+                    && defect["liveRegression"] == "tests/e2e/attachments.rs")
+        );
+    }
+    assert!(
+        operation("upload_board_background")["x-wekan-defects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|defect| defect["id"] == "W12-006"
+                && defect["liveRegression"] == "tests/e2e/attachments.rs")
+    );
+
+    // Exact v12.57 route and model fields that previously failed strict decoding.
+    let settings = &definitions["VerifiedBoardsCard_settingsBoardCardSettings"];
+    assert_eq!(settings["properties"].as_object().unwrap().len(), 114);
+    for field in [
+        "allowsCardButtonsOnMinicard",
+        "allowsDescriptionBadgeOnCard",
+        "allowsUnreadCommentsOnCard",
+        "allowsDueFromTitleOnCard",
+        "allowsDueFromTitleOnMinicard",
+        "allowsSimilarCardsOnCard",
+        "allowsSimilarCardsOnMinicard",
+        "allowsAtRiskOnCard",
+        "allowsAtRiskOnMinicard",
+        "allowsSuggestedMembersOnCard",
+        "allowsForecastOnCard",
+        "allowsForecastOnMinicard",
+        "allowsChecklistFromDescriptionOnCard",
+        "allowsActionItemsOnCard",
+        "allowsWhiteboardOnCard",
+        "labelsAboveTitleOnCard",
+        "allowsChecklistDueDateOnMinicard",
+        "allowsLocationOnMinicard",
+        "allowsSwimlaneNameOnCard",
+        "allowsFlowtimeOnMinicard",
+        "allowsPomodoroOnMinicard",
+        "allowsAttachmentListOnMinicard",
+        "allowsTextNotesOnMinicard",
+        "allowsCommentCountOnCard",
+        "allowsActivitiesOnMinicard",
+    ] {
+        assert_eq!(settings["properties"][field]["type"], "boolean", "{field}");
+        assert_ne!(settings["properties"][field]["x-nullable"], true, "{field}");
+        assert_eq!(
+            body("update_board_card_settings")["properties"][field]["type"],
+            "boolean",
+            "{field}"
+        );
+    }
+    for (definition, field, kind) in [
+        ("VerifiedBoardsBoardLabel", "dueAt", "string"),
+        ("VerifiedBoardsBoardLabel", "sharedLabelId", "string"),
+        ("VerifiedExportsDocumentsBoardLabel", "dueAt", "string"),
+        (
+            "VerifiedExportsDocumentsBoardLabel",
+            "sharedLabelId",
+            "string",
+        ),
+        ("VerifiedBoardsBoardMember", "grantedBy", "array"),
+        ("VerifiedBoardsBoardMember", "customRoleId", "string"),
+        ("VerifiedExportsDocumentsBoardMember", "grantedBy", "array"),
+        (
+            "VerifiedExportsDocumentsBoardMember",
+            "customRoleId",
+            "string",
+        ),
+        ("VerifiedUsersCurrentUserBoard", "grantedBy", "array"),
+        ("VerifiedUsersCurrentUserBoard", "customRoleId", "string"),
+        (
+            "VerifiedChecklist_itemsChecklistItemDocument",
+            "assigneeId",
+            "string",
+        ),
+        (
+            "VerifiedChecklist_itemsChecklistItemDocument",
+            "linkedCardId",
+            "string",
+        ),
+        (
+            "VerifiedExportsDocumentsChecklistItems",
+            "assigneeId",
+            "string",
+        ),
+        (
+            "VerifiedExportsDocumentsChecklistItems",
+            "linkedCardId",
+            "string",
+        ),
+    ] {
+        let schema = &definitions[definition];
+        assert_eq!(schema["additionalProperties"], false, "{definition}");
+        assert_eq!(
+            schema["properties"][field]["type"], kind,
+            "{definition}.{field}"
+        );
+        assert_ne!(
+            schema["properties"][field]["x-nullable"], true,
+            "{definition}.{field}"
+        );
+        assert!(
+            schema["required"]
+                .as_array()
+                .is_none_or(|required| { !required.contains(&json!(field)) }),
+            "{definition}.{field} must remain optional"
+        );
+        if field == "grantedBy" {
+            assert_eq!(schema["properties"][field]["items"]["type"], "string");
+        }
+        if field == "dueAt" {
+            assert_eq!(schema["properties"][field]["format"], "date-time");
+        }
+    }
+    for field in ["splitBy", "membersMode", "csvMapping", "attachmentAuth"] {
+        assert!(
+            body("import_board")["properties"].get(field).is_none(),
+            "{field}"
+        );
+        assert!(
+            body("import_board_from")["properties"].get(field).is_some(),
+            "{field}"
+        );
     }
     assert_eq!(
-        definitions["NativeMatchError"]["additionalProperties"],
-        false
+        operation("export_all_boards")["security"],
+        json!([{"UserSecurity":[]}, {"ExportAuthTokenSecurity":[]}])
     );
     assert_eq!(
-        definitions["SanitizedMatchError"]["additionalProperties"],
-        false
+        spec["securityDefinitions"]["ExportAuthTokenSecurity"]["type"],
+        "apiKey"
     );
-    assert!(
-        definitions["NativeMatchError"]["properties"]
-            .get("sanitizedError")
-            .is_some()
+    assert_eq!(
+        spec["securityDefinitions"]["ExportAuthTokenSecurity"]["in"],
+        "query"
+    );
+    assert_eq!(
+        spec["securityDefinitions"]["ExportAuthTokenSecurity"]["name"],
+        "authToken"
     );
 }

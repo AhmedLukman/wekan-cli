@@ -4,10 +4,10 @@ mod archival;
 #[path = "cards/extensions.rs"]
 mod extensions;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v11.06 stack and WEKAN_CARD_E2E_URL"]
-async fn complete_card_lifecycle_matches_wekan_v11_06() {
+#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_CARD_E2E_URL"]
+async fn complete_card_lifecycle_matches_wekan_v12_57() {
     let server = env::var("WEKAN_CARD_E2E_URL")
-        .expect("set WEKAN_CARD_E2E_URL to a fresh isolated Wekan v11.06 server URL");
+        .expect("set WEKAN_CARD_E2E_URL to a fresh isolated Wekan v12.57 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -304,110 +304,62 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     .await
     .expect("a normal member must be able to delete a card");
 
-    let mut permission_cleanup_ids = Vec::new();
-    for (role, role_app) in [("comment-only", &comment_app), ("worker", &worker_app)] {
-        let CommandSuccess::CardCreated(role_card) = execute_live_card(
-            role_app,
-            &server,
-            &[
-                "create",
-                "--board",
+    let mut denial_nonce = nonce + 2000;
+    for role in ["commentonly", "worker", "readonly"] {
+        for operation in ["create", "update", "delete"] {
+            let (_case_directory, case_app, _) = register_live_board_role(
+                &server,
+                &canonical_server,
+                &token,
                 &board.board_id,
-                "--list",
-                &list.list_id,
-                "--title",
-                &format!("{role} create-permission defect probe"),
-                "--swimlane-id",
-                &board.default_swimlane_id,
-            ],
-        )
-        .await
-        .unwrap_or_else(|error| panic!("v11.06 permits {role} members to create cards: {error:?}")) else {
-            panic!("expected {role} card creation output")
-        };
-        let denied_update = match execute_live_card(
-            role_app,
-            &server,
-            &[
-                "update",
-                "--board",
-                &board.board_id,
-                "--list",
-                &list.list_id,
-                &role_card.card_id,
-                "--title",
-                "This update must be denied",
-            ],
-        )
-        .await
-        {
-            Err(error) => error,
-            Ok(success) => panic!("{role} update unexpectedly succeeded: {success:?}"),
-        };
-        assert_eq!(denied_update.code(), ErrorCode::PermissionDenied);
-        let denied_delete = match execute_live_card(
-            role_app,
-            &server,
-            &[
-                "delete",
-                "--board",
-                &board.board_id,
-                "--list",
-                &list.list_id,
-                &role_card.card_id,
-                "--yes",
-            ],
-        )
-        .await
-        {
-            Err(error) => error,
-            Ok(success) => panic!("{role} delete unexpectedly succeeded: {success:?}"),
-        };
-        assert_eq!(denied_delete.code(), ErrorCode::PermissionDenied);
-        permission_cleanup_ids.push(role_card.card_id);
-    }
-
-    for operation in ["create", "update", "delete"] {
-        let arguments = match operation {
-            "create" => vec![
-                "create",
-                "--board",
-                &board.board_id,
-                "--list",
-                &list.list_id,
-                "--title",
-                "Read-only create must fail",
-                "--swimlane-id",
-                &board.default_swimlane_id,
-            ],
-            "update" => vec![
-                "update",
-                "--board",
-                &board.board_id,
-                "--list",
-                &list.list_id,
-                &parent.card_id,
-                "--title",
-                "Read-only update must fail",
-            ],
-            "delete" => vec![
-                "delete",
-                "--board",
-                &board.board_id,
-                "--list",
-                &list.list_id,
-                &parent.card_id,
-                "--yes",
-            ],
-            _ => unreachable!(),
-        };
-        let error = match execute_live_card(&read_only_app, &server, &arguments).await {
-            Err(error) => error,
-            Ok(success) => {
-                panic!("read-only {operation} unexpectedly succeeded: {success:?}")
-            }
-        };
-        assert_eq!(error.code(), ErrorCode::PermissionDenied);
+                denial_nonce,
+                role,
+            )
+            .await;
+            denial_nonce += 1;
+            let arguments = match operation {
+                "create" => vec![
+                    "create",
+                    "--board",
+                    &board.board_id,
+                    "--list",
+                    &list.list_id,
+                    "--title",
+                    "Denied",
+                    "--swimlane-id",
+                    &board.default_swimlane_id,
+                ],
+                "update" => vec![
+                    "update",
+                    "--board",
+                    &board.board_id,
+                    "--list",
+                    &list.list_id,
+                    &parent.card_id,
+                    "--title",
+                    "Denied",
+                ],
+                "delete" => vec![
+                    "delete",
+                    "--board",
+                    &board.board_id,
+                    "--list",
+                    &list.list_id,
+                    &parent.card_id,
+                    "--yes",
+                ],
+                _ => unreachable!(),
+            };
+            let error = execute_live_card(&case_app, &server, &arguments)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.code(),
+                ErrorCode::PermissionDenied,
+                "{role} {operation}"
+            );
+            assert_eq!(error.details().http_status, Some(403));
+        }
     }
 
     let initial_title = format!("Card {nonce}");
@@ -663,7 +615,7 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         Some("x".repeat(1000).as_str())
     );
 
-    let ignored_zero_spent_time = execute_live_card(
+    let zero_spent_time = execute_live_card(
         &app,
         &server,
         &[
@@ -678,14 +630,8 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         ],
     )
     .await
-    .expect_err("Wekan v11.06 must expose its ignored spentTime zero behavior");
-    assert_eq!(ignored_zero_spent_time.code(), ErrorCode::NotFound);
-    assert!(
-        serde_json::to_value(ignored_zero_spent_time.details())
-            .unwrap()
-            .get("outcome_unknown")
-            .is_none()
-    );
+    .expect("Wekan v12.57 persists a zero spentTime value");
+    assert!(matches!(zero_spent_time, CommandSuccess::CardUpdated(_)));
     let CommandSuccess::CardShown(after_ignored_zero) = execute_live_card(
         &app,
         &server,
@@ -699,14 +645,14 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
         ],
     )
     .await
-    .expect("the card must remain readable after Wekan ignores spentTime zero") else {
+    .expect("the card must remain readable after resetting spentTime") else {
         panic!("expected card detail output")
     };
     assert_eq!(
         after_ignored_zero
             .spent_time
             .and_then(|value| value.as_f64()),
-        Some(2.5)
+        Some(0.0)
     );
 
     let CommandSuccess::CardUpdated(cleared) = execute_live_card(
@@ -958,10 +904,7 @@ async fn complete_card_lifecycle_matches_wekan_v11_06() {
     assert_eq!(missing.details().http_status, Some(200));
     assert_eq!(missing.details().wekan_status_code, Some(404));
 
-    for card_id in [parent.card_id, ignored_parent_id, wrong_list_parent_id]
-        .into_iter()
-        .chain(permission_cleanup_ids)
-    {
+    for card_id in [parent.card_id, ignored_parent_id, wrong_list_parent_id].into_iter() {
         live_api_json(
             &http,
             &canonical_server,

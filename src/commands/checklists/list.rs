@@ -2,7 +2,7 @@ use clap::Args;
 
 use crate::{
     client::WekanClientFactory,
-    command_result::{ChecklistCollectionSuccess, ChecklistSummary, CommandSuccess},
+    command_result::{ChecklistCollectionSuccess, CommandSuccess},
     commands::{
         authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
@@ -50,10 +50,7 @@ pub(super) async fn execute(
             card_id: args.card_id,
             checklists: checklists
                 .into_iter()
-                .map(|checklist| ChecklistSummary {
-                    checklist_id: checklist.checklist_id,
-                    title: checklist.title,
-                })
+                .map(super::get::checklist_detail)
                 .collect(),
         },
     ))

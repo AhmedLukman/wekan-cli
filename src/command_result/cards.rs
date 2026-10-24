@@ -1,5 +1,48 @@
+use crate::client::metadata::*;
 use serde::Serialize;
 use serde_json::Number;
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct BotRunReport {
+    pub run_id: String,
+    pub status: BotRunStatus,
+}
+
+impl From<crate::client::cards::bot_runs::BotRunReport> for BotRunReport {
+    fn from(report: crate::client::cards::bot_runs::BotRunReport) -> Self {
+        Self {
+            run_id: report.run_id,
+            status: report.status.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BotRunStatus {
+    Queued,
+    Running,
+    AwaitingInput,
+    Review,
+    Done,
+    Failed,
+    Stopped,
+}
+
+impl From<crate::client::cards::bot_runs::BotRunStatus> for BotRunStatus {
+    fn from(status: crate::client::cards::bot_runs::BotRunStatus) -> Self {
+        use crate::client::cards::bot_runs::BotRunStatus as WireStatus;
+        match status {
+            WireStatus::Queued => Self::Queued,
+            WireStatus::Running => Self::Running,
+            WireStatus::AwaitingInput => Self::AwaitingInput,
+            WireStatus::Review => Self::Review,
+            WireStatus::Done => Self::Done,
+            WireStatus::Failed => Self::Failed,
+            WireStatus::Stopped => Self::Stopped,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -134,6 +177,39 @@ pub struct CardDetailPoker {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CardDetail {
+    pub scrum: Option<Box<ScrumCard>>,
+    pub drawings: Option<Vec<CardDrawing>>,
+    pub custom_field_links: Option<Vec<CardCustomFieldLink>>,
+    pub sync_last_source: Option<Box<CardSyncLastSource>>,
+    pub email: Option<Box<CardEmail>>,
+
+    pub scrum_revision: Option<serde_json::Number>,
+    pub parent_ids: Option<Vec<String>>,
+    pub map_x: Option<serde_json::Number>,
+    pub map_y: Option<serde_json::Number>,
+    pub column_set_values: Option<std::collections::BTreeMap<String, String>>,
+    pub card_kind: Option<String>,
+    pub last_recurrence_at: Option<String>,
+    pub sync_source_key: Option<String>,
+    pub sync_label_ids: Option<Vec<String>>,
+    pub sync_issue_state: Option<String>,
+    pub sync_closed_by_we_kan: Option<bool>,
+    pub sync_external_id: Option<String>,
+    pub sync_source_type: Option<String>,
+    pub attached_card_ids: Option<Vec<String>>,
+    pub flow_start_at: Option<String>,
+    pub flow_user_id: Option<String>,
+    pub pomodoro_start_at: Option<String>,
+    pub pomodoro_phase: Option<String>,
+    pub pomodoro_user_id: Option<String>,
+    pub show_list_on_card: Option<bool>,
+    pub checklists: Option<Vec<crate::client::checklists::ChecklistDocument>>,
+    pub list_entered_at: Option<String>,
+    pub recurrence_interval: Option<String>,
+    pub last_move_reason: Option<String>,
+    pub flow_interruptions: Option<Number>,
+    pub pomodoro_count: Option<Number>,
+    pub pomodoro_work_minutes: Option<Number>,
     pub card_id: String,
     pub title: Option<String>,
     pub watchers: Option<Vec<String>>,
@@ -223,6 +299,7 @@ pub enum CardSubmittedField {
     NewBoardId,
     NewSwimlaneId,
     NewListId,
+    MoveReason,
     Archive,
     Vote,
     Poker,

@@ -1,5 +1,7 @@
 //! Command dispatch and result behavior shared across resource families.
 
+use std::sync::{Arc, Mutex};
+
 use clap::Parser;
 use secrecy::SecretString;
 use serde_json::json;
@@ -11,13 +13,19 @@ use wiremock::{
 
 use super::{RootCommand, boards, cards, lists, swimlanes};
 use crate::{
+    app::App,
     cli::Cli,
     client::WekanClientFactory,
+    config::{
+        ServerSelection,
+        profiles::{FileProfileStore, Profile, ProfileDocument, ProfileStore},
+    },
     credentials::{
         CredentialCreateOutcome, CredentialDeleteOutcome, CredentialError, CredentialRecord,
-        CredentialStore, CredentialTarget,
+        CredentialStore, CredentialTarget, LoginSecretMode, LoginSecrets, SecretInputFuture,
+        SecretInputProvider, SecretSource,
     },
-    error::ErrorCode,
+    error::{AppError, ErrorCode},
     input::FakeConfirmationProvider,
 };
 
@@ -77,6 +85,139 @@ impl CredentialStore for ReadOnlyCredentialStore {
 
 fn factory(server: &MockServer) -> WekanClientFactory {
     WekanClientFactory::for_profile(format!("{}/", server.uri()), "default".to_owned(), false)
+}
+
+struct FileSecrets {
+    input: Option<&'static str>,
+    reads: Arc<Mutex<Vec<(SecretSource, usize)>>>,
+}
+
+impl SecretInputProvider for FileSecrets {
+    fn read_storage_secret(&self, source: SecretSource, limit: usize) -> SecretInputFuture<'_> {
+        self.reads.lock().unwrap().push((source, limit));
+        Box::pin(async {
+            self.input
+                .map(SecretString::from)
+                .ok_or_else(|| AppError::invalid_input("injected credential input unavailable"))
+        })
+    }
+
+    fn read_new_account_password(&self, _: bool) -> Result<SecretString, AppError> {
+        panic!("file credentials must not acquire account passwords")
+    }
+
+    fn read_login_secrets(&self, _: LoginSecretMode) -> Result<LoginSecrets, AppError> {
+        panic!("file credentials must not acquire login secrets")
+    }
+}
+
+#[tokio::test]
+async fn credential_files_use_app_secret_input_and_stop_on_input_failures() {
+    const PAYLOAD: &[u8] = b"{\"source\":\"unchanged\"}\r\n";
+    for (args, flag, input, route, response) in [
+        (
+            vec!["board", "import"],
+            "--attachment-auth-file",
+            r#"{"token":"file-secret"}"#,
+            "/api/boards/import",
+            json!({"_id":"new-board"}),
+        ),
+        (
+            vec!["integration", "inbound-email", "submit", "--file"],
+            "--headers-file",
+            r#"{"X-Provider-Signature":"file-secret"}"#,
+            "/api/inbound-email",
+            json!({"_id":"new-card"}),
+        ),
+        (
+            vec![
+                "integration",
+                "inbound-email",
+                "bounce",
+                "postmark",
+                "--file",
+            ],
+            "--headers-file",
+            r#"{"X-Provider-Signature":"file-secret"}"#,
+            "/api/inbound-email/bounces/postmark",
+            json!({"ok":true,"recorded":1}),
+        ),
+    ] {
+        for supplied in [Some(input), Some("{"), None] {
+            let server = MockServer::start().await;
+            let directory = tempfile::tempdir().unwrap();
+            let payload = directory.path().join("payload.json");
+            std::fs::write(&payload, PAYLOAD).unwrap();
+            // Only the injected provider can supply this nonexistent file.
+            let credential_file = directory.path().join("credentials.json");
+            let profiles = FileProfileStore::at(directory.path().join("profiles"));
+            let mut document = ProfileDocument::default();
+            document.insert("default".into(), Profile::new(format!("{}/", server.uri())));
+            profiles.lock_mutation().unwrap().save(document).unwrap();
+            let reads = Arc::new(Mutex::new(Vec::new()));
+            let app = App::with_profile_store(
+                ServerSelection::new(Some(server.uri()), Some("default".into()), false),
+                ReadOnlyCredentialStore::authenticated(&server),
+                FileSecrets {
+                    input: supplied,
+                    reads: Arc::clone(&reads),
+                },
+                profiles,
+            );
+            Mock::given(method("POST"))
+                .and(path(route))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response.clone()))
+                .expect(u64::from(supplied == Some(input)))
+                .mount(&server)
+                .await;
+            let mut argv = vec!["wekan"];
+            argv.extend_from_slice(&args);
+            argv.extend([
+                payload.to_str().unwrap(),
+                flag,
+                credential_file.to_str().unwrap(),
+            ]);
+            let result = app
+                .execute(Cli::try_parse_from(argv).unwrap().command)
+                .await;
+            assert_eq!(
+                *reads.lock().unwrap(),
+                vec![(
+                    SecretSource::File(credential_file),
+                    super::imports::MAX_JSON_BYTES
+                )]
+            );
+            let requests = server.received_requests().await.unwrap();
+            if supplied == Some(input) {
+                let success = result.unwrap();
+                assert_eq!(requests.len(), 1);
+                let request = &requests[0];
+                if flag == "--attachment-auth-file" {
+                    assert_eq!(
+                        serde_json::from_slice::<serde_json::Value>(&request.body).unwrap(),
+                        json!({"board":{"source":"unchanged"},"attachmentAuth":{"token":"file-secret"}})
+                    );
+                    assert_eq!(request.headers["authorization"], "Bearer card-token");
+                } else {
+                    assert_eq!(request.body, PAYLOAD);
+                    assert_eq!(request.headers["x-provider-signature"], "file-secret");
+                    assert!(!request.headers.contains_key("authorization"));
+                }
+                assert!(
+                    !crate::output::render_success(crate::output::OutputFormat::Json, &success)
+                        .contains("file-secret")
+                );
+            } else {
+                let error = result.unwrap_err();
+                assert_eq!(error.code(), ErrorCode::InvalidInput);
+                if supplied.is_none() {
+                    assert_eq!(error.message(), "injected credential input unavailable");
+                }
+                assert!(requests.is_empty());
+            }
+            server.verify().await;
+        }
+    }
 }
 
 #[tokio::test]
@@ -147,7 +288,14 @@ async fn copy_move_commands_send_one_request_and_render_completed_actions() {
             let command = Cli::try_parse_from(args).unwrap().command;
             let result = match command {
                 RootCommand::Board(a) => {
-                    boards::dispatch(a.command, &factory(&server), &store, &confirm).await
+                    boards::dispatch(
+                        a.command,
+                        &factory(&server),
+                        &store,
+                        &crate::credentials::SystemSecretInputProvider,
+                        &confirm,
+                    )
+                    .await
                 }
                 RootCommand::Card(a) => {
                     cards::dispatch(a.command, &factory(&server), &store, &confirm).await

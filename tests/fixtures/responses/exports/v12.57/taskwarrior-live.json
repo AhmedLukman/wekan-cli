@@ -1,0 +1,15 @@
+[
+  {
+    "uuid": "e80d6a01-c979-4ece-8eee-2433307cbc28",
+    "status": "pending",
+    "description": "Upgrade card",
+    "entry": "20261020T165420Z",
+    "annotations": [
+      {
+        "entry": "20261020T165420Z",
+        "description": "upgrade_probe: Initial comment"
+      }
+    ],
+    "wekanlist": "Todo"
+  }
+]

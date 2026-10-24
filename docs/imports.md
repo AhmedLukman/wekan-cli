@@ -1,6 +1,6 @@
 # Imports
 
-Import commands use Wekan v11.06's native REST endpoints. They accept ordinary
+Import commands use Wekan v12.57's native REST endpoints. They accept ordinary
 files or `-` for stdin, require stored credentials, and run directly without a
 confirmation prompt. Use `--output json` for stable machine-readable results.
 They do not retry requests: repeated imports create additional resources.
@@ -68,10 +68,26 @@ wekan board import issues.json --source github --members-mapping-file members.js
 
 Omitting `--source` selects `POST /api/boards/import`. An explicit source selects
 `POST /api/boards/import/{source}`, including `--source wekan`. Supported sources
-are `wekan`, `trello`, `csv`, `jira`, `kanboard`, `excel`, `deck`, `openproject`,
-`github`, `gitlab`, `gitea`, `forgejo`, `asana`, and `zenkit`.
+are all 49 keys in the pinned catalog:
 
-Format is explicit; filename extensions have no effect. JSON sources accept an
+```text
+wekan trello csv excel jira kanboard deck openproject
+github gitlab gitea forgejo asana zenkit markdown leo
+opml orgmode todotxt taskwarrior focalboard todoist planner meistertask
+obsidian linear ticktick clickup nullboard kanri pivotal redmine
+tasksorg monday superproductivity taiga vikunja wrike teamwork businessmap
+quire notion plane planka mstodo kanbanflow basecamp googletasks
+googlekeep
+```
+
+The source is explicit. Plane, Notion, and Vikunja detect ZIP/XLSX encodings
+from the filename extension when `--input-format auto` is used. For stdin or an
+unusual extension, set `--input-format json|text|xlsx|zip` explicitly. Plane
+accepts JSON/CSV text, XLSX, or ZIP; Notion accepts database CSV text or ZIP;
+Vikunja accepts data.json text or ZIP. Other sources use their native encoding:
+Excel, Planner, Monday, Wrike, Teamwork, and Businessmap use workbook bytes;
+text/XML/JSON Lines source engines receive unchanged UTF-8 text; the remaining
+JSON sources accept an
 export document (object or array). The CLI preserves its properties and wraps
 the entire document in the request's `board` property. Supply the export itself,
 including Kanboard's own `board` header, rather than an API request wrapper.
@@ -116,7 +132,7 @@ afterwards. Archives are not extracted or rewritten by the CLI.
 Optional `--swimlane`, `--list`, `--card`, and `--checklist` selectors are sent
 together as supplied. Scope IDs require 1–64 ASCII letters, digits, underscores,
 or hyphens. Native card scope takes precedence over list and swimlane scope.
-**Wekan v11.06 ignores checklist scope**, so `--checklist` alone can still import
+**Wekan v12.57 ignores checklist scope**, so `--checklist` alone can still import
 the whole document into the destination board. No client emulation occurs.
 
 Repeat `--field` for selected sections: `card-details`, `board-header`,
@@ -162,9 +178,9 @@ Every command accepts `--timeout <SECONDS>` with a positive integer; default
 30 seconds. All existing global server/profile/output/network options apply.
 Raw output and `--yes` are unsupported.
 
-Wekan's HTTP-200 embedded import errors remain errors. A native exception may
-serialize as `{}`; strict decoding reports `protocol_error` (exit 4) rather than
-claiming success. Unknown response fields, including nested ZIP counters, are
+Native import failures retain their actual non-success HTTP status and safe
+server error. Invalid Wekan document shapes currently return HTTP 500 with
+`Internal server error`; they do not produce a successful empty response. Unknown response fields, including nested ZIP counters, are
 also protocol errors. The existing error envelope preserves native HTTP/error
 metadata.
 Missing ZIP boards retain HTTP 404. ICS missing boards or insufficient write
@@ -172,8 +188,45 @@ permission return `permission_denied`, retaining HTTP 401 and `not-authorized`
 without advising credential replacement; missing lists/swimlanes on an accessible
 board retain HTTP 500 HTML errors.
 
-**ZIP attachment bytes can hang after earlier resources have been written.**
-The pinned Meteor-Files call receives an invalid callback argument and never
-settles. A client timeout does not undo those writes or clean the server's
-temporary files. The CLI reports the timeout without a
-retry, preflight, rollback, attachment omission, or replacement implementation.
+Native ZIP attachment imports now complete and preserve actual file bytes; the
+old Meteor-Files callback hang and temporary-file leak are fixed (W11-032).
+
+## Member handling and source options
+
+`board import` and `board import-trello` accept `--members-mode map|placeholder|me`.
+For `board import`, this option requires an explicit `--source`; use
+`--source wekan --members-mode me` for a Wekan export. The endpoint selected
+when `--source` is omitted ignores member modes, so the CLI rejects this
+combination before acquiring input, accessing credentials, or sending HTTP.
+The native default is `placeholder`: imported people become non-login placeholder
+accounts until a board administrator maps them. `map` uses the supplied member
+map and creates placeholders for unmapped people. `me` attributes people to the
+importing user, while retaining explicit mappings. Trello JSON sends this in the
+body; Trello ZIP sends `membersMode` in the query.
+
+General board imports also accept `--split-by swimlane`, `--csv-mapping JSON`,
+and `--attachment-auth-file PATH`. CSV mapping applies only to CSV and Excel:
+its typed keys are `columns` (field-to-column-number object), `listName`, and
+`customFieldColumns` (column numbers). Attachment authentication accepts optional
+`url`, `username`, and `token` strings in a regular JSON file; it is supplied to
+the server for that import's attachment downloads. The CLI does not print it.
+
+These options preserve the selected native source engine's behavior. Splitting
+does not change the native single-ID response, so inspect destination state when
+the server imports several projects or workbook sheets.
+
+### Import a ZIP as a new board
+
+`wekan board import-zip board.zip --new-board` uses the native `newBoard=1`
+mode and returns `board_id` and `source: "wekan-zip"`. Choose exactly one of
+`--board BOARD_ID` and `--new-board`. `--members-mode map|placeholder|me`
+is available with `--new-board`; scoped destination selectors require `--board`.
+Field selection, file/stdin acquisition, authentication and timeout controls
+work in both modes. New-board imports do not return scoped resource counters.
+
+The new-board ZIP mode currently returns HTTP 500 `import-failed` for valid
+native exports because the server starts the import outside its user context
+(W12-005). Scoped import completes, but native ZIP exports name attachment
+entries differently from the ID-prefixed format this importer expects and can
+therefore import cards with zero attachments (W12-004). The CLI preserves the
+native response and never rewrites archives or substitutes an import engine.

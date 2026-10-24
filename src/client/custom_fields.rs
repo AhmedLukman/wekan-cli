@@ -13,6 +13,8 @@ pub enum CustomFieldType {
     Number,
     Date,
     Dropdown,
+    #[serde(rename = "dropdownMultiSelect")]
+    DropdownMultiSelect,
     Checkbox,
     Currency,
     Stringtemplate,
@@ -40,6 +42,24 @@ pub struct CustomFieldDropdownItem {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CustomFieldSettings {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "nullable_setting"
+    )]
+    pub jira_time_field: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "nullable_setting"
+    )]
+    pub jira_estimate_field_id: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "nullable_setting"
+    )]
+    pub jira_estimate_unit: Option<Option<String>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -117,6 +137,10 @@ pub struct CustomFieldDocument {
     pub show_sum_at_top_of_list: bool,
     pub created_at: Option<String>,
     pub modified_at: String,
+    pub card_kinds: Option<Vec<String>>,
+    pub read_only: Option<bool>,
+    pub admin_only: Option<bool>,
+    pub sort: Option<serde_json::Number>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

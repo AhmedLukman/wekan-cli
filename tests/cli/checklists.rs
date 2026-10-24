@@ -28,7 +28,7 @@ fn checklist_help_exposes_exactly_the_supported_lifecycle() {
         if family == "checklist" {
             assertion
                 .stdout(predicate::str::contains("list"))
-                .stdout(predicate::str::contains("update").not());
+                .stdout(predicate::str::contains("update"));
         } else {
             assertion
                 .stdout(predicate::str::contains("update"))

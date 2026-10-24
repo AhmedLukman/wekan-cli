@@ -1,11 +1,13 @@
 mod attachments;
 mod card_settings;
+mod chart;
 mod copy;
 mod count;
 mod create;
 mod delete;
 mod domains;
 mod export;
+mod export_all;
 mod get;
 mod import;
 mod import_trello;
@@ -13,6 +15,7 @@ mod import_zip;
 mod labels;
 mod list;
 mod members;
+mod presentation;
 mod rename;
 
 #[cfg(test)]
@@ -21,8 +24,11 @@ mod tests;
 use clap::{Args, Subcommand};
 
 use crate::{
-    client::WekanClientFactory, command_result::CommandSuccess, credentials::CredentialStore,
-    error::AppError, input::ConfirmationProvider,
+    client::WekanClientFactory,
+    command_result::CommandSuccess,
+    credentials::{CredentialStore, SecretInputProvider},
+    error::AppError,
+    input::ConfirmationProvider,
 };
 
 #[derive(Debug, Args)]
@@ -33,6 +39,14 @@ pub struct BoardArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum BoardCommand {
+    /// Export several or all eligible boards in one archive or workbook.
+    ExportAll(Box<export_all::ExportAllArgs>),
+    /// Export native board report charts.
+    Chart(chart::ChartArgs),
+    /// Read or change board view visibility, defaults, and order.
+    ViewSettings(presentation::ViewSettingsArgs),
+    /// Read or change the order of sections on opened cards.
+    CardFieldOrder(presentation::CardFieldOrderArgs),
     /// List attachment links using Wekan's legacy board projection.
     Attachment(attachments::AttachmentArgs),
     /// Import an export document into a new board.
@@ -76,13 +90,28 @@ pub(crate) async fn dispatch(
     command: BoardCommand,
     client_factory: &WekanClientFactory,
     credential_store: &dyn CredentialStore,
+    secrets: &dyn SecretInputProvider,
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        BoardCommand::ExportAll(args) => {
+            export_all::execute(*args, client_factory, credential_store).await
+        }
+        BoardCommand::Chart(args) => {
+            chart::dispatch(args.command, client_factory, credential_store).await
+        }
+        BoardCommand::ViewSettings(args) => {
+            presentation::views(args.command, client_factory, credential_store).await
+        }
+        BoardCommand::CardFieldOrder(args) => {
+            presentation::order(args.command, client_factory, credential_store).await
+        }
         BoardCommand::Attachment(args) => {
             attachments::dispatch(args.command, client_factory, credential_store).await
         }
-        BoardCommand::Import(args) => import::execute(args, client_factory, credential_store).await,
+        BoardCommand::Import(args) => {
+            import::execute(args, client_factory, credential_store, secrets).await
+        }
         BoardCommand::ImportTrello(args) => {
             import_trello::execute(args, client_factory, credential_store).await
         }

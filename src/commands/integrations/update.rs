@@ -41,6 +41,16 @@ pub struct UpdateArgs {
     /// Replace the subscription array with an empty array.
     #[arg(long)]
     clear_activities: bool,
+    /// Webhook delivery overrides as a native JSON object, for example {"webhook":{"schedule":"daily","dailyTime":"08:00"}}.
+    #[arg(
+        long,
+        value_name = "JSON",
+        conflicts_with = "clear_notification_delivery"
+    )]
+    notification_delivery: Option<String>,
+    /// Inherit the board and administrator webhook delivery defaults.
+    #[arg(long)]
+    clear_notification_delivery: bool,
 }
 
 pub(super) async fn execute(
@@ -80,6 +90,12 @@ pub(super) async fn execute(
         } else {
             Some(args.activities)
         },
+        notification_delivery: if args.clear_notification_delivery {
+            Some(None)
+        } else {
+            args.notification_delivery.as_deref().map(|text| serde_json::from_str(text).map(Some)
+                .map_err(|_| AppError::invalid_input("notification delivery must be an object containing only typed webhook settings; no request was sent"))).transpose()?
+        },
     };
     let mut fields = Vec::new();
     for (present, field) in [
@@ -88,6 +104,10 @@ pub(super) async fn execute(
         (request.url.is_some(), Field::Url),
         (request.token.is_some(), Field::Token),
         (request.activities.is_some(), Field::Activities),
+        (
+            request.notification_delivery.is_some(),
+            Field::NotificationDelivery,
+        ),
     ] {
         if present {
             fields.push(field);

@@ -2,6 +2,7 @@ mod activities;
 mod create;
 mod delete;
 mod get;
+mod inbound_email;
 mod list;
 #[cfg(test)]
 mod tests;
@@ -25,6 +26,7 @@ pub struct IntegrationArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum IntegrationCommand {
+    InboundEmail(inbound_email::InboundEmailArgs),
     /// List a board's webhook integrations.
     List(list::ListArgs),
     /// Show an integration and its activity subscriptions; tokens are excluded.
@@ -47,6 +49,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        IntegrationCommand::InboundEmail(args) => {
+            inbound_email::dispatch(args.command, factory, secrets).await
+        }
         IntegrationCommand::List(args) => list::execute(args, factory, store).await,
         IntegrationCommand::Get(args) => get::execute(args, factory, store).await,
         IntegrationCommand::Create(args) => create::execute(args, factory, store).await,

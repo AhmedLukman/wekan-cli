@@ -21,7 +21,7 @@ use super::{map_client_error, non_empty, user_detail};
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan v11.06 self-targeting returns the unchanged user without disabling login."
+    after_help = "Wekan v12.57 self-targeting returns the unchanged user without disabling login."
 )]
 pub struct DisableLoginArgs {
     /// Wekan user ID whose login will be disabled.

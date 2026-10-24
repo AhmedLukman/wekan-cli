@@ -18,6 +18,7 @@ struct Row {
     operation: Operation,
     syntax: String,
     implemented: bool,
+    excluded: bool,
 }
 
 // GFM requires pipes to be escaped, including inside inline code.
@@ -66,24 +67,30 @@ fn rows(document: &str) -> Result<Vec<Row>, String> {
                 "invalid or duplicate coverage operation: {operation:?}"
             ));
         }
-        let implemented = match fields[8] {
-            "✓" => true,
-            "—" => false,
+        let (implemented, excluded) = match fields[8] {
+            "✓" => (true, false),
+            "—" => (false, false),
+            "Excluded" => (false, true),
             status => return Err(format!("unknown coverage status: {status}")),
         };
         result.push(Row {
             operation,
             syntax: fields[7].into(),
             implemented,
+            excluded,
         });
     }
     if result.is_empty() {
         return Err("the coverage table is empty".into());
     }
     let implemented = result.iter().filter(|row| row.implemented).count();
-    let total = result.len();
+    let excluded = result.iter().filter(|row| row.excluded).count();
+    let total = result.len() - excluded;
+    if total == 0 {
+        return Err("the coverage table has no in-scope operations".into());
+    }
     let summary = format!(
-        "**Coverage:** {implemented} of {total} operations implemented ({}%); {} remaining.",
+        "**Coverage:** {implemented} of {total} in-scope operations implemented ({}%); {} remaining; {excluded} intentionally excluded.",
         implemented * 100 / total,
         total - implemented
     );
@@ -300,6 +307,8 @@ fn generated_contract_matches_documented_operations() {
         .expect("the corrected contract must define paths");
     let mut expected = BTreeSet::new();
     let mut ids = BTreeSet::new();
+    let mut exclusions = BTreeSet::new();
+    let documented = rows(COVERAGE).unwrap();
     for (path, item) in paths {
         let path = path.as_str().expect("API paths must be strings");
         for method in METHODS {
@@ -311,6 +320,21 @@ fn generated_contract_matches_documented_operations() {
                     !id.is_empty() && ids.insert(id.to_owned()),
                     "invalid or duplicate operation ID: {id}"
                 );
+                let excluded = operation["x-cli-excluded"].as_bool().unwrap_or(false);
+                let row = documented
+                    .iter()
+                    .find(|row| row.operation.id == id)
+                    .expect("every corrected operation must have a coverage row");
+                assert_eq!(row.excluded, excluded, "exclusion status differs for {id}");
+                if excluded {
+                    assert!(!row.implemented);
+                    assert!(
+                        operation["x-cli-exclusion-reason"]
+                            .as_str()
+                            .is_some_and(|reason| !reason.is_empty())
+                    );
+                    exclusions.insert(id.to_owned());
+                }
                 expected.insert(Operation {
                     method: method.to_ascii_uppercase(),
                     path: path.into(),
@@ -323,7 +347,11 @@ fn generated_contract_matches_documented_operations() {
         !expected.is_empty(),
         "the corrected contract has no operations"
     );
-    check_operations(&rows(COVERAGE).unwrap(), &expected).unwrap();
+    assert_eq!(
+        exclusions,
+        BTreeSet::from(["submit_ses_notification".to_owned()])
+    );
+    check_operations(&documented, &expected).unwrap();
 }
 
 #[test]
@@ -352,6 +380,7 @@ fn coverage_checks_reject_inventory_summary_and_command_drift() {
         );
     }
     assert!(rows(&COVERAGE.replacen("**Coverage:**", "**Stale coverage:**", 1)).is_err());
+    assert!(rows(&COVERAGE.replacen("| Excluded |", "| ✓ |", 1)).is_err());
     let mut root = Cli::command();
     root.build();
     for (before, after) in [

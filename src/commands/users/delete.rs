@@ -117,7 +117,7 @@ pub(super) async fn execute(
     };
     Ok(CommandSuccess::UserDeleted(UserDeleteSuccess {
         user_id: args.user_id,
-        deletion_requested: true,
+        deleted: true,
         deleted_current_user: is_self,
         credential_stored: if is_self {
             deletion == CredentialDeleteOutcome::Mismatch

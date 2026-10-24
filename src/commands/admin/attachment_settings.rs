@@ -33,7 +33,16 @@ pub enum AttachmentSettingsCommand {
     "azure_account_key_stdin",
     "azure_connection_string_stdin",
     "gcs_credentials_stdin",
+    "webdav_password_stdin",
 ]).multiple(false)), group(ArgGroup::new("setting_flags").args([
+    "webdav_enabled",
+    "webdav_read",
+    "webdav_write",
+    "webdav_endpoint",
+    "webdav_username",
+    "webdav_bucket",
+    "webdav_password_file",
+    "webdav_password_stdin",
     "default_storage",
     "filesystem_enabled",
     "filesystem_read",
@@ -88,6 +97,14 @@ pub enum AttachmentSettingsCommand {
 ]).multiple(true).conflicts_with("settings_source")), group(ArgGroup::new("update_input").args([
     "settings_file",
     "settings_stdin",
+    "webdav_enabled",
+    "webdav_read",
+    "webdav_write",
+    "webdav_endpoint",
+    "webdav_username",
+    "webdav_bucket",
+    "webdav_password_file",
+    "webdav_password_stdin",
     "default_storage",
     "filesystem_enabled",
     "filesystem_read",
@@ -143,7 +160,32 @@ pub enum AttachmentSettingsCommand {
 pub struct UpdateArgs {
     #[command(flatten)]
     source: input::SourceArgs,
-    /// Default backend: fs, gridfs, s3, azure, or gcs.
+    /// Set WebDAV enabled.
+    #[arg(long)]
+    webdav_enabled: Option<bool>,
+    /// Set WebDAV read.
+    #[arg(long)]
+    webdav_read: Option<bool>,
+    /// Set WebDAV write.
+    #[arg(long)]
+    webdav_write: Option<bool>,
+    /// Set WebDAV endpoint.
+    #[arg(long)]
+    webdav_endpoint: Option<String>,
+    /// Set WebDAV username.
+    #[arg(long)]
+    webdav_username: Option<String>,
+    /// Set WebDAV bucket.
+    #[arg(long)]
+    webdav_bucket: Option<String>,
+    /// Read the WebDAV password from a regular file.
+    #[arg(long, conflicts_with = "webdav_password_stdin")]
+    webdav_password_file: Option<std::path::PathBuf>,
+    /// Read the WebDAV password securely from stdin.
+    #[arg(long, conflicts_with = "webdav_password_file")]
+    webdav_password_stdin: bool,
+
+    /// Default backend: fs, gridfs, s3, azure, gcs, or webdav.
     #[arg(long = "default-storage")]
     default_storage: Option<StorageBackend>,
     /// Set filesystem enabled. Explicit true or false.
@@ -367,6 +409,34 @@ impl UpdateArgs {
         )
         .await?
         .map(GcsCredentials::text);
+        let webdav_password = input::secret(
+            self.webdav_password_file,
+            self.webdav_password_stdin,
+            secrets,
+        )
+        .await?
+        .map(StorageSecret);
+        let webdav = WebdavUpdate {
+            enabled: self.webdav_enabled,
+            read: self.webdav_read,
+            write: self.webdav_write,
+            endpoint: self.webdav_endpoint,
+            username: self.webdav_username,
+            bucket: self.webdav_bucket,
+            password: webdav_password,
+        };
+        let webdav = if webdav.enabled.is_some()
+            || webdav.read.is_some()
+            || webdav.write.is_some()
+            || webdav.endpoint.is_some()
+            || webdav.username.is_some()
+            || webdav.bucket.is_some()
+            || webdav.password.is_some()
+        {
+            Some(webdav)
+        } else {
+            None
+        };
         let filesystem = FilesystemUpdate {
             enabled: self.filesystem_enabled,
             read: self.filesystem_read,
@@ -516,13 +586,15 @@ impl UpdateArgs {
             None
         };
         let storage_config = StorageConfigUpdate {
+            webdav,
             filesystem,
             gridfs,
             s3,
             azure,
             gcs,
         };
-        let has_config = storage_config.filesystem.is_some()
+        let has_config = storage_config.webdav.is_some()
+            || storage_config.filesystem.is_some()
             || storage_config.gridfs.is_some()
             || storage_config.s3.is_some()
             || storage_config.azure.is_some()

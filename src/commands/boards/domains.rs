@@ -23,9 +23,9 @@ pub struct DomainArgs {
 pub enum DomainCommand {
     /// List domains, including inactive records. Requires a site administrator.
     List(Target),
-    /// Request sharing with a domain. Wekan v11.06 fails with not-authorized.
+    /// Request sharing with a domain. Wekan v12.57 fails with not-authorized.
     Add(MutationArgs),
-    /// Request removal of domain sharing. Wekan v11.06 fails with not-authorized.
+    /// Request removal of domain sharing. Wekan v12.57 fails with not-authorized.
     Remove(RemoveArgs),
 }
 

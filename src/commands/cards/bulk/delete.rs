@@ -41,7 +41,7 @@ pub(super) async fn execute(
     let prompt = ConfirmationRequest::new(
         DestructiveOperation::CardBulkDelete,
         format!(
-            "Permanently delete {} requested cards [{}] on board `{}` with their comments, checklists, checklist items, and subcards? Wekan v11.06 retains attachment metadata and file bytes.",
+            "Permanently delete {} requested cards [{}] on board `{}` with their comments, checklists, checklist items, and subcards? Wekan v12.57 retains attachment metadata and file bytes.",
             args.target.card_ids.len(),
             args.target
                 .card_ids

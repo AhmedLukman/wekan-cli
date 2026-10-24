@@ -10,7 +10,58 @@ use wiremock::{
 };
 
 fn document() -> Value {
-    json!({"_id":"r","title":"Rule","trigger":{"activityType":"moveCard","oldListName":"Doing","listName":"*","userId":"*","cardTitle":"*","swimlaneName":"*"},"action":{"actionType":"removeMember","username":"*"}})
+    json!({"_id":"r","title":"Rule","enabled":true,"trigger":{"activityType":"moveCard","oldListName":"Doing","listName":"*","userId":"*","cardTitle":"*","swimlaneName":"*"},"action":{"actionType":"removeMember","username":"*"}})
+}
+
+#[test]
+fn enabled_updates_preserve_boolean_values_and_omission_but_reject_null() {
+    for value in [json!({}), json!({"enabled":false}), json!({"enabled":true})] {
+        let request: UpdateRuleRequest = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(request).unwrap(), value);
+    }
+    for invalid in [Value::Null, json!("true"), json!(0), json!([]), json!({})] {
+        assert!(serde_json::from_value::<UpdateRuleRequest>(json!({"enabled":invalid})).is_err());
+    }
+}
+
+#[test]
+fn extra_rule_parts_preserve_absence_null_and_values_and_reject_unknown_fields() {
+    use wekan_cli::client::rules::RuleDocument;
+    for field in ["extraTriggers", "extraActions"] {
+        let part = if field == "extraTriggers" {
+            json!({"activityType":"textContainsTrigger","textContains":"Match"})
+        } else {
+            json!({"actionType":"addComment","commentText":"Comment"})
+        };
+        for value in [
+            None,
+            Some(Value::Null),
+            Some(json!([])),
+            Some(json!([part])),
+        ] {
+            let mut input = document();
+            if let Some(value) = value {
+                input[field] = value;
+            }
+            let response: RuleDocument = serde_json::from_value(input.clone()).unwrap();
+            let length = if field == "extraTriggers" {
+                response.extra_triggers.as_ref().map(Vec::len)
+            } else {
+                response.extra_actions.as_ref().map(Vec::len)
+            };
+            assert_eq!(length, input[field].as_array().map(Vec::len));
+        }
+        for invalid in [
+            json!([{"unmappedField":true}]),
+            json!([{"textContains":false}]),
+            json!({}),
+            json!([null]),
+        ] {
+            let mut input = document();
+            input[field] = invalid;
+            assert!(serde_json::from_value::<RuleDocument>(input).is_err());
+        }
+    }
 }
 fn operation(i: usize) -> (&'static str, &'static str, Value) {
     match i {
@@ -77,7 +128,7 @@ async fn five_native_operations_have_exact_contracts_and_no_extra_requests() {
 async fn large_rule_payloads_remain_readable_in_details_and_collections() {
     let server = MockServer::start().await;
     let description = "x".repeat(2 * 1024 * 1024);
-    let document = json!({"_id":"r", "title":"Large rule", "trigger":null,
+    let document = json!({"_id":"r", "title":"Large rule","enabled":true, "trigger":null,
         "action":{"actionType":"archive", "desc":description}});
     for (path_value, response) in [
         ("/api/boards/b/rules/r", document.clone()),
@@ -253,10 +304,9 @@ async fn nullable_references_sparse_documents_and_runtime_metadata_are_mapped() 
     ] {
         s.reset().await;
         Mock::given(method("GET"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(json!({"_id":"r","title":"","trigger":trigger,"action":action})),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({"_id":"r","title":"","enabled":true,"trigger":trigger,"action":action}),
+            ))
             .mount(&s)
             .await;
         let d = client(&s)
@@ -318,6 +368,10 @@ async fn scopes_are_encoded_as_individual_segments_and_missing_rules_keep_http_5
 #[test]
 fn every_modeled_payload_field_preserves_types_nullability_and_omission() {
     for field in [
+        "advancedFilter",
+        "textContains",
+        "cron",
+        "direction",
         "activityType",
         "userId",
         "username",
@@ -367,6 +421,10 @@ fn every_modeled_payload_field_preserves_types_nullability_and_omission() {
         json!({})
     );
     for field in [
+        "integrationId",
+        "commentText",
+        "listId",
+        "swimlaneId",
         "actionType",
         "listName",
         "swimlaneName",
@@ -395,6 +453,29 @@ fn every_modeled_payload_field_preserves_types_nullability_and_omission() {
             assert!(
                 serde_json::from_value::<RuleAction>(json!({field:value})).is_err(),
                 "{field}"
+            );
+        }
+    }
+    for field in [
+        "includeCardDetails",
+        "includeChecklistsAndComments",
+        "includeAttachments",
+    ] {
+        for value in [json!(true), json!(false), Value::Null] {
+            let payload = json!({field:value});
+            let d: RuleAction = serde_json::from_value(payload.clone()).unwrap();
+            assert_eq!(serde_json::to_value(d).unwrap(), payload);
+            let input: wekan_cli::client::rules::RuleActionInput =
+                serde_json::from_value(payload.clone()).unwrap();
+            assert_eq!(serde_json::to_value(input).unwrap(), payload);
+        }
+        for value in [json!(0), json!("true"), json!([]), json!({"extra":1})] {
+            assert!(serde_json::from_value::<RuleAction>(json!({field:value})).is_err());
+            assert!(
+                serde_json::from_value::<wekan_cli::client::rules::RuleActionInput>(
+                    json!({field:value})
+                )
+                .is_err()
             );
         }
     }

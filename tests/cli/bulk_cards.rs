@@ -87,7 +87,7 @@ fn bulk_help_and_input_failures_have_correct_streams_and_exit_statuses() {
         assert!(
             String::from_utf8(output.stdout)
                 .unwrap()
-                .contains("Wekan v11.06 retains attachments")
+                .contains("Wekan v12.57 retains attachments")
         );
     }
     for args in [

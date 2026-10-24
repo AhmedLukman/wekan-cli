@@ -2,6 +2,7 @@ mod create;
 mod delete;
 mod get;
 mod list;
+mod update;
 
 use clap::{Args, Subcommand};
 
@@ -27,6 +28,9 @@ pub enum ChecklistCommand {
     /// Create a checklist on a card.
     Create(create::CreateArgs),
 
+    /// Rename a checklist or set or clear its deadline.
+    Update(update::UpdateArgs),
+
     /// Permanently delete a card checklist.
     Delete(delete::DeleteArgs),
 
@@ -41,6 +45,9 @@ pub(crate) async fn dispatch(
     confirmation: &dyn ConfirmationProvider,
 ) -> Result<CommandSuccess, AppError> {
     match command {
+        ChecklistCommand::Update(args) => {
+            update::execute(args, client_factory, credential_store).await
+        }
         ChecklistCommand::List(args) => list::execute(args, client_factory, credential_store).await,
         ChecklistCommand::Get(args) => get::execute(args, client_factory, credential_store).await,
         ChecklistCommand::Create(args) => {
