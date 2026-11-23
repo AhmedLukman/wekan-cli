@@ -24,6 +24,9 @@ source-tarball = true
 github-attestations = true
 pr-run-mode = "upload"
 
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+
 [dist.github-action-commits]
 "actions/checkout" = "de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
 "actions/upload-artifact" = "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
