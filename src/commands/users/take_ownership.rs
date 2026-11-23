@@ -17,11 +17,12 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{map_client_error, non_empty};
+use super::non_empty;
+use crate::commands::client_error::map_client_error_with_not_found;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan v12.57 can select boards where the target is an inactive or non-administrator member. Returned board summaries do not confirm completed transfers. Self-targeting can deactivate your membership when another active board administrator exists. See `wekan skill show users` for details."
+    after_help = "Transfers boards where the target user holds an administrator membership. Self-targeting can deactivate your membership when another active board administrator exists."
 )]
 pub struct TakeOwnershipArgs {
     /// Wekan user ID whose board memberships Wekan will select.
@@ -43,7 +44,7 @@ pub(super) async fn execute(
         "Run Wekan's self ownership action, which can deactivate your board memberships?".to_owned()
     } else {
         format!(
-            "Run Wekan's ownership action for user `{}`, including boards where that user is not an administrator?",
+            "Take ownership of boards administered by user `{}`?",
             args.user_id
         )
     };
@@ -64,7 +65,14 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "ownership transfer"))?;
+        .map_err(|error| {
+            map_client_error_with_not_found(
+                error,
+                &redactor,
+                "ownership transfer",
+                "user not found",
+            )
+        })?;
     let UserActionResult::OwnershipTransferred(boards) = boards else {
         return Err(AppError::new(
             ErrorCode::ProtocolError,

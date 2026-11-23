@@ -1,5 +1,6 @@
 use super::support::attachment_fixtures::{assert_stored_file_retained, fixture_command, seed};
 use super::support::*;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::json;
 use wekan_cli::command_result::AttachmentScope;
 
@@ -51,7 +52,7 @@ async fn run(
     app.execute(cli.command).await
 }
 
-async fn verify_legacy_attachment_permissions(
+async fn verify_legacy_member_listing(
     owner: &App<CapturingStore, FixedPassword, FileProfileStore>,
     server: &str,
     board: &str,
@@ -113,40 +114,30 @@ async fn verify_legacy_attachment_permissions(
     else {
         panic!("member registration")
     };
-    for role in [None, Some("normal"), Some("worker")] {
-        if let Some(role) = role {
-            execute_live_board(
-                owner,
-                server,
-                &[
-                    "member",
-                    if role == "normal" { "add" } else { "update" },
-                    &user.user_id,
-                    "--board",
-                    board,
-                    "--role",
-                    role,
-                ],
-            )
+    execute_live_board(
+        owner,
+        server,
+        &[
+            "member",
+            "add",
+            &user.user_id,
+            "--board",
+            board,
+            "--role",
+            "normal",
+        ],
+    )
+    .await
+    .unwrap();
+    wait_for_live_board_membership(&member, server, board).await;
+    let CommandSuccess::BoardAttachments(data) =
+        execute_live_board(&member, server, &["attachment", "list", "--board", board])
             .await
-            .unwrap();
-            if role == "normal" {
-                wait_for_live_board_membership(&member, server, board).await;
-            }
-        }
-        let result =
-            execute_live_board(&member, server, &["attachment", "list", "--board", board]).await;
-        if role == Some("normal") {
-            let CommandSuccess::BoardAttachments(data) = result.unwrap() else {
-                panic!("member listing")
-            };
-            assert_eq!(data.count, 2);
-        } else {
-            let error = result.unwrap_err();
-            assert_eq!(error.code(), ErrorCode::PermissionDenied);
-            assert_eq!(error.details().http_status, Some(403));
-        }
-    }
+            .unwrap()
+    else {
+        panic!("member listing")
+    };
+    assert_eq!(data.count, 2);
     fixture_command(
         "mongodb",
         "mongosh",
@@ -162,7 +153,6 @@ async fn verify_raw_background_partial_failure(
     directory: &Path,
     nonce: u128,
 ) {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
     let encoded = PNG_BASE64;
     let bytes = STANDARD.decode(encoded).unwrap();
     let source = directory.join("background.png");
@@ -184,8 +174,7 @@ async fn verify_raw_background_partial_failure(
     );
     let mut saved_uploads = Vec::new();
     for explicit_type in [false, true] {
-        // Stay within v12.57's 30-character filename cap so its unrelated
-        // rename/deferred-validator path does not alter this MIME fixture.
+        // Give each background upload a short, distinct filename.
         let name = format!("bg-{nonce}-{explicit_type}.png");
         let mut args = vec![
             "upload-background",
@@ -282,14 +271,13 @@ async fn verify_raw_background_partial_failure(
     }
 }
 
-async fn verify_raw_upload_rename_validation_failure(
+async fn verify_raw_upload_after_filename_normalization(
     app: &super::support::live::LiveApp,
     server: &str,
     scope: (&str, &str, &str, &str),
     directory: &Path,
     nonce: u128,
 ) {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
     let (board, swimlane, list, card) = scope;
     let source = directory.join("renamed-upload.png");
     fs::write(&source, STANDARD.decode(PNG_BASE64).unwrap()).unwrap();
@@ -339,53 +327,38 @@ async fn verify_raw_upload_rename_validation_failure(
         wekan_cli::output::render_success(OutputFormat::Human, &result)
             .contains("final availability is unconfirmed")
     );
-    // W12-007: upload returns its new ID before the deferred validator rejects
-    // the stale pre-rename path and removes the persisted attachment document.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-    loop {
-        let count = fixture_command(
-            "mongodb",
-            "mongosh",
-            "print(JSON.stringify(db.getSiblingDB('wekan').attachments.countDocuments({_id:p.id,'meta.boardId':p.board})));",
-            &json!({"id":upload.attachment_id,"board":board}),
-        );
-        if count == 0 {
-            break;
-        }
-        assert!(
-            std::time::Instant::now() < deadline,
-            "the native validator did not remove renamed upload {}",
-            upload.attachment_id
-        );
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-    let missing = run(
+    // W12-007: the validator reads the normalized path and retains the bytes.
+    let file_path = fixture_command(
+        "mongodb",
+        "mongosh",
+        "const a=db.getSiblingDB('wekan').attachments.findOne({_id:p.id});print(JSON.stringify(a.versions.original.path));",
+        &json!({"id":upload.attachment_id}),
+    );
+    wait_for_attachment_validation_log(&format!(
+        "Validation of uploaded file successful: file {}",
+        file_path.as_str().unwrap()
+    ))
+    .await;
+    let downloaded = run(
         app,
         server,
-        OutputFormat::Json,
-        &["get", &upload.attachment_id],
+        OutputFormat::Raw,
+        &["download", &upload.attachment_id, "--destination", "-"],
     )
     .await
-    .unwrap_err();
-    assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(404));
-    wait_for_attachment_validation_log(&format!("-import-{name}'")).await;
-    // Removal also misses the renamed physical file. Verify its bytes before
-    // removing this upload's orphan by its returned immutable attachment ID.
-    let orphan = fixture_command(
-        "wekan",
-        "node",
-        "const fs=require('fs'),path=require('path'),root='/data/files/attachments';const prefix=p.id+'-original-';const files=fs.readdirSync(root).filter(name=>name.startsWith(prefix));const matching=files.filter(name=>fs.readFileSync(path.join(root,name)).equals(Buffer.from(p.encoded,'base64'))).length;for(const name of files)fs.rmSync(path.join(root,name));console.log(JSON.stringify({files:files.length,matching,remaining:fs.readdirSync(root).filter(name=>name.startsWith(prefix)).length}));",
-        &json!({"id":upload.attachment_id,"encoded":PNG_BASE64}),
-    );
-    assert_eq!(orphan, json!({"files":1,"matching":1,"remaining":0}));
+    .unwrap();
+    let mut bytes = Vec::new();
+    write_success(OutputFormat::Raw, downloaded, &mut bytes, &mut Vec::new())
+        .await
+        .unwrap();
+    assert_eq!(bytes, STANDARD.decode(PNG_BASE64).unwrap());
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_ATTACHMENT_E2E_URL"]
-async fn complete_attachment_flow_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_ATTACHMENT_E2E_URL"]
+async fn complete_attachment_flow_matches_wekan_v13_28() {
     let server = env::var("WEKAN_ATTACHMENT_E2E_URL")
-        .expect("set WEKAN_ATTACHMENT_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_ATTACHMENT_E2E_URL to an isolated Wekan v13.28 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -475,7 +448,6 @@ async fn complete_attachment_flow_matches_wekan_v12_57() {
         panic!("card")
     };
     let bytes = [0, 255, 13, 10].repeat(300_000);
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
     let fs_id = format!("attachmentfs{nonce}");
     let grid_id = format!("attachmentgrid{nonce}");
     let mut stored_files = Vec::new();
@@ -599,22 +571,9 @@ async fn complete_attachment_flow_matches_wekan_v12_57() {
         assert!(rendered.contains("fixture.bin"));
         assert!(rendered.contains("url_download"));
     }
-    verify_legacy_attachment_permissions(&app, &server, &board.board_id, nonce).await;
+    verify_legacy_member_listing(&app, &server, &board.board_id, nonce).await;
     verify_raw_background_partial_failure(&app, &server, &board.board_id, directory.path(), nonce)
         .await;
-    verify_raw_upload_rename_validation_failure(
-        &app,
-        &server,
-        (
-            &board.board_id,
-            &board.default_swimlane_id,
-            &list.list_id,
-            &card.card_id,
-        ),
-        directory.path(),
-        nonce,
-    )
-    .await;
     for flags in [
         vec![],
         vec!["--swimlane-id", "nonexistent"],
@@ -688,12 +647,40 @@ async fn complete_attachment_flow_matches_wekan_v12_57() {
         "--card",
         &card.card_id,
     ];
-    let background_upload = vec![
-        "upload-background",
-        source.to_str().unwrap(),
-        "--board",
-        &board.board_id,
-    ];
+    let background_png = directory.path().join("background.png");
+    fs::write(&background_png, STANDARD.decode(PNG_BASE64).unwrap()).unwrap();
+    let background_error = run(
+        &app,
+        &server,
+        OutputFormat::Json,
+        &[
+            "upload-background",
+            background_png.to_str().unwrap(),
+            "--board",
+            &board.board_id,
+            "--file-type",
+            "image/png",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(background_error.details().http_status, Some(500));
+    assert!(
+        background_error
+            .details()
+            .server_error
+            .as_deref()
+            .is_some_and(|reason| reason.contains("isBoardAdmin"))
+    );
+    let CommandSuccess::AttachmentUploaded(uploaded) =
+        run(&app, &server, OutputFormat::Json, &upload)
+            .await
+            .unwrap()
+    else {
+        panic!("JSON attachment upload")
+    };
+    assert!(uploaded.request_accepted);
+    assert_eq!(uploaded.file_size, 3);
     let copy = vec![
         "copy",
         &fs_id,
@@ -708,24 +695,21 @@ async fn complete_attachment_flow_matches_wekan_v12_57() {
     ];
     let mut moving = copy.clone();
     moving[0] = "move";
-    for args in [upload, background_upload, copy, moving] {
-        let error = run(&app, &server, OutputFormat::Json, &args)
-            .await
-            .unwrap_err();
-        assert_eq!(error.code(), ErrorCode::ServerError);
-        assert_eq!(error.details().http_status, Some(408));
-        let CommandSuccess::AttachmentList(collection) = run(
-            &app,
-            &server,
-            OutputFormat::Json,
-            &["list", "--board", &board.board_id],
-        )
+    let CommandSuccess::AttachmentCopied(copied) =
+        run(&app, &server, OutputFormat::Json, &copy).await.unwrap()
+    else {
+        panic!("JSON attachment copy")
+    };
+    assert_eq!(copied.source_attachment_id, fs_id);
+    assert_ne!(copied.new_attachment_id, fs_id);
+    let CommandSuccess::AttachmentMoved(moved) = run(&app, &server, OutputFormat::Json, &moving)
         .await
-        .unwrap() else {
-            panic!("readback")
-        };
-        assert_eq!(collection.count, 2);
-    }
+        .unwrap()
+    else {
+        panic!("JSON attachment move")
+    };
+    assert_eq!(moved.attachment_id, fs_id);
+    assert_eq!(moved.target_board_id, board.board_id);
     for (index, (id, stored)) in stored_files.iter().enumerate() {
         let mut args = vec!["delete", id, "--yes"];
         if index == 1 {
@@ -801,6 +785,19 @@ async fn complete_attachment_flow_matches_wekan_v12_57() {
         };
         assert!(deleted.attachments.is_empty());
     }
+    verify_raw_upload_after_filename_normalization(
+        &app,
+        &server,
+        (
+            &board.board_id,
+            &board.default_swimlane_id,
+            &list.list_id,
+            &card.card_id,
+        ),
+        directory.path(),
+        nonce,
+    )
+    .await;
     execute_live_board(&app, &server, &["delete", &board.board_id, "--yes"])
         .await
         .unwrap();

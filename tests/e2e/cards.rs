@@ -4,10 +4,10 @@ mod archival;
 #[path = "cards/extensions.rs"]
 mod extensions;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_CARD_E2E_URL"]
-async fn complete_card_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_CARD_E2E_URL"]
+async fn complete_card_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_CARD_E2E_URL")
-        .expect("set WEKAN_CARD_E2E_URL to a fresh isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_CARD_E2E_URL to a fresh isolated Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -568,7 +568,7 @@ async fn complete_card_lifecycle_matches_wekan_v12_57() {
         after_update.sort.and_then(|value| value.as_f64()),
         Some(73.25)
     );
-    assert_eq!(after_update.is_overtime, Some(false));
+    assert_eq!(after_update.is_overtime, Some(true));
     assert_eq!(after_update.due_complete, Some(true));
 
     let submitted_long_title = "x".repeat(1001);
@@ -630,9 +630,9 @@ async fn complete_card_lifecycle_matches_wekan_v12_57() {
         ],
     )
     .await
-    .expect("Wekan v12.57 persists a zero spentTime value");
+    .expect("Wekan persists a zero spentTime value");
     assert!(matches!(zero_spent_time, CommandSuccess::CardUpdated(_)));
-    let CommandSuccess::CardShown(after_ignored_zero) = execute_live_card(
+    let CommandSuccess::CardShown(after_zero_spent_time) = execute_live_card(
         &app,
         &server,
         &[
@@ -649,7 +649,7 @@ async fn complete_card_lifecycle_matches_wekan_v12_57() {
         panic!("expected card detail output")
     };
     assert_eq!(
-        after_ignored_zero
+        after_zero_spent_time
             .spent_time
             .and_then(|value| value.as_f64()),
         Some(0.0)
@@ -718,154 +718,73 @@ async fn complete_card_lifecycle_matches_wekan_v12_57() {
     assert_eq!(after_clear.end_at, None);
     assert_eq!(after_clear.due_complete, Some(false));
 
-    let ignored_parent = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::POST,
-        &format!("api/boards/{}/lists/{}/cards", board.board_id, list.list_id),
-        Some(serde_json::json!({
-            "title": "Ignored parent probe",
-            "swimlaneId": board.default_swimlane_id,
-            "parentId": parent.card_id
-        })),
+    let CommandSuccess::CardCreated(child) = execute_live_card(
+        &app,
+        &server,
+        &[
+            "create",
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            "--swimlane-id",
+            &board.default_swimlane_id,
+            "--title",
+            "Child",
+            "--parent-id",
+            &created.card_id,
+        ],
     )
-    .await;
-    let ignored_parent_id = required_id(&ignored_parent, "ignored-parent card");
-    let ignored_parent_card = live_api_json(
+    .await
+    .unwrap() else {
+        panic!("expected a child card");
+    };
+    let child_path = format!(
+        "api/boards/{}/lists/{}/cards/{}",
+        board.board_id, list.list_id, child.card_id
+    );
+    let stored = live_api_json(
         &http,
         &canonical_server,
         &token,
         reqwest::Method::GET,
-        &format!(
-            "api/boards/{}/lists/{}/cards/{ignored_parent_id}",
-            board.board_id, list.list_id
-        ),
+        &child_path,
         None,
     )
     .await;
-    assert!(
-        ignored_parent_card
-            .get("parentId")
-            .and_then(serde_json::Value::as_str)
-            .is_none_or(str::is_empty),
-        "single-card create unexpectedly persisted body parentId: {ignored_parent_card}"
-    );
-
-    let broken_value_url = url::Url::parse(&canonical_server)
-        .unwrap()
-        .join(&format!(
-            "api/boards/{}/lists/{}/cards/{ignored_parent_id}",
-            board.board_id, list.list_id
-        ))
+    assert_eq!(stored["parentId"], created.card_id);
+    for overtime in [true, false] {
+        execute_live_card(
+            &app,
+            &server,
+            &[
+                "update",
+                &child.card_id,
+                "--board",
+                &board.board_id,
+                "--list",
+                &list.list_id,
+                "--sort",
+                "0",
+                "--is-over-time",
+                if overtime { "true" } else { "false" },
+            ],
+        )
+        .await
         .unwrap();
-    let ignored_values = http
-        .put(broken_value_url.clone())
-        .header(AUTHORIZATION, format!("Bearer {token}"))
-        .json(&serde_json::json!({"sort": 0, "isOverTime": false}))
-        .send()
-        .await
-        .expect("the ignored-value probe must complete");
-    assert_eq!(ignored_values.status(), reqwest::StatusCode::NOT_FOUND);
-    let misspelled_write = http
-        .put(broken_value_url)
-        .header(AUTHORIZATION, format!("Bearer {token}"))
-        .json(&serde_json::json!({"isOverTime": true}))
-        .send()
-        .await
-        .expect("the misspelled isOverTime probe must complete");
-    assert!(misspelled_write.status().is_success());
-    let misspelled_card = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::GET,
-        &format!(
-            "api/boards/{}/lists/{}/cards/{ignored_parent_id}",
-            board.board_id, list.list_id
-        ),
-        None,
-    )
-    .await;
-    assert_eq!(misspelled_card["isOverTime"], serde_json::Value::Null);
-    assert_eq!(misspelled_card["isOvertime"], false);
-
-    let wrong_list_parent = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::POST,
-        &format!("api/boards/{}/lists/{}/cards", board.board_id, list.list_id),
-        Some(serde_json::json!({
-            "title": "Wrong-list parent",
-            "swimlaneId": board.default_swimlane_id
-        })),
-    )
-    .await;
-    let wrong_list_parent_id = required_id(&wrong_list_parent, "wrong-list parent");
-    let wrong_list_child = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::POST,
-        &format!("api/boards/{}/lists/{}/cards", board.board_id, list.list_id),
-        Some(serde_json::json!({
-            "title": "Wrong-list child",
-            "swimlaneId": board.default_swimlane_id
-        })),
-    )
-    .await;
-    let wrong_list_child_id = required_id(&wrong_list_child, "wrong-list child");
-    live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::PUT,
-        &format!(
-            "api/boards/{}/lists/{}/cards/{wrong_list_child_id}",
-            board.board_id, list.list_id
-        ),
-        Some(serde_json::json!({"parentId": wrong_list_parent_id})),
-    )
-    .await;
-    let wrong_delete = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::DELETE,
-        &format!(
-            "api/boards/{}/lists/wrong-list/cards/{wrong_list_parent_id}",
-            board.board_id
-        ),
-        None,
-    )
-    .await;
-    assert_eq!(
-        required_id(&wrong_delete, "wrong-list deletion"),
-        wrong_list_parent_id
-    );
-    let surviving_parent = live_api_json(
-        &http,
-        &canonical_server,
-        &token,
-        reqwest::Method::GET,
-        &format!(
-            "api/boards/{}/lists/{}/cards/{wrong_list_parent_id}",
-            board.board_id, list.list_id
-        ),
-        None,
-    )
-    .await;
-    assert_eq!(surviving_parent["_id"], wrong_list_parent_id);
-    wait_for_live_card_absent(
-        &http,
-        &canonical_server,
-        &token,
-        &board.board_id,
-        &list.list_id,
-        &wrong_list_child_id,
-    )
-    .await;
+        let stored = live_api_json(
+            &http,
+            &canonical_server,
+            &token,
+            reqwest::Method::GET,
+            &child_path,
+            None,
+        )
+        .await;
+        assert_eq!(stored["sort"], 0);
+        assert_eq!(stored["isOvertime"], overtime);
+        assert!(stored.get("isOverTime").is_none());
+    }
 
     let CommandSuccess::CardDeleted(deleted) = execute_live_card(
         &app,
@@ -901,21 +820,31 @@ async fn complete_card_lifecycle_matches_wekan_v12_57() {
     .await
     .expect_err("the hard-deleted card must be reported as missing");
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
-    assert_eq!(missing.details().wekan_status_code, Some(404));
+    assert_eq!(missing.details().http_status, Some(404));
+    assert_eq!(missing.details().wekan_status_code, None);
+    wait_for_live_card_absent(
+        &http,
+        &canonical_server,
+        &token,
+        &board.board_id,
+        &list.list_id,
+        &child.card_id,
+    )
+    .await;
 
-    for card_id in [parent.card_id, ignored_parent_id, wrong_list_parent_id].into_iter() {
-        live_api_json(
-            &http,
-            &canonical_server,
-            &token,
-            reqwest::Method::DELETE,
-            &format!(
-                "api/boards/{}/lists/{}/cards/{card_id}",
-                board.board_id, list.list_id
-            ),
-            None,
-        )
-        .await;
-    }
+    execute_live_card(
+        &app,
+        &server,
+        &[
+            "delete",
+            &parent.card_id,
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            "--yes",
+        ],
+    )
+    .await
+    .unwrap();
 }

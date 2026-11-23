@@ -19,15 +19,19 @@ wekan attachment export ATTACHMENT --board BOARD --destination attachment.json -
 wekan --output raw board export BOARD --format csv --destination - --no-auth
 ```
 
-All 48 board formats are supported:
+All 75 board formats are supported:
 
 ```text
-json csv scsv tsv xlsx pdf zip ics
+json csv tsv xlsx pdf zip ics scsv
 kanboard deck openproject github gitlab gitea forgejo trello
 jira asana zenkit markdown leo todotxt taskwarrior focalboard
 todoist planner meistertask obsidian linear ticktick clickup nullboard
 kanri pivotal redmine tasksorg monday businessmap superproductivity taiga
 vikunja wrike wrikeworkflow teamwork quire notion opml orgmode
+trellozip fizzy mbox enex mattermost rocketchat wordpress wordpressjson
+ghost blogger markdownsite htmlsite azuredevops mslists msproject outlook
+onenote teams sandstormprioritize sandstormyatl sandstormmutodo sandstormsandchat sandstormethercalc sandstormradicalecalendar
+sandstormradicalecontacts sandstormdavros sandstormhackercms
 ```
 
 Card formats are `xlsx` and `pdf`. Attachment export produces Wekan's
@@ -63,7 +67,7 @@ exports. These two flags conflict. All existing profile, server, output, and
 insecure-HTTP global options remain available.
 
 Private board CSV/TSV, board/card Excel, and attachment JSON routes have
-administrator-only Bearer checks in v12.57. A normal board member can use their
+administrator-only Bearer checks in v13.28. A normal board member can use their
 own credential with the explicit `--auth-token-query` option. The CLI does not
 switch modes after a rejection. Other routes retain their own native permission
 checks.
@@ -87,10 +91,10 @@ Board exports additionally accept `board-header`, `activities`, `card-details`, 
 without it selects the legacy table workbook. Kanboard has no field selection.
 The CLI validates section names, while Wekan decides which sections affect each
 format. External JSON formats gate description, labels, and dates where those
-exist. Private CSV applies the selection to columns; public CSV ignores it.
+exist. CSV applies the column selection to public and private boards.
 
 Board JSON/XLSX/PDF/ZIP/ICS support `--swimlane ID`, `--list ID`, `--card ID`, and
-`--checklist ID`. Scope IDs must contain 1–64 ASCII letters, digits, underscores,
+`--checklist ID`. Scope IDs must contain 1â€“64 ASCII letters, digits, underscores,
 or hyphens. Supplied selectors are forwarded together: card wins over checklist;
 otherwise list and swimlane constrain the cards together. A checklist scope
 selects its parent card. Scope flags are unavailable for the other formats.
@@ -148,15 +152,12 @@ the artifact contents and staging path are excluded. Human output escapes termin
 control characters. If completion output fails after saving, error details retain
 `file_saved: true` and `destination`.
 
-## Pinned Wekan v12.57 behavior
+## Pinned Wekan v13.28 behavior
 
 - Native ZIP export now produces an archive; the old CommonJS interop failure is fixed.
-- Some Excel/PDF failures still return plain text with HTTP 200 (W11-008).
-  The CLI reports `protocol_error` and does not deliver an invalid artifact.
-- Card Excel with a recognized fields selection that omits `board-info` fails
-  after the response starts and aborts the transfer (W11-028). The CLI reports
-  `transport_error`. Include `board-info` explicitly when that content is wanted;
-  the CLI never inserts it automatically.
+- A missing board XLSX export returns HTTP 404.
+- Card XLSX accepts selected fields such as `description` without requiring
+  `board-info`. The workbook contains the selected sections.
 - A missing attachment ID exports `{}` successfully. A missing board still uses
   the route's native failure behavior.
 
@@ -179,12 +180,14 @@ wekan board export-all --format wekan --board BOARD --destination boards.zip
 ```
 
 Calendar exports support the board scope selectors and retain native VEVENT
-content. Chart exports support `pdf|xlsx` and these 21 chart keys:
+content. Chart exports support `pdf|xlsx` and these 33 chart keys:
 
 ```text
 dashboard burndown burnup cumulativeFlow controlChart cycleTime flowEfficiency
 leadTime throughputHistogram wipRun gantt time pulse scrumVelocity scrumSprint
 scrumDaily agingWip blockerAnalysis monteCarlo processBehavior sizeCycleTime
+createdResolved netFlow timeInList averageAge throughputRun workload distribution
+dueDatePerformance releaseBurndown epicProgress dependencyMap activityHeatmap
 ```
 
 `scrumSprint` and `scrumDaily` require `--sprint`. Report controls are
@@ -200,16 +203,14 @@ workbook with a sheet per board; other formats produce ZIPs. Wekan records
 skipped boards and errors in `skipped.txt`, which must be inspected for partial
 outcomes. `--no-auth` is unavailable for mass export.
 
-W12-003: mass CSV/SCSV/TSV currently return a ZIP containing only `skipped.txt`
-for an ordinary populated board. Internal validation rejects the server's list
-objects and disables the exporting account. W12-002: a normal member's Bearer
-attachment JSON export also incorrectly disables that account after HTTP 403.
-These are recorded native defects; the CLI performs no authentication fallback
-or export emulation.
+Mass CSV, SCSV and TSV can return an archive containing only `skipped.txt`
+for an ordinary populated board (W12-003). Wekan v12.57 also disabled the
+exporting account in this case. The v13.28 verification checked the archive.
+The earlier attachment Bearer-export case and the release-specific evidence
+are recorded in the [compatibility ledger](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/compatibility.md).
 
 Native ZIP exports contain independently readable file bytes, including GridFS
 files and distinct entries for duplicate filenames. Their filenames omit the
 attachment IDs the raw ZIP importer uses, so a direct scoped ZIP round trip can
 import the cards while reporting zero attachments (W12-004). New-board ZIP
-import currently returns HTTP 500 because its job lacks the user context
-(W12-005). Both behaviors are regression-tested without altering the archive.
+imports return the created board's ID, including with `--members-mode me`.

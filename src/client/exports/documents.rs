@@ -1,4 +1,4 @@
-//! Explicit projected response objects for Wekan v12.57 exports.
+//! Explicit projected response objects for Wekan v13.28 exports.
 //! Derived from the corrected contract; schemaless built-in rule/activity fields
 //! are verified against the pinned producers, not captured in a flattened map.
 #![allow(dead_code)] // Validation-only DTO values are dropped after each record.
@@ -11,6 +11,48 @@ use serde_json::Number;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct BoardExportDocument {
+    #[serde(rename = "showEmptyCardFields", default)]
+    _show_empty_card_fields: Option<bool>,
+    #[serde(rename = "cardSettingsSectionOrder", default)]
+    _card_settings_section_order: Option<Vec<String>>,
+    #[serde(rename = "minicardSettingsSectionOrder", default)]
+    _minicard_settings_section_order: Option<Vec<String>>,
+    #[serde(rename = "cardSettingsHiddenOnCard", default)]
+    _card_settings_hidden_on_card: Option<Vec<String>>,
+    #[serde(rename = "cardSettingsHiddenOnMinicard", default)]
+    _card_settings_hidden_on_minicard: Option<Vec<String>>,
+    #[serde(rename = "cardFieldsAlwaysShown", default)]
+    _card_fields_always_shown: Option<Vec<String>>,
+    #[serde(rename = "allowsListPolicies", default)]
+    _allows_list_policies: Option<bool>,
+    #[serde(rename = "commitmentListId", default)]
+    _commitment_list_id: Option<String>,
+    #[serde(rename = "personWipLimit", default)]
+    _person_wip_limit: Option<u8>,
+    #[serde(rename = "allowsSplitLists", default)]
+    _allows_split_lists: Option<bool>,
+    #[serde(rename = "allowsBlockedOnCard", default)]
+    _allows_blocked_on_card: Option<bool>,
+    #[serde(rename = "allowsBlockedOnMinicard", default)]
+    _allows_blocked_on_minicard: Option<bool>,
+    #[serde(rename = "allowsClassOfServiceOnCard", default)]
+    _allows_class_of_service_on_card: Option<bool>,
+    #[serde(rename = "allowsClassOfServiceOnMinicard", default)]
+    _allows_class_of_service_on_minicard: Option<bool>,
+    #[serde(rename = "allowsMoscowOnCard", default)]
+    _allows_moscow_on_card: Option<bool>,
+    #[serde(rename = "allowsMoscowOnMinicard", default)]
+    _allows_moscow_on_minicard: Option<bool>,
+    #[serde(rename = "allowsWsjfOnCard", default)]
+    _allows_wsjf_on_card: Option<bool>,
+    #[serde(rename = "allowsWsjfOnMinicard", default)]
+    _allows_wsjf_on_minicard: Option<bool>,
+    #[serde(rename = "allowsAttachmentPreviewsOnCard", default)]
+    _allows_attachment_previews_on_card: Option<bool>,
+    #[serde(rename = "allowsAttachmentDetailsOnCard", default)]
+    _allows_attachment_details_on_card: Option<bool>,
+    #[serde(rename = "shopSettings", default)]
+    _shop_settings: Option<Box<ShopSettings>>,
     #[serde(rename = "scrumTransfer", default, deserialize_with = "optional")]
     _scrum_transfer: Option<super::scrum_transfer::ScrumTransfer>,
     #[serde(rename = "scrumTransferLosses", default, deserialize_with = "optional")]
@@ -809,6 +851,10 @@ pub(super) struct ExportAttachment {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportList {
+    #[serde(rename = "policy", default)]
+    _policy: Option<String>,
+    #[serde(rename = "split", default)]
+    _split: Option<bool>,
     #[serde(rename = "scrum", default)]
     _scrum: Option<ScrumList>,
     #[serde(rename = "roleExceptions", default)]
@@ -946,6 +992,16 @@ pub(super) struct ExportCustomField {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ExportCard {
+    #[serde(rename = "flow", default)]
+    _flow: Option<Box<CardFlow>>,
+    #[serde(rename = "estimatedHours", default)]
+    _estimated_hours: Option<serde_json::Number>,
+    #[serde(rename = "billable", default)]
+    _billable: Option<bool>,
+    #[serde(rename = "shownFields", default)]
+    _shown_fields: Option<Vec<String>>,
+    #[serde(rename = "hiddenFields", default)]
+    _hidden_fields: Option<Vec<String>>,
     #[serde(rename = "scrum", default)]
     _scrum: Option<ScrumCard>,
     #[serde(rename = "drawings", default)]
@@ -1332,6 +1388,16 @@ pub(super) struct ChecklistItems {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Cards {
+    #[serde(rename = "flow", default)]
+    _flow: Option<Box<CardFlow>>,
+    #[serde(rename = "estimatedHours", default)]
+    _estimated_hours: Option<serde_json::Number>,
+    #[serde(rename = "billable", default)]
+    _billable: Option<bool>,
+    #[serde(rename = "shownFields", default)]
+    _shown_fields: Option<Vec<String>>,
+    #[serde(rename = "hiddenFields", default)]
+    _hidden_fields: Option<Vec<String>>,
     #[serde(rename = "scrum", default)]
     _scrum: Option<ScrumCard>,
     #[serde(rename = "drawings", default)]

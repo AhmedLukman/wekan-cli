@@ -1,5 +1,5 @@
 use crate::client::metadata::*;
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
@@ -138,14 +138,6 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            return Err(ClientError::EmbeddedServer {
-                http_status: StatusCode::OK,
-                wekan_status_code: StatusCode::NOT_FOUND.as_u16(),
-                server_error: Some("swimlane-not-found".to_owned()),
-                server_reason: Some("Swimlane not found".to_owned()),
-            });
-        }
         let swimlane = decode_success(&body, "swimlane", true)?;
         validate_swimlane_document(swimlane)
     }
@@ -346,7 +338,7 @@ mod tests {
     use super::{SwimlaneDocument, SwimlaneSummary, is_valid_swimlane_color};
 
     #[test]
-    fn color_validation_matches_wekan_v12_57() {
+    fn color_validation_matches_wekan_v13_28() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_swimlane_color(value));
         }

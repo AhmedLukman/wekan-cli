@@ -227,7 +227,7 @@ impl WekanClient {
         board: &str,
         field: &str,
         token: &SecretString,
-    ) -> Result<Option<CustomFieldDocument>, ClientError> {
+    ) -> Result<CustomFieldDocument, ClientError> {
         let body = self
             .execute_success_request(
                 self.http
@@ -236,10 +236,6 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            // The pinned route sends HTTP 200 with no data when its scoped lookup misses.
-            return Ok(None);
-        }
         let document: CustomFieldDocument = decode_success(&body, "custom field", true)?;
         require_id(&document.custom_field_id)?;
         if document.custom_field_id != field || !document.board_ids.iter().any(|id| id == board) {
@@ -260,7 +256,7 @@ impl WekanClient {
                 protocol_error("the custom-field response contained an invalid date-time")
             })?;
         }
-        Ok(Some(document))
+        Ok(document)
     }
 
     pub async fn create_custom_field(

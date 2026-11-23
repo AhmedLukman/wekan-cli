@@ -472,8 +472,8 @@ async fn verify_transfer_ordering(app: &LiveApp, server: &str) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_TRANSFER_E2E_URL"]
-async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_TRANSFER_E2E_URL"]
+async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_TRANSFER_E2E_URL")
         .expect("set WEKAN_TRANSFER_E2E_URL to an isolated stack");
     let nonce = SystemTime::now()
@@ -852,7 +852,7 @@ async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v12_57() {
     );
     assert!(count(&app, &server, copied_board, None).await > 0);
 
-    verify_empty_and_partial_moves(&normal, &server, &b, &target, &target_lane).await;
+    verify_empty_and_populated_moves(&normal, &server, &b, &target, &target_lane).await;
     verify_attachment_copy(&app, &server, nonce).await;
     verify_permissions(&app, &server, &b, &l, &s, &c, nonce).await;
     // Cleanup removes only boards created by this test, after all defect assertions.
@@ -863,7 +863,7 @@ async fn complete_copy_move_and_card_read_lifecycle_matches_wekan_v12_57() {
     }
 }
 
-async fn verify_empty_and_partial_moves(
+async fn verify_empty_and_populated_moves(
     app: &LiveApp,
     server: &str,
     b: &str,
@@ -1011,7 +1011,7 @@ async fn verify_empty_and_partial_moves(
         "Lane partial card",
     )
     .await;
-    let error = run(
+    run(
         app,
         server,
         &[
@@ -1025,20 +1025,17 @@ async fn verify_empty_and_partial_moves(
         ],
     )
     .await
-    .unwrap_err();
-    assert_eq!(error.details().http_status, Some(500));
-    assert!(
-        serde_json::to_value(error.details())
-            .unwrap()
-            .get("outcome_unknown")
-            .is_none()
-    );
+    .unwrap();
     assert_eq!(detail(app, server, &card_id).await["board_id"], target);
     assert_eq!(
-        run(app, server, &["swimlane", "get", lane_id, "--board", b])
-            .await
-            .unwrap()["board_id"],
-        b
+        run(
+            app,
+            server,
+            &["swimlane", "get", lane_id, "--board", target]
+        )
+        .await
+        .unwrap()["board_id"],
+        target
     );
 }
 
@@ -1065,7 +1062,7 @@ async fn verify_list_move_filters(
             "--board",
             source,
             "--title",
-            "List move excluded lane",
+            "Second source lane",
         ],
     )
     .await
@@ -1074,10 +1071,9 @@ async fn verify_list_move_filters(
 
     // Each request has its own source list and independently established
     // destination state, so one case cannot switch another to the reuse branch.
-    for (title, existing_destination, matching_filter) in [
-        ("New destination nonmatching filter", false, false),
-        ("New destination matching filter", false, true),
-        ("Same-title destination filter bypass", true, false),
+    for (title, existing_destination) in [
+        ("New cross-board destination", false),
+        ("Same-title cross-board destination", true),
     ] {
         let list = run(
             app,
@@ -1129,27 +1125,15 @@ async fn verify_list_move_filters(
             None
         };
         let card_id = card(app, server, source, list_id, &source_lane, title).await;
-        // A second source lane proves the matching case does not simply move
-        // the first available card. The reuse case needs one excluded card.
-        let excluded = if existing_destination {
-            None
-        } else {
-            let id = card(
-                app,
-                server,
-                source,
-                list_id,
-                other_lane,
-                "Excluded source card",
-            )
-            .await;
-            Some((id.clone(), detail(app, server, &id).await))
-        };
-        let requested_lane = if matching_filter {
-            &source_lane
-        } else {
-            target_lane
-        };
+        let second = card(
+            app,
+            server,
+            source,
+            list_id,
+            other_lane,
+            "Second source card",
+        )
+        .await;
         let result = run(
             app,
             server,
@@ -1162,7 +1146,7 @@ async fn verify_list_move_filters(
                 "--target-board",
                 target,
                 "--target-swimlane-id",
-                requested_lane,
+                target_lane,
             ],
         )
         .await;
@@ -1181,26 +1165,18 @@ async fn verify_list_move_filters(
         if let Some(existing) = existing_list {
             assert_eq!(existing["list_id"], destination_id);
         }
-        {
-            let error = result.unwrap_err();
-            assert_eq!(error.details().http_status, Some(500));
-            assert!(
-                serde_json::to_value(error.details())
-                    .unwrap()
-                    .get("outcome_unknown")
-                    .is_none()
-            );
-            let moved = detail(app, server, &card_id).await;
+        let receipt = result.unwrap();
+        assert_eq!(receipt["returned_list_id"], list_id);
+        for id in [&card_id, &second] {
+            let moved = detail(app, server, id).await;
             assert_eq!(moved["board_id"], target);
             assert_eq!(moved["list_id"], destination_id);
-            assert_eq!(
-                list_cards(app, server, target, destination_id).await.len(),
-                1
-            );
+            assert_eq!(moved["swimlane_id"], target_lane);
         }
-        if let Some((id, original)) = excluded {
-            assert_eq!(detail(app, server, &id).await, original);
-        }
+        assert_eq!(
+            list_cards(app, server, target, destination_id).await.len(),
+            2
+        );
         assert_eq!(
             run(app, server, &["list", "get", list_id, "--board", source])
                 .await

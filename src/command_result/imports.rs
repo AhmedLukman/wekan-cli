@@ -33,3 +33,9 @@ pub struct IcsImportSuccess {
     pub created: u64,
     pub card_ids: Vec<String>,
 }
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub struct ImportUploadSuccess {
+    pub upload_id: String,
+    pub size: u64,
+}

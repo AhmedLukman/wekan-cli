@@ -81,6 +81,12 @@ pub struct CardMembershipMutationSuccess {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CardSummary {
+    pub board_id: Option<String>,
+    pub modified_at: Option<String>,
+    pub date_last_activity: Option<String>,
+    pub label_ids: Option<Vec<Option<String>>>,
+    pub members: Option<Vec<String>>,
+    pub custom_fields: Option<Vec<crate::client::cards::CardListCustomField>>,
     pub card_id: String,
     pub title: Option<String>,
     pub description: Option<String>,
@@ -177,6 +183,11 @@ pub struct CardDetailPoker {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CardDetail {
+    pub flow: Option<Box<CardFlow>>,
+    pub estimated_hours: Option<Number>,
+    pub billable: Option<bool>,
+    pub shown_fields: Option<Vec<String>>,
+    pub hidden_fields: Option<Vec<String>>,
     pub scrum: Option<Box<ScrumCard>>,
     pub drawings: Option<Vec<CardDrawing>>,
     pub custom_field_links: Option<Vec<CardCustomFieldLink>>,
@@ -345,6 +356,7 @@ pub struct CardDeleteSuccess {
     pub list_id: String,
     pub card_id: String,
     pub deletion_requested: bool,
+    pub deleted: bool,
     pub delete_mode: CardDeleteMode,
 }
 
@@ -397,6 +409,12 @@ pub struct SwimlaneCardCollectionSuccess {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct SwimlaneCardSummary {
+    pub board_id: Option<String>,
+    pub modified_at: Option<String>,
+    pub date_last_activity: Option<String>,
+    pub label_ids: Option<Vec<Option<String>>>,
+    pub members: Option<Vec<String>>,
+    pub custom_fields: Option<Vec<crate::client::cards::CardListCustomField>>,
     pub card_id: String,
     pub title: Option<String>,
     pub description: Option<String>,

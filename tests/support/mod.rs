@@ -460,8 +460,8 @@ pub(crate) async fn wait_for_live_swimlane_absent(
     for _ in 0..40 {
         match execute_live_swimlane(app, server, &["get", "--board", board_id, swimlane_id]).await {
             Err(error) if error.code() == ErrorCode::NotFound => {
-                assert_eq!(error.details().http_status, Some(200));
-                assert_eq!(error.details().wekan_status_code, Some(404));
+                assert_eq!(error.details().http_status, Some(404));
+                assert_eq!(error.details().wekan_status_code, None);
                 return;
             }
             Ok(CommandSuccess::SwimlaneShown(_)) => {}
@@ -537,14 +537,12 @@ pub(crate) async fn wait_for_live_card_absent(
             .send()
             .await
             .expect("the cascade-card probe must complete");
-        assert!(response.status().is_success());
-        let body = response
-            .bytes()
-            .await
-            .expect("the cascade-card response body must be readable");
-        if body.is_empty() {
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            let error: serde_json::Value = response.json().await.unwrap();
+            assert_eq!(error["error"], "Card not found");
             return;
         }
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     }
     panic!("cascaded card `{card_id}` remained retrievable for 10 seconds")

@@ -1,5 +1,5 @@
 use crate::client::metadata::*;
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Number;
@@ -66,6 +66,8 @@ pub struct ListWipLimit {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct ListDocument {
+    pub policy: Option<String>,
+    pub split: Option<bool>,
     pub scrum: Option<ScrumList>,
     pub role_exceptions: Option<std::collections::BTreeMap<String, ListRoleException>>,
     pub sync_source: Option<Box<ListSyncSource>>,
@@ -183,14 +185,6 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            return Err(ClientError::EmbeddedServer {
-                http_status: StatusCode::OK,
-                wekan_status_code: StatusCode::NOT_FOUND.as_u16(),
-                server_error: Some("list-not-found".to_owned()),
-                server_reason: Some("List not found".to_owned()),
-            });
-        }
         let list = decode_success(&body, "list", true)?;
         validate_list_document(list)
     }
@@ -409,7 +403,7 @@ mod tests {
     use super::{ListDocument, ListSummary, is_valid_list_color, validate_list_document};
 
     #[test]
-    fn color_validation_matches_wekan_v12_57() {
+    fn color_validation_matches_wekan_v13_28() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_list_color(value));
         }

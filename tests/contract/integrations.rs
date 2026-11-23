@@ -199,8 +199,10 @@ async fn optional_title_and_dates_are_preserved() {
     let document = client(&server)
         .integration("b", "i", &SecretString::from("token".to_owned()))
         .await
-        .unwrap()
         .unwrap();
+    let wekan_cli::client::IntegrationDocument::Administrator(document) = document else {
+        panic!("expected administrator details")
+    };
     assert_eq!(document.title.as_deref(), Some(" Hook "));
     assert_eq!(document.created_at, "2026-10-14T00:00:00.000Z");
     server.reset().await;
@@ -210,15 +212,14 @@ async fn optional_title_and_dates_are_preserved() {
         .respond_with(ResponseTemplate::new(200).set_body_json(response))
         .mount(&server)
         .await;
-    assert_eq!(
-        client(&server)
-            .integration("b", "i", &SecretString::from("token".to_owned()))
-            .await
-            .unwrap()
-            .unwrap()
-            .title,
-        None
-    );
+    let document = client(&server)
+        .integration("b", "i", &SecretString::from("token".to_owned()))
+        .await
+        .unwrap();
+    let wekan_cli::client::IntegrationDocument::Administrator(document) = document else {
+        panic!("expected administrator details")
+    };
+    assert_eq!(document.title, None);
 }
 
 #[tokio::test]
@@ -249,7 +250,7 @@ async fn acknowledgements_and_activity_projections_validate_ids_and_required_fie
 }
 
 #[tokio::test]
-async fn only_documented_missing_resource_responses_allow_empty_bodies() {
+async fn empty_success_bodies_and_embedded_errors_are_rejected() {
     for index in 0..7 {
         let server = MockServer::start().await;
         let (verb, _, _) = operation(index);
@@ -257,10 +258,10 @@ async fn only_documented_missing_resource_responses_allow_empty_bodies() {
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        assert_eq!(
-            invoke(&client(&server), index).await.is_ok(),
-            matches!(index, 1 | 5 | 6)
-        );
+        assert!(matches!(
+            invoke(&client(&server), index).await,
+            Err(ClientError::Protocol { .. })
+        ));
         server.reset().await;
         Mock::given(method(verb))
             .respond_with(
@@ -306,4 +307,47 @@ async fn endpoint_ids_are_encoded_and_invalid_ids_send_no_requests() {
         );
     }
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn member_projection_requires_exactly_the_four_native_fields() {
+    let member = json!({"_id":"i","boardId":"b","enabled":true,"activities":["all"]});
+    for (response, accepted) in [
+        (member.clone(), true),
+        (json!({"_id":"i","boardId":"b","activities":["all"]}), false),
+        (
+            json!({"_id":"i","boardId":"other","enabled":true,"activities":[]}),
+            false,
+        ),
+        (
+            json!({"_id":"i","boardId":"b","enabled":true,"activities": [{}]}),
+            false,
+        ),
+        (
+            json!({"_id":"i","boardId":"b","enabled":true,"activities":[],"extra":true}),
+            false,
+        ),
+        (
+            json!({"_id":"i","boardId":"b","enabled":true,"activities":[],"url":"https://example.test"}),
+            false,
+        ),
+    ] {
+        for index in [0, 1] {
+            let server = MockServer::start().await;
+            let body = if index == 0 {
+                json!([response.clone()])
+            } else {
+                response.clone()
+            };
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(body))
+                .mount(&server)
+                .await;
+            assert_eq!(
+                invoke(&client(&server), index).await.is_ok(),
+                accepted,
+                "{response}"
+            );
+        }
+    }
 }

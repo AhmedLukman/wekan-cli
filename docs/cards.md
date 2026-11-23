@@ -46,7 +46,7 @@ preserve `{board_id, list_id, cards}`; swimlane results use
 `{board_id, swimlane_id, cards}`, with `list_id` on each card summary.
 List-scoped summaries normalize omitted assignees to `[]`; swimlane-scoped
 summaries preserve null assignee arrays and null elements. Both use the server's
-active-card projection and sort order. A missing list or
+active-card projection and sort order. Each summary includes the board ID, modification and activity timestamps, labels, members and custom field values returned by the server. A missing list or
 swimlane returns an empty collection after the board access check.
 
 `card count` returns `{board_id, list_id, count}`, with null `list_id` for
@@ -69,9 +69,7 @@ Create accepts `--description`, repeated `--member` and `--assignee`, and
 timestamps, date-only and textual dates, and numeric epoch milliseconds. Repeated member and assignee flags supply the complete
 initial arrays. Swimlane ID is required. Omitting title uses Wekan's empty default; empty text is allowed. `--null-title` and `--null-description`
 send explicit null and conflict with their text forms. `--linked-id` selects an existing source card. Wekan checks read access to the source board
-and ignores other content fields when creating a linked card. Wekan v12.57
-silently ignores `parentId` in the body of this single-card creation endpoint, so the
-CLI does not expose it.
+and ignores other content fields when creating a linked card. For subtasks, use `--parent-id <CARD_ID>`. The new card records its parent in both `parent_id` and `parent_ids`.
 
 Update accepts:
 
@@ -95,17 +93,10 @@ Update accepts:
 
 At least one update field is required. Set and clear forms conflict. IDs and
 text are treated separately: IDs cannot be empty after trimming. Text is sent
-unchanged, so whitespace can trigger Wekan's text-clearing behavior. Empty text
-and null are ignored by the update route's truthiness checks. Colors use Wekan v12.57's card palette or
+unchanged, so whitespace can trigger Wekan's text-clearing behavior. An empty title or description clears the stored text. Colors use Wekan v13.28's card palette or
 exactly `#rrggbb`.
 
-Update values intentionally mirror broken Wekan v12.57 behavior. Wekan
-truncates titles after the first 1000 JavaScript UTF-16 code units. It silently
-ignores `sort: 0` and `isOverTime: false`; a request containing
-only those values can therefore return not found. `spentTime: 0` is accepted and
-persisted, and explicit null or empty date values clear their respective dates. It acknowledges
-`isOverTime: true`, but targets the wrong document-field spelling, so the
-card's real `is_overtime` value does not change in the pinned live stack.
+A sort value of zero moves the card to that numeric position. Both values of `--is-over-time` update the stored overtime flag.
 
 Update results report submitted fields in this fixed order, regardless of option order:
 `title`, `sort`, `parent_id`, `description`, `color`, `label_ids`, `requested_by`,
@@ -176,12 +167,7 @@ that combine fields. Its restore behavior differs: the update endpoint selects
 by board and card ID independently of the supplied list, while the dedicated
 restore endpoint requires the correct list.
 
-Wekan v12.57 returns HTTP 500 with an HTML body for a missing card, wrong list,
-wrong existing board, or wrong archived state, including repeated archive or
-restore. The CLI preserves this as `server_error` with `http_status: 500`
-and does not retry.
-A missing board returns HTTP 404 (`not_found`), and authentication and board
-permission failures retain their HTTP 401/403 classifications.
+A missing or out-of-scope card returns HTTP 404. The CLI reports the native status for archive and restore failures.
 
 ## Stable output
 
@@ -189,12 +175,12 @@ Use `--output json` for stable machine-readable envelopes. Collection, create,
 update, archive, restore, and delete data have these shapes:
 
 ```json
-{"board_id":"board-id","list_id":"list-id","cards":[{"card_id":"card-id","title":"Todo","description":"Details","swimlane_id":"swimlane-id","received_at":null,"start_at":null,"due_at":null,"end_at":null,"assignees":[],"sort":0}]}
+{"board_id":"board-id","list_id":"list-id","cards":[{"card_id":"card-id","title":"Todo","description":"Details","swimlane_id":"swimlane-id","received_at":null,"start_at":null,"due_at":null,"end_at":null,"assignees":[],"sort":0,"board_id":"board-id","modified_at":"2030-01-02T03:04:05.000Z","date_last_activity":"2030-01-02T03:04:05.000Z","members":[],"label_ids":[],"custom_fields":[]}]}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id"}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id","submitted_fields":["title","due_at"]}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id","archived":true,"archived_at":"2030-01-02T03:04:05.000Z"}
 {"board_id":"board-id","list_id":"list-id","card_id":"card-id","archived":false}
-{"board_id":"board-id","list_id":"list-id","card_id":"card-id","deletion_requested":true,"delete_mode":"hard"}
+{"board_id":"board-id","list_id":"list-id","card_id":"card-id","deletion_requested":true,"deleted":true,"delete_mode":"hard"}
 ```
 
 Update result board/list IDs identify the request's source scope, including after
@@ -208,7 +194,7 @@ missing required fields, invalid types or timestamps, and mismatched IDs or
 states cause `protocol_error`.
 
 These objects appear under the usual `{"ok":true,"data":...}` envelope.
-`card get` returns the complete supported Wekan v12.57 card document in snake
+`card get` returns the complete supported Wekan v13.28 card document in snake
 case; `_id` becomes `card_id` and `type` becomes `card_type`. Omitted collections become arrays except `watchers`, which is `null`
 when absent and preserves `[]` when present and empty. Omitted optional scalars become
 JSON `null`. The card, custom-field, sticker, location, dependency, vote, and
@@ -218,29 +204,11 @@ members), or null union. Known IDs,
 timestamps, colors, card types, sticker highlights, nested values, and required
 types are also validated.
 
-A missing scoped card produces an empty HTTP 200 response in Wekan v12.57. The
-CLI normalizes that response to `not_found`.
+A missing scoped card returns HTTP 404 and the CLI reports `not_found`.
 
-## Hard deletion warning
+## Hard deletion
 
-`card delete` requires interactive confirmation or command-local `--yes` and
-issues exactly one DELETE request. Declining uses cancellation operation
-`card_delete`. The endpoint is idempotent and always
-returns the requested ID, including for an absent card. Therefore
-`deletion_requested: true` means Wekan accepted the request; it does not prove that the
-card previously existed or was removed.
-
-Always supply the card's actual list ID. Wekan v12.57 looks up the card by board
-and card ID before cascading child deletion, but includes the list ID only when
-removing the card itself. A wrong list ID can therefore delete the card's child
-resources while leaving the card intact. The CLI mirrors the endpoint and does
-not preflight or post-verify existence.
-
-Card reads preserve JavaScript ISO timestamps with signed six-digit years,
-empty custom-field IDs generated by Wekan, and null label-array elements.
-Response objects still reject unmapped fields and invalid known types.
-
-Card updates report request acceptance and expose `submitted_fields`, not applied fields. Human output explains ineffective overtime changes when requested. Deletion reports request acceptance and returns `deletion_requested: true` because missing cards and wrong-list requests can leave the card intact.
+`card delete` requires confirmation or `--yes`. On success the JSON result includes `deleted: true`, `deletion_requested: true`, and `delete_mode: "hard"`. Wekan verifies the board, list and card before removing the card and its children. A repeated deletion returns HTTP 404.
 
 ## Bot run reports
 

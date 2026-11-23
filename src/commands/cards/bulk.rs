@@ -21,7 +21,7 @@ pub struct BulkArgs {
 pub enum BulkCommand {
     /// Create 1-500 cards from a JSON array in one request.
     Create(create::CreateArgs),
-    /// Permanently delete 1-500 requested cards; Wekan v12.57 retains attachments.
+    /// Permanently delete 1-500 requested cards and soft-delete their attachments.
     Delete(delete::DeleteArgs),
     /// Merge label additions/removals on 1-500 active cards.
     Labels(labels::LabelsArgs),

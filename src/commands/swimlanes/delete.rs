@@ -8,7 +8,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_client_error, protocol_error_details},
+        client_error::{map_client_error_with_not_found, protocol_error_details},
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -87,8 +87,14 @@ pub(super) async fn execute(
         .delete_swimlane(&args.board_id, &args.swimlane_id, context.record().token())
         .await;
     drop(credential_mutation);
-    let deleted =
-        deletion.map_err(|error| map_client_error(error, &redactor, "swimlane deletion"))?;
+    let deleted = deletion.map_err(|error| {
+        map_client_error_with_not_found(
+            error,
+            &redactor,
+            "swimlane deletion",
+            "the requested Wekan swimlane was not found on that board",
+        )
+    })?;
     if deleted.swimlane_id != args.swimlane_id {
         let details = protocol_error_details(true);
 
@@ -103,6 +109,7 @@ pub(super) async fn execute(
         board_id: args.board_id,
         swimlane_id: deleted.swimlane_id,
         deletion_requested: true,
+        deleted: true,
         delete_mode: SwimlaneDeleteMode::Hard,
     }))
 }

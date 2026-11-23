@@ -29,7 +29,22 @@ impl From<crate::client::integrations::inbound_email::BounceReceipt> for BounceR
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct IntegrationDetail {
+#[serde(untagged)]
+pub enum IntegrationDetail {
+    Administrator(Box<AdministratorIntegrationDetail>),
+    Member(MemberIntegrationDetail),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct MemberIntegrationDetail {
+    pub integration_id: String,
+    pub board_id: String,
+    pub enabled: bool,
+    pub activities: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AdministratorIntegrationDetail {
     pub integration_id: String,
     pub enabled: bool,
     pub title: Option<String>,
@@ -46,21 +61,32 @@ pub struct IntegrationDetail {
 }
 
 impl From<crate::client::integrations::IntegrationDocument> for IntegrationDetail {
-    fn from(d: crate::client::integrations::IntegrationDocument) -> Self {
-        Self {
-            integration_id: d.integration_id,
-            enabled: d.enabled,
-            title: d.title,
-            integration_type: d.integration_type,
-            activities: d.activities,
-            url: d.url,
-            board_id: d.board_id,
-            created_at: d.created_at,
-            modified_at: d.modified_at,
-            user_id: d.user_id,
-            notification_delivery: d.notification_delivery,
-            mattermost_direct_messages: d.mattermost_direct_messages,
-            bot: d.bot,
+    fn from(document: crate::client::integrations::IntegrationDocument) -> Self {
+        use crate::client::integrations::IntegrationDocument;
+        match document {
+            IntegrationDocument::Member(d) => Self::Member(MemberIntegrationDetail {
+                integration_id: d.integration_id,
+                board_id: d.board_id,
+                enabled: d.enabled,
+                activities: d.activities,
+            }),
+            IntegrationDocument::Administrator(d) => {
+                Self::Administrator(Box::new(AdministratorIntegrationDetail {
+                    integration_id: d.integration_id,
+                    enabled: d.enabled,
+                    title: d.title,
+                    integration_type: d.integration_type,
+                    activities: d.activities,
+                    url: d.url,
+                    board_id: d.board_id,
+                    created_at: d.created_at,
+                    modified_at: d.modified_at,
+                    user_id: d.user_id,
+                    notification_delivery: d.notification_delivery,
+                    mattermost_direct_messages: d.mattermost_direct_messages,
+                    bot: d.bot,
+                }))
+            }
         }
     }
 }

@@ -22,16 +22,15 @@ pub(super) fn created(data: &IntegrationCreateSuccess) -> String {
     format!("Integration created:\n{}", render_object(data))
 }
 pub(super) fn updated(data: &IntegrationUpdateSuccess) -> String {
-    format!(
-        "Integration update request accepted:\n{}",
-        render_object(data)
-    )
+    let outcome = if data.submitted_fields.is_empty() {
+        "No integration changes requested"
+    } else {
+        "Integration updated"
+    };
+    format!("{outcome}:\n{}", render_object(data))
 }
 pub(super) fn deleted(data: &IntegrationDeleteSuccess) -> String {
-    format!(
-        "Integration deletion request accepted:\n{}",
-        render_object(data)
-    )
+    format!("Integration deleted:\n{}", render_object(data))
 }
 pub(super) fn activities(data: &IntegrationActivityMutationSuccess) -> String {
     format!(

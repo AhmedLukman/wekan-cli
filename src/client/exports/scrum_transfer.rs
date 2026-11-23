@@ -1,4 +1,4 @@
-//! Native Scrum transfer v2, verified against v12.57 scrumTransferExport.js.
+//! Native Scrum transfer v2, verified against v13.28 server/lib/scrumTransferExport.js.
 #![allow(dead_code)] // Artifact validation retains the original bytes.
 use super::validation::{Date, optional, required_nullable};
 use crate::client::metadata::{ScrumCard, ScrumList, ScrumSettings, ScrumSwimlane};
@@ -192,7 +192,7 @@ mod tests {
 
     fn native_transfer() -> Value {
         serde_json::from_str(include_str!(
-            "../../../tests/fixtures/responses/exports/v12.57/scrum-transfer.json"
+            "../../../tests/fixtures/responses/exports/v13.28/scrum-transfer.json"
         ))
         .unwrap()
     }

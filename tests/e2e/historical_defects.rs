@@ -10,7 +10,7 @@ pub(super) async fn verify(
 ) {
     let (board, lane, list) = scope;
     let http = reqwest::Client::new();
-    // W11-018 survives: an absent scoped card is an empty HTTP-200 response.
+    // W11-018: a missing scoped card now returns the native JSON 404.
     let response = http
         .get(format!(
             "{canonical}api/boards/{board}/lists/{list}/cards/missing"
@@ -19,8 +19,11 @@ pub(super) async fn verify(
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status(), 200);
-    assert!(response.bytes().await.unwrap().is_empty());
+    assert_eq!(response.status(), 404);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"error":"Card not found"})
+    );
     // W11-019's missing/wrong-scope cases are fixed by the beforeEdit guard.
     let response = http
         .put(format!(
@@ -37,47 +40,36 @@ pub(super) async fn verify(
         json!({"error":"Card not found"})
     );
 
-    // W11-020 survives: creation stores relationships without checking their existence.
-    for (target_list, target_lane) in [("missing-list", lane), (list, "missing-lane")] {
-        let made = run(
-            app,
-            server,
-            &[
-                "card",
-                "create",
-                "--board",
-                board,
-                "--list",
-                target_list,
-                "--swimlane-id",
-                target_lane,
-                "--title",
-                "Relationship probe",
-            ],
-        )
-        .await;
-        let id = made["card_id"].as_str().unwrap();
-        let stored = run(app, server, &["card", "get", id]).await;
-        assert_eq!(stored["list_id"], target_list);
-        assert_eq!(stored["swimlane_id"], target_lane);
-        run(
-            app,
-            server,
-            &[
-                "card",
-                "delete",
-                id,
-                "--board",
-                board,
-                "--list",
-                target_list,
-                "--yes",
-            ],
-        )
-        .await;
+    // W11-020: reject missing placement references before creating the card.
+    for (target_list, target_lane, reason) in [
+        (
+            "missing-list",
+            lane,
+            "listId does not belong to this board.",
+        ),
+        (
+            list,
+            "missing-lane",
+            "swimlaneId does not belong to this board.",
+        ),
+    ] {
+        let response = http
+            .post(format!(
+                "{canonical}api/boards/{board}/lists/{target_list}/cards"
+            ))
+            .bearer_auth(token)
+            .json(&json!({"title":"Relationship probe", "swimlaneId":target_lane}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response.json::<Value>().await.unwrap(),
+            json!({"error":reason})
+        );
     }
 
-    // The archived-card portion of W11-019 still acknowledges an unmatched update.
+    // W11-019: a title-only update on an archived card reports no match.
     let made = run(
         app,
         server,
@@ -102,23 +94,20 @@ pub(super) async fn verify(
         &["card", "archive", id, "--board", board, "--list", list],
     )
     .await;
-    let accepted = run(
-        app,
-        server,
-        &[
-            "card",
-            "update",
-            id,
-            "--board",
-            board,
-            "--list",
-            list,
-            "--title",
-            "Ignored archive title",
-        ],
-    )
-    .await;
-    assert_eq!(accepted["submitted_fields"], json!(["title"]));
+    let response = http
+        .put(format!(
+            "{canonical}api/boards/{board}/lists/{list}/cards/{id}"
+        ))
+        .bearer_auth(token)
+        .json(&json!({"title":"Ignored archive title"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"message":"Error"})
+    );
     let stored = run(app, server, &["card", "get", id]).await;
     assert_eq!(stored["archived"], true);
     assert_eq!(stored["title"], "Archived update probe");
@@ -131,7 +120,7 @@ pub(super) async fn verify(
     )
     .await;
 
-    // W11-024: the streaming JSON wrapper still changes export-disabled to HTTP 500.
+    // W11-024: the export switch rejects the request before starting a stream.
     use crate::support::attachment_fixtures::fixture_command;
     let previous = fixture_command(
         "mongodb",
@@ -152,13 +141,13 @@ pub(super) async fn verify(
         .await
         .unwrap();
     let status = response.status();
-    let data = response.json::<Value>().await.unwrap();
+    let data = response.text().await.unwrap();
     fixture_command(
         "mongodb",
         "mongosh",
         "const modifier=p.present?{$set:{disableAllExport:p.value}}:{$unset:{disableAllExport:''}};db.getSiblingDB('wekan').settings.updateOne({_id:p.id},modifier);print('{}');",
         &previous,
     );
-    assert_eq!(status, 500);
-    assert_eq!(data, json!({"error":"Export failed"}));
+    assert_eq!(status, 403);
+    assert_eq!(data, "Export is disabled by the administrator.");
 }

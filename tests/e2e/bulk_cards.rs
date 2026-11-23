@@ -409,7 +409,7 @@ fn verify_process_results(
     }
 }
 
-async fn verify_bulk_delete_retains_attachments(
+async fn verify_bulk_delete_soft_deletes_attachments(
     app: &LiveApp,
     server: &str,
     b: &str,
@@ -472,36 +472,21 @@ async fn verify_bulk_delete_retains_attachments(
             .all(|item| item["card_id"] != card)
     );
 
-    // W11-046: cardRemover selects top-level cardId instead of meta.cardId.
-    // The surviving bug is the attachment remaining visible after its card
-    // is deleted. Backing-byte retention alone is normal recoverable deletion.
-    let bytes = fixture_command(
-        "wekan",
-        "node",
-        r#"
-          const fs=require('fs');
-          const exists=fs.existsSync(p.path);
-          console.log(JSON.stringify({exists,data:exists ? fs.readFileSync(p.path).toString('base64') : null}));
-        "#,
-        &input,
-    );
-    assert_eq!(bytes, json!({"exists":true,"data":input["data"]}));
+    // W11-046: the card cascade hides its attachment and preserves recovery bytes.
     let after = run(app, server, &["attachment", "list", "--board", b])
         .await
         .unwrap();
-    assert_eq!(
-        after, before,
-        "bulk deletion unexpectedly cleaned up attachment metadata"
+    assert_eq!(after["count"], 0);
+    let recoverable = run(app, server, &["attachment", "list-deleted", "--board", b])
+        .await
+        .unwrap();
+    assert!(
+        recoverable["attachments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["attachment_id"] == attachment_id)
     );
-
-    // Native attachment deletion is recoverable and must retain its file bytes.
-    run(
-        app,
-        server,
-        &["attachment", "delete", &attachment_id, "--yes"],
-    )
-    .await
-    .unwrap();
     let retained = fixture_command(
         "wekan",
         "node",
@@ -512,8 +497,8 @@ async fn verify_bulk_delete_retains_attachments(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_BULK_CARD_E2E_URL"]
-async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_BULK_CARD_E2E_URL"]
+async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_BULK_CARD_E2E_URL")
         .expect("set WEKAN_BULK_CARD_E2E_URL to an isolated stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
@@ -612,7 +597,7 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57() {
     )
     .await
     .unwrap();
-    assert_ne!(repeated["label_id"], red["label_id"]);
+    assert_eq!(repeated["label_id"], red["label_id"]);
     let reused = run(
         &app,
         &server,
@@ -680,18 +665,15 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57() {
         ErrorCode::PermissionDenied
     );
 
-    // Supplying unknown card members triggers Wekan's GuestBleed account
-    // protection even though it filters the IDs and returns created cards.
-    let (_assignment_probe_dir, assignment_probe, _) =
-        register_live_board_role(&server, &canonical, &token, &b, nonce + 10, "normal").await;
+    // Active board members can be supplied as a list or a single ID.
     let made = create(
-        &assignment_probe,
+        &normal,
         &server,
         &b,
         &l,
         &s,
         json!([
-            {"members":[normal_id,admin,"missing",null,9],"assignees":normal_id},
+            {"members":[normal_id,admin],"assignees":normal_id},
             {"title":null,"description":null,"swimlaneId":s},
             {"title":"Archive me"}
         ]),
@@ -1088,7 +1070,7 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v12_57() {
     .unwrap();
     assert_eq!(deleted["deleted"], json!([child_id]));
 
-    verify_bulk_delete_retains_attachments(&app, &server, &b, &l, &s, admin, nonce).await;
+    verify_bulk_delete_soft_deletes_attachments(&app, &server, &b, &l, &s, admin, nonce).await;
 
     let http = reqwest::Client::new();
     assert_eq!(

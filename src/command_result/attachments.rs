@@ -21,7 +21,7 @@ impl From<AttachmentUploadResponse> for AttachmentUploadSuccess {
             storage_backend: response.storage_backend,
             server_message: response.message,
             request_accepted: true,
-            // v12.57 validates and migrates the attachment in deferred tasks.
+            // Wekan validates and migrates the attachment in deferred tasks.
             upload_confirmed: false,
         }
     }

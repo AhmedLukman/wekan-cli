@@ -50,6 +50,12 @@ pub(super) async fn execute(
                 cards: cards
                     .into_iter()
                     .map(|card| crate::command_result::SwimlaneCardSummary {
+                        board_id: card.board_id,
+                        modified_at: card.modified_at,
+                        date_last_activity: card.date_last_activity,
+                        label_ids: card.label_ids,
+                        members: card.members,
+                        custom_fields: card.custom_fields,
                         card_id: card.card_id,
                         title: card.title,
                         description: card.description,
@@ -79,6 +85,12 @@ pub(super) async fn execute(
         cards: cards
             .into_iter()
             .map(|card| CardSummary {
+                board_id: card.board_id,
+                modified_at: card.modified_at,
+                date_last_activity: card.date_last_activity,
+                label_ids: card.label_ids,
+                members: card.members,
+                custom_fields: card.custom_fields,
                 card_id: card.card_id,
                 title: card.title,
                 description: card.description,

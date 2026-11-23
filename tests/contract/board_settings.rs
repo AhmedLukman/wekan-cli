@@ -457,6 +457,56 @@ const FIELDS: &[(&str, &str, &str)] = &[
         "--allows-whiteboard-on-card",
     ),
     (
+        "allowsBlockedOnCard",
+        "allows_blocked_on_card",
+        "--allows-blocked-on-card",
+    ),
+    (
+        "allowsBlockedOnMinicard",
+        "allows_blocked_on_minicard",
+        "--allows-blocked-on-minicard",
+    ),
+    (
+        "allowsClassOfServiceOnCard",
+        "allows_class_of_service_on_card",
+        "--allows-class-of-service-on-card",
+    ),
+    (
+        "allowsClassOfServiceOnMinicard",
+        "allows_class_of_service_on_minicard",
+        "--allows-class-of-service-on-minicard",
+    ),
+    (
+        "allowsMoscowOnCard",
+        "allows_moscow_on_card",
+        "--allows-moscow-on-card",
+    ),
+    (
+        "allowsMoscowOnMinicard",
+        "allows_moscow_on_minicard",
+        "--allows-moscow-on-minicard",
+    ),
+    (
+        "allowsWsjfOnCard",
+        "allows_wsjf_on_card",
+        "--allows-wsjf-on-card",
+    ),
+    (
+        "allowsWsjfOnMinicard",
+        "allows_wsjf_on_minicard",
+        "--allows-wsjf-on-minicard",
+    ),
+    (
+        "allowsAttachmentPreviewsOnCard",
+        "allows_attachment_previews_on_card",
+        "--allows-attachment-previews-on-card",
+    ),
+    (
+        "allowsAttachmentDetailsOnCard",
+        "allows_attachment_details_on_card",
+        "--allows-attachment-details-on-card",
+    ),
+    (
         "labelsAboveTitleOnCard",
         "labels_above_title_on_card",
         "--labels-above-title-on-card",
@@ -613,7 +663,7 @@ fn every_settings_response_field_maps_without_losing_stored_numbers() {
     let document = settings_document();
     let settings: BoardCardSettings = serde_json::from_value(document.clone()).unwrap();
     let output = serde_json::to_value(settings).unwrap();
-    assert_eq!(output.as_object().unwrap().len(), 114);
+    assert_eq!(output.as_object().unwrap().len(), 124);
     for (wire, snake, _) in FIELDS {
         assert_eq!(output[*snake], document[*wire], "{wire}");
     }

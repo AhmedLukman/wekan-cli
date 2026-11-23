@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "requires a fresh user-started Wekan v12.57 stack and WEKAN_API_E2E_URL"]
-async fn raw_api_escape_hatch_matches_wekan_v12_57() {
+#[ignore = "requires a fresh user-started Wekan v13.28 stack and WEKAN_API_E2E_URL"]
+async fn raw_api_escape_hatch_matches_wekan_v13_28() {
     let server = env::var("WEKAN_API_E2E_URL")
-        .expect("set WEKAN_API_E2E_URL to a fresh isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_API_E2E_URL to a fresh isolated Wekan v13.28 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")

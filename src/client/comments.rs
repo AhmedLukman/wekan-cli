@@ -1,4 +1,4 @@
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -121,11 +121,6 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            return Err(ClientError::EmptyNotFound {
-                http_status: StatusCode::OK,
-            });
-        }
         let comment = validate_comment_document(decode_success(&body, "comment", true)?)?;
         if comment.board_id != board_id
             || comment.card_id != card_id

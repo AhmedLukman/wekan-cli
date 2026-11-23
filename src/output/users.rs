@@ -22,7 +22,7 @@ pub(super) fn render_token_deleted(data: &crate::command_result::UserTokenDelete
         }
         crate::command_result::UserTokenDeleteScope::All => "Deleted all tokens",
     };
-    let mut output = format!(
+    format!(
         "{heading} for user {}.\nScope: {}\nServer message: {}",
         escape_terminal_controls(&data.user_id),
         match data.scope {
@@ -30,11 +30,7 @@ pub(super) fn render_token_deleted(data: &crate::command_result::UserTokenDelete
             crate::command_result::UserTokenDeleteScope::All => "all",
         },
         escape_terminal_controls(&data.message)
-    );
-    if data.scope == crate::command_result::UserTokenDeleteScope::Single {
-        output.push_str("\nWekan v12.57 acknowledges raw-token deletion without revoking that session (W11-058).");
-    }
-    output
+    )
 }
 
 pub(super) fn render_user_detail(data: &UserDetail) -> String {
@@ -94,6 +90,8 @@ pub(super) fn render_user_detail(data: &UserDetail) -> String {
         "import_usernames",
         "notification_delivery_revision",
         "feature_preview",
+        "feature_profile_id",
+        "password_change_required",
         "inactivity_clock_start",
         "login_disabled_reason",
         "anonymized",
@@ -179,7 +177,7 @@ pub(super) fn render_user_boards(data: &UserBoardsSuccess) -> String {
 
 pub(super) fn render_user_ownership(data: &UserOwnershipSuccess) -> String {
     let mut lines = vec![format!(
-        "Ownership transfer requested for {} board(s) from user {} to user {}.",
+        "Transferred ownership of {} board(s) from user {} to user {}.",
         data.boards.len(),
         escape_terminal_controls(&data.from_user_id),
         escape_terminal_controls(&data.to_user_id)

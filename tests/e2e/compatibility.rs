@@ -29,8 +29,7 @@ async fn run(app: &App<CapturingStore, Secrets>, server: &str, args: &[&str]) ->
 }
 
 fn seed_workspace_tree(user_id: &str, tree: &serde_json::Value) {
-    // v12.57 models/users.js:539-553 stores nodes as blackbox objects;
-    // server/models/users.js:761-765 persists setWorkspacesTree without filtering them.
+    // Wekan stores workspace nodes as blackbox objects.
     // Seed only this isolated test's account, then use Wekan's real REST serializer.
     let selector = json!({"_id":user_id});
     let update = json!({"$set":{"profile.boardWorkspacesTree":tree}});
@@ -145,8 +144,8 @@ async fn verify_workspace_tree_decoding(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_COMPATIBILITY_E2E_URL"]
-async fn audited_behavior_gaps_match_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_COMPATIBILITY_E2E_URL"]
+async fn audited_behavior_gaps_match_wekan_v13_28() {
     let server = env::var("WEKAN_COMPATIBILITY_E2E_URL").unwrap();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -496,7 +495,7 @@ async fn audited_behavior_gaps_match_wekan_v12_57() {
     let digest = format!("{:x}", Sha256::digest(password.as_bytes()));
     *secrets.0.lock().unwrap() =
         SecretString::from(json!({"digest":digest,"algorithm":"sha-256"}).to_string());
-    run(
+    let CommandSuccess::UserCreated(created) = run(
         &app,
         &server,
         &[
@@ -509,27 +508,10 @@ async fn audited_behavior_gaps_match_wekan_v12_57() {
             "--password-digest-stdin",
         ],
     )
-    .await;
-    // The pinned create-user route returns before account creation finishes.
-    let mut created_id = None;
-    for _ in 0..40 {
-        let CommandSuccess::UserList(users) = run(&app, &server, &["user", "list"]).await else {
-            panic!("users")
-        };
-        if let Some(user) = users
-            .users
-            .into_iter()
-            .find(|user| user.username.as_deref() == Some(&digest_username))
-        {
-            created_id = Some(user.user_id);
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-    }
-    assert!(
-        created_id.is_some(),
-        "asynchronous digest user creation must finish"
-    );
+    .await
+    else {
+        panic!("expected user creation")
+    };
     let http = reqwest::Client::new();
     let login: serde_json::Value = http
         .post(format!("{server}/users/login"))
@@ -550,88 +532,20 @@ async fn audited_behavior_gaps_match_wekan_v12_57() {
     else {
         panic!("digest user")
     };
-    assert_eq!(digest_user.user_id, created_id.unwrap());
+    assert_eq!(digest_user.user_id, created.user_id);
     let token = login["token"].as_str().unwrap();
-    let admin_token = app
-        .credential_store()
-        .credential
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .3
-        .clone();
-    // W11-013/014: legacy owner/role inputs cannot assign a board to another
-    // account or deactivate its authenticated initial administrator in v12.57.
-    for supplied_owner in [digest_id, "missing-owner"] {
-        let response = http.post(format!("{server}/api/boards")).bearer_auth(&admin_token)
-            .json(&json!({"title":"Initial ownership regression","owner":supplied_owner,"isAdmin":false,"isActive":false,"isNoComments":true,"isCommentOnly":true,"isWorker":true}))
-            .send().await.unwrap();
-        assert_eq!(response.status(), 200);
-        let response: serde_json::Value = response.json().await.unwrap();
-        let board_id = response["_id"].as_str().unwrap();
-        let CommandSuccess::BoardShown(detail) =
-            run(&app, &server, &["board", "get", board_id]).await
-        else {
-            panic!("board");
-        };
-        assert_eq!(detail.members.len(), 1);
-        assert_eq!(detail.members[0].user_id, admin_id);
-        assert!(detail.members[0].is_active && detail.members[0].is_admin);
-        assert!(
-            detail.members[0].is_no_comments == Some(false)
-                && detail.members[0].is_comment_only == Some(false)
-                && detail.members[0].is_worker == Some(false)
-        );
-        run(&app, &server, &["board", "delete", board_id, "--yes"]).await;
-    }
-    let added = http
-        .post(format!(
-            "{server}/api/boards/{}/members/{digest_id}/add",
-            board.board_id
-        ))
-        .bearer_auth(&admin_token)
-        .json(&json!({"action":"add","role":"admin"}))
-        .send()
-        .await
-        .unwrap();
-    assert!(added.status().is_success());
-    // With another active administrator, self takeOwnership can deactivate the caller.
-    run(
-        &app,
-        &server,
-        &["user", "take-ownership", &admin_id, "--yes"],
-    )
-    .await;
-    let CommandSuccess::BoardShown(after_self) =
+    let CommandSuccess::BoardShown(owned) =
         run(&app, &server, &["board", "get", &board.board_id]).await
     else {
-        panic!("board")
+        panic!("expected board detail");
     };
-    let membership = after_self
+    let owner = owned
         .members
         .iter()
         .find(|member| member.user_id == admin_id)
         .unwrap();
-    assert!(!membership.is_active);
-    assert!(!membership.is_admin);
+    assert!(owner.is_active && owner.is_admin);
 
-    // Empty passwords are accepted by registration, although later login is unavailable upstream.
-    run(&app, &server, &["auth", "logout", "--yes"]).await;
-    *secrets.0.lock().unwrap() = SecretString::from(String::new());
-    run(
-        &app,
-        &server,
-        &[
-            "auth",
-            "register",
-            "--username",
-            &format!("compat_empty_{nonce}"),
-            "--password-raw-stdin",
-        ],
-    )
-    .await;
-    run(&app, &server, &["user", "current"]).await;
     run(&app, &server, &["auth", "logout", "--yes"]).await;
     http.post(format!("{server}/users/logout"))
         .bearer_auth(token)
@@ -679,23 +593,6 @@ async fn audited_behavior_gaps_match_wekan_v12_57() {
     );
     success_json(&login);
     assert_secret_absent(&login, &password);
-    success_json(&run_production_cli(
-        config.path(),
-        &server,
-        &["logout"],
-        None,
-    ));
-    success_json(&run_production_cli(
-        config.path(),
-        &server,
-        &[
-            "register",
-            "--username",
-            &format!("compat_process_empty_{nonce}"),
-            "--password-raw-stdin",
-        ],
-        Some(""),
-    ));
     success_json(&run_production_cli(
         config.path(),
         &server,

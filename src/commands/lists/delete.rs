@@ -8,7 +8,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_client_error, protocol_error_details},
+        client_error::{map_client_error_with_not_found, protocol_error_details},
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -87,7 +87,14 @@ pub(super) async fn execute(
         .delete_list(&args.board_id, &args.list_id, context.record().token())
         .await;
     drop(credential_mutation);
-    let deleted = deletion.map_err(|error| map_client_error(error, &redactor, "list deletion"))?;
+    let deleted = deletion.map_err(|error| {
+        map_client_error_with_not_found(
+            error,
+            &redactor,
+            "list deletion",
+            "the requested Wekan list was not found on that board",
+        )
+    })?;
     if deleted.list_id != args.list_id {
         let details = protocol_error_details(true);
 
@@ -102,6 +109,7 @@ pub(super) async fn execute(
         board_id: args.board_id,
         list_id: deleted.list_id,
         deletion_requested: true,
+        deleted: true,
         delete_mode: ListDeleteMode::Soft,
     }))
 }

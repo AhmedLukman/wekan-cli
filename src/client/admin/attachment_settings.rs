@@ -433,7 +433,7 @@ pub struct MigrationUpdate {
     pub cpu_threshold: Option<CpuThreshold>,
 }
 
-/// Wekan v12.57 models/attachmentStorageSettings.js WebDAV storage configuration.
+/// Wekan v13.28 models/attachmentStorageSettings.js WebDAV storage configuration.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct WebdavDocument {

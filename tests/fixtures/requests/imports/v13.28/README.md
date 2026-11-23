@@ -1,0 +1,3 @@
+These files exercise import sources without a matching single-board export. Each contains a small synthetic board, task, message, or post. The ZIPs contain ordinary Slack, Google Takeout, Substack, Sandstorm, Telegram, or Discord app data. The Telegram and Discord ZIPs contain their corresponding JSON fixtures for comparing the two advertised encodings. The three Sandstorm grains carry SQLite databases in the layouts used by the tagged server. The live catalog checks the imported records after submitting each file through the CLI.
+
+The fixtures follow [the Wekan v13.28 import registry](https://github.com/wekan/wekan/blob/v13.28/models/lib/importSources.js) and [the tagged Sandstorm layouts](https://github.com/wekan/wekan/blob/v13.28/tests/sandstormGrain.test.cjs).

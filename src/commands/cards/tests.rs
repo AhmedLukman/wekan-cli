@@ -773,7 +773,7 @@ async fn bulk_delete_guards_confirmation_and_preserves_incomplete_results() {
     assert!(
         prompt.requests()[0]
             .prompt()
-            .contains("retains attachment metadata and file bytes")
+            .contains("attachments move to recoverable deletion")
     );
     let replacement = CredentialRecord::new(
         format!("{}/", server.uri()),
@@ -1304,7 +1304,7 @@ fn parser_preserves_text_and_delegates_date_interpretation_to_wekan() {
     assert!(
         Cli::try_parse_from(["wekan", "card", "list", "--board", " ", "--list", "list-1"]).is_err()
     );
-    for text in ["", " ", "😀"] {
+    for text in ["", " ", "ðŸ˜€"] {
         let CardCommand::Update(args) = card_command(&[
             "update",
             "card-1",
@@ -1337,7 +1337,7 @@ fn parser_preserves_text_and_delegates_date_interpretation_to_wekan() {
             date,
         ]);
     }
-    let accepted = "😀".repeat(501);
+    let accepted = "ðŸ˜€".repeat(501);
     card_command(&[
         "update", "--board", "board-1", "--list", "list-1", "card-1", "--title", &accepted,
     ]);
@@ -1507,7 +1507,7 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/lists/list-1/cards/missing"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error":"Card not found"})))
         .expect(1)
         .mount(&server)
         .await;
@@ -1535,8 +1535,7 @@ async fn card_errors_map_not_found_and_id_mismatches() {
     .await
     .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
-    assert_eq!(missing.details().wekan_status_code, Some(404));
+    assert_eq!(missing.details().http_status, Some(404));
 
     let update_missing = dispatch(
         card_command(&[

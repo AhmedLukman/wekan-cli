@@ -140,7 +140,7 @@ fn assert_server_failure(error: &AppError, symbol: &str) {
 }
 
 fn seed_raw_dependency_type(card: &str, dependency_type: &str) {
-    // v12.57 models/cards.js:535-571 defines an optional plain string, without
+    // v13.28 models/cards.js:841-879 defines an optional plain string, without
     // an enum constraint. Seed retained/imported data on this test's card only.
     let script = format!(
         "const r=db.getSiblingDB('wekan').cards.updateOne({{_id:{}}},{{$set:{{'cardDependencies.0.type':{}}}}});if(r.matchedCount!==1)throw new Error('fixture card not found');",
@@ -161,10 +161,10 @@ fn seed_raw_dependency_type(card: &str, dependency_type: &str) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_DEPENDENCY_E2E_URL"]
-async fn complete_dependency_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_DEPENDENCY_E2E_URL"]
+async fn complete_dependency_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_DEPENDENCY_E2E_URL")
-        .expect("set WEKAN_DEPENDENCY_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_DEPENDENCY_E2E_URL to an isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -402,19 +402,16 @@ async fn complete_dependency_lifecycle_matches_wekan_v12_57() {
         vec!["update", &target, "--color", "red"],
         vec!["delete", &target, "--yes"],
     ] {
-        assert_server_failure(&missing.dependency(&args).await.unwrap_err(), "not-found");
+        let error = missing.dependency(&args).await.unwrap_err();
+        assert_eq!(error.details().http_status, Some(404));
     }
-    let update = scope
-        .dependency(&["update", "missing-edge", "--color", "red"])
-        .await
-        .unwrap();
-    assert!(update.get("mutation_confirmed").is_none());
-    let deleted = scope
-        .dependency(&["delete", "missing-edge", "--yes"])
-        .await
-        .unwrap();
-    assert!(deleted.get("deletion_requested").is_none());
-    assert!(deleted.get("mutation_confirmed").is_none());
+    for args in [
+        vec!["update", "missing-edge", "--color", "red"],
+        vec!["delete", "missing-edge", "--yes"],
+    ] {
+        let error = scope.dependency(&args).await.unwrap_err();
+        assert_eq!(error.details().http_status, Some(404));
+    }
     assert_eq!(scope.edges().await.len(), 1);
 
     // Raw requests record the pinned invalid-type behavior and alias support.

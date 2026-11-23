@@ -49,6 +49,8 @@ pub(super) async fn execute(
 
 fn list_detail(list: ListDocument) -> ListDetail {
     ListDetail {
+        policy: list.policy,
+        split: list.split,
         scrum: list.scrum,
         role_exceptions: list.role_exceptions,
         sync_source: list.sync_source,

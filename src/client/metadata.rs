@@ -1,4 +1,4 @@
-//! Shared stored metadata returned by native v12.57 resource reads.
+//! Shared stored metadata returned by native v13.28 resource reads.
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Number;
 use std::collections::BTreeMap;
@@ -7,7 +7,7 @@ fn required_nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
 ) -> Result<Option<T>, D::Error> {
     Option::deserialize(d)
 }
-/// Wekan v12.57: models/lib/scrum.js.
+/// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -27,7 +27,7 @@ pub struct ScrumSettings {
     pub working_days: Option<Vec<u8>>,
     pub visibility: Option<ScrumVisibility>,
 }
-/// Wekan v12.57: models/lib/scrum.js.
+/// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -51,7 +51,7 @@ pub struct ScrumVisibility {
     pub swimlane_release: Option<bool>,
     pub swimlane_purpose: Option<bool>,
 }
-/// Wekan v12.57: models/lib/scrum.js.
+/// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -66,7 +66,7 @@ pub struct ScrumCard {
     pub issue_type: Option<String>,
     pub acceptance_criteria: Option<String>,
 }
-/// Wekan v12.57: models/lib/scrum.js.
+/// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -75,7 +75,7 @@ pub struct ScrumCard {
 pub struct ScrumList {
     pub category: Option<String>,
 }
-/// Wekan v12.57: models/lib/scrum.js.
+/// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -86,7 +86,7 @@ pub struct ScrumSwimlane {
     pub release_id: Option<String>,
     pub purpose: Option<String>,
 }
-/// Wekan v12.57: models/lib/scrumTransfer.js.
+/// Wekan v13.28: models/lib/scrumTransfer.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -97,7 +97,7 @@ pub struct ScrumImportLoss {
     pub source_id: String,
     pub reason: String,
 }
-/// Wekan v12.57: models/boards.js.
+/// Wekan v13.28: models/boards.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -108,7 +108,7 @@ pub struct BoardAnnouncement {
     pub body: Option<String>,
     pub updated_at: Option<String>,
 }
-/// Wekan v12.57: models/boards.js.
+/// Wekan v13.28: models/boards.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -122,7 +122,7 @@ pub struct BoardWipGroup {
     pub limit: Number,
     pub enabled: bool,
 }
-/// Wekan v12.57: models/lib/columnSets.js.
+/// Wekan v13.28: models/lib/columnSets.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -134,7 +134,7 @@ pub struct BoardColumnSet {
     pub name: String,
     pub columns: Vec<BoardColumn>,
 }
-/// Wekan v12.57: models/lib/columnSets.js.
+/// Wekan v13.28: models/lib/columnSets.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -146,7 +146,7 @@ pub struct BoardColumn {
     pub title: String,
     pub color: String,
 }
-/// Wekan v12.57: models/lib/emailToCard.js.
+/// Wekan v13.28: models/lib/emailToCard.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -158,7 +158,7 @@ pub struct EmailParts {
     pub attachments: Option<bool>,
     pub sender_line: Option<bool>,
 }
-/// Wekan v12.57: models/lib/emailToCard.js.
+/// Wekan v13.28: models/lib/emailToCard.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -170,7 +170,7 @@ pub struct BoardEmailToCard {
     pub swimlane_id: Option<String>,
     pub parts: Option<EmailParts>,
 }
-/// Wekan v12.57: models/lib/emailToCard.js.
+/// Wekan v13.28: models/lib/emailToCard.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -180,7 +180,7 @@ pub struct MemberEmailToCard {
     pub enabled: Option<bool>,
     pub parts: Option<EmailParts>,
 }
-/// Wekan v12.57: models/lib/notificationDelivery.js.
+/// Wekan v13.28: models/lib/notificationDelivery.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -191,7 +191,7 @@ pub struct NotificationDelivery {
     pub tray: Option<NotificationChannel>,
     pub webhook: Option<WebhookDelivery>,
 }
-/// Wekan v12.57: models/lib/notificationDelivery.js.
+/// Wekan v13.28: models/lib/notificationDelivery.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -201,7 +201,7 @@ pub struct MemberNotificationDelivery {
     pub email: Option<NotificationChannel>,
     pub tray: Option<NotificationChannel>,
 }
-/// Wekan v12.57: models/lib/notificationDelivery.js.
+/// Wekan v13.28: models/lib/notificationDelivery.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -218,7 +218,7 @@ pub struct NotificationChannel {
     pub quiet_end: Option<String>,
     pub timezone: Option<String>,
 }
-/// Wekan v12.57: models/lib/notificationDelivery.js.
+/// Wekan v13.28: models/lib/notificationDelivery.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -235,7 +235,7 @@ pub struct WebhookDelivery {
     pub quiet_end: Option<String>,
     pub timezone: Option<String>,
 }
-/// Wekan v12.57: models/lib/chatView.js.
+/// Wekan v13.28: models/lib/chatView.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -248,7 +248,7 @@ pub struct ChatViewLayout {
     pub card_collapsed: bool,
     pub chat_collapsed: bool,
 }
-/// Wekan v12.57: server/models/dependencies.js.
+/// Wekan v13.28: server/models/dependencies.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -262,7 +262,7 @@ pub struct PersonalDependency {
     pub color: Option<String>,
     pub icon: Option<String>,
 }
-/// Wekan v12.57: models/cards.js.
+/// Wekan v13.28: models/cards.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -274,7 +274,7 @@ pub struct CardCustomFieldLink {
     pub user_id: String,
     pub created_at: Option<String>,
 }
-/// Wekan v12.57: server/emailToCard.js, server/emailView.js.
+/// Wekan v13.28: server/emailToCard.js, server/emailView.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -293,7 +293,7 @@ pub struct CardEmail {
     pub thread_ids: Vec<String>,
     pub at: String,
 }
-/// Wekan v12.57: server/emailToCard.js.
+/// Wekan v13.28: server/emailToCard.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -303,7 +303,7 @@ pub struct EmailSender {
     pub name: String,
     pub address: String,
 }
-/// Wekan v12.57: models/lib/cardDrawing.js, server/methods/whiteboard.js.
+/// Wekan v13.28: models/lib/cardDrawing.js, server/methods/whiteboard.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -318,7 +318,7 @@ pub struct CardDrawing {
     pub png_attachment_id: Option<String>,
     pub updated_at: Option<String>,
 }
-/// Wekan v12.57: models/lib/cardDrawing.js.
+/// Wekan v13.28: models/lib/cardDrawing.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -332,7 +332,7 @@ pub struct DrawingStroke {
     pub width: Number,
     pub points: Vec<[Number; 2]>,
 }
-/// Wekan v12.57: models/lib/listPermissions.js.
+/// Wekan v13.28: models/lib/listPermissions.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -342,7 +342,7 @@ pub struct ListRoleException {
     pub write: Option<bool>,
     pub comment: Option<bool>,
 }
-/// Wekan v12.57: models/lists.js.
+/// Wekan v13.28: models/lists.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -366,7 +366,7 @@ pub struct ListSyncSource {
     pub last_synced_at: Option<String>,
     pub last_sync_error: Option<String>,
 }
-/// Wekan v12.57: models/cards.js.
+/// Wekan v13.28: models/cards.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -384,4 +384,176 @@ pub struct CardSyncLastSource {
     pub spent_time: Option<Number>,
     pub sprint: Option<String>,
     pub releases: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all(deserialize = "camelCase", serialize = "snake_case")
+)]
+pub struct CardFlow {
+    pub blocked: Option<bool>,
+    pub blocked_reason: Option<String>,
+    pub blocked_at: Option<String>,
+    pub blocked_by: Option<String>,
+    pub class_of_service: Option<String>,
+    pub moscow: Option<String>,
+    pub wsjf: Option<Wsjf>,
+    pub split_done_list_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all(deserialize = "camelCase", serialize = "snake_case")
+)]
+pub struct Wsjf {
+    pub business_value: Option<u8>,
+    pub time_criticality: Option<u8>,
+    pub risk_reduction: Option<u8>,
+    pub job_size: Option<u8>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all(deserialize = "camelCase", serialize = "snake_case")
+)]
+pub struct ShopSettings {
+    pub enabled: bool,
+    pub title: String,
+    pub intro: String,
+    pub currency: String,
+    pub price_field_id: String,
+    pub sku_field_id: String,
+    pub stock_field_id: String,
+    pub sale_list_ids: Vec<String>,
+    pub category_label_ids: Vec<String>,
+    pub orders_board_id: String,
+    pub orders_list_id: String,
+    pub guest_checkout: bool,
+    pub terms_url: String,
+    pub vat_percent: Number,
+    pub prices_include_vat: bool,
+    pub reference_type: String,
+    pub decrement_stock: bool,
+    pub confirmation_email: bool,
+    pub payment_methods: Vec<ShopPaymentMethod>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub updated_by: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all(deserialize = "camelCase", serialize = "snake_case")
+)]
+pub struct ShopPaymentMethod {
+    pub id: String,
+    pub enabled: bool,
+    pub method: PaymentMethod,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "type", deny_unknown_fields, rename_all = "kebab-case")]
+pub enum PaymentMethod {
+    Sepa {
+        name: String,
+        iban: String,
+        bic: String,
+    },
+    FiBank {
+        name: String,
+        iban: String,
+        bic: String,
+    },
+    SwissQr {
+        name: String,
+        iban: String,
+        street: String,
+        building: String,
+        postcode: String,
+        town: String,
+        country: String,
+    },
+    BankTransfer {
+        name: String,
+        details: String,
+    },
+    Swish {
+        payee: String,
+    },
+    Pix {
+        key: String,
+        name: String,
+        city: String,
+    },
+    Upi {
+        vpa: String,
+        name: String,
+    },
+    Bitcoin {
+        address: String,
+    },
+    Paypal {
+        user: String,
+    },
+    Link {
+        label: String,
+        url: String,
+    },
+    Promptpay {
+        target: String,
+    },
+    Paynow {
+        proxy: String,
+        name: String,
+    },
+    Vietqr {
+        bin: String,
+        account: String,
+    },
+    Fps {
+        proxy: String,
+        name: String,
+    },
+    Spayd {
+        iban: String,
+        bic: String,
+    },
+    Zbp {
+        account: String,
+        name: String,
+        nip: String,
+    },
+    Mnb {
+        name: String,
+        iban: String,
+        bic: String,
+    },
+    Ips {
+        account: String,
+        name: String,
+    },
+    DkFik {
+        creditor: String,
+    },
+    Ethereum {
+        address: String,
+    },
+    Litecoin {
+        address: String,
+    },
+    Cash {
+        details: String,
+    },
+    Cheque {
+        details: String,
+    },
+    Other {
+        label: String,
+        details: String,
+    },
 }

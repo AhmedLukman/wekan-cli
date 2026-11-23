@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_USER_E2E_URL"]
-async fn complete_user_flow_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_USER_E2E_URL"]
+async fn complete_user_flow_matches_wekan_v13_28() {
     let server = env::var("WEKAN_USER_E2E_URL")
-        .expect("set WEKAN_USER_E2E_URL to a fresh isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_USER_E2E_URL to a fresh isolated Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -67,52 +67,19 @@ async fn complete_user_flow_matches_wekan_v12_57() {
     assert_eq!(current.username.as_deref(), Some(admin_username.as_str()));
     assert_eq!(current.is_admin, Some(true));
 
-    // W11-015 is only partly repaired: GET now exposes the lookup exception as
-    // HTTP 500, while PUT still sends undefined data as an empty HTTP 200 body.
-    // Probe the wire independently, then require the production commands to
-    // preserve those responses instead of inventing a not-found result.
     let http = reqwest::Client::new();
     let missing_user = format!("wekan_cli_missing_user_{nonce}");
-    let missing_url = format!("{canonical_server}api/users/{missing_user}");
-    let missing_get = http
-        .get(&missing_url)
-        .bearer_auth(&admin_token)
-        .send()
-        .await
-        .expect("missing-user GET must return its native failure");
-    assert_eq!(
-        missing_get.status(),
-        reqwest::StatusCode::INTERNAL_SERVER_ERROR
-    );
-    assert_eq!(
-        missing_get.json::<serde_json::Value>().await.unwrap(),
-        serde_json::json!({"error": "Internal server error"})
-    );
-    let missing_get_error = execute_live_user(&admin_app, &server, &["get", &missing_user])
-        .await
-        .expect_err("missing-user GET must remain a server error");
-    assert_eq!(missing_get_error.code(), ErrorCode::ServerError);
-    assert_eq!(missing_get_error.details().http_status, Some(500));
-    assert_eq!(
-        missing_get_error.details().server_error.as_deref(),
-        Some("Internal server error")
-    );
-
-    let missing_update = http
-        .put(&missing_url)
-        .bearer_auth(&admin_token)
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .expect("missing-user PUT must return its native empty response");
-    assert_eq!(missing_update.status(), reqwest::StatusCode::OK);
-    assert!(missing_update.bytes().await.unwrap().is_empty());
-    let missing_update_error = execute_live_user(&admin_app, &server, &["update", &missing_user])
-        .await
-        .expect_err("missing-user PUT must fail at strict response decoding");
-    assert_eq!(missing_update_error.code(), ErrorCode::ProtocolError);
-    assert_eq!(missing_update_error.details().http_status, Some(200));
-    assert!(missing_update_error.details().server_error.is_none());
+    for command in ["get", "update"] {
+        let error = execute_live_user(&admin_app, &server, &[command, &missing_user])
+            .await
+            .expect_err("an unknown user must return HTTP 404");
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        assert_eq!(error.details().http_status, Some(404));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("User not found")
+        );
+    }
 
     for (username, email) in [
         (&owner_username, &owner_email),
@@ -313,7 +280,7 @@ async fn complete_user_flow_matches_wekan_v12_57() {
         ],
     )
     .await
-    .expect("the verified card filters must work against v12.57") else {
+    .expect("the verified card filters must work against v13.28") else {
         panic!("expected user-card output")
     };
     assert!(cards.cards.iter().any(|card| card.card_id == card_id));
@@ -426,46 +393,6 @@ async fn complete_user_flow_matches_wekan_v12_57() {
     assert_eq!(member_after.user_id, member_id);
     assert_eq!(member_after.login_disabled, Some(false));
 
-    // Separate native array predicates also select an inactive non-admin target
-    // when another member administers the board. Keep this behavior visible.
-    execute_live_board(
-        &admin_app,
-        &server,
-        &[
-            "member",
-            "add",
-            &owner_id,
-            "--board",
-            &admin_board_id,
-            "--role",
-            "normal",
-        ],
-    )
-    .await
-    .expect("the target must join the administrator's board as a normal member");
-    execute_live_board(
-        &admin_app,
-        &server,
-        &["member", "remove", &owner_id, "--board", &admin_board_id],
-    )
-    .await
-    .expect("removing the target must retain an inactive non-admin membership");
-    let CommandSuccess::BoardMembers(before) = execute_live_board(
-        &admin_app,
-        &server,
-        &["member", "list", "--board", &admin_board_id],
-    )
-    .await
-    .unwrap() else {
-        panic!("expected board members before ownership selection")
-    };
-    assert!(
-        before
-            .members
-            .iter()
-            .any(|member| { member.user_id == owner_id && !member.is_admin && !member.is_active })
-    );
-
     let CommandSuccess::UserOwnershipTaken(transfer) =
         execute_live_user(&admin_app, &server, &["take-ownership", &owner_id, "--yes"])
             .await
@@ -480,45 +407,31 @@ async fn complete_user_flow_matches_wekan_v12_57() {
             .any(|board| board.board_id == owner_board_id)
     );
     assert!(
-        transfer
+        !transfer
             .boards
             .iter()
             .any(|board| board.board_id == admin_board_id)
     );
-    wait_for_live_board_admin_membership(&admin_app, &server, &owner_board_id).await;
-
-    // Only the test waits for the native unawaited write; production does not
-    // retry or emulate ownership changes.
-    let mut replacement_observed = false;
-    for _ in 0..40 {
-        let CommandSuccess::BoardMembers(after) = execute_live_board(
-            &admin_app,
-            &server,
-            &["member", "list", "--board", &admin_board_id],
-        )
-        .await
-        .unwrap() else {
-            panic!("expected board members after ownership selection")
-        };
-        if !after
+    let CommandSuccess::BoardMembers(members) = execute_live_board(
+        &admin_app,
+        &server,
+        &["member", "list", "--board", &owner_board_id],
+    )
+    .await
+    .unwrap() else {
+        panic!("expected transferred board membership")
+    };
+    assert!(
+        members
             .members
             .iter()
-            .any(|member| member.user_id == owner_id)
-        {
-            assert!(after.members.iter().any(|member| {
-                member.user_id == admin_id && member.is_admin && member.is_active
-            }));
-            assert!(after.members.iter().any(|member| {
-                member.user_id == admin_id && !member.is_admin && !member.is_active
-            }));
-            replacement_observed = true;
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-    }
+            .any(|member| member.user_id == admin_id && member.is_admin && member.is_active)
+    );
     assert!(
-        replacement_observed,
-        "native membership replacement did not settle"
+        !members
+            .members
+            .iter()
+            .any(|member| member.user_id == owner_id && member.is_admin)
     );
 
     for user_id in [&member_id, &owner_id] {
@@ -532,6 +445,10 @@ async fn complete_user_flow_matches_wekan_v12_57() {
         assert!(deleted.deleted);
         assert!(!deleted.deleted_current_user);
         wait_for_live_user_absent(&admin_app, &server, user_id).await;
+        let repeat = execute_live_user(&admin_app, &server, &["delete", user_id, "--yes"])
+            .await
+            .expect_err("a deleted user no longer matches the native selector");
+        assert_eq!(repeat.details().http_status, Some(404));
     }
     let member_local_cleanup = Cli::try_parse_from([
         "wekan",
@@ -574,6 +491,48 @@ async fn complete_user_flow_matches_wekan_v12_57() {
         .await;
     }
 
+    let denied = execute_live_user(&admin_app, &server, &["delete", &admin_id, "--yes"])
+        .await
+        .expect_err("default account settings prohibit self-deletion");
+    assert_eq!(denied.code(), ErrorCode::PermissionDenied);
+    assert_eq!(denied.details().http_status, Some(403));
+    assert_eq!(
+        denied.details().server_reason.as_deref(),
+        Some("Deleting your own account is not allowed")
+    );
+    let current = execute_live_user(&admin_app, &server, &["current"])
+        .await
+        .unwrap();
+    assert!(matches!(current, CommandSuccess::UserCurrent(user) if user.user_id == admin_id));
+
+    // Enable the site's self-deletion preference and provision another site administrator.
+    let CommandSuccess::UserCreated(backup) = execute_live_user(
+        &admin_app,
+        &server,
+        &[
+            "create",
+            "--username",
+            &format!("backup_{nonce}"),
+            "--email",
+            &format!("backup_{nonce}@example.test"),
+            "--password-stdin",
+        ],
+    )
+    .await
+    .unwrap() else {
+        panic!("expected backup administrator fixture")
+    };
+    super::support::attachment_fixtures::fixture_command(
+        "mongodb",
+        "mongosh",
+        r#"
+        const w = db.getSiblingDB('wekan');
+        w.accountSettings.updateOne({_id:'accounts-allowUserDelete'}, {$set:{booleanValue:true}}, {upsert:true});
+        w.users.updateOne({_id:p.backup}, {$set:{isAdmin:true}});
+        print('{}');
+    "#,
+        &serde_json::json!({"backup":backup.user_id}),
+    );
     let CommandSuccess::UserDeleted(self_deleted) =
         execute_live_user(&admin_app, &server, &["delete", &admin_id, "--yes"])
             .await

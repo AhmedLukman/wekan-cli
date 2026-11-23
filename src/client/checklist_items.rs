@@ -27,7 +27,7 @@ pub struct ChecklistItemDocument {
     pub is_finished: bool,
     pub checklist_id: String,
     pub card_id: String,
-    /// Denormalized metadata; v12.57 REST card moves can leave the source board ID.
+    /// Denormalized board ID updated by Wekan when the card moves across boards.
     pub board_id: Option<String>,
     pub user_id: Option<String>,
     pub created_at: Option<String>,

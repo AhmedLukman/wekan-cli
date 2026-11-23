@@ -58,11 +58,11 @@ pub struct UpdateArgs {
     #[arg(value_parser = non_empty, help_heading = "Target")]
     pub card_id: String,
 
-    /// New title. Wekan v12.57 truncates values longer than 1000 UTF-16 code units.
+    /// New title. Wekan truncates values longer than 1000 UTF-16 code units.
     #[arg(long, help_heading = "Fields")]
     pub title: Option<String>,
 
-    /// Numeric card order. Wekan v12.57 silently ignores zero.
+    /// Numeric card order, including zero.
     #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub sort: Option<f64>,
 
@@ -134,7 +134,7 @@ pub struct UpdateArgs {
     #[arg(long, value_parser = finite_number, help_heading = "Fields")]
     pub spent_time: Option<f64>,
 
-    /// Overtime state. Wekan v12.57 ignores false and mishandles true.
+    /// Set or clear the overtime state.
     #[arg(long, help_heading = "Fields")]
     pub is_over_time: Option<bool>,
 

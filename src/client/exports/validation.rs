@@ -1,5 +1,5 @@
 //! Reader-based decoding drops each array element before reading the next one.
-use super::{ExportError, ExportFormat, documents::*, external_documents::*};
+use super::{ExportError, ExportFormat, documents::*, external_documents::*, website_chat::*};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde::{
     Deserialize, Deserializer,
@@ -132,6 +132,9 @@ pub(super) fn validate(
         ExportFormat::Jira => decode::<NativeJiraExport>(file),
         ExportFormat::Asana => decode::<NativeAsanaExport>(file),
         ExportFormat::Zenkit => decode::<NativeZenkitExport>(file),
+        ExportFormat::Wordpressjson => decode::<DiscardVec<WpPost>>(file),
+        ExportFormat::Teams => decode::<TeamsExport>(file),
+        ExportFormat::Ghost => decode::<GhostExport>(file),
         ExportFormat::Taskwarrior => decode::<TaskwarriorExport>(file),
         ExportFormat::Nullboard => decode::<NullboardExport>(file),
         ExportFormat::Kanri => decode::<KanriExport>(file),
@@ -174,6 +177,32 @@ pub(super) fn validate_calendar(file: &mut File) -> Result<(), ExportError> {
     Ok(())
 }
 
+pub(super) fn validate_mattermost(file: &mut File) -> Result<(), ExportError> {
+    let mut lines = BufReader::new(file).lines();
+    let first = lines
+        .next()
+        .transpose()?
+        .ok_or_else(|| super::protocol("the Mattermost export has no version record"))?;
+    let mut decoder = serde_json::Deserializer::from_str(&first);
+    let header: MattermostRecord =
+        serde_path_to_error::deserialize(&mut decoder).map_err(|error| {
+            crate::client::decoding::decoding_error(error, "Mattermost version", true)
+        })?;
+    decoder
+        .end()
+        .map_err(|_| super::protocol("invalid Mattermost version record"))?;
+    if !matches!(header, MattermostRecord::Version { version: 1 }) {
+        return Err(super::protocol("the Mattermost export requires a version 1 header").into());
+    }
+    for line in lines {
+        let line = line?;
+        if !line.is_empty() {
+            decode::<MattermostRecord>(line.as_bytes())?;
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn validate_focalboard(file: &mut File) -> Result<(), ExportError> {
     let mut lines = BufReader::new(file).lines();
     let header = lines
@@ -194,14 +223,14 @@ pub(super) fn validate_focalboard(file: &mut File) -> Result<(), ExportError> {
 mod tests {
     use super::*;
     fn artifact(format: &str, mode: &str) -> Vec<u8> {
-        let extension = if format == "focalboard" {
+        let extension = if matches!(format, "focalboard" | "mattermost") {
             "jsonl"
         } else {
             "json"
         };
         std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-                "tests/fixtures/responses/exports/v12.57/{format}-{mode}.{extension}"
+                "tests/fixtures/responses/exports/v13.28/{format}-{mode}.{extension}"
             )),
         )
         .unwrap()
@@ -214,8 +243,11 @@ mod tests {
         file
     }
     #[test]
-    fn v12_57_external_exports_accept_native_rich_and_selected_shapes() {
+    fn v13_28_external_exports_accept_native_rich_and_selected_shapes() {
         for format in [
+            "wordpressjson",
+            "ghost",
+            "teams",
             "taskwarrior",
             "nullboard",
             "kanri",
@@ -245,13 +277,30 @@ mod tests {
             }
         }
         for mode in ["live", "rich", "minimal"] {
+            validate_mattermost(&mut stage(&artifact("mattermost", mode)))
+                .unwrap_or_else(|e| panic!("mattermost {mode}: {e:?}"));
             validate_focalboard(&mut stage(&artifact("focalboard", mode)))
                 .unwrap_or_else(|e| panic!("focalboard {mode}: {e:?}"));
         }
     }
     #[test]
-    fn v12_57_external_exports_reject_unknown_and_malformed_fields() {
+    fn mattermost_rejects_unknown_fields_in_records_and_their_payloads() {
+        for invalid in [
+            r#"{"type":"team","team":{"name":"team","display_name":"Team","type":"I"},"extra":1}"#,
+            r#"{"type":"post","post":{"team":"team","channel":"ch","user":"u","message":"m","create_at":1,"extra":1}}"#,
+            r#"{"type":"post","post":{"team":"team","channel":"ch","message":"m","create_at":1}}"#,
+        ] {
+            let body = format!("{{\"type\":\"version\",\"version\":1}}\n{invalid}\n");
+            assert!(validate_mattermost(&mut stage(body.as_bytes())).is_err());
+        }
+    }
+
+    #[test]
+    fn v13_28_external_exports_reject_unknown_and_malformed_fields() {
         let locations = [
+            ("wordpressjson", "/0/content"),
+            ("teams", "/chats/0/messages/0/body"),
+            ("ghost", "/db/0/data/posts/0"),
             ("taskwarrior", "/0"),
             ("nullboard", "/lists/0"),
             ("kanri", "/columns/0"),
@@ -274,7 +323,7 @@ mod tests {
                     .unwrap()
                     .as_object_mut()
                     .unwrap()
-                    .insert("unmappedV12Field".into(), serde_json::json!(true));
+                    .insert("unmappedField".into(), serde_json::json!(true));
                 assert!(
                     validate(
                         &mut stage(&serde_json::to_vec(&value).unwrap()),
@@ -285,6 +334,35 @@ mod tests {
                     "{format} {pointer}"
                 );
             }
+        }
+
+        for (format, field) in [
+            ("github", "/0/comments_data/0/user/login"),
+            ("gitlab", "/0/time_stats/total_time_spent"),
+            ("asana", "/data/0/actual_time_minutes"),
+            ("trello", "/cards/0/customFieldItems/0/value"),
+            ("superproductivity", "/data/taskRepeatCfg/ids"),
+            ("kanboard", "/tasks/0/score"),
+            ("openproject", "/_embedded/elements/0/spentTime"),
+            ("deck", "/stacks/0/cards/0/done"),
+            ("tasksorg", "/data/tasks/0/task/recurrence"),
+            ("taskwarrior", "/0/recur"),
+            ("wordpressjson", "/0/content/protected"),
+            ("ghost", "/db/0/data/posts/0/published_at"),
+            ("teams", "/chats/0/messages/0/body/contentType"),
+        ] {
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&artifact(format, "rich")).unwrap();
+            *value.pointer_mut(field).unwrap() = serde_json::json!({"unexpected": true});
+            assert!(
+                validate(
+                    &mut stage(&serde_json::to_vec(&value).unwrap()),
+                    format.parse().unwrap(),
+                    false
+                )
+                .is_err(),
+                "{format} accepted an invalid {field}"
+            );
         }
         let original: serde_json::Value =
             serde_json::from_slice(&artifact("kanri", "rich")).unwrap();
@@ -315,7 +393,7 @@ mod tests {
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
-        lines[1]["data"]["unmappedV12Field"] = serde_json::json!(true);
+        lines[1]["data"]["unmappedField"] = serde_json::json!(true);
         let text = lines
             .into_iter()
             .map(|v| v.to_string())

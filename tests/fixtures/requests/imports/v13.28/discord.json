@@ -1,0 +1,17 @@
+{
+  "channel": {
+    "id": "channel",
+    "name": "Catalog card",
+    "type": "DirectTextChat"
+  },
+  "messages": [
+    {
+      "id": "msg",
+      "timestamp": "2026-01-01T00:00:00Z",
+      "content": "Catalog",
+      "author": {
+        "name": "Test"
+      }
+    }
+  ]
+}

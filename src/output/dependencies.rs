@@ -55,7 +55,7 @@ pub(super) fn created(data: &DependencyCreateSuccess) -> String {
 
 pub(super) fn updated(data: &DependencyUpdateSuccess) -> String {
     format!(
-        "Dependency update request accepted from card {} to card {} on board {}.",
+        "Updated dependency from card {} to card {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.target_card_id),
         escape_terminal_controls(&data.board_id)
@@ -64,7 +64,7 @@ pub(super) fn updated(data: &DependencyUpdateSuccess) -> String {
 
 pub(super) fn deleted(data: &DependencyDeleteSuccess) -> String {
     format!(
-        "Dependency deletion request accepted from card {} to card {} on board {}.",
+        "Deleted dependency from card {} to card {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.target_card_id),
         escape_terminal_controls(&data.board_id)

@@ -1,7 +1,7 @@
 # Card dependencies
 
 The root `wekan dependency` family manages the five dependency REST operations
-in Wekan v12.57. A dependency is stored on a source card and references a target
+in Wekan v13.28. A dependency is stored on a source card and references a target
 card. The commands require board IDs, with no list selector.
 
 ```console
@@ -49,14 +49,11 @@ so its values can differ from `dependency list` (absent/null properties both
 render as null in card output). Raw card dependency types are
 optional nullable strings; normalized dependency responses require a named type.
 
-An update without metadata sends `{}`. Wekan v12.57 returns HTTP 500 with the
-symbolic `bad-request` error. Missing source cards also return HTTP 500 with
-`not-found`; self, missing, or foreign-board POST targets return HTTP 500 with
-`bad-request`. The CLI preserves these statuses and server details rather than
-substituting local existence checks or retries.
-
-PUT and DELETE can acknowledge a nonexistent edge without changing anything.
-They return only the source card ID, with no matched count. Deleting a target
+An update without metadata and a POST targeting the same card, an absent card,
+or a card on a different board return HTTP 500 with `Internal server error`.
+A missing source card returns HTTP 404. Updating or deleting an edge that does
+not exist also returns HTTP 404. Successful updates and deletions return the
+source card ID. Deleting a target
 card leaves its incoming dependencies; board listings then return null target
 title/card number. A dangling edge can still be removed with dependency delete.
 
@@ -86,11 +83,9 @@ missing required fields, or mismatched acknowledgment IDs produce
 Human output reports the completed action and escapes terminal controls.
 
 The pinned contract and normalization behavior are implemented in
-[`server/models/dependencies.js`](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/server/models/dependencies.js)
+[`server/models/dependencies.js`](https://github.com/wekan/wekan/blob/v13.28/server/models/dependencies.js)
 and
-[`models/metadata/dependencies.js`](https://github.com/wekan/wekan/blob/bee4e71d86d0ef2669f9a389d77aba03fdb8103f/models/metadata/dependencies.js).
-
-Update and deletion report request acceptance because a missing edge is a successful no-op. Creation retains direct create-or-update wording.
+[`models/metadata/dependencies.js`](https://github.com/wekan/wekan/blob/v13.28/models/metadata/dependencies.js).
 
 Declining dependency deletion returns the shared cancellation result with
 operation `dependency_delete`.

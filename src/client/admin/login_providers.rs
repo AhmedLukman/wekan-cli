@@ -45,7 +45,7 @@ pub struct OauthProviderSource {
     pub id: ConfigSource<String>,
     pub secret: SecretConfigSource,
 }
-/// Every entry in v12.57's oauthProviderCatalog is present, even when unset.
+/// Every entry in v13.28's oauthProviderCatalog is present, even when unset.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OauthProviderSources {

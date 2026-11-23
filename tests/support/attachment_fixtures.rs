@@ -45,8 +45,7 @@ pub(crate) enum StoredFile {
 }
 
 pub(crate) fn seed(input: &Value) -> StoredFile {
-    // Test-only metadata and backing bytes for each storage strategy. JSON
-    // uploads return 408; explicit raw uploads are covered independently.
+    // Seed the same file on each storage backend independently of upload transport.
     if input["storage"] == "fs" {
         fixture_command(
             "wekan",

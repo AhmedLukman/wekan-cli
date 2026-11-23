@@ -1,7 +1,7 @@
 # Command behavior and inventory
 
 This reference summarizes the current `wekan` command interface verified
-against Wekan v12.57. The family documentation records command syntax,
+against Wekan v13.28. The family documentation records command syntax,
 response fields, and native server limitations. Typed commands reject unmapped
 upstream object fields with `protocol_error`.
 
@@ -27,23 +27,25 @@ status alone does not establish CLI success: typed decoding, embedded Wekan
 errors, or partial batch outcomes can still fail. Mutations report completed
 actions where the pinned server supports that claim. Endpoints that can accept
 an ineffective request use request-accepted wording. Human messages explain concrete limitations where needed.
-Delayed ownership transfer reports that the request was accepted. Inspect error details before deciding whether to retry a
+Inspect error details before deciding whether to retry a
 failed request.
 
 | Affected command | What its output establishes |
 | --- | --- |
+| `card delete` | Returns `deleted: true` after a scoped hard deletion. A missing card returns HTTP 404. |
 | `user create` | Returns the newly created user ID; duplicate identities fail. |
 | `user token create` | Returns a token for an existing user and records the required audit reason; a missing user returns HTTP 404. |
-| `user token delete --token-stdin` | Acknowledges raw issued tokens without revoking them (W11-058). Delete-all revokes all sessions for the selected user. |
+| `user token delete --token-stdin` | Revokes the session matching the supplied base64-encoded SHA-256 hash. Delete-all revokes all sessions for the selected user. |
+| `user delete` | An administrator can delete their own account if self-deletion is enabled and another administrator exists. Otherwise Wekan returns HTTP 403 and the CLI retains the credential. |
 | `user disable-login` | Reports the returned login-disabled flag or an unchanged user for self-targeting. Disabled accounts cannot start new REST sessions. |
-| `attachment upload` | Request accepted; `upload_confirmed: false` because deferred native validation can still remove the attachment. Receipt text is named `server_message`. |
+| `attachment upload` | Returns the stored attachment ID, file name and size. Deferred storage validation is separate from this receipt. |
 | `attachment upload-background --transport raw` | The known helper failure returns `server_error` with native HTTP 401 after storing the upload. It does not establish credential rejection or a changed background. |
 | Board/card/list/swimlane copy | Copy completed, including native attachment copying. |
-| Cross-board list move | Request accepted; source list remains, position is ignored, and populated moves can fail after transferring the first card. Same-board list moves retain direct success wording. |
-| List/card/swimlane/custom-field/dropdown-item/integration deletion | Request accepted even when nothing matched. List, card, and swimlane commands use `deletion_requested: true`, without `deleted: true`. Wrong-list card deletion can remove children while leaving the card. |
-| Card/custom-field/dropdown-item/integration update; dropdown-item creation | Request accepted; missing targets can cause a successful no-op. Human card-update output explains ineffective overtime changes when requested; submitted fields describe input rather than applied changes. |
-| Dependency update/delete | Request accepted; a missing edge is a successful no-op. |
-| Board member add/remove | Request accepted; active-member addition can preserve permissions, and sole-administrator removal can leave membership intact. |
+| Cross-board list move | Returns the source list ID after transferring its cards. The source list remains and Wekan ignores the requested position. |
+| List/swimlane/custom-field/dropdown-item/integration deletion | A missing resource returns HTTP 404. List deletion is soft and swimlane deletion is hard. |
+| Card/custom-field/dropdown-item/integration update; dropdown-item creation | Results identify the requested fields or option. Missing targets return HTTP 404. |
+| Dependency update/delete | A missing edge returns HTTP 404. Invalid updates to existing dependency lines can return HTTP 500. |
+| Board member add/remove | Adding an active member can preserve their existing role. Removing the last administrator returns HTTP 409 and preserves the membership. An absent or inactive member returns HTTP 404. |
 
 `protocol_error` uses exit 4 for protocol/response validation failures and
 exit 5 for documented HTTP-200 Wekan error envelopes without an application
@@ -58,12 +60,12 @@ successful or safe-to-retry outcome.
 
 ## Complete command inventory
 
-Every leaf command below is included in the verification inventory. A command can select several
+All 168 leaf commands across 19 families appear below. A command can select several
 native endpoints or output shapes through its arguments. The
-[API coverage table](api-coverage.md) records all 168 corrected native operations
-(167 implemented and the Amazon SES endpoint intentionally excluded), with
+[API coverage table](api-coverage.md) records all 169 corrected native operations
+(168 implemented and the Amazon SES endpoint intentionally excluded), with
 complete options, requirements, conflicts, and endpoint selectors. The six
-local profile commands, two local guidance commands, and the raw API escape
+local profile commands, two local guidance commands, the self-update command, and the raw API escape
 hatch are included below too.
 The executable-wide contract test discovers the parser tree and requires
 this inventory to cover every leaf; it also checks help and JSON usage errors
@@ -124,6 +126,7 @@ shape and verified native limitations.
 | `wekan board export-all` | [Contract](boards.md) |
 | `wekan board get` | [Contract](boards.md) |
 | `wekan board import` | [Contract](imports.md) |
+| `wekan board import-upload` | [Contract](imports.md) |
 | `wekan board import-trello` | [Contract](imports.md) |
 | `wekan board import-zip` | [Contract](imports.md) |
 | `wekan board label add` | [Contract](bulk-cards-and-labels.md) |

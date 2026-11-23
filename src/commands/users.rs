@@ -120,6 +120,8 @@ pub(crate) async fn dispatch(
 
 fn user_detail(user: UserRecord) -> UserDetail {
     UserDetail {
+        feature_profile_id: user.feature_profile_id,
+        password_change_required: user.password_change_required,
         passkeys: user.passkeys,
         sqrl: user.sqrl,
         web_push_subscriptions: user.web_push_subscriptions,
@@ -235,6 +237,12 @@ fn user_dialog_options(
 
 fn user_profile(profile: crate::client::UserProfile) -> UserProfileDetail {
     UserProfileDetail {
+        card_settings_split: profile.card_settings_split,
+        card_details_width: profile.card_details_width,
+        hide_focus_outline: profile.hide_focus_outline,
+        keep_add_card_form_open: profile.keep_add_card_form_open,
+        title_bracket_label: profile.title_bracket_label,
+        drawing_colors: profile.drawing_colors,
         chat_view_layout: profile.chat_view_layout,
         email_to_card: profile.email_to_card,
         notification_delivery: profile.notification_delivery,

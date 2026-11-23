@@ -39,6 +39,7 @@ fn import_coverage_rows_include_every_parser_option_and_source() {
     for (family, command, operation) in [
         ("board", "import", "import_board_from"),
         ("board", "import-zip", "importZip"),
+        ("board", "import-upload", "upload_import"),
         ("card", "import-ics", "import_ics"),
     ] {
         let row = coverage
@@ -59,7 +60,7 @@ fn import_coverage_rows_include_every_parser_option_and_source() {
                 );
             }
         }
-        if operation == "import_board_from" {
+        if matches!(operation, "import_board_from" | "upload_import") {
             for source in ImportSource::ALL {
                 assert!(row.contains(source.as_str()));
             }
@@ -135,6 +136,21 @@ async fn binary_board_imports_preserve_native_envelopes_and_member_options() {
         ),
         (
             ImportSource::Vikunja,
+            BoardImportRequest::zip(&bytes, mapping.clone()),
+            "zipBase64",
+        ),
+        (
+            ImportSource::Outlook,
+            BoardImportRequest::binary(&bytes, mapping.clone()),
+            "binaryBase64",
+        ),
+        (
+            ImportSource::Teams,
+            BoardImportRequest::binary(&bytes, mapping.clone()),
+            "binaryBase64",
+        ),
+        (
+            ImportSource::Onenote,
             BoardImportRequest::zip(&bytes, mapping),
             "zipBase64",
         ),
@@ -493,5 +509,63 @@ async fn new_board_zip_import_preserves_selectors_and_rejects_unmapped_or_invali
         }
         let request = server.received_requests().await.unwrap().pop().unwrap();
         assert!(!request.url.query_pairs().any(|(key, _)| key == "boardId"));
+    }
+}
+
+#[tokio::test]
+async fn staged_upload_streams_bytes_and_strictly_decodes_the_receipt() {
+    let server = MockServer::start().await;
+    let payload = b"file\0\xff\r\n";
+    for (response, valid) in [
+        (
+            json!({"uploadId":"0123456789abcdef0123456789abcdef","size":8}),
+            true,
+        ),
+        (
+            json!({"uploadId":"0123456789abcdef0123456789abcdef","size":8,"extra":true}),
+            false,
+        ),
+        (
+            json!({"uploadId":"0123456789abcdef0123456789abcdef","size":"8"}),
+            false,
+        ),
+        (json!({"uploadId":"1234","size":8}), false),
+        (
+            json!({"uploadId":"0123456789abcdef0123456789abcdef","size":7}),
+            false,
+        ),
+        (json!({"size":8}), false),
+    ] {
+        server.reset().await;
+        Mock::given(method("POST"))
+            .and(path("/wekan/api/import/upload/onenote"))
+            .and(header("Authorization", "Bearer user-token"))
+            .and(header("Content-Type", "application/octet-stream"))
+            .and(header("Content-Length", "8"))
+            .and(body_bytes(payload.as_slice()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let result = client_from_url(&format!("{}/wekan/", server.uri()))
+            .upload_import(
+                ImportSource::Onenote,
+                payload.as_slice(),
+                8,
+                &user_token(),
+                None,
+            )
+            .await;
+        if valid {
+            let receipt = result.unwrap();
+            assert_eq!(receipt.upload_id, "0123456789abcdef0123456789abcdef");
+            assert_eq!(receipt.size, 8);
+        } else {
+            assert!(
+                matches!(result, Err(ClientError::Protocol { .. })),
+                "{result:?}"
+            );
+        }
+        server.verify().await;
     }
 }

@@ -2,10 +2,10 @@ use super::support::*;
 #[path = "auth/notifications.rs"]
 mod notifications;
 #[tokio::test]
-#[ignore = "requires an isolated Compose Wekan v12.57 stack and WEKAN_E2E_URL"]
-async fn authentication_flow_matches_wekan_v12_57() {
+#[ignore = "requires an isolated Compose Wekan v13.28 stack and WEKAN_E2E_URL"]
+async fn authentication_flow_matches_wekan_v13_28() {
     let server = env::var("WEKAN_E2E_URL")
-        .expect("set WEKAN_E2E_URL to the user-started Wekan v12.57 server URL");
+        .expect("set WEKAN_E2E_URL to the user-started Wekan v13.28 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")
@@ -44,7 +44,7 @@ async fn authentication_flow_matches_wekan_v12_57() {
     let registration = app
         .execute(cli.command)
         .await
-        .expect("registration must succeed against Wekan v12.57");
+        .expect("registration must succeed against Wekan v13.28");
     let CommandSuccess::Registration(registration) = registration else {
         panic!("expected registration output")
     };
@@ -128,7 +128,7 @@ async fn authentication_flow_matches_wekan_v12_57() {
     .expect("the username login command must parse");
     app.execute(username_login.command)
         .await
-        .expect("username login must succeed against Wekan v12.57");
+        .expect("username login must succeed against Wekan v13.28");
     let (_, username_server, username_user_id, username_token, _) = app
         .credential_store()
         .credential
@@ -169,7 +169,7 @@ async fn authentication_flow_matches_wekan_v12_57() {
     .expect("the email login command must parse");
     app.execute(email_login.command)
         .await
-        .expect("email login must succeed against Wekan v12.57");
+        .expect("email login must succeed against Wekan v13.28");
     let status_cli = Cli::try_parse_from([
         "wekan",
         "--server",
@@ -206,7 +206,7 @@ async fn authentication_flow_matches_wekan_v12_57() {
     notifications::verify(&app, &server, &email_token, nonce).await;
 
     // Seed only this test's newly registered account. These persisted shapes
-    // follow v12.57 models/users.js:624-637 and the notification UI's Date/null
+    // follow v13.28 models/users.js:869-898 and the notification UI's Date/null
     // updates. Use the real REST serializer and production auth-status decoder.
     let selector = serde_json::json!({"_id": user_id, "username": username});
     let script = format!(
@@ -495,12 +495,12 @@ async fn authentication_flow_matches_wekan_v12_57() {
 }
 
 #[tokio::test]
-#[ignore = "requires a user-started Wekan v12.57 stack and WEKAN_E2E_URL"]
-async fn named_profile_authentication_flow_matches_wekan_v12_57() {
+#[ignore = "requires a user-started Wekan v13.28 stack and WEKAN_E2E_URL"]
+async fn named_profile_authentication_flow_matches_wekan_v13_28() {
     const PROFILE_NAME: &str = "live-e2e";
 
     let server = env::var("WEKAN_E2E_URL")
-        .expect("set WEKAN_E2E_URL to the user-started Wekan v12.57 server URL");
+        .expect("set WEKAN_E2E_URL to the user-started Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -555,7 +555,7 @@ async fn named_profile_authentication_flow_matches_wekan_v12_57() {
     let registration = app
         .execute(register_cli.command)
         .await
-        .expect("registration through a named profile must succeed against Wekan v12.57");
+        .expect("registration through a named profile must succeed against Wekan v13.28");
     let CommandSuccess::Registration(registration) = registration else {
         panic!("expected registration output")
     };
@@ -623,13 +623,13 @@ async fn named_profile_authentication_flow_matches_wekan_v12_57() {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a dedicated Wekan v12.57 stack and WEKAN_OS_E2E_URL"]
+#[ignore = "destructive: requires a dedicated Wekan v13.28 stack and WEKAN_OS_E2E_URL"]
 async fn os_backed_cross_process_auth_mutations_are_serialized_and_hardened() {
     const PARALLELISM: usize = 24;
     const RACE_ROUNDS: usize = 12;
 
     let server = env::var("WEKAN_OS_E2E_URL")
-        .expect("set WEKAN_OS_E2E_URL to a dedicated Wekan v12.57 server URL");
+        .expect("set WEKAN_OS_E2E_URL to a dedicated Wekan v13.28 server URL");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("the system clock must be after the Unix epoch")

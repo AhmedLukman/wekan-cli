@@ -1,6 +1,6 @@
 # Copy and move
 
-These commands send one native Wekan v12.57 request. They execute directly and
+These commands send one native Wekan v13.28 request. They execute directly and
 support human or JSON output, named profiles, and the usual global options.
 
 ```console
@@ -48,22 +48,16 @@ JSON uses the standard `{ "ok": true, "data": ... }` envelope. Result fields are
 Human output reports the completed copy or move, subject to the accepted-request
 wording for cross-board list moves described below.
 
-Wekan v12.57 creates a new list for same-board list copies. Cross-board copies
+Wekan v13.28 creates a new list for same-board list copies. Cross-board copies
 can reuse a same-title destination list. Copying includes every source-list card
 across its swimlanes, and an omitted destination swimlane now uses native
 selection rules instead of the old missing-swimlane failure.
 
 Same-board list moves reposition the existing list and can change its stored
 swimlane ID. Cross-board moves retain the source list and ignore position.
-The old destination-swimlane source filter is fixed, but a populated move still
-moves its first card before `Meteor.userId()` throws outside a DDP invocation,
-returning HTTP 500. Destination lists may already exist after that failure.
-Labels map to existing destination labels by name; unmatched labels are dropped.
-
-A populated cross-board swimlane move can create/reuse destination lists and
-move a card before the same `Meteor.userId()` failure returns HTTP 500. The
-swimlane itself remains on the source board because its update runs after the
-card transfers. Empty swimlane transfers can complete successfully.
+A populated cross-board list move transfers its cards to the destination list
+and returns the original list ID. A populated swimlane move transfers the
+swimlane and its cards, creating or reusing destination lists.
 
 A successful swimlane move also starts an unawaited insertion of a default
 swimlane whose ID is `<BOARD_ID>-default`, even when active swimlanes already

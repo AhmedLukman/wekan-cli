@@ -36,7 +36,7 @@ pub(super) async fn verify(admin: &LiveApp, server: &str, admin_token: &str, non
     .await;
     // These settings and watcher records are the UI's persisted inputs, not
     // notification fixtures. Card creation below invokes the actual producer:
-    // v12.57 server/notifications/trayQueue.js and server/lib/trayDelivery.js.
+    // Wekan server/notifications/trayQueue.js and server/lib/trayDelivery.js.
     fixture_command(
         "mongodb",
         "mongosh",

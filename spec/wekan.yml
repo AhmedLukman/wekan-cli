@@ -1,16 +1,16 @@
 swagger: '2.0'
 info:
-  title: Wekan REST API
-  version: v12.57
+  title: WeKan REST API
+  version: v13.28
   description: |
-    The REST API allows you to control and extend Wekan with ease.
+    The REST API allows you to control and extend WeKan with ease.
 
     If you are an end-user and not a dev or a tester, [create an issue](https://github.com/wekan/wekan/issues/new) to request new APIs.
 
     > All API calls in the documentation are made using `curl`.  However, you are free to use Java / Python / PHP / Golang / Ruby / Swift / Objective-C / Rust / Scala / C# or any other programming languages.
 
     # Production Security Concerns
-    When calling a production Wekan server, ensure it is running via HTTPS and has a valid SSL Certificate. The login method requires you to post your username and password in plaintext, which is why we highly suggest only calling the REST login api over HTTPS. Also, few things to note:
+    When calling a production WeKan server, ensure it is running via HTTPS and has a valid SSL Certificate. The login method requires you to post your username and password in plaintext, which is why we highly suggest only calling the REST login api over HTTPS. Also, few things to note:
 
     * Only call via HTTPS
     * Implement a timed authorization token expiration strategy
@@ -1828,6 +1828,14 @@ paths:
             properties:
               _id:
                 type: string
+        '404':
+          description: |-
+            The card, or its dependency on that target, was not found.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
   /api/boards/{board}/cards/bulk:
     delete:
       operationId: delete_board_cards_bulk
@@ -2371,7 +2379,7 @@ paths:
         #5850: remove a single email domain from a board's `domains`
          array. The domain in the path is trimmed and lowercased before matching.
          Requires the caller to be a board admin (or site admin). Returns the updated
-         domains array.
+         domains array; a domain the board does not have is HTTP 404.
       tags:
         - Boards
         - Boards
@@ -2405,6 +2413,14 @@ paths:
                   type: string
                 isActive:
                   type: boolean
+        '404':
+          description: |-
+            The board does not have that domain.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
   /api/boards/{board}/export:
     get:
       operationId: exportJson
@@ -2900,17 +2916,26 @@ paths:
   /api/boards/{board}/lists/{list}/cards:
     get:
       operationId: get_board_list_cards
+      summary: Get the active cards of a list
+      description: |
+        Each card's swimlaneId, dates, assignees and sort, and also its
+         modifiedAt, dateLastActivity, labelIds, members and customFields
+         ([{_id, value}]), so a client can sync without a GET per card (#6928).
+         Admin-only custom field values are null unless the caller is a board admin.
       tags:
+        - Cards
         - Cards
       parameters:
         - name: board
           in: path
-          description: the board value
+          description: |
+            the board ID
           type: string
           required: true
         - name: list
           in: path
-          description: the list value
+          description: |
+            the list ID
           type: string
           required: true
       produces:
@@ -2921,6 +2946,8 @@ paths:
         '200':
           description: |-
             200 response
+          schema:
+            type: [{_id: string, boardId: string, title: string, description: string, swimlaneId: string, receivedAt: string, startAt: string, dueAt: string, endAt: string, assignees: [string], sort: number, modifiedAt: string, dateLastActivity: string, labelIds: [string], members: [string], customFields: [{_id: string, value: string}]}]
     post:
       operationId: post_board_list_cards
       tags:
@@ -2929,6 +2956,11 @@ paths:
         - multipart/form-data
         - application/json
       parameters:
+        - name: parentId
+          in: formData
+          description: the parentId value
+          type: string
+          required: true
         - name: linkedId
           in: formData
           description: the linkedId value
@@ -3014,19 +3046,9 @@ paths:
           description: the title value
           type: string
           required: true
-        - name: sort
-          in: formData
-          description: the sort value
-          type: string
-          required: true
         - name: parentId
           in: formData
           description: the parentId value
-          type: string
-          required: true
-        - name: description
-          in: formData
-          description: the description value
           type: string
           required: true
         - name: color
@@ -3062,11 +3084,6 @@ paths:
         - name: spentTime
           in: formData
           description: the spentTime value
-          type: string
-          required: true
-        - name: isOverTime
-          in: formData
-          description: the isOverTime value
           type: string
           required: true
         - name: customFields
@@ -4096,17 +4113,26 @@ paths:
   /api/boards/{board}/swimlanes/{swimlane}/cards:
     get:
       operationId: get_board_swimlane_cards
+      summary: Get the active cards of a swimlane
+      description: |
+        Each card's listId, dates, assignees and sort, and also its
+         modifiedAt, dateLastActivity, labelIds, members and customFields
+         ([{_id, value}]), so a client can sync without a GET per card (#6928).
+         Admin-only custom field values are null unless the caller is a board admin.
       tags:
+        - Cards
         - Cards
       parameters:
         - name: board
           in: path
-          description: the board value
+          description: |
+            the board ID
           type: string
           required: true
         - name: swimlane
           in: path
-          description: the swimlane value
+          description: |
+            the swimlane ID
           type: string
           required: true
       produces:
@@ -4117,6 +4143,8 @@ paths:
         '200':
           description: |-
             200 response
+          schema:
+            type: [{_id: string, boardId: string, title: string, description: string, listId: string, receivedAt: string, startAt: string, dueAt: string, endAt: string, assignees: [string], sort: number, modifiedAt: string, dateLastActivity: string, labelIds: [string], members: [string], customFields: [{_id: string, value: string}]}]
   /api/boards/{board}/swimlanes/{swimlane}/copy:
     post:
       operationId: post_board_swimlane_copy
@@ -5463,6 +5491,8 @@ definitions:
         type: boolean
       askForMoveReason:
         type: boolean
+      showEmptyCardFields:
+        type: boolean
       cardAging:
         description: |
            #3984: Visually fade cards that have not been touched for a while
@@ -5636,14 +5666,56 @@ definitions:
           type: string
           x-nullable: true
         x-nullable: true
+      cardSettingsSectionOrder:
+        description: |
+           The order of the Card Settings sections (models/lib/cardSettingsSections.js ids)
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      minicardSettingsSectionOrder:
+        description: |
+           The order of the Card Settings sections on the minicard (models/lib/cardSettingsSections.js ids)
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      cardSettingsHiddenOnCard:
+        description: |
+           The Card Settings sections (models/lib/cardSettingsSections.js ids) not shown on the opened card
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      cardSettingsHiddenOnMinicard:
+        description: |
+           The Card Settings sections (models/lib/cardSettingsSections.js ids) not shown on the minicard
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      cardFieldsAlwaysShown:
+        description: |
+           The opened card's fields shown on every card, even when empty
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
       allowsCoverAttachmentOnMinicard:
         description: |
            Does the board allows cover attachment on minicard?
         type: boolean
       allowsCoverAttachmentOnCard:
         description: |
-           Does the board show the cover image on the opened card? Opt-in, OFF by
-           default (new Card Settings option).
+           Does the board show the cover image on the opened card? ON by default:
+           a card shows its cover when it has one (docs/Features/Cards/Card-Fields.md;
+           server/lib/schemaUpgradeSteps.js cover-on-card-on turned it on, once, on
+           the boards created while it was opt-in).
         type: boolean
       allowsBadgeAttachmentOnMinicard:
         description: |
@@ -5934,7 +6006,49 @@ definitions:
       allowsActionItemsOnCard:
         type: boolean
         x-nullable: true
+      allowsListPolicies:
+        type: boolean
+        x-nullable: true
+      commitmentListId:
+        type: string
+        x-nullable: true
+      personWipLimit:
+        $ref: "#/definitions/BoardsPersonwiplimit"
+        x-nullable: true
+      allowsSplitLists:
+        type: boolean
+        x-nullable: true
+      allowsBlockedOnCard:
+        type: boolean
+        x-nullable: true
+      allowsBlockedOnMinicard:
+        type: boolean
+        x-nullable: true
+      allowsClassOfServiceOnCard:
+        type: boolean
+        x-nullable: true
+      allowsClassOfServiceOnMinicard:
+        type: boolean
+        x-nullable: true
+      allowsMoscowOnCard:
+        type: boolean
+        x-nullable: true
+      allowsMoscowOnMinicard:
+        type: boolean
+        x-nullable: true
+      allowsWsjfOnCard:
+        type: boolean
+        x-nullable: true
+      allowsWsjfOnMinicard:
+        type: boolean
+        x-nullable: true
       allowsWhiteboardOnCard:
+        type: boolean
+        x-nullable: true
+      allowsAttachmentPreviewsOnCard:
+        type: boolean
+        x-nullable: true
+      allowsAttachmentDetailsOnCard:
         type: boolean
         x-nullable: true
       allowsIssueTypeOnMinicard:
@@ -6013,6 +6127,11 @@ definitions:
       boardViewSettings:
         description: |
            Per view: { '<board-view-key>': { showOnPublic: Boolean, showOnPrivate: Boolean } }
+        type: object
+        x-nullable: true
+      shopSettings:
+        description: |
+           The shop's settings (models/lib/shop.js normalizeShopSettings)
         type: object
         x-nullable: true
       defaultPublicBoardView:
@@ -6173,6 +6292,7 @@ definitions:
       - color
       - allowsCardCounterList
       - askForMoveReason
+      - showEmptyCardFields
       - cardAging
       - showDependencies
       - cardAgingDays1
@@ -6534,6 +6654,9 @@ definitions:
       scrumRevision:
         type: number
         x-nullable: true
+      flow:
+        type: object
+        x-nullable: true
       title:
         description: |
            the title of the card
@@ -6850,6 +6973,19 @@ definitions:
            How much time has been spent on this
         type: number
         x-nullable: true
+      estimatedHours:
+        description: |
+           How many hours the card is estimated to take (Workload,
+           docs/Features/Workload/Workload.md). What is still to do is this
+           less spentTime.
+        type: number
+        x-nullable: true
+      billable:
+        description: |
+           Budget and billing (docs/Features/Billing/Billing.md): false when the
+           card's time is not invoiced. Absent means billable.
+        type: boolean
+        x-nullable: true
       isOvertime:
         description: |
            is the card over time?
@@ -6989,6 +7125,22 @@ definitions:
         description: |
            show list name on the opened card? (Board Settings / Card, List title)
         type: boolean
+        x-nullable: true
+      shownFields:
+        description: |
+           legacy, not read: the fields this card once chose to show although empty
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      hiddenFields:
+        description: |
+           legacy, not read: the fields this card once chose to hide
+        type: array
+        items:
+          type: string
+          x-nullable: true
         x-nullable: true
       showChecklistAtMinicard:
         description: |
@@ -7608,7 +7760,7 @@ definitions:
       - userId
   Lists:
     type: object
-    description:  A list (column) in the Wekan board.
+    description:  A list (column) in the WeKan board.
     properties:
       scrum:
         type: object
@@ -7669,6 +7821,19 @@ definitions:
         x-nullable: true
       modifiedAt:
         type: string
+      policy:
+        description: |
+           The list's explicit policy - when a card may come in and when it is
+           done here (models/lib/boardFlowPolicies.js). Shown at the list header
+           when the board shows list policies.
+        type: string
+        x-nullable: true
+      split:
+        description: |
+           The list is split into Doing and Done (models/lib/boardFlowPolicies.js):
+           a card marked Done here waits in it to be pulled into the next list.
+        type: boolean
+        x-nullable: true
       wipLimit:
         description: |
            WIP object, see below
@@ -7815,7 +7980,7 @@ definitions:
       - soft
   Org:
     type: object
-    description:  A Organization in Wekan. A Enterprise in Trello.
+    description:  A Organization in WeKan. A Enterprise in Trello.
     properties:
       orgDisplayName:
         description: |
@@ -8036,6 +8201,9 @@ definitions:
       disableAllImport:
         type: boolean
         x-nullable: true
+      importMaxMegabytes:
+        type: number
+        x-nullable: true
       disableExportAvatars:
         type: boolean
         x-nullable: true
@@ -8095,7 +8263,24 @@ definitions:
       featureStates:
         type: object
         x-nullable: true
+      featureProfiles:
+        type: array
+        items:
+          $ref: "#/definitions/SettingsFeatureprofiles"
+        x-nullable: true
+      sharedTemplatesScopes:
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
       webhookInternalHosts:
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
+      adminPanelAllowedAddresses:
         type: array
         items:
           type: string
@@ -8103,6 +8288,9 @@ definitions:
         x-nullable: true
       accountWebhook:
         type: object
+        x-nullable: true
+      webhooksDisabled:
+        type: boolean
         x-nullable: true
       sqrlEnabled:
         type: boolean
@@ -8153,6 +8341,9 @@ definitions:
       hideBoardMemberList:
         type: boolean
         x-nullable: true
+      cardDetailsDefaultWidthPercent:
+        type: number
+        x-nullable: true
       hideBoardActivitiesOnAllBoards:
         type: boolean
         x-nullable: true
@@ -8166,6 +8357,9 @@ definitions:
         type: string
         x-nullable: true
       textBelowCustomLoginLogo:
+        type: string
+        x-nullable: true
+      loginBackgroundColor:
         type: string
         x-nullable: true
       automaticLinkedUrlSchemes:
@@ -8351,6 +8545,8 @@ definitions:
         type: object
       passwordSet:
         type: object
+  SettingsFeatureprofiles:
+    type: object
   Swimlanes:
     type: object
     description:  A swimlane is an line in the kaban board.
@@ -8419,7 +8615,7 @@ definitions:
       - type
   Team:
     type: object
-    description:  A Team in Wekan. Organization in Trello.
+    description:  A Team in WeKan. Organization in Trello.
     properties:
       teamDisplayName:
         description: |
@@ -8573,6 +8769,13 @@ definitions:
            site admin's saveInstanceFeatures method.
         type: boolean
         x-nullable: true
+      featureProfileId:
+        description: |
+           #6837: the feature profile assigned to this user directly (Admin
+           Panel / Settings / Visibility / Features). Set only by the site admin's
+           saveFeatureProfiles method; published to this user only.
+        type: string
+        x-nullable: true
       createdThroughApi:
         description: |
            was the user created through the API?
@@ -8581,6 +8784,12 @@ definitions:
       loginDisabled:
         description: |
            loginDisabled field of the user
+        type: boolean
+        x-nullable: true
+      passwordChangeRequired:
+        description: |
+           the password is shorter than PASSWORD_MIN_LENGTH: change it before
+           anything else (server/passwordChangeRequired.js)
         type: boolean
         x-nullable: true
       authenticationMethod:
@@ -8709,12 +8918,24 @@ definitions:
            fifty workspaces with two folded is two keys.
            docs/Features/All-Boards/Workspaces.md
         type: object
+      cardSettingsSplit:
+        description: |
+           the share (0..1) of Card Settings' width the Minicard pane takes beside
+           the Card pane, set by dragging the splitter between them. Unset = half
+           and half. models/lib/cardSettingsSplit.js
+        type: number
       leftMenuWidth:
         description: |
            user-chosen width (px) of that same left menu, set by dragging its inner
            edge - the right one while reading left to right, the left one under a
            right-to-left language. One width for both pages, like the fold above.
            Unset = the CSS default. docs/Features/All-Boards/Left-Menu.md
+        type: number
+      cardDetailsWidth:
+        description: |
+           #6939: the width (px) the card details window was dragged to; every
+           card opens at it, within the viewport. Unset = the Admin Panel's default
+           percentage, else 520px. models/lib/cardDetailsWidth.js
         type: number
       submitOnEnter:
         description: |
@@ -8733,6 +8954,26 @@ definitions:
            #1273: when a #label or @member is picked while typing a new card's
            title, keep the "#label" / "@member" text in the title too. Off by
            default: the text is replaced by the label or member, as before.
+        type: boolean
+      hideFocusOutline:
+        description: |
+           #6755: Member Settings / Change Settings / "Show focus outline", turned
+           off. The blue ring WeKan draws round the focused control (layouts.css,
+           WCAG 2.4.7) is an accessibility feature and stays on by default; a member
+           who does not want it - it also shows after a click on a minicard - can hide
+           it, for themselves only. Stored as the exception, so an account that never
+           touched the setting keeps the ring.
+        type: boolean
+      keepAddCardFormOpen:
+        description: |
+           #6827: keep a list's Add card form open after a card is added, to type
+           the next one. Off by default: the form closes once the card is added.
+        type: boolean
+      titleBracketLabel:
+        description: |
+           #6810: turn a leading "[Text] " of a new card's title into the label
+           "Text" (#3986). Off by default: a title pasted from a ticket system or
+           a mail ("[EXTERNAL] ...") stays as it was, and no label is created.
         type: boolean
       checklistDingSound:
         description: |
@@ -8813,6 +9054,14 @@ definitions:
            dismissed (#6051). When the admin changes the announcement text its
            version changes, so the banner reappears for everyone.
         type: string
+      drawingColors:
+        description: |
+           #6802: the custom colors the user added to the Drawing popup's palette,
+           as HTML color codes (models/lib/cardDrawing.js addCustomColor).
+        type: array
+        items:
+          type: string
+          x-nullable: true
       cardMaximized:
         description: |
            has user clicked maximize card?
@@ -9045,6 +9294,20 @@ definitions:
           - board-view-chat
           - board-view-version-control
           - board-view-column-sets
+          - board-view-created-resolved
+          - board-view-net-flow
+          - board-view-time-in-list
+          - board-view-average-age
+          - board-view-throughput-run
+          - board-view-due-date-performance
+          - board-view-release-burndown
+          - board-view-epic-progress
+          - board-view-workload
+          - board-view-distribution
+          - board-view-dependency-map
+          - board-view-activity-heatmap
+          - board-view-website
+          - board-view-shop
       listSortBy:
         description: |
            default sort list for user

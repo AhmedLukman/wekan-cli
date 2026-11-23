@@ -64,6 +64,12 @@ pub const GLOBAL_FIELDS: &[(&str, &str, &str, bool)] = &[
         false,
     ),
     (
+        "loginBackgroundColor",
+        "login_background_color",
+        "--login-background-color",
+        false,
+    ),
+    (
         "automaticLinkedUrlSchemes",
         "automatic_linked_url_schemes",
         "--automatic-linked-url-schemes",

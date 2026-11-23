@@ -1,7 +1,7 @@
 # Attachments and file transfers
 
 The `attachment` family covers metadata, transfer, and recovery operations in the
-corrected Wekan v12.57 contract. The separate
+corrected Wekan v13.28 contract. The separate
 [`board attachment list`](boards.md#attachment-links) command exposes the legacy
 board link projection, including backgrounds. Commands require a selected profile and a stored,
 unexpired credential. Global options are `--profile`, `--server`, `--output`,
@@ -30,22 +30,19 @@ because URL normalization cannot preserve those path segments.
 
 ## Pinned server behavior
 
-Wekan v12.57 registers the board-only list prefix before the deeper paths. Every
+Wekan v13.28 registers the board-only list prefix before the deeper paths. Every
 listing returns all board attachments, including requests with nonexistent deeper
 selectors. The CLI retains those results and reports `effective_scope: "board"`;
 `requested_scope` is `board`, `swimlane`, `list`, or `card`. Human output warns
 when deeper selectors were supplied. It does not emulate filtering.
 
-Normal JSON upload, background-upload, copy, and move requests return HTTP 408
-after approximately 30 seconds because the global parser has already consumed
-the request stream. The CLI uses 60-second deadlines for these four commands
-and reports the actual server failure. For uploads and background uploads,
-`--transport raw` explicitly selects the native octet-stream endpoint mode;
-metadata travels in the query and the body contains the original bytes. The
-default remains JSON, and failures never trigger an automatic transport change. All other attachment requests retain the
-30-second client deadline. Upload/background/copy insertion also contains a
-separate upstream `Attachments.insertAsync` defect if that path is reached.
-Raw background uploads save the attachment and then return HTTP 401 because
+JSON uploads encode card files as base64. Copy and move accept JSON and return
+attachment receipts. `--transport raw` sends the original bytes with query
+metadata. Upload, background upload, copy and move use a 60-second deadline.
+Other attachment requests use a 30-second deadline.
+
+Both background upload transports save the image and then fail. JSON returns
+HTTP 500 and raw returns HTTP 401 because
 the server's background-selection helper calls an unavailable user method
 (W12-006). The board's background remains unchanged, while the uploaded file
 and its metadata remain stored after native content validation. This helper
@@ -56,13 +53,9 @@ For this verified helper failure, the CLI returns `server_error` with the native
 HTTP 401 and error text, `mutation_attempted: true`, and `retry_safe: false`.
 It does not advise replacing the valid credential. Actual authentication
 failures continue to return `authentication_rejected`.
-Native upload filename normalization can trigger another deferred failure
-(W12-007): a filename longer than 30 characters is truncated, but validation
-reads its old filesystem path and deletes the attachment record. A raw card
-upload can therefore return HTTP 200 and an ID that subsequently returns 404,
-while the renamed file remains orphaned on disk. The CLI sends the requested
-filename unchanged and does not retry or truncate it locally.
-See the [pinned route implementation](https://github.com/wekan/wekan/blob/v12.57/server/routes/attachmentApi.js).
+Long upload filenames may be normalized on the server. The validator uses the
+normalized path and downloads preserve the original file bytes.
+See the [pinned route implementation](https://github.com/wekan/wekan/blob/v13.28/server/routes/attachmentApi.js).
 
 ## Upload contents
 
@@ -132,8 +125,6 @@ Card upload receipts return `attachment_id`, `file_name`, `file_size`,
 receipt metadata; they do not confirm completed validation, storage migration,
 or final file availability. Human output explicitly reports acceptance with
 unconfirmed availability. No follow-up request or automatic retry is performed.
-The W12-007 live regression confirms that this same accepted receipt can precede
-the attachment's eventual removal.
 
 Other mutations return their mapped response fields. Delete requires confirmation or
 `--yes`; declining is an exit-0 cancellation with operation `attachment_delete`.
@@ -146,7 +137,7 @@ protocol, and ambiguous server failures retain the existing outcome diagnostics.
 
 `attachment export` writes native attachment JSON through the shared
 [export interface](exports.md). Its `file` field contains base64 data or `null`.
-Wekan v12.57's exporter reads a filesystem path; a GridFS-only attachment can
+Wekan v13.28's exporter reads a filesystem path; a GridFS-only attachment can
 export `file: null` even when its normal download succeeds. Inspect that field
 before treating the saved JSON as a backup of the bytes. A missing attachment
 exports `{}`.

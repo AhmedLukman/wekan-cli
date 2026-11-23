@@ -38,7 +38,7 @@ pub struct ImportZipArgs {
     pub list: Option<String>,
     #[arg(long, value_parser = exports::scope_id)]
     pub card: Option<String>,
-    /// Sent to Wekan, but ignored by its v12.57 importer.
+    /// Sent to Wekan, but ignored by its v13.28 importer.
     #[arg(long, value_parser = exports::scope_id)]
     pub checklist: Option<String>,
     /// Send the stored token as authToken instead of Bearer authentication.

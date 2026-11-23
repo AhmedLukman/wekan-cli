@@ -273,9 +273,6 @@ fn no_remote_mutation_details(scope: LogoutScope, credential_stored: Option<bool
 
 fn map_client_error(error: ClientError, redactor: &Redactor<'_>, scope: LogoutScope) -> AppError {
     match error {
-        error @ ClientError::EmptyNotFound { .. } => {
-            crate::commands::client_error::map_client_error(error, redactor, "logout")
-        }
         ClientError::Build(_) => AppError::new(
             ErrorCode::InternalError,
             "the HTTP client could not be initialized",

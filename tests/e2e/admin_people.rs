@@ -92,10 +92,10 @@ fn compare_document(kind: &str, output: &Value, saved: &Value) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_ADMIN_PEOPLE_E2E_URL"]
-async fn complete_admin_people_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_ADMIN_PEOPLE_E2E_URL"]
+async fn complete_admin_people_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_ADMIN_PEOPLE_E2E_URL")
-        .expect("set WEKAN_ADMIN_PEOPLE_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_ADMIN_PEOPLE_E2E_URL to a fresh isolated v13.28 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -325,8 +325,14 @@ async fn complete_admin_people_lifecycle_matches_wekan_v12_57() {
         )
         .await
         .unwrap_err();
-        assert_eq!(missing.code(), ErrorCode::ProtocolError);
-        assert_eq!(missing.details().http_status, Some(200));
+        assert_eq!(missing.code(), ErrorCode::NotFound);
+        assert_eq!(missing.details().http_status, Some(404));
+        let reason = if kind == "org" {
+            "Organization not found"
+        } else {
+            "Team not found"
+        };
+        assert_eq!(missing.details().server_error.as_deref(), Some(reason));
         assert!(
             serde_json::to_value(missing.details())
                 .unwrap()

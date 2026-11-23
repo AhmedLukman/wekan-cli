@@ -361,12 +361,14 @@ fn create_rejects_empty_and_javascript_blank_text() {
 }
 
 #[tokio::test]
-async fn get_maps_empty_success_to_not_found_and_rejects_protocol_drift() {
+async fn get_maps_http_404_to_not_found_and_rejects_protocol_drift() {
     let server = MockServer::start().await;
     let base = "/api/boards/board-1/cards/card-1/comments";
     Mock::given(method("GET"))
         .and(path(format!("{base}/missing")))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"Comment not found"})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -411,9 +413,12 @@ async fn get_maps_empty_success_to_not_found_and_rejects_protocol_drift() {
     .await
     .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
+    assert_eq!(missing.details().http_status, Some(404));
     assert_eq!(missing.details().wekan_status_code, None);
-    assert_eq!(missing.details().server_error, None);
+    assert_eq!(
+        missing.details().server_error.as_deref(),
+        Some("Comment not found")
+    );
     assert_eq!(missing.details().server_reason, None);
 
     for comment_id in ["future", "wrong-scope"] {

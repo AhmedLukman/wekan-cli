@@ -1,121 +1,59 @@
-# Wekan v12.57 interface and route audit
+# Wekan v13.28 interface and route audit
 
-The supported baseline is Wekan v12.57, commit
-[`647cbd111f43b4c936af2e03480f04cb8e2ef39e`](https://github.com/wekan/wekan/tree/v12.57).
-The CLI package version is **2.0.0**. The parser has **166 leaf commands in
-18 root families**, mapping **167 of 168 audited native REST operations**.
-The Amazon SES/SNS operation is intentionally excluded from typed CLI support.
-[API coverage](api-coverage.md) lists every argument, optional/global flag,
-repeated input, conflict and endpoint selector. The
-[command inventory](command-contract.md) covers local commands as well.
+The CLI package remains **2.1.0**. Its parser exposes **168 leaf commands in 19 families**.
+The corrected contract contains **169 native method/path pairs**. The CLI implements 168.
+The remaining entry is the Amazon SES/SNS callback.
+[Command inventory](command-contract.md) · [API coverage and arguments](api-coverage.md)
 
-## Route discovery and boundaries
+The upstream Swagger contains 157 operations. The overlay describes native routes
+omitted by the generator, including the file staging endpoint in this release.
+Each operation is counted once even when several commands or format choices select it.
+The Compose image reports `v13.28.0`. The tagged source is commit
+[`9da7639`](https://github.com/wekan/wekan/tree/v13.28).
 
-The audit reviewed 194 literal route registrations, dynamic registrations and
-modules imported by
-[`server/imports.js`](https://github.com/wekan/wekan/blob/v12.57/server/imports.js).
-Every corrected-contract operation has a matching registration. The dynamic
-`/api/boards/:boardId/export/${format}` registration supplies the remaining
-operation with 40 values. Native catalogs contain 49 import sources, 48 board
-export formats, 45 mass-export variants and 21 chart keys.
+## Route scope
 
 | Surface | Decision and matching source |
 | --- | --- |
 | Native Wekan REST | Included: resource management, authentication, explicit authentication OPTIONS, schema-upgrade JSON, Trello HTTP import, raw ZIP import, calendar/chart/mass exports, bot reporting and incoming-email hooks. |
-| Dynamic external formats | Included through one method/path operation. [Formatters](https://github.com/wekan/wekan/blob/v12.57/models/lib/externalExportFormatters.js) and [parsers](https://github.com/wekan/wekan/blob/v12.57/models/lib/externalParsers.js) define native encoding and selection. |
-| Optional compatibility APIs | Excluded from typed support as selected: [Trello](https://github.com/wekan/wekan/blob/v12.57/server/compatApi/trello.js) 21 operations, [Jira](https://github.com/wekan/wekan/blob/v12.57/server/compatApi/jira.js) 14, [GitHub/Gitea](https://github.com/wekan/wekan/blob/v12.57/server/compatApi/githubLike.js) 11 each: 57 total. |
+| Dynamic external formats | Included through one method/path operation. [Formatters](https://github.com/wekan/wekan/blob/v13.28/models/lib/externalExportFormatters.js) and [parsers](https://github.com/wekan/wekan/blob/v13.28/models/lib/externalParsers.js) define native encoding and selection. |
+| Optional compatibility APIs | Trello, Jira, GitHub and Gitea emulation use separate protocol surfaces. [Tagged server adapters](https://github.com/wekan/wekan/tree/v13.28/server/compatApi) |
 | Amazon SES/SNS | `POST /api/inbound-email/ses` is intentionally excluded from typed CLI support. The reference retains the native route with `x-cli-excluded` and its reason; it is not counted as an implementation gap. |
 | DDP/browser protocols | UI Meteor methods, publications and browser navigation are outside REST. Fixtures use DDP only where needed to produce native UI-created records. |
-| Federation/discovery | The five [ActivityPub/WebFinger](https://github.com/wekan/wekan/blob/v12.57/server/activityPub.js) actor, outbox, followers, inbox and discovery routes speak the separate federation protocol with JSON-LD and HTTP signatures. They are outside Wekan's native REST management contract. |
-| Identity callbacks | [SQRL](https://github.com/wekan/wekan/blob/v12.57/server/sqrl.js), [Windows SSO](https://github.com/wekan/wekan/blob/v12.57/server/windowsSso.js) and provider callbacks remain separate authentication protocols. |
+| Federation/discovery | The five [ActivityPub/WebFinger](https://github.com/wekan/wekan/blob/v13.28/server/activityPub.js) actor, outbox, followers, inbox and discovery routes speak the separate federation protocol with JSON-LD and HTTP signatures. They are outside Wekan's native REST management contract. |
+| Identity callbacks | [SQRL](https://github.com/wekan/wekan/blob/v13.28/server/sqrl.js), [Windows SSO](https://github.com/wekan/wekan/blob/v13.28/server/windowsSso.js) and provider callbacks remain separate authentication protocols. |
 | Direct files/browser assets | `/cdn/storage`, `/cfs/files`, `/attachments`, `/avatars`, default avatars, Open Graph pages, manifests and license HTML remain direct delivery. Native attachment API download and export are included separately. |
 | Instrumentation/deployment | Prometheus `/metrics`, Nextcloud health and Sandstorm's front door remain instrumentation or deployment integration surfaces. |
 | Middleware/generated methods | The `/api` middleware prefix is not an operation. Framework HEAD/OPTIONS are excluded; three explicit authentication OPTIONS operations are included. |
 
-The upstream snapshot is unchanged. The overlay corrects omitted operations,
-duplicate operation IDs, path selectors, body wrappers, media, nested response
-objects and nullable/omitted properties using this exact baseline. Corrected
-YAML and HTML are generated locally and remain ignored.
+## Format coverage
 
-## Behavior and regression evidence
-
-Typed response objects reject additional fields at every depth. Contract tests
-also reject invalid types, missing required values and malformed acknowledgments.
-Dynamic raw API output preserves the complete payload.
-Supported provider email hooks retain native signatures and body bytes.
-Successful transport and strict receipt decoding are covered by contract tests,
-and the live suite verifies incoming-email and bounce submissions.
-
-The [compatibility ledger](compatibility.md) reconciles all 63 historical cases:
-18 fixed, 45 surviving or partially fixed, plus seven newly verified defects.
-Positive regressions replace fixed-defect assertions. Expected server failures
-have explicit status, persisted-state, byte or artifact assertions. No case is
-hidden by relaxed decoding, a skipped assertion, retries or emulation.
-
-Every live suite runs against a fresh disposable Compose project. Verification
-covers permissions with separate actors, independent persisted reads, actual
-attachment bytes, archive entries/CRCs, native artifacts, all source/format
-catalogs and remaining no-op or partial-write behavior. An expected server
-failure passes only when its failure and persisted effects match.
-
-Ordinary CI retains Linux, macOS and Windows coverage. Live CI uses isolated
-Linux Compose stacks; native Windows credential-store verification remains
-conditional on Windows.
+The catalogs contain 85 import sources, 67 external single-board formats, 75
+single-board export formats in total, 71 mass-export formats and 33 chart keys.
+The Trello ZIP export is available for individual boards. Import staging accepts
+raw bytes and returns an upload ID and size. REST board import still takes its
+input separately. [Imports](imports.md) · [Exports](exports.md)
 
 ## Verification
 
-The 23 October 2026 audit ran all **32 live suites**, each selected exactly once
-against a fresh disposable v12.57 stack. The subsequent corrections passed
-**753 unique non-live tests**: 368 library, 101 CLI, 282 contract (including the
-four generated-contract checks), and two live-matrix inventory checks. The two
-ignored library subprocess helpers are exercised by their parent tests.
+The executable tests walk the parser tree and compare every leaf with the command
+inventory. The contract tests compare coverage rows with the generated Swagger.
+Typed responses reject unknown fields, including fields in nested objects.
+The live suite exercises production dispatch on disposable MongoDB 7 replica
+sets. The metadata regression covers populated card-list projections, subtask
+creation, board display settings and stored card, list and user metadata.
 
-All three expanded live suites also passed after the corrections: rules,
-attachments, and native v12.57 extensions. Each used a fresh isolated stack.
-Upload regressions verify W12-006's valid-token HTTP 401 and W12-007's eventual
-record removal and orphaned bytes, with bounded native-validation polling
-before fixture cleanup. All diagnostic and test stacks and volumes were removed.
+The [compatibility ledger](compatibility.md) records the disposition and evidence
+for all 70 historical cases and the new release findings. It distinguishes
+release-specific live checks from source review and earlier verification.
 
-Expanded regressions independently check rule enablement and native null
-coercion, item deadlines, card section ordering, list archival cascades,
-ordinary-user and denied-role mutations, administrator refusals, exact problem
-filtering/pagination and acknowledgment counts. Native metadata producers cover
-announcements, column sets, WIP groups, whiteboard strokes, custom-field links,
-notification delivery, role exceptions, disabled list synchronization, web push,
-and ntfy. Populated reads also exercise nested unknown-field rejection.
-Passkey and SQRL records use source-checked stored fixtures; their authenticator
-protocols are outside these CLI lifecycle tests.
+All 33 live matrix entries passed on disposable v13.28 stacks. The catalog suite
+checked the 75 single-board artifacts, 71 mass formats, both output formats for
+each of the 33 charts, and every import source through staging and board import.
+WordPress and Blogger XML round trips, and Telegram and Discord ZIP imports,
+returned the native failures recorded as W13-001 and W13-002.
 
-Formatting, Clippy with warnings denied, overlay validation and Swagger
-validation passed. The corrected contract has zero Swagger validation errors.
-Redocly 2.46.0 generated its corrected HTML reference.
-Coverage and parser inventories confirm 168 unique native operations: 167
-implemented and one intentionally excluded, with 166 leaf commands. The 52
-active defect annotations match the maintained report, including W12-006's
-misclassified HTTP 401 after a raw background upload has saved its file, and
-W12-007's deferred removal after filename normalization.
-
-Audit and correction evidence is retained under
-`target/audit-contract-fixes-20261023/`; generated logs and reference artifacts
-are ignored by Git. The original migration evidence remains under
-`target/upgrade-v12.57/matrix-final/`.
-
-The untouched upstream specification's SHA-256 is
-`cb7a0c87fc17ef14336e52272cfa898a6869037e68e81d6647d144052acb1232`.
-This verification ran on Windows with isolated Linux Wekan containers.
-Cross-platform CLI CI remains configured; this local run does not claim CLI
-execution on Linux or macOS. Excluding typed SES support removes the need for
-an AWS-signed message in the supported live-test matrix.
-
-The 24 October 2026 corrections passed **760 unique non-live tests**: 370 library,
-101 CLI, 287 contract (including four generated-contract checks), and two live
-inventory checks. Five affected live suites passed on fresh isolated v12.57
-stacks: attachments, custom fields, native bot/email hooks, users, and exports.
-The custom-field suite includes real Jira imports and ordinary-user JSON export
-with the new settings; bot reports compare native and CLI persisted state for
-omission and null. Upload receipts now distinguish acceptance from unconfirmed
-availability, and the known background-helper failure retains its native 401
-without credential-replacement advice. W11-015 is retained with its observed
-GET 500 and empty PUT 200 behavior. This correction run did not repeat all 32
-live suites. Live and generated-contract logs are retained under
-`target/audit-contract-fixes-20261024/`.
+Of the 70 historical cases, 51 are classified as fixed, 13 remain open and
+four are partly fixed. Two earlier member-export symptoms still await a
+release-specific check. The active report lists the 17 continuing or partly
+fixed cases and the two new defects.

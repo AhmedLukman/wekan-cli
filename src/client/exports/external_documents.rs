@@ -1,4 +1,4 @@
-//! v12.57 external artifact records. Shapes verified against the matching formatter modules.
+//! v13.28 external artifact records. Shapes verified against the matching formatter modules.
 #![allow(dead_code)]
 use super::validation::Never;
 use serde::Deserialize;
@@ -15,6 +15,12 @@ pub(super) struct TaskwarriorExportItemAnnotationsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TaskwarriorExportItem {
+    #[serde(
+        rename = "recur",
+        default,
+        deserialize_with = "super::validation::optional"
+    )]
+    pub recur: Option<String>,
     #[serde(rename = "uuid")]
     pub uuid: String,
     #[serde(rename = "status")]
@@ -201,6 +207,12 @@ pub(super) struct KanriExport {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TasksorgExportDataTasksItemTask {
+    #[serde(
+        rename = "recurrence",
+        default,
+        deserialize_with = "super::validation::optional"
+    )]
+    pub recurrence: Option<String>,
     #[serde(rename = "title")]
     pub title: String,
     #[serde(rename = "creationDate")]
@@ -481,6 +493,12 @@ pub(super) struct SuperproductivityExportDataProject {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SuperproductivityExportDataTaskEntitiesEntity {
+    #[serde(
+        rename = "repeatCfgId",
+        default,
+        deserialize_with = "super::validation::optional"
+    )]
+    pub repeat_cfg_id: Option<String>,
     #[serde(rename = "id")]
     pub id: String,
     #[serde(rename = "title")]
@@ -747,6 +765,12 @@ pub(super) struct SuperproductivityExportDataArchiveOld {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SuperproductivityExportData {
+    #[serde(
+        rename = "taskRepeatCfg",
+        default,
+        deserialize_with = "super::validation::optional"
+    )]
+    pub task_repeat_cfg: Option<SuperproductivityRepeatState>,
     #[serde(rename = "project")]
     pub project: SuperproductivityExportDataProject,
     #[serde(rename = "task")]
@@ -1759,7 +1783,7 @@ pub(super) struct NativeDeckExportStacksItemCardsItem {
         default,
         deserialize_with = "super::validation::optional"
     )]
-    pub done: Option<String>,
+    pub done: Option<DeckCompletion>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1830,6 +1854,24 @@ pub(super) struct NativeKanboardExportTasksItemLinksItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeKanboardExportTasksItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub time_spent: Option<Number>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub color_id: Option<String>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub recurrence_status: Option<u64>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub recurrence_trigger: Option<u64>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub recurrence_factor: Option<u64>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub recurrence_timeframe: Option<u64>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub time_estimated: Option<Number>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub score: Option<Number>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub reference: Option<String>,
     #[serde(rename = "id")]
     pub id: Number,
     #[serde(rename = "title")]
@@ -2052,6 +2094,12 @@ pub(super) struct NativeOpenprojectExportEmbeddedElementsItemFixedEmbedded {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeOpenprojectExportEmbeddedElementsItemFixed {
+    #[serde(
+        rename = "spentTime",
+        default,
+        deserialize_with = "super::validation::optional"
+    )]
+    pub spent_time: Option<String>,
     #[serde(rename = "id")]
     pub id: Number,
     #[serde(rename = "subject")]
@@ -2222,6 +2270,20 @@ pub(super) struct NativeGithubExportItemLabelsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeGithubExportItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub assignee: Option<GithubLogin>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub assignees: Option<Vec<GithubLogin>>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub user: Option<GithubLogin>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub created_at: Option<String>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub closed_at: Option<String>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub time_estimate: Option<u64>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub comments_data: Option<Vec<GithubComment>>,
     #[serde(rename = "title")]
     pub title: String,
     #[serde(
@@ -2332,6 +2394,8 @@ pub(super) struct NativeGitlabExportItemMilestone {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeGitlabExportItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub time_stats: Option<GitlabTimeStats>,
     #[serde(rename = "title")]
     pub title: String,
     #[serde(
@@ -2396,64 +2460,6 @@ pub(super) struct NativeGitlabExportItem {
 pub(super) type NativeGitlabExport = Vec<NativeGitlabExportItem>;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct NativeGiteaExportItemLabelsItem {
-    #[serde(rename = "name")]
-    pub name: String,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct NativeGiteaExportItem {
-    #[serde(rename = "title")]
-    pub title: String,
-    #[serde(
-        rename = "body",
-        default,
-        deserialize_with = "super::validation::optional"
-    )]
-    pub body: Option<String>,
-    #[serde(rename = "state")]
-    pub state: String,
-    #[serde(rename = "labels")]
-    pub labels: Vec<NativeGiteaExportItemLabelsItem>,
-    #[serde(
-        rename = "due_date",
-        default,
-        deserialize_with = "super::validation::optional"
-    )]
-    pub due_date: Option<String>,
-}
-pub(super) type NativeGiteaExport = Vec<NativeGiteaExportItem>;
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct NativeForgejoExportItemLabelsItem {
-    #[serde(rename = "name")]
-    pub name: String,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct NativeForgejoExportItem {
-    #[serde(rename = "title")]
-    pub title: String,
-    #[serde(
-        rename = "body",
-        default,
-        deserialize_with = "super::validation::optional"
-    )]
-    pub body: Option<String>,
-    #[serde(rename = "state")]
-    pub state: String,
-    #[serde(rename = "labels")]
-    pub labels: Vec<NativeForgejoExportItemLabelsItem>,
-    #[serde(
-        rename = "due_date",
-        default,
-        deserialize_with = "super::validation::optional"
-    )]
-    pub due_date: Option<String>,
-}
-pub(super) type NativeForgejoExport = Vec<NativeForgejoExportItem>;
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(super) struct NativeTrelloExportPrefs {
     #[serde(rename = "background")]
     pub background: String,
@@ -2473,6 +2479,7 @@ pub(super) struct NativeTrelloExportLabelsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeTrelloExportListsItem {
+    pub pos: u64,
     #[serde(rename = "id")]
     pub id: String,
     #[serde(rename = "name")]
@@ -2483,16 +2490,20 @@ pub(super) struct NativeTrelloExportListsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeTrelloExportCardsItem {
+    pub pos: u64,
+    #[serde(rename = "dateLastActivity")]
+    pub date_last_activity: String,
+    #[serde(rename = "dueComplete")]
+    pub due_complete: bool,
+    #[serde(rename = "customFieldItems")]
+    pub custom_field_items: Vec<TrelloFieldItem>,
     #[serde(rename = "id")]
     pub id: String,
     #[serde(rename = "name")]
     pub name: String,
-    #[serde(
-        rename = "desc",
-        default,
-        deserialize_with = "super::validation::optional"
-    )]
-    pub desc: Option<String>,
+    pub desc: String,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub start: Option<String>,
     #[serde(rename = "idList")]
     pub id_list: String,
     #[serde(
@@ -2505,13 +2516,16 @@ pub(super) struct NativeTrelloExportCardsItem {
     #[serde(rename = "idLabels")]
     pub id_labels: Vec<Option<String>>,
     #[serde(rename = "idMembers")]
-    pub id_members: Vec<Never>,
+    pub id_members: Vec<String>,
     #[serde(rename = "idChecklists")]
-    pub id_checklists: Vec<Never>,
+    pub id_checklists: Vec<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeTrelloExport {
+    pub members: Vec<TrelloMember>,
+    #[serde(rename = "customFields")]
+    pub custom_fields: Vec<TrelloField>,
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "prefs")]
@@ -2523,9 +2537,9 @@ pub(super) struct NativeTrelloExport {
     #[serde(rename = "cards")]
     pub cards: Vec<NativeTrelloExportCardsItem>,
     #[serde(rename = "checklists")]
-    pub checklists: Vec<Never>,
+    pub checklists: Vec<TrelloChecklist>,
     #[serde(rename = "actions")]
-    pub actions: Vec<Never>,
+    pub actions: Vec<TrelloAction>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2859,6 +2873,8 @@ pub(super) struct NativeAsanaExportDataItemParent {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeAsanaExportDataItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub actual_time_minutes: Option<u64>,
     #[serde(rename = "gid")]
     pub gid: String,
     #[serde(rename = "name")]
@@ -3363,4 +3379,195 @@ pub(super) enum AttributeValue {
 pub(super) enum FocalboardPropertyValue {
     String(String),
     Strings(Vec<String>),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GithubLogin {
+    pub login: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GithubComment {
+    pub body: String,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub user: Option<GithubLogin>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub created_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GitlabTimeStats {
+    pub total_time_spent: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloMember {
+    pub id: String,
+    pub username: String,
+    #[serde(rename = "fullName")]
+    pub full_name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloField {
+    pub id: String,
+    #[serde(rename = "idModel")]
+    pub id_model: String,
+    #[serde(rename = "modelType")]
+    pub model_type: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub record_type: String,
+    pub pos: u64,
+    pub display: TrelloFieldDisplay,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloFieldDisplay {
+    #[serde(rename = "cardFront")]
+    pub card_front: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloFieldItem {
+    pub id: String,
+    #[serde(rename = "idCustomField")]
+    pub id_custom_field: String,
+    #[serde(rename = "idModel")]
+    pub id_model: String,
+    #[serde(rename = "modelType")]
+    pub model_type: String,
+    pub value: TrelloFieldValue,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloChecklist {
+    pub id: String,
+    #[serde(rename = "idBoard")]
+    pub id_board: String,
+    #[serde(rename = "idCard")]
+    pub id_card: String,
+    pub name: String,
+    pub pos: u64,
+    #[serde(rename = "checkItems")]
+    pub check_items: Vec<TrelloCheckItem>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloCheckItem {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub pos: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloAction {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub record_type: String,
+    pub date: String,
+    #[serde(
+        rename = "idMemberCreator",
+        deserialize_with = "super::validation::required_nullable"
+    )]
+    pub id_member_creator: Option<String>,
+    #[serde(
+        rename = "memberCreator",
+        deserialize_with = "super::validation::required_nullable"
+    )]
+    pub member_creator: Option<TrelloActionMember>,
+    pub data: TrelloActionData,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloActionData {
+    pub text: String,
+    pub card: TrelloActionCard,
+    pub board: TrelloActionBoard,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloActionCard {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloActionBoard {
+    pub id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct TrelloActionMember {
+    pub username: String,
+    #[serde(rename = "fullName")]
+    pub full_name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub(super) enum DeckCompletion {
+    Date(super::validation::Date),
+    Checked(bool),
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub(super) enum TrelloFieldValue {
+    Checked(String),
+    Number(String),
+    Date(super::validation::Date),
+    Text(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SuperproductivityRepeatState {
+    ids: Vec<String>,
+    entities: BTreeMap<String, SuperproductivityRepeatConfig>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct SuperproductivityRepeatConfig {
+    id: String,
+    project_id: String,
+    title: String,
+    tag_ids: Vec<Never>,
+    order: u64,
+    last_task_creation: u64,
+    last_task_creation_day: String,
+    is_paused: bool,
+    quick_setting: String,
+    repeat_cycle: String,
+    repeat_every: u64,
+    start_date: String,
+    repeat_from_completion_date: bool,
+    wait_for_completion: bool,
+    should_inherit_subtasks: bool,
+    disable_auto_update_subtasks: bool,
+    skip_overdue: bool,
+    notes: String,
+    sunday: bool,
+    monday: bool,
+    tuesday: bool,
+    wednesday: bool,
+    thursday: bool,
+    friday: bool,
+    saturday: bool,
 }

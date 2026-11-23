@@ -35,6 +35,15 @@ pub(super) fn render_batch(batch: &crate::command_result::CardBatchResult) -> St
     }
 }
 
+fn projection_column<T: serde::Serialize>(value: &Option<T>) -> String {
+    value
+        .as_ref()
+        .map(|fields| {
+            serde_json::to_string(fields).expect("card projection fields are serializable")
+        })
+        .unwrap_or_default()
+}
+
 pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
     if data.cards.is_empty() {
         return format!(
@@ -44,11 +53,11 @@ pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
         );
     }
     let mut lines = vec![
-        "ID  TITLE  DESCRIPTION  SWIMLANE  RECEIVED  START  DUE  END  ASSIGNEES  SORT".to_owned(),
+        "ID  TITLE  DESCRIPTION  SWIMLANE  RECEIVED  START  DUE  END  ASSIGNEES  SORT  BOARD  MODIFIED  LAST ACTIVITY  LABELS  MEMBERS  CUSTOM FIELDS".to_owned(),
     ];
     lines.extend(data.cards.iter().map(|card| {
         format!(
-            "{}  {}  {}  {}  {}  {}  {}  {}  {}  {}",
+            "{}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}",
             escape_terminal_controls(&card.card_id),
             escape_terminal_controls(card.title.as_deref().unwrap_or("")),
             escape_terminal_controls(card.description.as_deref().unwrap_or("")),
@@ -62,6 +71,12 @@ pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
                 .as_ref()
                 .map(ToString::to_string)
                 .unwrap_or_default(),
+            escape_terminal_controls(card.board_id.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.modified_at.as_deref().unwrap_or("")),
+            escape_terminal_controls(card.date_last_activity.as_deref().unwrap_or("")),
+            projection_column(&card.label_ids),
+            projection_column(&card.members),
+            projection_column(&card.custom_fields),
         )
     }));
     lines.join("\n")
@@ -94,7 +109,7 @@ pub(super) fn render_swimlane_cards(
         );
     }
     let mut lines =
-        vec!["ID  TITLE  DESCRIPTION  LIST  RECEIVED  START  DUE  END  ASSIGNEES  SORT".to_owned()];
+        vec!["ID  TITLE  DESCRIPTION  LIST  RECEIVED  START  DUE  END  ASSIGNEES  SORT  BOARD  MODIFIED  LAST ACTIVITY  LABELS  MEMBERS  CUSTOM FIELDS".to_owned()];
     for card in &data.cards {
         let assignees = card
             .assignees
@@ -122,6 +137,12 @@ pub(super) fn render_swimlane_cards(
                     .as_ref()
                     .map(ToString::to_string)
                     .unwrap_or_default(),
+                card.board_id.clone().unwrap_or_default(),
+                card.modified_at.clone().unwrap_or_default(),
+                card.date_last_activity.clone().unwrap_or_default(),
+                projection_column(&card.label_ids),
+                projection_column(&card.members),
+                projection_column(&card.custom_fields),
             ]
             .iter()
             .map(|v| escape_terminal_controls(v))
@@ -171,25 +192,18 @@ pub(super) fn render_card_updated(data: &CardUpdateSuccess) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ");
-    let mut rendered = format!(
+    format!(
         "Card update request accepted for {} using source list {} on board {}; submitted fields: {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id),
         escape_terminal_controls(&fields)
-    );
-    if data
-        .submitted_fields
-        .contains(&crate::command_result::CardSubmittedField::IsOverTime)
-    {
-        rendered.push_str("\nWekan v12.57 ignores is_over_time=false and writes the wrong field for true; the card's actual overtime state is unchanged.");
-    }
-    rendered
+    )
 }
 
 pub(super) fn render_card_deleted(data: &CardDeleteSuccess) -> String {
     format!(
-        "Card deletion request accepted for {} from list {} on board {}.",
+        "Deleted card {} from list {} on board {}.",
         escape_terminal_controls(&data.card_id),
         escape_terminal_controls(&data.list_id),
         escape_terminal_controls(&data.board_id)

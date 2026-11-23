@@ -32,7 +32,7 @@ pub struct DeleteArgs {
     #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
 
-    /// Wekan list ID. Supplying the wrong list can trigger a Wekan v12.57 cascade defect.
+    /// Wekan list containing the card.
     #[arg(long = "list", value_parser = non_empty, help_heading = "Target")]
     pub list_id: String,
 
@@ -115,6 +115,7 @@ pub(super) async fn execute(
         list_id: args.list_id,
         card_id: deleted.card_id,
         deletion_requested: true,
+        deleted: true,
         delete_mode: CardDeleteMode::Hard,
     }))
 }

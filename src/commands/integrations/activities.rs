@@ -72,16 +72,14 @@ pub(super) async fn dispatch(
                 .await
         }
     };
-    let response = result
-        .map_err(|e| {
-            map_client_error_with_not_found(
-                e,
-                &Redactor::with_secret(context.record().token()),
-                "integration activity mutation",
-                "the Wekan board was not found",
-            )
-        })?
-        .ok_or_else(super::missing_integration)?;
+    let response = result.map_err(|e| {
+        map_client_error_with_not_found(
+            e,
+            &Redactor::with_secret(context.record().token()),
+            "integration activity mutation",
+            "the integration was not found on that Wekan board",
+        )
+    })?;
     Ok(CommandSuccess::IntegrationActivitiesChanged(
         IntegrationActivityMutationSuccess {
             board_id: args.target.board_id,

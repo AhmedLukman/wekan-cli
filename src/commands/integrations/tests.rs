@@ -438,7 +438,9 @@ async fn errors_redact_both_tokens_and_mark_partial_update_outcomes() {
     );
     server.reset().await;
     Mock::given(method("GET"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"Integration not found"})),
+        )
         .mount(&server)
         .await;
     let error = run(
@@ -451,7 +453,7 @@ async fn errors_redact_both_tokens_and_mark_partial_update_outcomes() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::NotFound);
-    assert_eq!(error.details().http_status, Some(200));
+    assert_eq!(error.details().http_status, Some(404));
 }
 
 #[test]

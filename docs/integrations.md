@@ -1,6 +1,6 @@
 # Board integrations and webhook subscriptions
 
-Integration commands target Wekan v12.57. All require `--board BOARD_ID` and
+Integration commands target Wekan v13.28. All require `--board BOARD_ID` and
 accept `--server URL`, `--profile PROFILE`, `--output human|json`,
 `--allow-insecure-http`, and `--help` (`-h`). Raw output is unsupported.
 
@@ -58,11 +58,13 @@ shows the current subscriptions; there is no separate subscription GET endpoint.
 
 ## Results, permissions, and pinned behavior
 
-List returns `board_id` and full `integrations` in server order. Get returns
-`integration_id`, `board_id`, `user_id`, `enabled`, `title`, `integration_type`,
-`url`, `activities`, `created_at`, and `modified_at`. An absent title is JSON null;
-date strings are validated and preserved. Unmapped fields, invalid types, missing
-required properties, and mismatched resource IDs produce `protocol_error`.
+List returns `board_id` and `integrations` in server order. Both list and get
+return `integration_id`, `board_id`, `enabled`, and `activities` to ordinary
+board readers. Board and site administrators also see `user_id`, `title`,
+`integration_type`, `url`, `created_at`, `modified_at` and delivery metadata.
+An absent administrator title is JSON null. Dates are validated and preserved.
+Each projection rejects unknown fields, missing required values and invalid types.
+A mismatched resource ID produces `protocol_error`.
 
 Create returns the board and new integration IDs. Update returns those IDs
 and `submitted_fields`. Delete returns the board and integration IDs.
@@ -75,23 +77,15 @@ Board access permits reads; mutations require board administration.
 Integration deletion uses the existing confirmation flow, or `--yes` for scripts.
 Declining confirmation returns a cancellation result without sending HTTP.
 
-Wekan v12.57 returns HTTP 200 with an empty body for missing or wrongly scoped
-integration lookups and activity mutations. The CLI reports `not_found` and
-preserves `http_status: 200`. Update and delete return the requested
-ID even when no integration matched.
+A missing or wrongly scoped integration returns HTTP 404 for lookups,
+updates, deletions, and activity changes. When a submitted URL fails
+validation, Wekan responds with HTTP 400 and preserves the existing title and
+enabled state.
 
-Update writes enabled state, title, URL, token, and activities sequentially.
-A later failure can leave earlier fields saved. For example, an invalid URL can
-return HTTP 400 after the new title was written. Errors preserve server metadata
-and expose the actual failure diagnostics. Commands perform
-one native request without extra reads, emulation, or mutation retries.
-
-Source evidence: pinned [REST routes](https://github.com/wekan/wekan/blob/v12.57/server/models/integrations.js)
-and [integration schema](https://github.com/wekan/wekan/blob/v12.57/models/integrations.js).
+Source evidence: pinned [REST routes](https://github.com/wekan/wekan/blob/v13.28/server/models/integrations.js)
+and [integration schema](https://github.com/wekan/wekan/blob/v13.28/models/integrations.js).
 The isolated lifecycle suite verifies these behaviors against the pinned Compose
 image. Outbound webhook delivery is outside this slice.
-
-Update and deletion report request acceptance because missing or wrongly scoped targets can produce successful no-ops.
 
 Declining integration deletion returns the shared cancellation result with
 operation `integration_delete`.

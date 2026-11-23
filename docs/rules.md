@@ -1,6 +1,6 @@
 # Board automation rules
 
-`wekan rule` manages the five native Wekan v12.57 rule endpoints. A rule links a
+`wekan rule` manages the five native Wekan v13.28 rule endpoints. A rule links a
 trigger to an action. Commands use REST and accept `--output human` or `json`,
 plus the usual server/profile options.
 
@@ -52,7 +52,7 @@ A companion rule removes that member when the card moves away:
 
 ## Supported payload fields
 
-The typed commands map all built-in v12.57 payload fields. Discriminators are
+The typed commands map all built-in v13.28 payload fields. Discriminators are
 strings, so the CLI preserves unknown kind names instead of promising they run.
 Other unmapped fields or object/array values in scalar fields are rejected;
 use `wekan api request` for arbitrary custom payloads.
@@ -109,9 +109,9 @@ kind. Explicit nulls and empty strings are sent unchanged for Wekan to handle.
 
 Reads require board access. Writes use Wekan's board-write permission check,
 which permits normal writable members as well as administrators. Read-only
-members can read but cannot mutate. Missing boards retain HTTP 404; missing or
-wrongly scoped rules retain HTTP 500 `not-found`, surfaced as `server_error`
-(exit 5), rather than being translated into HTTP 404.
+members can read rules. Wekan returns HTTP 404 when the board does not exist
+or the selected board has no rule with that ID. The CLI reports `not_found` with
+the native error details.
 
 Each command sends one native request. Creation, update, and deletion perform
 sequential server writes. Failures may leave earlier effects, and mutation
@@ -120,13 +120,12 @@ automatic retry or rollback.
 
 REST overwrites an action's `boardId` with the selected rule board and strips it
 from reads. Cross-board destination selection in the UI is not reproduced by
-these REST endpoints. REST creation and updates now synchronize button type and
-label metadata onto the rule document for UI rendering (W11-054 is fixed).
+these REST endpoints. REST creation and updates synchronize button type and
+label metadata onto the rule document for UI rendering.
 Manual button execution is a DDP method and has no equivalent in this family.
 
 Scheduled definitions use Wekan's server clock and minute-scanner format.
-The v12.57 startup starts SyncedCron, and native scheduled rules execute on the
-default stack (W11-053 is fixed). The CLI does not start or emulate the scheduler.
+Wekan starts SyncedCron on the default stack to execute scheduled rules.
 For example, this definition runs with the intended daily schedule:
 
 ```json

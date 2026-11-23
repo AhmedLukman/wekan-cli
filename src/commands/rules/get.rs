@@ -33,7 +33,7 @@ pub(super) async fn execute(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "rule lookup",
-                "the Wekan board was not found",
+                "the requested Wekan board or rule was not found",
             )
         })?;
     Ok(CommandSuccess::RuleShown(Box::new(

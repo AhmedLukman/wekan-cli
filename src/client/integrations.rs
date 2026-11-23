@@ -8,8 +8,25 @@ use super::{
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum IntegrationDocument {
+    Administrator(Box<AdministratorIntegrationDocument>),
+    Member(MemberIntegrationDocument),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct IntegrationDocument {
+pub struct MemberIntegrationDocument {
+    #[serde(rename = "_id")]
+    pub integration_id: String,
+    pub board_id: String,
+    pub enabled: bool,
+    pub activities: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct AdministratorIntegrationDocument {
     #[serde(rename = "_id")]
     pub integration_id: String,
     pub enabled: bool,
@@ -153,7 +170,7 @@ impl WekanClient {
         board: &str,
         integration: &str,
         token: &SecretString,
-    ) -> Result<Option<IntegrationDocument>, ClientError> {
+    ) -> Result<IntegrationDocument, ClientError> {
         let body = self
             .execute_success_request(
                 self.http
@@ -162,12 +179,9 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            return Ok(None);
-        }
         let document: IntegrationDocument = decode_success(&body, "integration lookup", true)?;
         validate_document(&document, board, Some(integration))?;
-        Ok(Some(document))
+        Ok(document)
     }
 
     pub async fn create_integration(
@@ -230,7 +244,7 @@ impl WekanClient {
         integration: &str,
         request: &IntegrationActivitiesRequest,
         token: &SecretString,
-    ) -> Result<Option<IntegrationActivitiesResponse>, ClientError> {
+    ) -> Result<IntegrationActivitiesResponse, ClientError> {
         self.mutate_integration_activities(Method::POST, board, integration, request, token)
             .await
     }
@@ -241,7 +255,7 @@ impl WekanClient {
         integration: &str,
         request: &IntegrationActivitiesRequest,
         token: &SecretString,
-    ) -> Result<Option<IntegrationActivitiesResponse>, ClientError> {
+    ) -> Result<IntegrationActivitiesResponse, ClientError> {
         self.mutate_integration_activities(Method::DELETE, board, integration, request, token)
             .await
     }
@@ -253,7 +267,7 @@ impl WekanClient {
         integration: &str,
         request: &IntegrationActivitiesRequest,
         token: &SecretString,
-    ) -> Result<Option<IntegrationActivitiesResponse>, ClientError> {
+    ) -> Result<IntegrationActivitiesResponse, ClientError> {
         let body = self
             .execute_success_request(
                 self.http
@@ -266,13 +280,10 @@ impl WekanClient {
                     .json(request),
             )
             .await?;
-        if body.is_empty() {
-            return Ok(None);
-        }
         let response: IntegrationActivitiesResponse =
             decode_success(&body, "integration activities", true)?;
         validate_response_id(&response.integration_id, Some(integration))?;
-        Ok(Some(response))
+        Ok(response)
     }
 
     fn integration_endpoint(
@@ -313,23 +324,27 @@ fn validate_document(
     board: &str,
     integration: Option<&str>,
 ) -> Result<(), ClientError> {
-    validate_response_id(&document.integration_id, integration)?;
-    for id in [&document.board_id, &document.user_id] {
-        validate_response_id(id, None)?;
-    }
-    if document.board_id != board {
+    let (id, board_id) = match document {
+        IntegrationDocument::Member(member) => (&member.integration_id, &member.board_id),
+        IntegrationDocument::Administrator(admin) => {
+            validate_response_id(&admin.user_id, None)?;
+            for date in [&admin.created_at, &admin.modified_at] {
+                validate_response_date(date).map_err(|()| {
+                    protocol_error(
+                        "the integration response contained an invalid date-time",
+                        true,
+                    )
+                })?;
+            }
+            (&admin.integration_id, &admin.board_id)
+        }
+    };
+    validate_response_id(id, integration)?;
+    if board_id != board {
         return Err(protocol_error(
             "the integration response board ID did not match the requested scope",
             true,
         ));
-    }
-    for date in [&document.created_at, &document.modified_at] {
-        validate_response_date(date).map_err(|()| {
-            protocol_error(
-                "the integration response contained an invalid date-time",
-                true,
-            )
-        })?;
     }
     Ok(())
 }

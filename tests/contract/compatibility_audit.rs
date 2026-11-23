@@ -2,6 +2,45 @@ use serde_json::{Value, json};
 use wekan_cli::client::{CardDocument, ListDocument};
 
 #[test]
+fn v13_28_projection_and_nested_metadata_reject_unmapped_or_mistyped_fields() {
+    use wekan_cli::client::{
+        cards::CardListCustomField,
+        metadata::{CardFlow, ShopPaymentMethod},
+    };
+    for value in [Value::Null, json!("value"), json!([null, "option"])] {
+        let field: CardListCustomField =
+            serde_json::from_value(json!({"_id":"field","value":value})).unwrap();
+        assert_eq!(serde_json::to_value(field).unwrap()["value"], value);
+    }
+    for bad in [
+        json!({"_id":"field"}),
+        json!({"_id":"field","value":{}}),
+        json!({"_id":"field","value":null,"extra":true}),
+    ] {
+        assert!(serde_json::from_value::<CardListCustomField>(bad).is_err());
+    }
+    for bad in [
+        json!({"extra":true}),
+        json!({"wsjf":{"extra":1}}),
+        json!({"wsjf":{"businessValue":"8"}}),
+    ] {
+        assert!(serde_json::from_value::<CardFlow>(bad).is_err());
+    }
+    let valid = json!({"id":"cash","enabled":true,"method":{"type":"cash","details":"On pickup"}});
+    assert!(serde_json::from_value::<ShopPaymentMethod>(valid.clone()).is_ok());
+    for method in [
+        json!({"type":"future"}),
+        json!({"type":"cash","details":"test","extra":true}),
+        json!({"type":"cash"}),
+        json!({"type":"cash","details":false}),
+    ] {
+        let mut payment = valid.clone();
+        payment["method"] = method;
+        assert!(serde_json::from_value::<ShopPaymentMethod>(payment).is_err());
+    }
+}
+
+#[test]
 fn watchers_preserve_absence_and_empty_arrays_without_weakening_strict_decoding() {
     let list = json!({
         "_id":"list-1", "title":"Todo", "archived":false, "boardId":"board-1",
@@ -62,7 +101,7 @@ fn all_optional_global_settings_accept_null_and_updates_preserve_explicit_null()
             nulls[*wire] = Value::Null;
         }
     }
-    assert_eq!(nulls.as_object().unwrap().len(), 35);
+    assert_eq!(nulls.as_object().unwrap().len(), 36);
     serde_json::from_value::<GlobalSettingsDocument>(nulls.clone()).unwrap();
     let update: UpdateGlobalSettings = serde_json::from_value(nulls.clone()).unwrap();
     assert_eq!(serde_json::to_value(update).unwrap(), nulls);
@@ -278,6 +317,16 @@ fn generated_contract_preserves_verified_audit_corrections() {
         definitions["VerifiedIntegrationsIntegrationDocument"]["properties"]["title"]["x-nullable"],
         true
     );
+    let variants = &definitions["VerifiedIntegrationsReadDocument"]["x-oneOf"];
+    assert_eq!(variants.as_array().unwrap().len(), 2);
+    assert_eq!(
+        variants[1]["$ref"].as_str(),
+        Some("#/definitions/VerifiedIntegrationsMemberDocument")
+    );
+    let member = &definitions["VerifiedIntegrationsMemberDocument"];
+    assert_eq!(member["additionalProperties"], false);
+    assert_eq!(member["required"].as_array().unwrap().len(), 4);
+    assert!(member["properties"].get("url").is_none());
     for field in [
         "description",
         "advancedFilter",
@@ -293,9 +342,10 @@ fn generated_contract_preserves_verified_audit_corrections() {
         );
     }
     assert!(body("put_user").get("required").is_none());
-    assert_eq!(
-        operation("put_user")["responses"]["200"]["x-wekan-empty-body"],
-        true
+    assert!(
+        operation("put_user")["responses"]["200"]
+            .get("x-wekan-empty-body")
+            .is_none()
     );
     for id in ["update_admin_org_features", "update_admin_team_features"] {
         let parameter = operation(id)["parameters"]
@@ -321,16 +371,25 @@ fn generated_contract_preserves_verified_audit_corrections() {
         .flatten()
         .map(|defect| defect["id"].as_str().unwrap())
         .collect();
-    assert_eq!(known_defects.len(), 52);
-    assert!(known_defects.contains("W11-015"));
-    assert!(!known_defects.contains("W11-005"));
-    assert!(!known_defects.contains("W11-053"));
-    assert!(known_defects.contains("W12-005"));
-    assert!(known_defects.contains("W12-006"));
-    assert_eq!(
-        operation("get_user")["responses"]["500"]["schema"]["properties"]["error"]["enum"],
-        json!(["Internal server error"])
-    );
+    let ledger = include_str!("../../docs/compatibility.md");
+    let open: std::collections::BTreeSet<_> = ledger
+        .lines()
+        .filter_map(|line| {
+            let mut cols = line.split('|').skip(1).map(str::trim);
+            let id = cols.next()?;
+            let disposition = cols.next()?;
+            (id.starts_with('W')
+                && (disposition.starts_with("Open")
+                    || disposition.starts_with("Partly")
+                    || disposition.starts_with("New")
+                    || disposition.starts_with("Survives")))
+            .then_some(id)
+        })
+        .collect();
+    assert_eq!(known_defects, open);
+    for id in ["get_user", "put_user", "post_deletetoken"] {
+        assert!(operation(id)["responses"].get("404").is_some());
+    }
     for name in [
         "VerifiedCustom_fieldsCustomFieldType",
         "VerifiedExportsDocumentsExportCustomFieldType",
@@ -381,16 +440,11 @@ fn generated_contract_preserves_verified_audit_corrections() {
             );
         }
     }
-    for id in ["upload_attachment", "upload_board_background"] {
-        assert!(
-            operation(id)["x-wekan-defects"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|defect| defect["id"] == "W12-007"
-                    && defect["liveRegression"] == "tests/e2e/attachments.rs")
-        );
-    }
+    assert!(
+        operation("upload_attachment")
+            .get("x-wekan-defects")
+            .is_none()
+    );
     assert!(
         operation("upload_board_background")["x-wekan-defects"]
             .as_array()
@@ -402,7 +456,7 @@ fn generated_contract_preserves_verified_audit_corrections() {
 
     // Exact v12.57 route and model fields that previously failed strict decoding.
     let settings = &definitions["VerifiedBoardsCard_settingsBoardCardSettings"];
-    assert_eq!(settings["properties"].as_object().unwrap().len(), 114);
+    assert_eq!(settings["properties"].as_object().unwrap().len(), 124);
     for field in [
         "allowsCardButtonsOnMinicard",
         "allowsDescriptionBadgeOnCard",

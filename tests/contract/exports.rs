@@ -16,7 +16,7 @@ use wiremock::{
     matchers::{header, method, path, query_param},
 };
 
-const JSON_FORMATS: [&str; 12] = [
+const JSON_FORMATS: [&str; 15] = [
     "json",
     "kanboard",
     "deck",
@@ -29,6 +29,9 @@ const JSON_FORMATS: [&str; 12] = [
     "jira",
     "asana",
     "zenkit",
+    "wordpressjson",
+    "ghost",
+    "teams",
 ];
 fn options<'a>(format: ExportFormat) -> ExportOptions<'a> {
     ExportOptions {
@@ -413,7 +416,7 @@ async fn preserve_external_export(format: &str, document: Value) {
     assert_eq!(saved, body);
 }
 
-// v12.57 externalExportFormatters.js:187-226 conditionally emits planning
+// v13.28 externalExportFormatters.js conditionally emits planning
 // descriptions/dates and links each release-assigned card to its version.
 fn openproject_planning_document() -> Value {
     let mut document = fixtures::external("openproject");
@@ -540,7 +543,7 @@ async fn openproject_planning_metadata_and_links_remain_strict() {
     }
 }
 
-// v12.57 externalExporters.js:108,152 cannot resolve a deleted user's
+// v13.28 externalExporters.js cannot resolve a deleted user's
 // username. The formatters omit only the identity property, keeping comments.
 fn external_comment_documents() -> Vec<(&'static str, Value, &'static str)> {
     let at = "2026-10-22T04:55:09.823Z";
@@ -631,7 +634,7 @@ async fn external_comment_author_identities_remain_strict() {
     }
 }
 
-// Wekan v12.57 models/lib/externalExportFormatters.js:253-258 emits these
+// Wekan v13.28 models/lib/externalExportFormatters.js emits these
 // release/sprint records, omitting dates that server/scrum.js permits unset.
 fn gitlab_planning_document(field: &str) -> Value {
     let mut document = fixtures::external("gitlab");
@@ -680,7 +683,7 @@ async fn gitlab_export_iterations_preserve_optional_planned_dates_and_bytes() {
 
 #[tokio::test]
 async fn gitlab_export_notes_preserve_deleted_authors_and_bytes() {
-    // v12.57 retains comments after account deletion; externalExporters.js
+    // v13.28 retains comments after account deletion; externalExporters.js
     // cannot resolve their username, so the formatter emits author: {}.
     for author in [json!({}), json!({"username":"reviewer"})] {
         let mut document = fixtures::external("gitlab");
@@ -1222,10 +1225,6 @@ async fn import_activity_sources_are_strictly_mapped_and_preserve_native_bytes()
 async fn trello_exports_preserve_nullable_label_ids_and_reject_invalid_elements() {
     let server = MockServer::start().await;
     let mut document = fixtures::external("trello");
-    document["cards"] = json!([{
-        "id":"card", "name":"Ship", "desc":"Details", "idList":"list",
-        "due":null, "closed":false, "idLabels":[], "idMembers":[], "idChecklists":[]
-    }]);
     for labels in [json!([]), json!(["label"]), json!([null, "label", null])] {
         server.reset().await;
         document["cards"][0]["idLabels"] = labels;

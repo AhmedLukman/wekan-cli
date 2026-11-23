@@ -70,8 +70,8 @@ fn archive(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_CATALOG_E2E_URL"]
-async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_CATALOG_E2E_URL"]
+async fn every_native_import_export_and_chart_format_matches_wekan_v13_28() {
     let server =
         env::var("WEKAN_CATALOG_E2E_URL").expect("set WEKAN_CATALOG_E2E_URL to an isolated stack");
     // Mass export selects the caller's memberships even when boards are public.
@@ -185,7 +185,7 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
     .unwrap();
 
     let formats = choices(&["board", "export"], "format");
-    assert_eq!(formats.len(), 48);
+    assert_eq!(formats.len(), 75);
     let mut exported = BTreeMap::new();
     for format in formats {
         let bytes = artifact(
@@ -211,11 +211,10 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
         exported.insert(format, file);
     }
     let mass_formats = choices(&["board", "export-all"], "format");
-    assert_eq!(mass_formats.len(), 45);
+    assert_eq!(mass_formats.len(), 71);
     for (index, format) in mass_formats.into_iter().enumerate() {
         if matches!(format.as_str(), "csv" | "scsv" | "tsv") {
-            // W12-003: the archive names the failed board in skipped.txt, and
-            // the erroneous non-plain-object security event disables its actor.
+            // W12-003: each delimited export identifies its skipped board in the archive.
             let token = app
                 .credential_store()
                 .credential
@@ -226,7 +225,7 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
                 .3
                 .clone();
             let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
-            let (_actor_dir, actor, actor_id) = register_live_board_role(
+            let (_actor_dir, actor, _) = register_live_board_role(
                 &server,
                 &canonical,
                 &token,
@@ -245,13 +244,6 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
             assert_eq!(files.len(), 1);
             let skipped = std::str::from_utf8(files.get("skipped.txt").unwrap()).unwrap();
             assert!(skipped.contains("Import/export non-plain object at /lists/0"));
-            let blocked = fixture_command(
-                "mongodb",
-                "mongosh",
-                "print(JSON.stringify(db.getSiblingDB('wekan').users.findOne({_id:p.id}).loginDisabled===true));",
-                &json!({"id":actor_id}),
-            );
-            assert_eq!(blocked, true);
             continue;
         }
         let bytes = artifact(
@@ -274,16 +266,26 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
     }
 
     let sources = choices(&["board", "import"], "source");
-    assert_eq!(sources.len(), 49);
+    assert_eq!(sources.len(), 85);
+    assert_eq!(sources, choices(&["board", "import-upload"], "source"));
     for source in sources {
         let format = match source.as_str() {
             "wekan" => "json",
             "excel" => "xlsx",
+            "mail" => "mbox",
+            "ical" => "ics",
+            "evernote" => "enex",
             other => other,
         };
+        let extension = match source.as_str() {
+            "googletakeout" | "slack" | "sandstormwekan" | "sandstormwordpress"
+            | "sandstormgogs" | "substack" => "zip",
+            "whatsapp" => "txt",
+            _ => "json",
+        };
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/requests/imports/v12.57")
-            .join(format!("{source}.json"));
+            .join("tests/fixtures/requests/imports/v13.28")
+            .join(format!("{source}.{extension}"));
         let file = exported.get(format).unwrap_or(&fixture);
         let mut args = vec![
             "board",
@@ -292,12 +294,63 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
             "--source",
             &source,
         ];
-        if source == "vikunja" {
+        if matches!(
+            source.as_str(),
+            "vikunja" | "fizzy" | "rocketchat" | "onenote" | "outlook"
+        ) {
             args.extend(["--input-format", "zip"]);
         }
-        let result = run(&app, &server, &args)
+        let uploaded = run(
+            &app,
+            &server,
+            &[
+                "board",
+                "import-upload",
+                file.to_str().unwrap(),
+                "--source",
+                &source,
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            uploaded["size"].as_u64(),
+            Some(fs::metadata(file).unwrap().len())
+        );
+        assert_eq!(uploaded["upload_id"].as_str().unwrap().len(), 32);
+        if matches!(source.as_str(), "telegram" | "discord") {
+            // W13-002: the source registry advertises ZIP, but the import shape check
+            // rejects the wrapper before the source-specific archive reader runs.
+            let zip = fixture.with_extension("zip");
+            let archive = zip.to_str().unwrap();
+            let staged = run(
+                &app,
+                &server,
+                &["board", "import-upload", archive, "--source", &source],
+            )
             .await
-            .unwrap_or_else(|e| panic!("{source}: {e:?}"));
+            .unwrap();
+            assert_eq!(
+                staged["size"].as_u64(),
+                Some(fs::metadata(&zip).unwrap().len())
+            );
+            let rejected = run(
+                &app,
+                &server,
+                &["board", "import", archive, "--source", &source],
+            )
+            .await
+            .expect_err("the native import guard rejects this ZIP");
+            assert_eq!(rejected.details().http_status, Some(500), "{source}");
+        }
+        let result = run(&app, &server, &args).await;
+        if matches!(source.as_str(), "wordpress" | "blogger") {
+            // The server sanitizes the WXR/Atom source before parsing the XML.
+            let error = result.expect_err("the tagged website importer rejects its own XML export");
+            assert_eq!(error.details().http_status, Some(500));
+            continue;
+        }
+        let result = result.unwrap_or_else(|e| panic!("{source}: {e:?}"));
         let imported = result["board_id"].as_str().unwrap();
         let detail = run(&app, &server, &["board", "get", imported])
             .await
@@ -316,7 +369,14 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
                 if source == "jira" {
                     title.starts_with('[') && title.ends_with("] Catalog card")
                 } else {
-                    title == "Catalog card"
+                    title
+                        == match source.as_str() {
+                            "ical" => "Catalog card (due)",
+                            "slack" | "rocketchat" => "#catalog-card",
+                            "sandstormsandchat" => "Catalog board",
+                            "htmlsite" => "index",
+                            _ => "Catalog card",
+                        }
                 }
             }),
             "{source}: {saved}"
@@ -328,7 +388,7 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
 
     // Source-normalized native Scrum metadata, including snapshots and daily history.
     let mut transfer: Value = serde_json::from_str(include_str!(
-        "../fixtures/responses/exports/v12.57/scrum-transfer.json"
+        "../fixtures/responses/exports/v13.28/scrum-transfer.json"
     ))
     .unwrap();
     let mut serialized = serde_json::to_string(&transfer).unwrap();
@@ -392,7 +452,7 @@ async fn every_native_import_export_and_chart_format_matches_wekan_v12_57() {
         1
     );
     let charts = choices(&["board", "chart", "export"], "chart");
-    assert_eq!(charts.len(), 21);
+    assert_eq!(charts.len(), 33);
     for chart in charts {
         for format in ["pdf", "xlsx"] {
             let bytes = artifact(

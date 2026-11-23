@@ -95,10 +95,10 @@ fn production_admin(directory: &Path, server: &str, args: &[&str], stdin: &str) 
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_ADMIN_SETTINGS_E2E_URL"]
-async fn complete_admin_settings_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_ADMIN_SETTINGS_E2E_URL"]
+async fn complete_admin_settings_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_ADMIN_SETTINGS_E2E_URL")
-        .expect("set WEKAN_ADMIN_SETTINGS_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_ADMIN_SETTINGS_E2E_URL to a fresh isolated v13.28 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()

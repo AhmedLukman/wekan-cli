@@ -286,6 +286,27 @@ pub struct BoardDomain {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct BoardDocument {
+    pub show_empty_card_fields: Option<bool>,
+    pub card_settings_section_order: Option<Vec<String>>,
+    pub minicard_settings_section_order: Option<Vec<String>>,
+    pub card_settings_hidden_on_card: Option<Vec<String>>,
+    pub card_settings_hidden_on_minicard: Option<Vec<String>>,
+    pub card_fields_always_shown: Option<Vec<String>>,
+    pub allows_list_policies: Option<bool>,
+    pub commitment_list_id: Option<String>,
+    pub person_wip_limit: Option<u8>,
+    pub allows_split_lists: Option<bool>,
+    pub allows_blocked_on_card: Option<bool>,
+    pub allows_blocked_on_minicard: Option<bool>,
+    pub allows_class_of_service_on_card: Option<bool>,
+    pub allows_class_of_service_on_minicard: Option<bool>,
+    pub allows_moscow_on_card: Option<bool>,
+    pub allows_moscow_on_minicard: Option<bool>,
+    pub allows_wsjf_on_card: Option<bool>,
+    pub allows_wsjf_on_minicard: Option<bool>,
+    pub allows_attachment_previews_on_card: Option<bool>,
+    pub allows_attachment_details_on_card: Option<bool>,
+    pub shop_settings: Option<Box<ShopSettings>>,
     pub scrum: Option<Box<ScrumSettings>>,
     pub scrum_import_losses: Option<Vec<ScrumImportLoss>>,
     pub announcement: Option<BoardAnnouncement>,
@@ -695,6 +716,13 @@ fn validate_board_summaries(
 fn validate_board_document(board: BoardDocument) -> Result<BoardDocument, ClientError> {
     require_non_empty(&board.board_id, "board", "board id")?;
     require_non_empty(&board.title, "board", "title")?;
+    if let Some(updated_at) = board
+        .shop_settings
+        .as_ref()
+        .and_then(|shop| shop.updated_at.as_deref())
+    {
+        validate_date_time(updated_at, "shopSettings.updatedAt")?;
+    }
     for label in &board.labels {
         if let Some(value) = &label.due_at {
             validate_date_time(value, "label dueAt")?;

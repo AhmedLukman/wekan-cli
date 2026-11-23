@@ -16,7 +16,7 @@ use crate::{
 };
 use clap::Args;
 
-pub const BOARD_FORMATS: [&str; 48] = [
+pub const BOARD_FORMATS: [&str; 75] = [
     "json",
     "csv",
     "tsv",
@@ -65,6 +65,33 @@ pub const BOARD_FORMATS: [&str; 48] = [
     "notion",
     "opml",
     "orgmode",
+    "trellozip",
+    "fizzy",
+    "mbox",
+    "enex",
+    "mattermost",
+    "rocketchat",
+    "wordpress",
+    "wordpressjson",
+    "ghost",
+    "blogger",
+    "markdownsite",
+    "htmlsite",
+    "azuredevops",
+    "mslists",
+    "msproject",
+    "outlook",
+    "onenote",
+    "teams",
+    "sandstormprioritize",
+    "sandstormyatl",
+    "sandstormmutodo",
+    "sandstormsandchat",
+    "sandstormethercalc",
+    "sandstormradicalecalendar",
+    "sandstormradicalecontacts",
+    "sandstormdavros",
+    "sandstormhackercms",
 ];
 pub const CARD_FIELDS: [&str; 16] = [
     "labels",

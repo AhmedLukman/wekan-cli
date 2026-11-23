@@ -1,7 +1,7 @@
 # Bulk cards and labels
 
-These commands use Wekan v12.57's native batch endpoints. Each batch sends one
-request containing 1–500 cards; larger inputs fail locally. All commands support
+These commands use Wekan v13.28's native batch endpoints. Each batch sends one
+request containing 1Ã¢â‚¬â€œ500 cards; larger inputs fail locally. All commands support
 the standard global options and human/JSON output.
 
 ## Create cards
@@ -32,7 +32,7 @@ sets a default; each card's nonempty `swimlaneId` takes precedence. Wekan accept
 strings, and retains only active board members. Values are sent unchanged.
 Author attribution always uses the authenticated session.
 
-Each card needs an effective swimlane. Wekan v12.57 responds with HTTP 500 if
+Each card needs an effective swimlane. Wekan v13.28 responds with HTTP 500 if
 one is absent, potentially after earlier cards were created. The CLI preserves
 that failure and its HTTP status; inspect stored cards before retrying.
 No remote validation or repair precedes the request.
@@ -51,10 +51,8 @@ green. Explicit colors must be named values shown by `board label add --help`;
 the REST route rejects custom hex colors despite the stored-label schema
 supporting them.
 
-Names are sent unchanged. Wekan trims JavaScript whitespace on storage but
-checks for an existing name/color pair before cleaning the name. Consequently,
-repeating a padded name creates another label; sending the cleaned name reuses
-the existing label. The CLI preserves this pinned defect. Output reports an
+Names are sent unchanged. Wekan trims the name before matching its name and
+color. Repeating a padded or trimmed version reuses the same label. Output reports an
 added-or-reused acknowledgment with `board_id` and `label_id`.
 
 Board label listing preserves stored order and returns IDs, nullable names, and
@@ -97,13 +95,9 @@ identity and expiry. A replaced, removed, or expired credential prevents HTTP
 and leaves the current stored credential untouched.
 
 Wekan deletes matching cards, including archived cards, and cascades their
-comments, checklists, checklist items, and subcards. Wekan v12.57 has an
-attachment-cascade defect: ordinary attachment metadata and file bytes remain
-after successful card deletion, and board attachment listing still returns them.
-The `deleted` array confirms card deletion, not attachment cleanup. The CLI
-preserves this behavior without additional cleanup requests.
-Foreign and absent IDs are returned in `not_found`. Duplicates are sent unchanged,
-so a later occurrence can be unmatched after an earlier deletion.
+comments, checklists, checklist items, and subcards.
+Wekan soft-deletes the removed cardsâ€™ attachments. They disappear from active
+attachment listings and retain recoverable bytes. The `deleted` array lists card IDs.
 
 ## Batch results and automation
 

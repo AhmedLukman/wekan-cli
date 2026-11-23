@@ -52,9 +52,10 @@ permission combination. Updating yourself preserves your current admin flag.
 
 Board add reactivates an inactive member with the submitted permissions. Adding
 an already active member leaves that member's permissions unchanged. Remove
-deactivates the member and clears its admin flag; it preserves the board's sole
-active administrator. It does not delete user accounts or erase inactive
-membership records. Disabled users cannot be added.
+deactivates the member and clears the admin flag. Removing the board's last active
+administrator returns HTTP 409. The user account and inactive membership record
+remain available. Disabled users cannot be added. Adding or removing an unknown
+user returns HTTP 404. Removing an inactive or absent membership also returns HTTP 404.
 
 Board list includes all membership records in server order, including inactive
 ones. It uses the complete strict board detail response and exposes the same
@@ -71,13 +72,12 @@ idempotent. Other assignments are preserved; there is no read/replace/write
 workflow.
 
 Adding requires an active board membership for the target user. Off-board,
-inactive, and nonexistent IDs return HTTP 400. Removing a known former board
-member remains permitted. Wekan v12.57 removal of a nonexistent user fails with
-HTTP 500 HTML through a model hook; the CLI preserves that server error. Wrong
+inactive, and nonexistent IDs return HTTP 400. Removing a former member or a nonexistent user succeeds and returns the
+remaining assignments. Wrong
 list/card selectors and archived cards return HTTP 404 for these mutations.
 Card assignment mutations require Wekan board write access.
 
-For a linked card, Wekan v12.57 changes the source card's assignments but
+For a linked card, Wekan v13.28 changes the source card's assignments but
 returns the link's ID and its own stored arrays copied when the link was created.
 They can remain empty or retain older assignments. Focused lists also return the
 link's stored arrays. These snapshots do not confirm the source card's saved
@@ -107,7 +107,8 @@ Reads strictly decode the complete board/card document before projecting member
 or assignee data. Board lists preserve inactive records and nullable permission
 flags; card lists preserve selected user IDs in server order.
 
-Board add/remove return summaries even for no-ops, including sole-admin removal.
+Successful board additions and removals return board summaries. Adding an active
+member can leave their existing permissions unchanged.
 Permission updates report Wekan's
 affected-document count, including zero, and submitted input names in fixed
 order. They do not claim that the requested flags were saved.
@@ -129,5 +130,3 @@ wekan --output json board member list --board BOARD_ID
 wekan card member add USER_ID --board BOARD_ID --list LIST_ID --card CARD_ID
 wekan card assignee remove USER_ID --board BOARD_ID --list LIST_ID --card CARD_ID
 ```
-
-Board-member add/remove report request acceptance. An active-member addition can preserve permissions and sole-administrator removal can do nothing. Returned card membership snapshots and board permission-update counts retain their existing meaning.

@@ -134,6 +134,7 @@ pub enum CommandSuccess {
     SchemaUpgradeStatus(crate::client::system::SchemaUpgradeState),
     BoardAttachments(attachments::BoardAttachmentCollectionSuccess),
     BoardImported(BoardImportSuccess),
+    ImportUploaded(ImportUploadSuccess),
     TrelloImported(TrelloImportResult),
     ZipImported(ZipImportSuccess),
     IcsImported(IcsImportSuccess),

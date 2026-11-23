@@ -6,7 +6,7 @@ use serde_json::Number;
 use super::{ClientError, WekanClient};
 use crate::client::transport::decode_success;
 
-/// The complete v12.57 card-settings projection. Omission is distinct from null.
+/// The complete v13.28 card-settings projection. Omission is distinct from null.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(
     deny_unknown_fields,
@@ -221,6 +221,26 @@ pub struct BoardCardSettings {
     pub allows_action_items_on_card: Option<bool>,
     #[serde(default, deserialize_with = "optional")]
     pub allows_whiteboard_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_blocked_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_blocked_on_minicard: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_class_of_service_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_class_of_service_on_minicard: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_moscow_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_moscow_on_minicard: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_wsjf_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_wsjf_on_minicard: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_attachment_previews_on_card: Option<bool>,
+    #[serde(default, deserialize_with = "optional")]
+    pub allows_attachment_details_on_card: Option<bool>,
     #[serde(default, deserialize_with = "optional")]
     pub labels_above_title_on_card: Option<bool>,
     #[serde(default, deserialize_with = "optional")]
@@ -461,6 +481,26 @@ pub struct UpdateBoardCardSettingsRequest {
     pub allows_action_items_on_card: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allows_whiteboard_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_blocked_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_blocked_on_minicard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_class_of_service_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_class_of_service_on_minicard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_moscow_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_moscow_on_minicard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_wsjf_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_wsjf_on_minicard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_attachment_previews_on_card: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allows_attachment_details_on_card: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub labels_above_title_on_card: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

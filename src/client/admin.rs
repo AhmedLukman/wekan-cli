@@ -1,4 +1,4 @@
-//! Global administrator settings for Wekan v12.57.
+//! Global administrator settings for Wekan v13.28.
 pub mod attachment_settings;
 pub mod login_providers;
 pub mod people;

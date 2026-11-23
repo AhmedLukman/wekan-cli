@@ -24,8 +24,7 @@ fn board_settings_help_exposes_the_complete_typed_interface() {
         .args(["board", "domain", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("site administrator"))
-        .stdout(predicate::str::contains("not-authorized"));
+        .stdout(predicate::str::contains("site administrator"));
 }
 
 #[test]

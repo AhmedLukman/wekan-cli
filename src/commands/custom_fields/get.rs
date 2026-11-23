@@ -6,8 +6,7 @@ use crate::{
         authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
     },
     credentials::CredentialStore,
-    error::{AppError, ErrorCode},
-    exit_code::StableExitCode,
+    error::AppError,
     redaction::Redactor,
 };
 use clap::Args;
@@ -43,17 +42,6 @@ pub(super) async fn execute(
                 "custom-field lookup",
                 "the custom field was not found on that board",
             )
-        })?
-        .ok_or_else(|| {
-            AppError::new(
-                ErrorCode::NotFound,
-                "the custom field was not found on that board",
-                StableExitCode::Server,
-            )
-            .with_details(crate::commands::client_error::response_error_details(
-                reqwest::StatusCode::OK,
-                None,
-            ))
         })?;
     Ok(CommandSuccess::CustomFieldShown(super::detail(value)))
 }

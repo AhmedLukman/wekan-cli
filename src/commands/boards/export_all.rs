@@ -9,7 +9,7 @@ use crate::{
     error::AppError,
 };
 use clap::Args;
-pub const FORMATS: [&str; 45] = [
+pub const FORMATS: [&str; 71] = [
     "wekan",
     "csv",
     "scsv",
@@ -55,6 +55,32 @@ pub const FORMATS: [&str; 45] = [
     "notion",
     "opml",
     "orgmode",
+    "fizzy",
+    "mbox",
+    "enex",
+    "mattermost",
+    "rocketchat",
+    "wordpress",
+    "wordpressjson",
+    "ghost",
+    "blogger",
+    "markdownsite",
+    "htmlsite",
+    "azuredevops",
+    "mslists",
+    "msproject",
+    "outlook",
+    "onenote",
+    "teams",
+    "sandstormprioritize",
+    "sandstormyatl",
+    "sandstormmutodo",
+    "sandstormsandchat",
+    "sandstormethercalc",
+    "sandstormradicalecalendar",
+    "sandstormradicalecontacts",
+    "sandstormdavros",
+    "sandstormhackercms",
 ];
 #[derive(Debug, Args)]
 pub struct ExportAllArgs {

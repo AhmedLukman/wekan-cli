@@ -11,8 +11,13 @@ pub(super) fn created(data: &CustomFieldItemCreateSuccess) -> String {
     )
 }
 pub(super) fn updated(data: &CustomFieldItemUpdateSuccess) -> String {
+    let outcome = if data.submitted_fields.is_empty() {
+        "No changes requested for"
+    } else {
+        "Updated"
+    };
     format!(
-        "Dropdown item update request accepted for {} in custom field {} on board {}.",
+        "{outcome} dropdown item {} in custom field {} on board {}.",
         escape_terminal_controls(&data.item_id),
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)
@@ -20,7 +25,7 @@ pub(super) fn updated(data: &CustomFieldItemUpdateSuccess) -> String {
 }
 pub(super) fn deleted(data: &CustomFieldItemDeleteSuccess) -> String {
     format!(
-        "Dropdown item deletion request accepted for {} in custom field {} on board {}.",
+        "Deleted dropdown item {} in custom field {} on board {}.",
         escape_terminal_controls(&data.item_id),
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)

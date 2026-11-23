@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Args)]
 pub struct FileArgs {
-    /// Native upload transport. JSON retains Wekan's HTTP-408 defect; raw sends file bytes with query metadata.
+    /// Native upload transport. JSON encodes file bytes as base64. Raw sends file bytes with query metadata.
     #[arg(long,value_parser=["json","raw"],default_value="json")]
     pub transport: String,
     /// Local file path, or - to read binary contents from stdin.

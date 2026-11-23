@@ -4,7 +4,7 @@ Wekan CLI is an agent-first, human-friendly command-line client for Wekan. It
 provides deterministic commands, stable JSON output, explicit errors, native
 credential storage, and confirmation gates for destructive operations.
 
-Version 2.1.0 targets **Wekan v12.57 exactly**. Other Wekan versions are not
+This checkout targets **Wekan v13.28 exactly**. Other Wekan versions are not
 currently supported or tested.
 
 ## Compatibility
@@ -140,7 +140,7 @@ The CLI includes profile and authentication management plus typed commands for
 users, boards, lists, swimlanes, cards, comments, checklists, checklist items,
 custom-field definitions, dropdown items, attachments, card dependencies,
 board integrations, automation rules, and global administrator settings. It
-implements 167 audited native REST operations in the corrected Wekan v12.57 contract,
+implements 168 audited native REST operations in the corrected Wekan v13.28 contract,
 including dedicated card archive/restore, custom-field assignment, custom-field
 lookup, all 12 attachment transfer operations, all ten native exports, all five dependency operations, and all
 seven board/card membership mutations, all seven integration operations,
@@ -157,7 +157,7 @@ and button payloads, and strict human/JSON output; see [rules](docs/rules.md).
 `user token create <USER_ID>` issues a token and prints its secret in successful
 human/JSON output. `user token delete <USER_ID> (--token-stdin | --all) [--yes]`
 requests revocation without changing local credentials. Both require site
-administration. Wekan v12.57 matches stored hashes rather than raw issued tokens
+administration. Wekan v13.28 matches stored hashes rather than raw issued tokens
 for single-token deletion. See
 [user API tokens](docs/users.md#api-tokens) for native behavior and examples.
 
@@ -176,7 +176,7 @@ including token input through stdin and typed mutation results;
 see [integrations](docs/integrations.md).
 `board card-settings get/update` exposes card display controls and aging thresholds;
 `board domain list/add/remove` exposes native sharing endpoints. Domain listing
-requires a site administrator; valid sharing writes preserve Wekan v12.57's
+requires a site administrator; valid sharing writes preserve Wekan v13.28's
 `not-authorized` failure. See [board settings and sharing](docs/boards.md#card-settings-and-aging).
 Dependency commands support board
 and card listings, create-or-update, nullable metadata updates, and confirmed
@@ -230,6 +230,6 @@ as described in
 Wekan CLI is licensed under the
 [Apache License 2.0](https://github.com/AhmedLukman/wekan-cli/blob/main/LICENSE).
 
-See [v12.57 compatibility and defect reconciliation](docs/compatibility.md) for
+See [v13.28 compatibility and defect reconciliation](docs/compatibility.md) for
 the supported baseline, fixed historical defects, and remaining native failures.
 Amazon SES/SNS integration is intentionally excluded from typed CLI support.

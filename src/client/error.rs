@@ -3,8 +3,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClientError {
-    #[error("the resource lookup returned an empty HTTP {http_status} response")]
-    EmptyNotFound { http_status: StatusCode },
     #[error("failed to initialize the HTTP client")]
     Build(#[source] reqwest::Error),
     #[error("the request could not be completed")]

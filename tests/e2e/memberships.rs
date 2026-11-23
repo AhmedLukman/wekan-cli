@@ -167,10 +167,10 @@ const FLAGS: [(&str, &str); 8] = [
 ];
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_MEMBERSHIP_E2E_URL"]
-async fn complete_membership_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_MEMBERSHIP_E2E_URL"]
+async fn complete_membership_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_MEMBERSHIP_E2E_URL")
-        .expect("set WEKAN_MEMBERSHIP_E2E_URL to a fresh isolated Wekan v12.57 stack");
+        .expect("set WEKAN_MEMBERSHIP_E2E_URL to a fresh isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -229,7 +229,17 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
         .await
         .unwrap();
 
-    // Both mutations acknowledge board summaries even when no membership changes.
+    let inactive = board_member(&app, &server, &board, &["remove", &outsider])
+        .await
+        .expect_err("a removed member is no longer active on this board");
+    assert_eq!(inactive.code(), ErrorCode::NotFound);
+    assert_eq!(inactive.details().http_status, Some(404));
+    assert_eq!(
+        inactive.details().server_error.as_deref(),
+        Some("Member not found")
+    );
+
+    // Adding an already active member leaves the original permissions intact.
     let ack = board_member(&app, &server, &board, &["add", &user, "--role", "worker"])
         .await
         .unwrap();
@@ -239,9 +249,14 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
         member(&app, &server, &board, &user).await["is_worker"],
         false
     );
-    board_member(&app, &server, &board, &["remove", &admin])
+    let last_admin = board_member(&app, &server, &board, &["remove", &admin])
         .await
-        .unwrap();
+        .expect_err("Wekan preserves the last administrator of the board");
+    assert_eq!(last_admin.details().http_status, Some(409));
+    assert_eq!(
+        last_admin.details().server_error.as_deref(),
+        Some("The last board admin cannot be removed")
+    );
     assert_eq!(
         member(&app, &server, &board, &admin).await["is_active"],
         true
@@ -423,7 +438,8 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
     let missing = board_member(&app, &server, &board, &["add", "missing-user"])
         .await
         .unwrap_err();
-    assert_eq!(missing.code(), ErrorCode::ProtocolError);
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
     assert!(
         serde_json::to_value(missing.details())
             .unwrap()
@@ -433,7 +449,8 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
     let missing = board_member(&app, &server, &board, &["remove", "missing-user"])
         .await
         .unwrap_err();
-    assert_eq!(missing.code(), ErrorCode::ProtocolError);
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
 
     // A disabled known account cannot be reactivated by board member add.
     run(
@@ -535,17 +552,11 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
             scope.membership(kind, &["remove", &user]).await.unwrap()[field],
             removed[field]
         );
-        let error = scope
+        let unchanged = scope
             .membership(kind, &["remove", "missing-user"])
             .await
-            .unwrap_err();
-        assert_eq!(error.details().http_status, Some(500));
-        assert!(
-            serde_json::to_value(error.details())
-                .unwrap()
-                .get("outcome_unknown")
-                .is_none()
-        );
+            .unwrap();
+        assert_eq!(unchanged[field], removed[field]);
     }
     verify_linked_card_memberships(&scope, &swimlane, &admin, &user).await;
 
@@ -572,7 +583,7 @@ async fn complete_membership_lifecycle_matches_wekan_v12_57() {
             ..scope
         };
         if role == "nocomments" {
-            // v12.57's shared role matrix permits writing while refusing comments.
+            // The shared role matrix permits writing while refusing comments.
             for kind in ["member", "assignee"] {
                 denied_scope
                     .membership(kind, &["remove", &admin])

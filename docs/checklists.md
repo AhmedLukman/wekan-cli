@@ -1,7 +1,7 @@
 # Checklists and checklist items
 
 The `wekan checklist` family and its `item` subcommands cover all nine checklist
-operations exposed by Wekan v12.57:
+operations exposed by Wekan v13.28:
 
 ```console
 wekan checklist list --board <BOARD_ID> --card <CARD_ID>
@@ -96,16 +96,11 @@ updates return `submitted_fields: []`. Human output reports the completed
 update. Deletion data includes the same scope IDs,
 `deleted: true`, and `delete_mode: "hard"`.
 
-## Verified Wekan v12.57 behavior
+## Verified Wekan v13.28 behavior
 
-- A REST card move to another board leaves existing checklist and item `boardId`
-  metadata on the source board. Read these resources using the destination board
-  selector; detail output preserves the returned source `board_id`. Wekan scopes
-  and authorizes these requests through the card's current board.
-- A missing or wrongly scoped card returns 404. A missing or wrongly scoped
-  checklist on an existing card returns HTTP 500 on checklist lookup;
-  the CLI preserves it as `server_error`. Missing or wrongly scoped items return
-  404 and become `not_found`.
+- A cross-board card move also moves its checklists and items. Fetch them with
+  the destination board ID. Their stored and returned `board_id` changes to the destination.
+- Missing or wrongly scoped cards, checklists and items return HTTP 404.
 - Normal writable and no-comments members can mutate checklists and items.
   Read-only members can read but receive HTTP 403 for mutations. Comment-only
   and worker roles are also denied mutations. Site administrators bypass board
@@ -118,9 +113,7 @@ update. Deletion data includes the same scope IDs,
 - Item updates and deletion use Wekan's direct collection operations, bypassing
   activity/completion hooks. The CLI does not emulate those hooks or infer a
   checklist completion timestamp from checked items.
-- Checklist deletion leaves its item documents behind. An existing orphan item
-  remains readable and deletable by its original checklist ID while its card
-  exists. The CLI sends only the requested deletion and performs no cleanup.
+- Deleting a checklist removes its items. A later item read returns HTTP 404.
 
 Both deletion commands require interactive confirmation or command-local
 `--yes`. JSON and non-terminal invocations require `--yes`. Declining a prompt

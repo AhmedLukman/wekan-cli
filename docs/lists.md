@@ -2,7 +2,7 @@
 
 The singular `wekan list` family covers core list operations plus native
 copying, moving, and repositioning. See [copy and move](copy-and-move.md) for
-transfer syntax, returned IDs, and Wekan v12.57's partial mutation behavior.
+transfer syntax, returned IDs, and native transfer behavior.
 
 ## Commands
 
@@ -15,9 +15,9 @@ wekan list delete <LIST_ID> --board <BOARD_ID> [--yes]
 ```
 
 Titles and identifiers must remain non-empty after trimming where applicable.
-Wekan v12.57 truncates update titles after the first 1000 JavaScript UTF-16 code
+Wekan v13.28 truncates update titles after the first 1000 JavaScript UTF-16 code
 units; the CLI submits longer titles unchanged so that pinned behavior remains
-visible. Update colors use Wekan v12.57's list palette; custom colors have
+visible. Update colors use Wekan v13.28's list palette; custom colors have
 exactly six hexadecimal digits after `#`. Wekan can return `color: ""` for a
 persisted unset color; `list get` preserves that response form, while the
 update flag accepts only named palette colors or `#rrggbb`. Any combination of WIP options is accepted. Wekan replaces the whole
@@ -71,22 +71,15 @@ An update reports its accepted fields in the fixed order `title`, `color`,
 
 ## Soft deletion
 
-Wekan v12.57 does not physically remove a list. It stamps the list and its live
-cards with deletion metadata in one batch. Because cards are affected,
-`list delete` requires interactive confirmation or command-local `--yes`.
+Wekan soft-deletes the list and its live cards in one batch. The command
+requires interactive confirmation or `--yes`. Success includes `board_id`, `list_id`,
+`deleted: true`, `deletion_requested: true`, and `delete_mode: "soft"`. A second
+deletion or a list ID absent from the selected board returns HTTP 404 and
+`not_found`. Declining the confirmation returns the `list_delete` cancellation.
 
-The operation is idempotent: deleting an already deleted or absent list returns
-the requested ID just like a newly deleted list. Therefore `deletion_requested: true` and
-`delete_mode: "soft"` mean Wekan accepted and validated the request, not that a
-previously live list was found. Delete data includes `board_id` and `list_id`.
-Declining deletion returns the shared cancellation result with operation
-`list_delete`.
-
-Wekan v12.57 has two related read quirks. Its board-list collection filters
-archived lists but not soft-deleted lists and omits deletion metadata from each
-summary, so a deleted list may remain in `list list` output. Its missing
-single-list route returns an empty HTTP 200 response; the CLI normalizes that to
-the stable `not_found` error.
+A soft-deleted list remains readable through `list get`, including its deletion
+metadata. The active collection filters archived lists and can include
+soft-deleted lists. A lookup for a nonexistent list returns HTTP 404.
 
 Copy/move command syntax, position inputs, typed acknowledgments, and pinned
 server behavior are documented in [copy and move](copy-and-move.md).

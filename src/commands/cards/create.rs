@@ -19,6 +19,10 @@ use super::{date_input, non_empty};
 )]
 #[command(next_help_heading = "Fields")]
 pub struct CreateArgs {
+    /// Parent card for the new subtask.
+    #[arg(long, value_parser = non_empty)]
+    pub parent_id: Option<String>,
+
     /// Wekan board ID.
     #[arg(long = "board", value_parser = non_empty, help_heading = "Target")]
     pub board_id: String,
@@ -82,6 +86,7 @@ pub(super) async fn execute(
     credential_store: &dyn CredentialStore,
 ) -> Result<CommandSuccess, AppError> {
     let request = CreateCardRequest {
+        parent_id: args.parent_id,
         title: if args.null_title {
             Some(None)
         } else {

@@ -105,7 +105,7 @@ services:
       - wekan
 
   wekan:
-    image: wekanteam/wekan:v12.57@sha256:e6fbfeb61089be9f70e78150b9582838c360ed4862a9750b8e259fb5821ae424
+    image: wekanteam/wekan:v13.28@sha256:0c33787406b7a88241976fdf99cbe3d8dadc8c05431a22d9e5a514cbc910a556
     restart: "no"
     depends_on:
       mongodb:
@@ -119,7 +119,7 @@ services:
       MONGO_URL: mongodb://mongodb:27017/wekan?replicaSet=rs0
       MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
       METEOR_REACTIVITY_ORDER: changeStreams,oplog,polling
-      DDP_TRANSPORT: uws
+      DDP_TRANSPORT: sockjs
       WITH_API: "true"
       WRITABLE_PATH: /data
       BROWSER_POLICY_ENABLED: "true"

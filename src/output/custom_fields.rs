@@ -46,15 +46,20 @@ pub(super) fn created(data: &CustomFieldCreateSuccess) -> String {
     )
 }
 pub(super) fn updated(data: &CustomFieldUpdateSuccess) -> String {
+    let outcome = if data.submitted_fields.is_empty() {
+        "No changes requested for"
+    } else {
+        "Updated"
+    };
     format!(
-        "Custom-field update request accepted for {} on board {}.",
+        "{outcome} custom field {} on board {}.",
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)
     )
 }
 pub(super) fn deleted(data: &CustomFieldDeleteSuccess) -> String {
     format!(
-        "Custom-field deletion request accepted for {} through board {}.",
+        "Deleted custom field {} through board {}.",
         escape_terminal_controls(&data.custom_field_id),
         escape_terminal_controls(&data.board_id)
     )

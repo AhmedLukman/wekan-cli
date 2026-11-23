@@ -46,7 +46,7 @@ pub(super) fn zip(data: &ZipImportSuccess) -> String {
         ("Requested list", &data.list_id),
         ("Requested card", &data.card_id),
         (
-            "Requested checklist (ignored by Wekan v12.57)",
+            "Requested checklist (ignored by Wekan v13.28)",
             &data.checklist_id,
         ),
     ] {
@@ -65,5 +65,13 @@ pub(super) fn ics(data: &IcsImportSuccess) -> String {
         escape(&data.swimlane_id),
         data.created,
         escape(&data.card_ids.join(", "))
+    )
+}
+
+pub(super) fn uploaded(data: &crate::command_result::ImportUploadSuccess) -> String {
+    format!(
+        "Staged {} bytes for import. Upload ID: {}",
+        data.size,
+        escape(&data.upload_id)
     )
 }

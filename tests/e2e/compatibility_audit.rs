@@ -43,7 +43,7 @@ async fn profile_preferences(
                 .await,
             json!(1)
         );
-        // This native v12.57 method checks Number and writes listConstraints.
+        // This native method accepts numeric widths and writes listConstraints.
         session
             .call(
                 "applyListWidthToStorage",
@@ -183,10 +183,10 @@ async fn run(app: &LiveApp, server: &str, args: &[&str]) -> Value {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_AUDIT_E2E_URL"]
-async fn audit_regressions_match_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_AUDIT_E2E_URL"]
+async fn audit_regressions_match_wekan_v13_28() {
     let server = env::var("WEKAN_AUDIT_E2E_URL")
-        .expect("set WEKAN_AUDIT_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_AUDIT_E2E_URL to a fresh isolated v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -442,7 +442,10 @@ async fn audit_regressions_match_wekan_v12_57() {
         ],
     )
     .await;
-    assert_eq!(updated["submitted_fields"].as_array().unwrap().len(), 35);
+    assert_eq!(
+        updated["submitted_fields"].as_array().unwrap().len(),
+        fixtures::GLOBAL_FIELDS.len()
+    );
     assert_eq!(updated["settings"]["product_name"], Value::Null);
     let raw = live_api_json(&http, &canonical, &token, Method::GET, "api/settings", None).await;
     for (wire, _, _, _) in fixtures::GLOBAL_FIELDS {
@@ -469,10 +472,11 @@ async fn audit_regressions_match_wekan_v12_57() {
         ],
     )
     .await;
-    assert!(created.get("creation_requested").is_none());
-    assert!(created.get("mutation_confirmed").is_none());
-    assert!(created.get("created").is_none());
-    wait_for_live_user(&app, &server, &username).await;
+    let created_id = created["user_id"].as_str().unwrap();
+    assert_eq!(
+        run(&app, &server, &["user", "get", created_id]).await["username"],
+        username
+    );
     let before = run(&app, &server, &["user", "list"]).await;
     let duplicate = app
         .execute(
@@ -502,46 +506,16 @@ async fn audit_regressions_match_wekan_v12_57() {
         before["users"]
     );
     let email = format!("audit_email_only_{nonce}@example.test");
-    run(
+    let created = run(
         &app,
         &server,
         &["user", "create", "--email", &email, "--password-stdin"],
     )
     .await;
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    loop {
-        let users = run(&app, &server, &["user", "list"]).await;
-        let mut found = false;
-        for candidate in users["users"].as_array().unwrap() {
-            if before["users"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|u| u["user_id"] == candidate["user_id"])
-            {
-                continue;
-            }
-            let detail = run(
-                &app,
-                &server,
-                &["user", "get", candidate["user_id"].as_str().unwrap()],
-            )
-            .await;
-            if detail["emails"][0]["address"] == email {
-                assert_eq!(detail["username"], Value::Null);
-                found = true;
-                break;
-            }
-        }
-        if found {
-            break;
-        }
-        assert!(
-            std::time::Instant::now() < deadline,
-            "email-only creation did not persist"
-        );
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
+    let created_id = created["user_id"].as_str().unwrap();
+    let detail = run(&app, &server, &["user", "get", created_id]).await;
+    assert_eq!(detail["emails"][0]["address"], email);
+    assert_eq!(detail["username"], Value::Null);
     let missing = app
         .execute(
             Cli::try_parse_from([
@@ -553,9 +527,12 @@ async fn audit_regressions_match_wekan_v12_57() {
         .await
         .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
+    assert_eq!(missing.details().http_status, Some(404));
     assert_eq!(missing.details().wekan_status_code, None);
-    assert_eq!(missing.details().server_error, None);
+    assert_eq!(
+        missing.details().server_error.as_deref(),
+        Some("Comment not found")
+    );
     assert_eq!(missing.details().server_reason, None);
 
     // W11-061 is fixed: an omitted destination lane supports a same-board copy.

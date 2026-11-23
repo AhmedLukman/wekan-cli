@@ -32,6 +32,8 @@ pub struct ListWipLimitDetail {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ListDetail {
+    pub policy: Option<String>,
+    pub split: Option<bool>,
     pub scrum: Option<ScrumList>,
     pub role_exceptions: Option<std::collections::BTreeMap<String, ListRoleException>>,
     pub sync_source: Option<Box<ListSyncSource>>,
@@ -100,6 +102,7 @@ pub struct ListDeleteSuccess {
     pub board_id: String,
     pub list_id: String,
     pub deletion_requested: bool,
+    pub deleted: bool,
     pub delete_mode: ListDeleteMode,
 }
 

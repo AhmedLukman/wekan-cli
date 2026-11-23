@@ -125,8 +125,8 @@ async fn board(app: &LiveApp, server: &str) -> (String, String, String, String) 
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_IMPORT_E2E_URL"]
-async fn complete_import_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_IMPORT_E2E_URL"]
+async fn complete_import_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_IMPORT_E2E_URL")
         .expect("set WEKAN_IMPORT_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()

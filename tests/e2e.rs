@@ -68,3 +68,6 @@ mod exports;
 mod imports;
 #[path = "e2e/trello_import.rs"]
 mod trello_import;
+
+#[path = "e2e/resource_metadata.rs"]
+mod resource_metadata;

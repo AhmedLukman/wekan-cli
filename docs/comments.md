@@ -1,7 +1,7 @@
 # Comments
 
 The singular `wekan comment` command family covers every card-comment
-operation exposed by the Wekan v12.57 REST API:
+operation exposed by the Wekan v13.28 REST API:
 
 ```console
 wekan comment list --board <BOARD_ID> --card <CARD_ID>
@@ -39,8 +39,8 @@ text must not be blank under JavaScript's whitespace rules, and timestamps
 must be RFC3339 date-times. List and get preserve the returned text, including
 U+0085.
 
-A missing individual comment produces an empty HTTP 200 response in Wekan
-v12.57. The CLI normalizes it to `not_found`. Listing or creating comments for a
+A missing individual comment returns HTTP 404 and the CLI error `not_found`.
+Listing or creating comments for a
 nonexistent card, or a card outside the selected board, returns HTTP 404.
 
 ## Verified Wekan behavior

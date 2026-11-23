@@ -62,38 +62,25 @@ pub(super) async fn verify_archive_restore(
             .await
             .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
-        for (bad_board, bad_list, bad_card, status) in [
-            ("missing-board", list.list_id.as_str(), parent, 404),
-            (board.board_id.as_str(), "wrong-list", parent, 500),
+        for (bad_board, bad_list, bad_card) in [
+            ("missing-board", list.list_id.as_str(), parent),
+            (board.board_id.as_str(), "wrong-list", parent),
             (
                 board.board_id.as_str(),
                 list.list_id.as_str(),
                 "missing-card",
-                500,
             ),
-            (
-                other_board.board_id.as_str(),
-                list.list_id.as_str(),
-                parent,
-                500,
-            ),
+            (other_board.board_id.as_str(), list.list_id.as_str(), parent),
         ] {
             let error = change(admin, server, command, bad_board, bad_list, bad_card)
                 .await
                 .unwrap_err();
             assert_eq!(
                 error.details().http_status,
-                Some(status),
+                Some(404),
                 "{command}: {bad_board}/{bad_list}/{bad_card}: {error:?}"
             );
-            assert_eq!(
-                error.code(),
-                if status == 404 {
-                    ErrorCode::NotFound
-                } else {
-                    ErrorCode::ServerError
-                }
-            );
+            assert_eq!(error.code(), ErrorCode::NotFound);
             assert!(
                 serde_json::to_value(error.details())
                     .unwrap()
@@ -212,7 +199,7 @@ pub(super) async fn verify_archive_restore(
     )
     .await
     .unwrap_err();
-    assert_eq!(wrong_scope.details().http_status, Some(500));
+    assert_eq!(wrong_scope.details().http_status, Some(404));
     let CommandSuccess::CardRestored(restored) = change(
         normal,
         server,
@@ -375,8 +362,8 @@ async fn assert_wrong_state(
     let error = change(app, server, command, board, list, card)
         .await
         .unwrap_err();
-    assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().http_status, Some(500));
+    assert_eq!(error.code(), ErrorCode::NotFound);
+    assert_eq!(error.details().http_status, Some(404));
     assert!(
         serde_json::to_value(error.details())
             .unwrap()

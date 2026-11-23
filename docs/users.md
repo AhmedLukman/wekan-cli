@@ -15,7 +15,7 @@ tray delivery or quiet hours. It is null when Wekan omits `showAt` for immediate
 delivery without quiet hours. An explicit upstream null or a nonnumeric `showAt`
 is a protocol error.
 
-The `wekan user` family covers the complete Wekan v12.57 `/api/user`,
+The `wekan user` family covers the complete Wekan v13.28 `/api/user`,
 `/api/users`, and API token REST slice: ten operations across seven paths. Every command
 requires an existing profile and a stored credential whose expiry is still in the future.
 
@@ -93,18 +93,10 @@ Successful creation reports the supplied username, email, and the created user I
 
 ## Administrative actions and safety
 
-`take-ownership` sends Wekan's explicit `takeOwnership` action and returns
-selected board summaries. Wekan v12.57 selects boards containing the target
-user's membership and any administrator membership; those can be different
-members. The target can therefore be inactive or a non-administrator. The
-server replaces that membership's user ID with the caller's ID, preserving its
-flags, and can leave duplicate caller memberships. Returned summaries do not
-confirm completed transfers: Wekan starts the changes without awaiting them.
-Inspect membership readback before relying on the result.
-
-Self-targeting is sent after confirmation. When
-another active board administrator exists, Wekan v12.57 can deactivate the
-caller's membership; the CLI preserves that upstream defect.
+`take-ownership` transfers boards where the target user holds an administrator
+membership. Wekan waits for the membership updates before returning the affected
+board IDs and titles. If the caller is also the target, their membership can be
+deactivated when the board has another active administrator.
 
 `disable-login` sends `disableLogin`, sets the target's `loginDisabled` field,
 and clears their existing Wekan sessions. Self-targeting is sent after
@@ -122,6 +114,10 @@ for those respective commands. Token-deletion cancellation uses
 Mutation requests are bounded, never follow redirects, and are never retried.
 Transport failures, redirects, server failures, and unusable successful bodies
 report their actual error codes and diagnostics.
+
+Wekan allows an administrator to delete their own account only when the site
+setting **Self delete user account** is enabled and another site administrator
+exists. The default settings return HTTP 403 and retain the local credential.
 
 Deleting the authenticated caller acquires the same profile/server credential
 mutation guards used by authentication mutations and holds them through remote
@@ -154,11 +150,9 @@ The server's message can contain the target secret; the CLI redacts both that
 secret and its authentication credential in the message and in error details.
 Debug output never reveals tokens. Human rendering escapes terminal controls.
 
-Single-token deletion sends the supplied token unchanged. W11-058 remains:
-Wekan acknowledges a raw issued token without revoking it because its account
-API compares that value directly with stored hashes. Other sessions remain
-valid. Nonexistent tokens and users also receive an acknowledgment. The CLI
-does not hash, retry, or substitute a delete-all request.
+For single-token revocation, supply the base64-encoded SHA-256 hash of the
+issued token. Wekan acknowledges an unknown hash on an existing account. A raw bearer token is an unmatched value and receives the same acknowledgment.
+An unknown account returns HTTP 404.
 
 Delete-all revokes every existing session for the selected user, including the
 caller's own session when targeting itself. Live readback confirms the saved
@@ -176,9 +170,10 @@ Examples (PowerShell):
 $issued = wekan --output json user token create $userId --reason "Automation access" | ConvertFrom-Json
 $issued.data.auth_token
 
-# Request deletion of the raw issued token; Wekan v12.57 acknowledges it
-# without revoking it (W11-058).
-$issued.data.auth_token | wekan user token delete $userId --token-stdin --yes
+# Revoke this session using PowerShell 7.
+$bytes = [Text.Encoding]::UTF8.GetBytes($issued.data.auth_token)
+[Convert]::ToBase64String([Security.Cryptography.SHA256]::HashData($bytes)) |
+    wekan user token delete $userId --token-stdin --yes
 
 # Revoke all existing sessions for the target user.
 wekan user token delete $userId --all --yes
@@ -196,7 +191,7 @@ resource-focused shape. Stable scalar/output names include `user_id`, `username`
 `created_at`, `modified_at`, and `last_connection_date`, plus typed organization,
 team, and board-role memberships. The complete `profile` is always an object
 with snake_case keys. `created_through_api`, `heartbeat`, `feature_preview`, `inactivity_clock_start`,
-`login_disabled_reason`, `anonymized`, `anonymized_at`, `notification_delivery_revision`,
+`login_disabled_reason`, `feature_profile_id`, `password_change_required`, `anonymized`, `anonymized_at`, `notification_delivery_revision`,
 `session_data.total_hits`, and `import_usernames` retain mapped metadata.
 Board-role memberships include `granted_by` group grants and `custom_role_id`;
 both are null when absent.
@@ -215,9 +210,7 @@ Deletion returns `user_id`, `deleted`, `deleted_current_user`,
 `credential_stored`, and `local_credential_removed`; the last three describe
 self-delete cleanup.
 Verified HTTP or embedded status 403 maps to `permission_denied`.
-The user operations do not consistently expose a verified not-found identifier,
-so other server and embedded errors preserve their original metadata instead of
-being generalized to `user_not_found`. If `user current` receives a valid user
+User lookup, update, ownership transfer and token deletion map HTTP 404 to `not_found`. If `user current` receives a valid user
 document whose ID differs from the stored credential, it returns
 `credential_store_failed` with exit status 6 so automation can repair the
 credential. Invalid or rejected bearer credentials remain
@@ -228,11 +221,5 @@ credential. Invalid or rejected bearer credentials remain
 
 Creation returns the created user ID; deletion returns `deleted: true` after
 the native endpoint confirms a matched user. Deleting a missing user returns
-HTTP 404. Missing-user lookup still returns safe HTTP 500 and `server_error`;
-an update against a missing user returns an empty HTTP 200 body, which strict
-typed decoding reports as `protocol_error` with the native status retained
-(W11-015). These responses are not generalized to a not-found result.
-Token creation returns the issued secret; single-token deletion reports request
-acceptance and explains W11-058. Login disabling now blocks REST sign-in.
-Ownership transfer reports a requested action because the native ownership
-change remains unawaited.
+HTTP 404. Token creation returns the issued secret. Single-token deletion
+acknowledges the supplied hash. Login disabling blocks REST sign-in.

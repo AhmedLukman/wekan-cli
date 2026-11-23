@@ -37,7 +37,7 @@ has the shape:
 }
 ```
 
-`swimlane get` maps the complete supported Wekan v12.57 document to
+`swimlane get` maps the complete supported Wekan v13.28 document to
 snake-case output. Wekan's `_id` becomes `swimlane_id` and `type` becomes
 `swimlane_type`. Optional archive/update dates, sort, color and height are
 present as their value or JSON `null`. Dates, colors, Wekan's `-1` or
@@ -60,19 +60,15 @@ An update reports the one supported field explicitly:
 
 ## Hard deletion
 
-Wekan v12.57 physically removes the swimlane. When fewer than two matching live
-lists exist, its removal hook physically removes those lists and their cards;
-otherwise it removes cards assigned to the swimlane and leaves the lists.
-Because those effects are destructive, `swimlane delete` requires interactive
-confirmation or command-local `--yes`.
+Wekan physically removes the swimlane. When fewer than two matching live lists
+exist, its removal hook removes those lists and their cards. Otherwise it
+removes the cards assigned to the swimlane and keeps the lists. The command
+requires interactive confirmation or `--yes`.
 
-The endpoint is idempotent: deleting an absent swimlane still returns the
-requested ID. Therefore `deletion_requested: true` and `delete_mode: "hard"` mean Wekan
-accepted and validated the request, not that a live swimlane necessarily
-existed immediately before the call. Delete data includes `board_id` and
-`swimlane_id`. Declining deletion returns the shared cancellation result with
-operation `swimlane_delete`. A subsequent `swimlane get` normalizes
-Wekan's empty HTTP 200 response to the stable `not_found` error.
+Success includes `board_id`, `swimlane_id`, `deleted: true`,
+`deletion_requested: true`, and `delete_mode: "hard"`.
+Reading or deleting a missing swimlane returns HTTP 404 and `not_found`.
+Declining a deletion returns the `swimlane_delete` cancellation.
 
 Copy/move command syntax, position inputs, typed acknowledgments, and pinned
 server behavior are documented in [copy and move](copy-and-move.md).

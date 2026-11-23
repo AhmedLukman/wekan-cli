@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Target Wekan v13.28. Card listings include sync timestamps, labels, members and custom fields. Card creation accepts `--parent-id`; zero sort, empty descriptions and overtime updates follow the repaired server behavior.
+- Expand board import to 85 sources, single-board export to 75 formats, all-board export to 71 formats and chart export to 33 chart types.
+
+- Card deletion now reports completion, and missing cards and users return HTTP 404. User ownership transfers return the boards whose membership has been updated. Self-deletion respects the site setting and last-administrator guard.
+- Board display settings expose blocked status, class of service, MoSCoW, WSJF and attachment controls. Global settings include the login background color.
+- Integration reads now accept Wekan's member view with ID, board ID, enabled status and activities. Board and site administrators receive the full integration settings.
+
+### Added
+
+- Add `wekan board import-upload` to stage files or stdin and return the upload ID and byte count.
+
 ## [2.1.0] - 2026-10-24
 
 ### Added

@@ -1,0 +1,4 @@
+{"type":"version","version":1}
+{"type":"team","team":{"name":"minimal","display_name":"Minimal","type":"I"}}
+{"type":"channel","channel":{"team":"minimal","name":"minimal","display_name":"Minimal","type":"O","purpose":"Todo"}}
+{"type":"user","user":{"username":"wekan","email":"wekan@wekan.invalid","teams":[{"name":"minimal","channels":[{"name":"minimal"}]}]}}

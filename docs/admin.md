@@ -1,6 +1,6 @@
 # Administrator commands
 
-The `admin` family covers every administrator REST operation in Wekan v12.57.
+The `admin` family covers every administrator REST operation in Wekan v13.28.
 All operations require a site administrator and use the selected profile's stored
 credentials. Global settings and attachment-storage commands are described in
 [administrator settings](admin-settings.md).
@@ -107,11 +107,9 @@ types, missing required fields, and invalid timestamps produce `protocol_error`.
 The domain count and bulk update count must be nonnegative integers. Each command
 sends one request, without a read-before-write merge or automatic retry.
 
-Wekan v12.57 returns native HTTP 401/403 for administrator authorization
-failures. The CLI retains status and error metadata while redacting stored
-tokens. Individual updates to absent IDs still return empty HTTP 200
-bodies: the CLI reports `protocol_error` without inventing a successful update
-or a server 404.
+Wekan returns HTTP 401/403 for administrator authorization failures. Updating
+an organization or team that does not exist returns HTTP 404 and the CLI error
+`not_found`. The CLI retains native error metadata while redacting stored tokens.
 
 Declining instance-wide organization or team updates returns the shared
 cancellation result with operation `admin_organization_features_update_all` or

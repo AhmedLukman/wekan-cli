@@ -87,6 +87,12 @@ pub type CurrentUserEmail = UserEmail;
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserProfile {
+    pub card_settings_split: Option<Number>,
+    pub card_details_width: Option<Number>,
+    pub hide_focus_outline: Option<bool>,
+    pub keep_add_card_form_open: Option<bool>,
+    pub title_bracket_label: Option<bool>,
+    pub drawing_colors: Option<Vec<String>>,
     pub chat_view_layout: Option<ChatViewLayout>,
     pub email_to_card: Option<MemberEmailToCard>,
     pub notification_delivery: Option<Box<MemberNotificationDelivery>>,
@@ -262,6 +268,8 @@ pub struct CurrentUserBoard {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct UserRecord {
+    pub feature_profile_id: Option<String>,
+    pub password_change_required: Option<bool>,
     pub passkeys: Option<Vec<crate::client::users::channels::Passkey>>,
     pub sqrl: Option<crate::client::users::channels::SqrlIdentity>,
     pub web_push_subscriptions: Option<Vec<crate::client::users::channels::PushSubscription>>,

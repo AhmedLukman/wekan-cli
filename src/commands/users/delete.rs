@@ -22,6 +22,9 @@ use crate::{
 use super::{map_client_error, non_empty};
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Deleting your own account requires the site's self-deletion setting and another site administrator."
+)]
 pub struct DeleteArgs {
     /// Wekan user ID to delete.
     #[arg(value_parser = non_empty)]

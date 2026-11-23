@@ -311,11 +311,13 @@ async fn deletions_bind_confirmation_to_credentials_and_validate_parent_acknowle
 }
 
 #[tokio::test]
-async fn empty_definition_response_maps_not_found_without_inventing_server_metadata() {
+async fn missing_definition_preserves_native_not_found_details() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/custom-fields/field-1"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"Custom field not found"})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -328,9 +330,12 @@ async fn empty_definition_response_maps_not_found_without_inventing_server_metad
     .await
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::NotFound);
-    assert_eq!(error.details().http_status, Some(200));
+    assert_eq!(error.details().http_status, Some(404));
     assert!(error.details().wekan_status_code.is_none());
-    assert!(error.details().server_error.is_none());
+    assert_eq!(
+        error.details().server_error.as_deref(),
+        Some("Custom field not found")
+    );
     assert!(error.details().server_reason.is_none());
 }
 

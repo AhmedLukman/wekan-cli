@@ -12,8 +12,7 @@ use crate::{
     client::WekanClientFactory,
     command_result::CommandSuccess,
     credentials::{CredentialStore, SecretInputProvider},
-    error::{AppError, ErrorCode},
-    exit_code::StableExitCode,
+    error::AppError,
     input::ConfirmationProvider,
 };
 use clap::{Args, Subcommand};
@@ -82,16 +81,4 @@ fn identifier(value: &str) -> Result<String, String> {
     } else {
         Ok(value.to_owned())
     }
-}
-
-fn missing_integration() -> AppError {
-    AppError::new(
-        ErrorCode::NotFound,
-        "the integration was not found on that Wekan board",
-        StableExitCode::Server,
-    )
-    .with_details(crate::commands::client_error::response_error_details(
-        reqwest::StatusCode::OK,
-        None,
-    ))
 }

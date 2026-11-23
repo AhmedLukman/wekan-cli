@@ -41,18 +41,18 @@ commit as a whole; avoid vague descriptions.
 
 ## Local Wekan stack
 
-The root [`compose.yaml`](compose.yaml) provides a reproducible Wekan `v12.57`
+The root [`compose.yaml`](compose.yaml) provides a reproducible Wekan `v13.28`
 environment for local development and integration testing. It starts Wekan with
 its REST API enabled and a MongoDB single-node replica set, exposing Wekan only
 on localhost on `WEKAN_PORT` (default `3000`).
 
 ## Wekan API reference
 
-The pinned baseline is Wekan `v12.57`. Always use references from the exact Wekan version being supported.
+The pinned baseline is Wekan `v13.28`. Always use references from the exact Wekan version being supported.
 
 - Upstream endpoint catalog: [vendored Swagger 2.0 specification](spec/wekan.yml)
 - Verified corrections: [OpenAPI Overlay 1.1](spec/wekan.overlay.yml)
-- Authoritative implementation and tests: [Wekan v12.57 source](https://github.com/wekan/wekan/tree/v12.57)
+- Authoritative implementation and tests: [Wekan v13.28 source](https://github.com/wekan/wekan/tree/v13.28)
 
 Only `spec/wekan.yml` and `spec/wekan.overlay.yml` are committed. Use the vendored
 `wekan.yml` for endpoint discovery and initial request/response shapes. Treat it
@@ -77,13 +77,13 @@ Generate the corrected human-readable reference from the corrected contract
 with the `redocly` CLI:
 
 ```console
-npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v12.57 (Corrected)"
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.corrected.yml --output spec/wekan.corrected.html --title "WeKan REST API v13.28 (Corrected)"
 ```
 
 The optional upstream HTML reference can also be generated locally:
 
 ```console
-npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v12.57 (Upstream)"
+npx --yes @redocly/cli@2.46.0 build-docs spec/wekan.yml --output spec/wekan.html --title "WeKan REST API v13.28 (Upstream)"
 ```
 
 Generating the API reference artifacts requires Speakeasy OpenAPI CLI 1.24.1
@@ -146,7 +146,7 @@ For every new or changed API-facing command:
 Observed server behavior determines compatibility, but document behaviour believed to be an upstream defect.
 
 Record verified Wekan server defects in
-`Desktop/wekan-v12.57-defects.md`, including the affected operations,
+`Desktop/wekan-v13.28-defects.md`, including the affected operations,
 observed behavior, and matching-version source and live-test evidence.
 
 Verified upstream defects are part of the pinned compatibility contract. Do not add CLI-side

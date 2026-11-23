@@ -667,10 +667,10 @@ async fn self_delete_aborts_before_confirmation_and_http_if_the_credential_was_r
 }
 
 #[tokio::test]
-async fn embedded_permission_is_stable_and_unverified_not_found_is_preserved() {
+async fn user_lookup_maps_permission_and_not_found() {
     for (status, expected) in [
         (403, ErrorCode::PermissionDenied),
-        (404, ErrorCode::ServerError),
+        (404, ErrorCode::NotFound),
     ] {
         let server = MockServer::start().await;
         Mock::given(method("GET"))

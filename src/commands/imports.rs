@@ -75,3 +75,9 @@ pub(crate) async fn acquire_trello_zip(path: &Path) -> Result<BinaryStreamInput,
             )
         })
 }
+
+pub(crate) async fn acquire_upload(path: &Path) -> Result<BinaryStreamInput, AppError> {
+    acquire_binary_stream(path, u64::MAX)
+        .await
+        .map_err(|error| map_input_error(error, "import upload exceeds the maximum file size"))
+}

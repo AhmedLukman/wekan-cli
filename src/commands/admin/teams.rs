@@ -2,7 +2,10 @@ use super::features::{FeatureChanges, UpdateAllArgs, confirm_bulk, identifier};
 use crate::{
     client::WekanClientFactory,
     command_result::*,
-    commands::{authenticated::AuthenticatedContext, client_error::map_client_error},
+    commands::{
+        authenticated::AuthenticatedContext,
+        client_error::{map_client_error, map_client_error_with_not_found},
+    },
     credentials::CredentialStore,
     error::AppError,
     input::ConfirmationProvider,
@@ -72,7 +75,14 @@ pub(super) async fn execute(
                         context.record().token(),
                     )
                     .await
-                    .map_err(|e| map_client_error(e, &redactor, "admin team features update"))?;
+                    .map_err(|error| {
+                        map_client_error_with_not_found(
+                            error,
+                            &redactor,
+                            "admin team features update",
+                            "the requested Wekan team was not found",
+                        )
+                    })?;
                 Ok(CommandSuccess::AdminTeamUpdated(Box::new(
                     AdminTeamUpdateSuccess {
                         team,

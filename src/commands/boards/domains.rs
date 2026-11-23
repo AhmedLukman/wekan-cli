@@ -1,5 +1,5 @@
 use crate::{
-    client::WekanClientFactory,
+    client::{ClientError, WekanClientFactory},
     command_result::{
         BoardDomainAction, BoardDomainCollectionSuccess, BoardDomainMutationSuccess, CommandSuccess,
     },
@@ -23,9 +23,9 @@ pub struct DomainArgs {
 pub enum DomainCommand {
     /// List domains, including inactive records. Requires a site administrator.
     List(Target),
-    /// Request sharing with a domain. Wekan v12.57 fails with not-authorized.
+    /// Request sharing with an email domain.
     Add(MutationArgs),
-    /// Request removal of domain sharing. Wekan v12.57 fails with not-authorized.
+    /// Request removal of an email domain from board sharing.
     Remove(RemoveArgs),
 }
 
@@ -120,13 +120,16 @@ pub(super) async fn dispatch(
         BoardDomainAction::Add => "board domain add",
         BoardDomainAction::Remove => "board domain remove",
     };
-    let domains = response.map_err(|e| {
-        map_client_error_with_not_found(
-            e,
-            &redactor,
-            operation,
-            "the requested Wekan board was not found",
-        )
+    let domains = response.map_err(|error| {
+        let missing = match &error {
+            ClientError::Server { server_error, .. }
+                if server_error.as_deref() == Some("Domain not found") =>
+            {
+                "the requested Wekan board domain was not found"
+            }
+            _ => "the requested Wekan board was not found",
+        };
+        map_client_error_with_not_found(error, &redactor, operation, missing)
     })?;
     Ok(CommandSuccess::BoardDomainChanged(
         BoardDomainMutationSuccess {

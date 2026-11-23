@@ -63,6 +63,7 @@ pub struct SwimlaneDeleteSuccess {
     pub board_id: String,
     pub swimlane_id: String,
     pub deletion_requested: bool,
+    pub deleted: bool,
     pub delete_mode: SwimlaneDeleteMode,
 }
 

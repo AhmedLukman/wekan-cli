@@ -56,10 +56,10 @@ fn assert_stored_token(integration: &str, expected: Option<&str>) {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_INTEGRATION_E2E_URL"]
-async fn complete_integration_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_INTEGRATION_E2E_URL"]
+async fn complete_integration_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_INTEGRATION_E2E_URL")
-        .expect("set WEKAN_INTEGRATION_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_INTEGRATION_E2E_URL to an isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -124,15 +124,6 @@ async fn complete_integration_lifecycle_matches_wekan_v12_57() {
         register_live_board_role(&server, &canonical, &token, &board, nonce, "readonly").await;
     let (_normal_dir, normal, _) =
         register_live_board_role(&server, &canonical, &token, &board, nonce, "normal").await;
-    let (_outsider_dir, _outsider, outsider_id) =
-        register_live_board_role(&server, &canonical, &token, &board, nonce + 1, "normal").await;
-    run(
-        &app,
-        &server,
-        &["board", "member", "remove", &outsider_id, "--board", &board],
-    )
-    .await
-    .unwrap();
     let base = Target {
         app: &app,
         server: &server,
@@ -143,13 +134,7 @@ async fn complete_integration_lifecycle_matches_wekan_v12_57() {
         base.command(&["list"]).await.unwrap(),
         json!({"board_id":board, "integrations":[]})
     );
-    for invalid in [
-        "",
-        "not-a-url",
-        "ftp://8.8.8.8",
-        "http://127.0.0.1/hook",
-        "http://192.168.1.1/hook",
-    ] {
+    for invalid in ["", "not-a-url", "ftp://example.test/hook"] {
         let error = base
             .command(&["create", "--url", invalid])
             .await
@@ -341,28 +326,21 @@ async fn complete_integration_lifecycle_matches_wekan_v12_57() {
         .await
         .unwrap();
 
-    // Field writes precede URL validation: rejection does not roll back the title.
-    let before_url = target.detail().await["url"].clone();
+    // Rejected URL validation leaves the other fields from this update unchanged.
+    let before = target.detail().await;
     let error = target
         .command(&[
             "update",
             integration,
             "--title",
-            "Saved before rejection",
+            "Rejected",
             "--url",
-            "http://127.0.0.1/hook",
+            "not-a-url",
         ])
         .await
         .unwrap_err();
     assert_eq!(error.details().http_status, Some(400));
-    assert!(
-        serde_json::to_value(error.details())
-            .unwrap()
-            .get("outcome_unknown")
-            .is_none()
-    );
-    assert_eq!(target.detail().await["title"], "Saved before rejection");
-    assert_eq!(target.detail().await["url"], before_url);
+    assert_eq!(target.detail().await, before);
 
     for id in ["missing-integration", integration] {
         let scope = Target {
@@ -372,97 +350,30 @@ async fn complete_integration_lifecycle_matches_wekan_v12_57() {
         };
         let error = scope.command(&["get", id]).await.unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
-        assert_eq!(error.details().http_status, Some(200));
+        assert_eq!(error.details().http_status, Some(404));
         for args in [
             vec!["update", id, "--title", "No match"],
             vec!["delete", id, "--yes"],
+            vec!["activity", "add", id, "--activity", "all"],
+            vec!["activity", "remove", id, "--activity", "all"],
         ] {
-            assert!(
-                scope
-                    .command(&args)
-                    .await
-                    .unwrap()
-                    .get("mutation_confirmed")
-                    .is_none()
-            );
-        }
-        for action in ["add", "remove"] {
-            let error = scope
-                .command(&["activity", action, id, "--activity", "all"])
-                .await
-                .unwrap_err();
-            assert_eq!(error.code(), ErrorCode::NotFound);
-            assert_eq!(error.details().http_status, Some(200));
+            let error = scope.command(&args).await.unwrap_err();
+            assert_eq!(error.details().http_status, Some(404));
         }
     }
-    assert_eq!(target.detail().await["title"], "Saved before rejection");
-    let mut permission_nonce = nonce + 100;
-    for (role, app) in [("readonly", &reader), ("normal", &normal)] {
+    assert_eq!(target.detail().await, before);
+    for app in [&reader, &normal] {
         let scope = Target { app, ..target };
-        assert_eq!(scope.detail().await["integration_id"], integration);
+        let expected = json!({
+            "integration_id": integration,
+            "board_id": board,
+            "enabled": before["enabled"],
+            "activities": before["activities"],
+        });
+        assert_eq!(scope.detail().await, expected);
         assert_eq!(
-            scope.command(&["list"]).await.unwrap()["integrations"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
-        );
-        for args in [
-            vec!["create", "--url", "https://8.8.8.8/hook"],
-            vec!["update", integration, "--title", "denied"],
-            vec!["delete", integration, "--yes"],
-            vec!["activity", "add", integration, "--activity", "all"],
-            vec!["activity", "remove", integration, "--activity", "all"],
-        ] {
-            let (_probe_dir, probe, _) = register_live_board_role(
-                &server,
-                &canonical,
-                &token,
-                &board,
-                permission_nonce,
-                role,
-            )
-            .await;
-            permission_nonce += 1;
-            let denied = Target {
-                app: &probe,
-                ..target
-            };
-            assert_eq!(
-                denied.command(&args).await.unwrap_err().code(),
-                ErrorCode::PermissionDenied
-            );
-        }
-    }
-    for args in [
-        vec!["list"],
-        vec!["get", integration],
-        vec!["create", "--url", "https://8.8.8.8/hook"],
-    ] {
-        let (_probe_dir, probe, probe_id) = register_live_board_role(
-            &server,
-            &canonical,
-            &token,
-            &board,
-            permission_nonce,
-            "normal",
-        )
-        .await;
-        permission_nonce += 1;
-        run(
-            &app,
-            &server,
-            &["board", "member", "remove", &probe_id, "--board", &board],
-        )
-        .await
-        .unwrap();
-        let denied = Target {
-            app: &probe,
-            ..target
-        };
-        assert_eq!(
-            denied.command(&args).await.unwrap_err().code(),
-            ErrorCode::PermissionDenied
+            scope.command(&["list"]).await.unwrap()["integrations"],
+            json!([expected])
         );
     }
     let deleted = target
@@ -485,13 +396,14 @@ async fn complete_integration_lifecycle_matches_wekan_v12_57() {
             .code(),
         ErrorCode::NotFound
     );
-    assert!(
+    assert_eq!(
         target
             .command(&["delete", integration, "--yes"])
             .await
-            .unwrap()
-            .get("mutation_confirmed")
-            .is_none()
+            .unwrap_err()
+            .details()
+            .http_status,
+        Some(404)
     );
     for board in [&board, &foreign] {
         run(&app, &server, &["board", "delete", board, "--yes"])

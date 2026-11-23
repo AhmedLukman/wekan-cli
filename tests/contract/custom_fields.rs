@@ -102,7 +102,6 @@ async fn multiselect_definitions_use_exact_native_casing_for_reads_and_writes() 
             .custom_field("board-1", "field-1", &token)
             .await
             .unwrap()
-            .unwrap()
             .field_type,
         CustomFieldType::DropdownMultiSelect
     );
@@ -410,7 +409,6 @@ async fn nullable_settings_preserve_null_and_omission_in_requests_and_responses(
         let document = client(&server)
             .custom_field("board-1", "field-1", &token)
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(document.settings, typed);
     }
@@ -513,7 +511,6 @@ async fn definition_omissions_empty_lookup_and_http_errors_are_explicit() {
             &SecretString::from("token".to_owned()),
         )
         .await
-        .unwrap()
         .unwrap();
     assert!(field.created_at.is_none());
     assert!(field.settings.dropdown_items.is_none());
@@ -523,17 +520,16 @@ async fn definition_omissions_empty_lookup_and_http_errors_are_explicit() {
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    assert!(
+    assert!(matches!(
         client(&server)
             .custom_field(
                 "board-1",
                 "field-1",
                 &SecretString::from("token".to_owned())
             )
-            .await
-            .unwrap()
-            .is_none()
-    );
+            .await,
+        Err(ClientError::Protocol { .. })
+    ));
     for operation in 0..10 {
         for status in [401, 403, 404, 500] {
             server.reset().await;
@@ -574,7 +570,6 @@ async fn dropdown_responses_preserve_javascript_non_whitespace_ids() {
         let field = client
             .custom_field("board-1", "field-1", &token)
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(
             field.settings.dropdown_items.unwrap().unwrap()[0].item_id,

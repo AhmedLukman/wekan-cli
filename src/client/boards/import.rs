@@ -63,10 +63,46 @@ pub enum ImportSource {
     Basecamp,
     Googletasks,
     Googlekeep,
+    Azuredevops,
+    Mslists,
+    Msproject,
+    Outlook,
+    Fizzy,
+    Mail,
+    Ical,
+    Googletakeout,
+    Slack,
+    Mattermost,
+    Telegram,
+    Whatsapp,
+    Discord,
+    Rocketchat,
+    Evernote,
+    Sandstormwekan,
+    Sandstormprioritize,
+    Sandstormyatl,
+    Sandstormmutodo,
+    Sandstormsandchat,
+    Sandstormethercalc,
+    Sandstormradicalecalendar,
+    Sandstormradicalecontacts,
+    Sandstormdavros,
+    Sandstormhackercms,
+    Sandstormgogs,
+    Wordpress,
+    Wordpressjson,
+    Ghost,
+    Blogger,
+    Markdownsite,
+    Htmlsite,
+    Substack,
+    Sandstormwordpress,
+    Onenote,
+    Teams,
 }
 
 impl ImportSource {
-    pub const ALL: [Self; 49] = [
+    pub const ALL: [Self; 85] = [
         Self::Wekan,
         Self::Trello,
         Self::Csv,
@@ -116,6 +152,42 @@ impl ImportSource {
         Self::Basecamp,
         Self::Googletasks,
         Self::Googlekeep,
+        Self::Azuredevops,
+        Self::Mslists,
+        Self::Msproject,
+        Self::Outlook,
+        Self::Fizzy,
+        Self::Mail,
+        Self::Ical,
+        Self::Googletakeout,
+        Self::Slack,
+        Self::Mattermost,
+        Self::Telegram,
+        Self::Whatsapp,
+        Self::Discord,
+        Self::Rocketchat,
+        Self::Evernote,
+        Self::Sandstormwekan,
+        Self::Sandstormprioritize,
+        Self::Sandstormyatl,
+        Self::Sandstormmutodo,
+        Self::Sandstormsandchat,
+        Self::Sandstormethercalc,
+        Self::Sandstormradicalecalendar,
+        Self::Sandstormradicalecontacts,
+        Self::Sandstormdavros,
+        Self::Sandstormhackercms,
+        Self::Sandstormgogs,
+        Self::Wordpress,
+        Self::Wordpressjson,
+        Self::Ghost,
+        Self::Blogger,
+        Self::Markdownsite,
+        Self::Htmlsite,
+        Self::Substack,
+        Self::Sandstormwordpress,
+        Self::Onenote,
+        Self::Teams,
     ];
     pub fn as_str(self) -> &'static str {
         match self {
@@ -168,6 +240,42 @@ impl ImportSource {
             Self::Basecamp => "basecamp",
             Self::Googletasks => "googletasks",
             Self::Googlekeep => "googlekeep",
+            Self::Azuredevops => "azuredevops",
+            Self::Mslists => "mslists",
+            Self::Msproject => "msproject",
+            Self::Outlook => "outlook",
+            Self::Fizzy => "fizzy",
+            Self::Mail => "mail",
+            Self::Ical => "ical",
+            Self::Googletakeout => "googletakeout",
+            Self::Slack => "slack",
+            Self::Mattermost => "mattermost",
+            Self::Telegram => "telegram",
+            Self::Whatsapp => "whatsapp",
+            Self::Discord => "discord",
+            Self::Rocketchat => "rocketchat",
+            Self::Evernote => "evernote",
+            Self::Sandstormwekan => "sandstormwekan",
+            Self::Sandstormprioritize => "sandstormprioritize",
+            Self::Sandstormyatl => "sandstormyatl",
+            Self::Sandstormmutodo => "sandstormmutodo",
+            Self::Sandstormsandchat => "sandstormsandchat",
+            Self::Sandstormethercalc => "sandstormethercalc",
+            Self::Sandstormradicalecalendar => "sandstormradicalecalendar",
+            Self::Sandstormradicalecontacts => "sandstormradicalecontacts",
+            Self::Sandstormdavros => "sandstormdavros",
+            Self::Sandstormhackercms => "sandstormhackercms",
+            Self::Sandstormgogs => "sandstormgogs",
+            Self::Wordpress => "wordpress",
+            Self::Wordpressjson => "wordpressjson",
+            Self::Ghost => "ghost",
+            Self::Blogger => "blogger",
+            Self::Markdownsite => "markdownsite",
+            Self::Htmlsite => "htmlsite",
+            Self::Substack => "substack",
+            Self::Sandstormwordpress => "sandstormwordpress",
+            Self::Onenote => "onenote",
+            Self::Teams => "teams",
         }
     }
     pub fn is_text(self) -> bool {
@@ -194,8 +302,57 @@ impl ImportSource {
                 | Self::Quire
                 | Self::Notion
                 | Self::Plane
+                | Self::Azuredevops
+                | Self::Mslists
+                | Self::Msproject
+                | Self::Fizzy
+                | Self::Mail
+                | Self::Ical
+                | Self::Mattermost
+                | Self::Whatsapp
+                | Self::Rocketchat
+                | Self::Evernote
+                | Self::Wordpress
+                | Self::Blogger
         )
     }
+    pub fn zip_only(self) -> bool {
+        matches!(
+            self,
+            Self::Googletakeout
+                | Self::Slack
+                | Self::Markdownsite
+                | Self::Htmlsite
+                | Self::Substack
+                | Self::Sandstormwekan
+                | Self::Sandstormprioritize
+                | Self::Sandstormyatl
+                | Self::Sandstormmutodo
+                | Self::Sandstormsandchat
+                | Self::Sandstormethercalc
+                | Self::Sandstormradicalecalendar
+                | Self::Sandstormradicalecontacts
+                | Self::Sandstormdavros
+                | Self::Sandstormhackercms
+                | Self::Sandstormgogs
+                | Self::Sandstormwordpress
+        )
+    }
+
+    /// Source formats with more than one native file encoding.
+    pub fn input_formats(self) -> &'static [&'static str] {
+        match self {
+            Self::Plane => &["json", "text", "xlsx", "zip"],
+            Self::Vikunja | Self::Notion | Self::Fizzy | Self::Rocketchat => {
+                &["json", "text", "zip"]
+            }
+            Self::Telegram | Self::Discord | Self::Onenote => &["json", "zip"],
+            Self::Outlook => &["msg", "zip"],
+            Self::Teams => &["json", "tar", "zip"],
+            _ => &[],
+        }
+    }
+
     pub fn is_workbook(self) -> bool {
         matches!(
             self,
@@ -246,6 +403,14 @@ impl BoardImportRequest {
         }
     }
 
+    pub fn binary(bytes: &[u8], members_mapping: Option<BTreeMap<String, String>>) -> Self {
+        Self {
+            board: serde_json::json!({"binaryBase64": STANDARD.encode(bytes)}),
+            members_mapping,
+            options: BoardImportOptions::default(),
+        }
+    }
+
     pub fn zip(bytes: &[u8], members_mapping: Option<BTreeMap<String, String>>) -> Self {
         Self {
             board: serde_json::json!({"zipBase64": STANDARD.encode(bytes)}),
@@ -255,7 +420,7 @@ impl BoardImportRequest {
     }
 }
 
-/// Native per-import options from v12.57's importBoard and REST dispatch.
+/// Native per-import options from v13.28's importBoard and REST dispatch.
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardImportOptions {
@@ -342,7 +507,55 @@ pub struct ZipImportTarget {
     pub checklist_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImportUploadResponse {
+    pub upload_id: String,
+    pub size: u64,
+}
+
 impl WekanClient {
+    pub async fn upload_import(
+        &self,
+        source: ImportSource,
+        reader: impl AsyncRead + Send + Unpin + 'static,
+        length: u64,
+        token: &SecretString,
+        timeout: Option<Duration>,
+    ) -> Result<ImportUploadResponse, ClientError> {
+        let url = self.boards_api_endpoint(
+            &format!("api/import/upload/{}", source.as_str()),
+            "import upload",
+        )?;
+        let mut request = self
+            .http
+            .post(url)
+            .bearer_auth(token.expose_secret())
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/octet-stream")
+            .header(CONTENT_LENGTH, length)
+            .body(reqwest::Body::wrap_stream(ReaderStream::new(reader)));
+        if let Some(timeout) = timeout {
+            request = request.timeout(timeout);
+        }
+        let body = self.execute_success_request(request).await?;
+        let response: ImportUploadResponse = decode_success(&body, "import upload", true)?;
+        if response.upload_id.len() != 32
+            || !response
+                .upload_id
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+            || response.size != length
+        {
+            return Err(ClientError::Protocol {
+                message: "the import upload returned an invalid upload ID or byte count".to_owned(),
+                diagnostic: None,
+                success_status_received: true,
+            });
+        }
+        Ok(response)
+    }
+
     /// Submit a typed JSON wrapper containing the complete source document.
     pub async fn import_board(
         &self,

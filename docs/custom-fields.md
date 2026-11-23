@@ -1,7 +1,7 @@
 # Custom fields and dropdown items
 
 The `custom-field` family and its `item` subcommands, together with two dedicated
-card commands, cover all ten custom-field REST operations in Wekan v12.57.
+card commands, cover all ten custom-field REST operations in Wekan v13.28.
 
 ```console
 wekan custom-field list --board <BOARD_ID>
@@ -139,24 +139,23 @@ invalid types, missing required values, invalid dates, and mismatched
 acknowledgment IDs produce explicit protocol errors. Mutation responses that
 cannot be mapped also report `protocol_error`.
 
-A missing or wrongly scoped definition returns an empty HTTP 200 body, mapped
-to `not_found`, with `http_status: 200` and no invented Wekan status or error
-fields. Missing, wrongly listed, and archived cards on assignment return
-HTTP 500, preserved as `server_error`. Definition updates can save an earlier
-field before a later validation failure; these errors retain the server details.
+Looking up, updating or deleting a missing definition returns HTTP 404.
+Assigning a custom field to a missing, wrongly listed or archived card returns
+HTTP 404. Wekan validates the fields of a definition update together, so
+rejecting its settings also leaves its previous name in place.
 
 ## Permissions and deletion
 
-Normal active members can read and mutate. Read-only members can read but cannot
-mutate. Comment-only, worker, and no-comments members fail these access gates;
-site administrators bypass membership checks. The CLI preserves server gates.
+Normal active members can read and mutate. Read-only members can read.
+No-comments members can mutate. Comment-only and worker members receive HTTP
+403 for these reads and writes. Site administrators can use both operations.
 
 Both deletes require confirmation or command-local `--yes`; JSON and
 non-terminal invocations require `--yes`. Cancellation succeeds with operation
 `custom_field_delete` or `custom_field_item_delete`. Success contains scope IDs
 and `delete_mode: "hard"`. Dropdown deletion returns the parent field ID.
-Missing targets can produce successful no-ops for deletion, updates, and item
-creation in Wekan v12.57.
+Creating an item on a missing definition or updating or deleting a missing
+item returns HTTP 404.
 
 Deleting a shared definition through one board removes the definition from all
 associated boards and removes its values from their cards. Deleting a dropdown
@@ -167,4 +166,5 @@ collection writes: `alwaysOnCard: true` does not populate existing cards through
 the UI's normal hooks. The CLI performs no repair, preflight, automatic retry,
 rollback, or hook emulation.
 
-Updates, deletions, and dropdown-item creation report request acceptance because missing targets can produce successful no-ops. Submitted fields identify inputs, not verified stored changes.
+Successful writes report the IDs acknowledged by Wekan. Submitted fields
+identify the values sent in an update.

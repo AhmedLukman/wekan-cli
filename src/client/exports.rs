@@ -4,6 +4,7 @@ mod dynamic_fields;
 mod external_documents;
 mod scrum_transfer;
 mod validation;
+mod website_chat;
 
 use super::{
     ClientError, WekanClient,
@@ -74,6 +75,33 @@ pub enum ExportFormat {
     Notion,
     Opml,
     Orgmode,
+    Trellozip,
+    Fizzy,
+    Mbox,
+    Enex,
+    Mattermost,
+    Rocketchat,
+    Wordpress,
+    Wordpressjson,
+    Ghost,
+    Blogger,
+    Markdownsite,
+    Htmlsite,
+    Azuredevops,
+    Mslists,
+    Msproject,
+    Outlook,
+    Onenote,
+    Teams,
+    Sandstormprioritize,
+    Sandstormyatl,
+    Sandstormmutodo,
+    Sandstormsandchat,
+    Sandstormethercalc,
+    Sandstormradicalecalendar,
+    Sandstormradicalecontacts,
+    Sandstormdavros,
+    Sandstormhackercms,
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum ArtifactKind {
@@ -87,7 +115,7 @@ enum ArtifactKind {
     Zip,
 }
 impl ExportFormat {
-    pub const ALL: [Self; 50] = [
+    pub const ALL: [Self; 77] = [
         Self::Json,
         Self::Csv,
         Self::Tsv,
@@ -138,6 +166,33 @@ impl ExportFormat {
         Self::Notion,
         Self::Opml,
         Self::Orgmode,
+        Self::Trellozip,
+        Self::Fizzy,
+        Self::Mbox,
+        Self::Enex,
+        Self::Mattermost,
+        Self::Rocketchat,
+        Self::Wordpress,
+        Self::Wordpressjson,
+        Self::Ghost,
+        Self::Blogger,
+        Self::Markdownsite,
+        Self::Htmlsite,
+        Self::Azuredevops,
+        Self::Mslists,
+        Self::Msproject,
+        Self::Outlook,
+        Self::Onenote,
+        Self::Teams,
+        Self::Sandstormprioritize,
+        Self::Sandstormyatl,
+        Self::Sandstormmutodo,
+        Self::Sandstormsandchat,
+        Self::Sandstormethercalc,
+        Self::Sandstormradicalecalendar,
+        Self::Sandstormradicalecontacts,
+        Self::Sandstormdavros,
+        Self::Sandstormhackercms,
     ];
     pub fn as_str(self) -> &'static str {
         match self {
@@ -191,6 +246,33 @@ impl ExportFormat {
             Self::Notion => "notion",
             Self::Opml => "opml",
             Self::Orgmode => "orgmode",
+            Self::Trellozip => "trellozip",
+            Self::Fizzy => "fizzy",
+            Self::Mbox => "mbox",
+            Self::Enex => "enex",
+            Self::Mattermost => "mattermost",
+            Self::Rocketchat => "rocketchat",
+            Self::Wordpress => "wordpress",
+            Self::Wordpressjson => "wordpressjson",
+            Self::Ghost => "ghost",
+            Self::Blogger => "blogger",
+            Self::Markdownsite => "markdownsite",
+            Self::Htmlsite => "htmlsite",
+            Self::Azuredevops => "azuredevops",
+            Self::Mslists => "mslists",
+            Self::Msproject => "msproject",
+            Self::Outlook => "outlook",
+            Self::Onenote => "onenote",
+            Self::Teams => "teams",
+            Self::Sandstormprioritize => "sandstormprioritize",
+            Self::Sandstormyatl => "sandstormyatl",
+            Self::Sandstormmutodo => "sandstormmutodo",
+            Self::Sandstormsandchat => "sandstormsandchat",
+            Self::Sandstormethercalc => "sandstormethercalc",
+            Self::Sandstormradicalecalendar => "sandstormradicalecalendar",
+            Self::Sandstormradicalecontacts => "sandstormradicalecontacts",
+            Self::Sandstormdavros => "sandstormdavros",
+            Self::Sandstormhackercms => "sandstormhackercms",
         }
     }
     pub(super) fn suffix(self) -> &'static [&'static str] {
@@ -245,6 +327,33 @@ impl ExportFormat {
             Self::Notion => &["export", "notion"],
             Self::Opml => &["export", "opml"],
             Self::Orgmode => &["export", "orgmode"],
+            Self::Trellozip => &["export", "trellozip"],
+            Self::Fizzy => &["export", "fizzy"],
+            Self::Mbox => &["export", "mbox"],
+            Self::Enex => &["export", "enex"],
+            Self::Mattermost => &["export", "mattermost"],
+            Self::Rocketchat => &["export", "rocketchat"],
+            Self::Wordpress => &["export", "wordpress"],
+            Self::Wordpressjson => &["export", "wordpressjson"],
+            Self::Ghost => &["export", "ghost"],
+            Self::Blogger => &["export", "blogger"],
+            Self::Markdownsite => &["export", "markdownsite"],
+            Self::Htmlsite => &["export", "htmlsite"],
+            Self::Azuredevops => &["export", "azuredevops"],
+            Self::Mslists => &["export", "mslists"],
+            Self::Msproject => &["export", "msproject"],
+            Self::Outlook => &["export", "outlook"],
+            Self::Onenote => &["export", "onenote"],
+            Self::Teams => &["export", "teams"],
+            Self::Sandstormprioritize => &["export", "sandstormprioritize"],
+            Self::Sandstormyatl => &["export", "sandstormyatl"],
+            Self::Sandstormmutodo => &["export", "sandstormmutodo"],
+            Self::Sandstormsandchat => &["export", "sandstormsandchat"],
+            Self::Sandstormethercalc => &["export", "sandstormethercalc"],
+            Self::Sandstormradicalecalendar => &["export", "sandstormradicalecalendar"],
+            Self::Sandstormradicalecontacts => &["export", "sandstormradicalecontacts"],
+            Self::Sandstormdavros => &["export", "sandstormdavros"],
+            Self::Sandstormhackercms => &["export", "sandstormhackercms"],
         }
     }
     fn kind(self) -> ArtifactKind {
@@ -299,6 +408,33 @@ impl ExportFormat {
             Self::Notion => ArtifactKind::Csv,
             Self::Opml => ArtifactKind::Text,
             Self::Orgmode => ArtifactKind::Text,
+            Self::Trellozip => ArtifactKind::Zip,
+            Self::Fizzy => ArtifactKind::Zip,
+            Self::Mbox => ArtifactKind::Text,
+            Self::Enex => ArtifactKind::Text,
+            Self::Mattermost => ArtifactKind::Ndjson,
+            Self::Rocketchat => ArtifactKind::Zip,
+            Self::Wordpress => ArtifactKind::Text,
+            Self::Wordpressjson => ArtifactKind::Json,
+            Self::Ghost => ArtifactKind::Json,
+            Self::Blogger => ArtifactKind::Text,
+            Self::Markdownsite => ArtifactKind::Zip,
+            Self::Htmlsite => ArtifactKind::Zip,
+            Self::Azuredevops => ArtifactKind::Csv,
+            Self::Mslists => ArtifactKind::Csv,
+            Self::Msproject => ArtifactKind::Text,
+            Self::Outlook => ArtifactKind::Zip,
+            Self::Onenote => ArtifactKind::Zip,
+            Self::Teams => ArtifactKind::Json,
+            Self::Sandstormprioritize => ArtifactKind::Zip,
+            Self::Sandstormyatl => ArtifactKind::Zip,
+            Self::Sandstormmutodo => ArtifactKind::Zip,
+            Self::Sandstormsandchat => ArtifactKind::Zip,
+            Self::Sandstormethercalc => ArtifactKind::Zip,
+            Self::Sandstormradicalecalendar => ArtifactKind::Zip,
+            Self::Sandstormradicalecontacts => ArtifactKind::Zip,
+            Self::Sandstormdavros => ArtifactKind::Zip,
+            Self::Sandstormhackercms => ArtifactKind::Zip,
         }
     }
     fn media_type_matches(self, value: &str) -> bool {
@@ -309,7 +445,12 @@ impl ExportFormat {
             Self::Opml => value == "text/x-opml",
             Self::Orgmode => value == "text/x-org",
             Self::Todotxt => value == "text/plain",
-            Self::Focalboard => value == "application/x-ndjson",
+            Self::Mbox => value == "application/mbox",
+            Self::Enex => value == "application/enex+xml",
+            Self::Msproject => value == "application/xml",
+            Self::Wordpress => value == "application/rss+xml",
+            Self::Blogger => value == "application/atom+xml",
+            Self::Mattermost | Self::Focalboard => value == "application/x-ndjson",
             Self::Ics => value == "text/calendar",
             format => match format.kind() {
                 ArtifactKind::Csv => matches!(value, "text/csv" | "text/tsv"),
@@ -585,24 +726,6 @@ impl WekanClient {
             .trim()
             .to_ascii_lowercase();
         if !options.format.media_type_matches(&media) {
-            // These exact pinned routes can send an HTTP-200 plain-text error,
-            // including responses with no Content-Type. Never deliver it as a file.
-            let body = read_limited_body(response, retry, 1024 * 1024).await?;
-            if matches!(options.format, ExportFormat::Xlsx | ExportFormat::Pdf)
-                && !attachment
-                && (media.is_empty() || media == "text/plain")
-            {
-                let text = String::from_utf8_lossy(&body);
-                return Err(ClientError::EmbeddedProtocol {
-                    http_status: status,
-                    server_error: None,
-                    server_reason: None,
-                    server_message: Some(text.chars().take(1024).collect()),
-                    server_error_type: None,
-                    server_is_client_safe: None,
-                }
-                .into());
-            }
             return Err(protocol("the export response has an unexpected Content-Type").into());
         }
         file.set_len(0)?;
@@ -632,7 +755,11 @@ impl WekanClient {
                 validation::validate_calendar(file)?;
             }
             ArtifactKind::Ndjson => {
-                validation::validate_focalboard(file)?;
+                if options.format == ExportFormat::Mattermost {
+                    validation::validate_mattermost(file)?;
+                } else {
+                    validation::validate_focalboard(file)?;
+                }
             }
             ArtifactKind::Pdf | ArtifactKind::Workbook | ArtifactKind::Zip => {
                 let mut prefix = [0; 5];

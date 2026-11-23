@@ -463,7 +463,9 @@ async fn comment_missing_and_mutation_id_response_shapes_are_strict() {
     let base = "/api/boards/board-1/cards/card-1/comments";
     Mock::given(method("GET"))
         .and(path(format!("{base}/missing")))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"Comment not found"})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -488,8 +490,9 @@ async fn comment_missing_and_mutation_id_response_shapes_are_strict() {
         client
             .comment("board-1", "card-1", "missing", &user_token())
             .await,
-        Err(ClientError::EmptyNotFound {
-            http_status: reqwest::StatusCode::OK
+        Err(ClientError::Server {
+            status: reqwest::StatusCode::NOT_FOUND,
+            ..
         })
     ));
     assert!(matches!(
@@ -917,7 +920,7 @@ async fn list_missing_and_mutation_response_shapes_are_strict() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/lists/missing"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error":"List not found"})))
         .expect(1)
         .mount(&server)
         .await;
@@ -940,9 +943,8 @@ async fn list_missing_and_mutation_response_shapes_are_strict() {
     let client = client(&server);
     assert!(matches!(
         client.list("board-1", "missing", &user_token()).await,
-        Err(ClientError::EmbeddedServer {
-            http_status: reqwest::StatusCode::OK,
-            wekan_status_code: 404,
+        Err(ClientError::Server {
+            status: reqwest::StatusCode::NOT_FOUND,
             ..
         })
     ));
@@ -1334,7 +1336,7 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/lists/list-1/cards/missing"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error":"Card not found"})))
         .expect(1)
         .mount(&server)
         .await;
@@ -1365,9 +1367,8 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
         client
             .card("board-1", "list-1", "missing", &user_token())
             .await,
-        Err(ClientError::EmbeddedServer {
-            http_status: reqwest::StatusCode::OK,
-            wekan_status_code: 404,
+        Err(ClientError::Server {
+            status: reqwest::StatusCode::NOT_FOUND,
             ..
         })
     ));
@@ -1377,6 +1378,7 @@ async fn card_missing_and_mutation_id_response_shapes_are_strict() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
+                    parent_id: None,
                     title: Some(Some("Todo".to_owned())),
                     linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),
@@ -1627,7 +1629,9 @@ async fn swimlane_missing_and_mutation_response_shapes_are_strict() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/swimlanes/missing"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(
+            ResponseTemplate::new(404).set_body_json(json!({"error":"Swimlane not found"})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -1656,9 +1660,8 @@ async fn swimlane_missing_and_mutation_response_shapes_are_strict() {
     let client = client(&server);
     assert!(matches!(
         client.swimlane("board-1", "missing", &user_token()).await,
-        Err(ClientError::EmbeddedServer {
-            http_status: reqwest::StatusCode::OK,
-            wekan_status_code: 404,
+        Err(ClientError::Server {
+            status: reqwest::StatusCode::NOT_FOUND,
             ..
         })
     ));

@@ -354,13 +354,17 @@ fn typed_requests_preserve_omission_nulls_and_fields_from_different_kinds() {
     );
 }
 #[tokio::test]
-async fn scopes_are_encoded_as_individual_segments_and_missing_rules_keep_http_500() {
+async fn scopes_are_encoded_as_individual_segments_and_missing_rules_return_http_404() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/api/boards/board%2Fid/rules/rule%2Fid"))
-        .respond_with(ResponseTemplate::new(500).set_body_json(json!({"error":"not-found","reason":"Rule not found","message":"Rule not found [not-found]","errorType":"Meteor.Error","isClientSafe":true}))).expect(1).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/board%2Fid/rules/rule%2Fid"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error":"Rule not found"})))
+        .expect(1)
+        .mount(&s)
+        .await;
     assert!(
         matches!(client(&s).rule("board/id","rule/id",&SecretString::from("t".to_owned())).await,
-        Err(ClientError::Server {status,server_error:Some(code),..}) if status.as_u16()==500 && code=="not-found")
+        Err(ClientError::Server {status,server_error:Some(code),..}) if status.as_u16()==404 && code=="Rule not found")
     );
     s.verify().await;
 }

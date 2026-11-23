@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_LIST_E2E_URL"]
-async fn complete_list_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_LIST_E2E_URL"]
+async fn complete_list_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_LIST_E2E_URL")
-        .expect("set WEKAN_LIST_E2E_URL to a fresh isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_LIST_E2E_URL to a fresh isolated Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -309,7 +309,26 @@ async fn complete_list_lifecycle_matches_wekan_v12_57() {
     };
     assert_eq!(deleted.board_id, board.board_id);
     assert_eq!(deleted.list_id, created.list_id);
-    assert!(deleted.deletion_requested);
+    assert!(deleted.deletion_requested && deleted.deleted);
+    let repeated = execute_live_list(
+        &app,
+        &server,
+        &[
+            "delete",
+            &created.list_id,
+            "--board",
+            &board.board_id,
+            "--yes",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(repeated.code(), ErrorCode::NotFound);
+    assert_eq!(repeated.details().http_status, Some(404));
+    assert_eq!(
+        repeated.details().server_error.as_deref(),
+        Some("List not found")
+    );
     assert_eq!(deleted.delete_mode, ListDeleteMode::Soft);
 
     let CommandSuccess::ListShown(soft_deleted) = execute_live_list(

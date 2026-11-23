@@ -1,6 +1,6 @@
 # Boards
 
-The authenticated `wekan board` family implements the core Wekan v12.57 board
+The authenticated `wekan board` family implements the core Wekan v13.28 board
 lifecycle:
 
 ```text
@@ -38,7 +38,7 @@ not counts of boards visible to the authenticated caller.
 
 `--title` must be non-empty. The authenticated caller is always the initial
 active board administrator. Permission defaults to `private`, and color defaults to
-`belize`. Accepted v12.57 colors are `belize`, `nephritis`, `pomegranate`,
+`belize`. Accepted v13.28 colors are `belize`, `nephritis`, `pomegranate`,
 `pumpkin`, `wisteria`, `moderatepink`, `strongcyan`, `limegreen`, `midnight`,
 `dark`, `relax`, `corteza`, `appleglasspastel`, `clearblue`, `cleargreen`,
 `clearorange`, `clearpink`, `clearpurple`, `clearred`, `natural`, `modern`,
@@ -46,13 +46,13 @@ active board administrator. Permission defaults to `private`, and color defaults
 
 The former creation options `--owner`, `--is-admin`, `--is-active`,
 `--no-comments`, `--comment-only`, and `--worker` have been removed because
-v12.57 ignores these inputs. Change membership through `board member` commands
+v13.28 ignores these inputs. Change membership through `board member` commands
 after creation. `rename` requires a non-empty title and verifies both the ID
 and title returned by Wekan.
 
 ## Board detail
 
-`board get` returns the complete normalized v12.57 board model. Names are
+`board get` returns the complete normalized v13.28 board model. Names are
 snake_case, `_id` becomes `board_id`, `backgroundImageURL` becomes
 `background_image_url`, and the model's `type` becomes `board_type`. It includes
 identity, timestamps, ordering, typed members, sharing records, labels,
@@ -64,7 +64,12 @@ Members preserve optional `granted_by` group identifiers and `custom_role_id`.
 These nested fields are null in stable output when omitted by Wekan; native
 JSON exports preserve their original names and presence.
 
-Known enum fields accept only their corrected v12.57 values, and timestamp
+Board detail includes list policies, a commitment list ID, a personal WIP
+limit, split lists, ordering and visibility of card sections, and normalized
+shop settings when configured. Shop payment methods expose typed fields for
+the payment method selected by the board owner.
+
+Known enum fields accept only their corrected v13.28 values, and timestamp
 fields must contain RFC 3339 date-times. Other values cause a protocol error.
 
 Known omitted scalar fields are JSON `null`. Omitted `labels`, `watchers`,
@@ -124,7 +129,7 @@ wekan board card-settings update --board BOARD_ID --allows-attachments false --a
 wekan --output json board card-settings update --board BOARD_ID --card-aging true --card-aging-days1 7 --card-aging-days2 14 --card-aging-days3 28
 ```
 
-All 111 boolean flags accept `<true|false>`:
+All 121 boolean flags accept `<true|false>`:
 
 - `--allows-card-counter-list`
 - `--card-aging`
@@ -227,6 +232,16 @@ All 111 boolean flags accept `<true|false>`:
 - `--allows-checklist-from-description-on-card`
 - `--allows-action-items-on-card`
 - `--allows-whiteboard-on-card`
+- `--allows-blocked-on-card`
+- `--allows-blocked-on-minicard`
+- `--allows-class-of-service-on-card`
+- `--allows-class-of-service-on-minicard`
+- `--allows-moscow-on-card`
+- `--allows-moscow-on-minicard`
+- `--allows-wsjf-on-card`
+- `--allows-wsjf-on-minicard`
+- `--allows-attachment-previews-on-card`
+- `--allows-attachment-details-on-card`
 - `--labels-above-title-on-card`
 - `--allows-checklist-due-date-on-minicard`
 - `--allows-location-on-minicard`
@@ -245,7 +260,7 @@ restricted. Flags cannot repeat. Use `wekan api request` for Wekan's broader
 string/JSON input coercions.
 
 Both reads and updates return `board_id` and a complete `settings` object with
-all 111 boolean settings and three aging thresholds, including optional flags
+all 121 boolean settings and three aging thresholds, including optional flags
 set through Wekan's board settings interface. Updates also return
 `submitted_fields` in corrected-contract order. Settings
 keys match the snake_case names in `board get`. Omitted response properties
@@ -276,15 +291,12 @@ as one path segment and rejects empty values and the exact values `.` and `..`
 before HTTP. Wekan handles trimming, lowercasing, and validation. Removal runs
 directly without confirmation or `--yes`.
 
-**Pinned Wekan v12.57 defect:** valid board/site-administrator domain additions
-and removals fail with HTTP 500 because `setBoardDomains`
-receives no DDP user identity. Sharing remains unchanged, including when adding
-an existing domain or removing an absent one. The CLI returns `server_error`
-with exit 5, `http_status: 500`, and `server_error: "Internal server error"`.
-Wekan does not expose the underlying authorization error or its metadata.
-It sends the native request without a workaround or retry.
-See the [v12.57 route and method implementation](https://github.com/wekan/wekan/blob/v12.57/server/models/boards.js)
-and [public error mapping](https://github.com/wekan/wekan/blob/v12.57/server/lib/apiResponseHelpers.js).
+On Wekan v13.28, adding a valid domain or removing an existing domain as a
+board or site administrator returns HTTP 500. The sharing list stays unchanged
+because the REST handler calls `setBoardDomains` without a DDP user identity.
+The CLI returns `server_error` and exit 5. Removing a domain that the board does
+not share with returns HTTP 404 and `not_found`.
+[Wekan domain routes](https://github.com/wekan/wekan/blob/v13.28/server/models/boards.js#L1686-L1787)
 
 Domain list success contains `{board_id, domains}`. Each record has `domain`
 and `is_active`. Native successful mutation arrays are modeled as

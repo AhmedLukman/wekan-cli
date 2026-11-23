@@ -614,6 +614,8 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
         }
     });
     let success = CommandSuccess::UserCurrent(UserDetail {
+        feature_profile_id: Some("office".into()),
+        password_change_required: Some(true),
         passkeys: None,
         sqrl: None,
         web_push_subscriptions: None,
@@ -627,6 +629,12 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
         anonymized_at: None,
 
         profile: Box::new(crate::command_result::UserProfileDetail {
+            card_settings_split: None,
+            card_details_width: None,
+            hide_focus_outline: None,
+            keep_add_card_form_open: None,
+            title_bracket_label: None,
+            drawing_colors: None,
             chat_view_layout: None,
             email_to_card: None,
             notification_delivery: None,
@@ -710,6 +718,8 @@ fn user_detail_output_is_typed_secret_free_and_terminal_safe() {
         r"swimlane_id: lane\r\n",
         "card_id: null",
         "list_id: Café",
+        "office",
+        "password_change_required: true",
     ] {
         assert!(
             human.contains(escaped),
@@ -810,7 +820,7 @@ fn user_creation_and_mutation_results_are_stable() {
     assert!(json.get("warnings").is_none());
     assert!(
         render_success(OutputFormat::Human, &ownership)
-            .contains("Ownership transfer requested for 1 board")
+            .contains("Transferred ownership of 1 board")
     );
 
     let boards = CommandSuccess::UserBoards(UserBoardsSuccess {
@@ -875,14 +885,14 @@ fn defective_endpoints_report_requests_without_completion_claims() {
                 target_card_id: "absent".into(),
                 submitted_fields: vec![DependencySubmittedField::Color],
             }),
-            "Dependency update request accepted",
+            "Updated dependency",
         ),
         (
             CommandSuccess::IntegrationDeleted(IntegrationDeleteSuccess {
                 board_id: "b".into(),
                 integration_id: "absent".into(),
             }),
-            "Integration deletion request accepted",
+            "Integration deleted",
         ),
         (
             CommandSuccess::CustomFieldItemsCreated(CustomFieldItemCreateSuccess {
@@ -1032,6 +1042,8 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(render_success(OutputFormat::Human, &collection).contains(r"Todo\nnext"));
 
     let shown = CommandSuccess::ListShown(ListDetail {
+        policy: None,
+        split: None,
         scrum: None,
         role_exceptions: None,
         sync_source: None,
@@ -1090,6 +1102,7 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
         deletion_requested: true,
+        deleted: true,
         delete_mode: ListDeleteMode::Soft,
     });
     let updated_json: serde_json::Value =
@@ -1101,11 +1114,11 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
     let deleted_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
     assert_eq!(deleted_json["data"]["delete_mode"], "soft");
+    assert_eq!(deleted_json["data"]["deleted"], true);
+    assert_eq!(deleted_json["data"]["deletion_requested"], true);
     assert!(render_success(OutputFormat::Human, &created).contains("Created list"));
     assert!(render_success(OutputFormat::Human, &updated).contains("title, wip_limit"));
-    assert!(
-        render_success(OutputFormat::Human, &deleted).contains("List deletion request accepted")
-    );
+    assert!(render_success(OutputFormat::Human, &deleted).contains("Deleted list"));
 }
 
 #[test]
@@ -1114,6 +1127,12 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
         cards: vec![CardSummary {
+            board_id: None,
+            modified_at: None,
+            date_last_activity: None,
+            label_ids: None,
+            members: None,
+            custom_fields: None,
             card_id: "card-1".to_owned(),
             title: Some("Todo\nnext".to_owned()),
             description: Some("Details".to_owned()),
@@ -1139,6 +1158,11 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
     assert!(collection_human.contains("user-1"));
 
     let card = crate::command_result::CardDetail {
+        flow: None,
+        estimated_hours: None,
+        billable: None,
+        shown_fields: None,
+        hidden_fields: None,
         scrum: None,
         drawings: None,
         custom_field_links: None,
@@ -1257,6 +1281,7 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         ],
     });
     let deleted = CommandSuccess::CardDeleted(CardDeleteSuccess {
+        deleted: true,
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
         card_id: "card-1".to_owned(),
@@ -1274,7 +1299,7 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         serde_json::json!(["title", "sort", "due_at", "is_over_time"])
     );
     assert!(updated_json["data"].get("updated_fields").is_none());
-    assert!(render_success(OutputFormat::Human, &deleted).contains("deletion request accepted"));
+    assert!(render_success(OutputFormat::Human, &deleted).contains("Deleted card"));
     let deleted_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
     assert_eq!(deleted_json["data"]["delete_mode"], "hard");
@@ -1448,6 +1473,7 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
         board_id: "board-1".to_owned(),
         swimlane_id: "swimlane-1".to_owned(),
         deletion_requested: true,
+        deleted: true,
         delete_mode: SwimlaneDeleteMode::Hard,
     });
     let updated_json: serde_json::Value =
@@ -1459,9 +1485,11 @@ fn swimlane_outputs_are_stable_comprehensive_and_terminal_safe() {
     let deleted_json: serde_json::Value =
         serde_json::from_str(&render_success(OutputFormat::Json, &deleted)).unwrap();
     assert_eq!(deleted_json["data"]["delete_mode"], "hard");
+    assert_eq!(deleted_json["data"]["deleted"], true);
+    assert_eq!(deleted_json["data"]["deletion_requested"], true);
     assert!(render_success(OutputFormat::Human, &created).contains("Created swimlane"));
     assert!(render_success(OutputFormat::Human, &updated).contains("title"));
-    assert!(render_success(OutputFormat::Human, &deleted).contains("deletion request accepted"));
+    assert!(render_success(OutputFormat::Human, &deleted).contains("Deleted swimlane"));
 }
 
 #[tokio::test]

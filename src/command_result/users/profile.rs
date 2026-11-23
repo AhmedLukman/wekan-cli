@@ -5,6 +5,12 @@ use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct UserProfileDetail {
+    pub card_settings_split: Option<Number>,
+    pub card_details_width: Option<Number>,
+    pub hide_focus_outline: Option<bool>,
+    pub keep_add_card_form_open: Option<bool>,
+    pub title_bracket_label: Option<bool>,
+    pub drawing_colors: Option<Vec<String>>,
     pub chat_view_layout: Option<ChatViewLayout>,
     pub email_to_card: Option<MemberEmailToCard>,
     pub notification_delivery: Option<Box<MemberNotificationDelivery>>,

@@ -6,7 +6,8 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{map_client_error, non_empty, user_detail};
+use super::{non_empty, user_detail};
+use crate::commands::client_error::map_client_error_with_not_found;
 
 #[derive(Debug, Args)]
 pub struct GetArgs {
@@ -26,6 +27,8 @@ pub(super) async fn execute(
         .client()
         .user(&args.user, context.record().token())
         .await
-        .map_err(|error| map_client_error(error, &redactor, "user lookup"))?;
+        .map_err(|error| {
+            map_client_error_with_not_found(error, &redactor, "user lookup", "user not found")
+        })?;
     Ok(CommandSuccess::UserShown(user_detail(user)))
 }

@@ -1,0 +1,14 @@
+{
+  "name": "Catalog card",
+  "type": "private_group",
+  "id": 1,
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2026-01-01T00:00:00",
+      "from": "Test",
+      "text": "Catalog"
+    }
+  ]
+}

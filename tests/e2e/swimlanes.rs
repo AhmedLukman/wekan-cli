@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_SWIMLANE_E2E_URL"]
-async fn complete_swimlane_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_SWIMLANE_E2E_URL"]
+async fn complete_swimlane_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_SWIMLANE_E2E_URL")
-        .expect("set WEKAN_SWIMLANE_E2E_URL to an isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_SWIMLANE_E2E_URL to an isolated Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -372,7 +372,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v12_57() {
     };
     assert_eq!(deleted.board_id, board.board_id);
     assert_eq!(deleted.swimlane_id, created.swimlane_id);
-    assert!(deleted.deletion_requested);
+    assert!(deleted.deletion_requested && deleted.deleted);
     assert_eq!(deleted.delete_mode, SwimlaneDeleteMode::Hard);
 
     wait_for_live_swimlane_absent(&app, &server, &board.board_id, &created.swimlane_id).await;
@@ -384,23 +384,25 @@ async fn complete_swimlane_lifecycle_matches_wekan_v12_57() {
     )
     .await;
 
-    let CommandSuccess::SwimlaneDeleted(repeated) = execute_live_swimlane(
+    let repeated = execute_live_swimlane(
         &app,
         &server,
         &[
             "delete",
+            &created.swimlane_id,
             "--board",
             &board.board_id,
-            &created.swimlane_id,
             "--yes",
         ],
     )
     .await
-    .expect("repeated swimlane deletion must remain idempotent") else {
-        panic!("expected repeated delete-swimlane output")
-    };
-    assert_eq!(repeated.swimlane_id, created.swimlane_id);
-    assert!(repeated.deletion_requested);
+    .unwrap_err();
+    assert_eq!(repeated.code(), ErrorCode::NotFound);
+    assert_eq!(repeated.details().http_status, Some(404));
+    assert_eq!(
+        repeated.details().server_error.as_deref(),
+        Some("Swimlane not found")
+    );
 
     wait_for_live_list_absent(&app, &server, &board.board_id, &list.list_id).await;
     wait_for_live_card_absent(
@@ -499,7 +501,7 @@ async fn complete_swimlane_lifecycle_matches_wekan_v12_57() {
         panic!("expected preserved-branch delete-swimlane output")
     };
     assert_eq!(preserved_branch_delete.swimlane_id, appended.swimlane_id);
-    assert!(preserved_branch_delete.deletion_requested);
+    assert!(preserved_branch_delete.deletion_requested && preserved_branch_delete.deleted);
     wait_for_live_swimlane_absent(&app, &server, &board.board_id, &appended.swimlane_id).await;
     wait_for_live_swimlane_absent_from_collection(
         &app,

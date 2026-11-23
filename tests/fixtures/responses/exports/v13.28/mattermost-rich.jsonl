@@ -1,0 +1,22 @@
+{"type":"version","version":1}
+{"type":"team","team":{"name":"rich-fixture","display_name":"Rich fixture","type":"I"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"story","display_name":"Story","type":"O","purpose":"Todo"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"child","display_name":"Child","type":"O","purpose":"In Progress"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"finished","display_name":"Finished","type":"O","purpose":"Done"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"planned","display_name":"Planned","type":"O","purpose":"Backlog"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"epic","display_name":"Epic","type":"O","purpose":"Todo"}}
+{"type":"channel","channel":{"team":"rich-fixture","name":"issue","display_name":"Issue","type":"O","purpose":"In Progress"}}
+{"type":"user","user":{"username":"bob","email":"bob@wekan.invalid","teams":[{"name":"rich-fixture","channels":[{"name":"story"},{"name":"child"},{"name":"finished"},{"name":"planned"},{"name":"epic"},{"name":"issue"}]}]}}
+{"type":"user","user":{"username":"alice","email":"alice@wekan.invalid","teams":[{"name":"rich-fixture","channels":[{"name":"story"},{"name":"child"},{"name":"finished"},{"name":"planned"},{"name":"epic"},{"name":"issue"}]}]}}
+{"type":"post","post":{"team":"rich-fixture","channel":"story","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"story","user":"alice","message":"A comment","create_at":1790935200000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"child","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"child","user":"alice","message":"A comment","create_at":1790935200000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"finished","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"finished","user":"alice","message":"A comment","create_at":1790935200000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"planned","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"planned","user":"alice","message":"A comment","create_at":1790935200000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"epic","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"epic","user":"alice","message":"A comment","create_at":1790935200000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"issue","user":"bob","message":"Details","create_at":1767225600000}}
+{"type":"post","post":{"team":"rich-fixture","channel":"issue","user":"alice","message":"A comment","create_at":1790935200000}}

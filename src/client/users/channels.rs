@@ -1,4 +1,4 @@
-//! Stored v12.57 account channels. Response secrets become presence flags at decode.
+//! Stored v13.28 account channels. Response secrets become presence flags at decode.
 use serde::{Deserialize, Deserializer, Serialize};
 
 fn date<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {

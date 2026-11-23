@@ -9,7 +9,7 @@ use crate::{
     error::AppError,
 };
 use clap::{Args, Subcommand};
-pub const CHART_KEYS: [&str; 21] = [
+pub const CHART_KEYS: [&str; 33] = [
     "dashboard",
     "burndown",
     "burnup",
@@ -31,6 +31,18 @@ pub const CHART_KEYS: [&str; 21] = [
     "monteCarlo",
     "processBehavior",
     "sizeCycleTime",
+    "createdResolved",
+    "netFlow",
+    "timeInList",
+    "averageAge",
+    "throughputRun",
+    "workload",
+    "distribution",
+    "dueDatePerformance",
+    "releaseBurndown",
+    "epicProgress",
+    "dependencyMap",
+    "activityHeatmap",
 ];
 #[derive(Debug, Args)]
 pub struct ChartArgs {

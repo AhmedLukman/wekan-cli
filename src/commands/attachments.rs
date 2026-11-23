@@ -25,7 +25,7 @@ pub struct AttachmentArgs {
 pub enum AttachmentCommand {
     /// Export a native artifact to a file or validated raw stdout.
     Export(export::ExportArgs),
-    /// List attachments. Wekan v12.57 ignores deeper selectors and returns all board attachments.
+    /// List attachments. Wekan v13.28 ignores deeper selectors and returns all board attachments.
     List(list::ListArgs),
     /// Read attachment metadata and versions.
     Get(get::GetArgs),
@@ -33,9 +33,9 @@ pub enum AttachmentCommand {
     Upload(upload::UploadArgs),
     /// Download an attachment to a file or raw stdout (-).
     Download(download::DownloadArgs),
-    /// Copy an attachment to a card. Pinned Wekan JSON copies return HTTP 408.
+    /// Copy an attachment to a card.
     Copy(transfer::TransferArgs),
-    /// Move an attachment to a card. Pinned Wekan JSON moves return HTTP 408.
+    /// Move an attachment to a card.
     Move(transfer::TransferArgs),
     /// Soft-delete an attachment; requires confirmation or --yes.
     Delete(delete::DeleteArgs),

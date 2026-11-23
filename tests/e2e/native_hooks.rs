@@ -107,8 +107,8 @@ async fn verify_bot_report_nulls(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated v12.57 stack and WEKAN_NATIVE_HOOK_E2E_URL"]
-async fn native_bot_and_inbound_email_routes_match_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated v13.28 stack and WEKAN_NATIVE_HOOK_E2E_URL"]
+async fn native_bot_and_inbound_email_routes_match_wekan_v13_28() {
     let server = env::var("WEKAN_NATIVE_HOOK_E2E_URL")
         .expect("set WEKAN_NATIVE_HOOK_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()

@@ -1,9 +1,9 @@
 use super::support::*;
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_BOARD_E2E_URL"]
-async fn complete_board_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_BOARD_E2E_URL"]
+async fn complete_board_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_BOARD_E2E_URL")
-        .expect("set WEKAN_BOARD_E2E_URL to a fresh isolated Wekan v12.57 server URL");
+        .expect("set WEKAN_BOARD_E2E_URL to a fresh isolated Wekan v13.28 server URL");
     let canonical_server = ServerUrl::parse(&server)
         .expect("the live-test Wekan URL must be valid")
         .as_str()
@@ -248,11 +248,11 @@ async fn complete_board_lifecycle_matches_wekan_v12_57() {
     );
     let denied_public_list = execute_live_board(&owner_app, &server, &["list", "--public"])
         .await
-        .expect_err("Wekan v12.57 restricts the public-board catalog to site admins");
+        .expect_err("Wekan restricts the public-board catalog to site admins");
     assert_eq!(denied_public_list.code(), ErrorCode::PermissionDenied);
     let denied_count = execute_live_board(&owner_app, &server, &["count"])
         .await
-        .expect_err("Wekan v12.57 restricts aggregate board counts to site admins");
+        .expect_err("Wekan restricts aggregate board counts to site admins");
     assert_eq!(denied_count.code(), ErrorCode::PermissionDenied);
     let CommandSuccess::BoardShown(owner_public_board) =
         execute_live_board(&owner_app, &server, &["get", &public_created.board_id])
@@ -263,8 +263,7 @@ async fn complete_board_lifecycle_matches_wekan_v12_57() {
     };
     assert_eq!(owner_public_board.title, public_title);
 
-    // A refused board-management attempt can disable its actor in v12.57.
-    // Keep those disposable actors separate from the owner lifecycle.
+    // Each permission assertion uses its own disposable member.
     let (_read_probe_dir, read_probe, _) = register_live_board_role(
         &server,
         &canonical_server,

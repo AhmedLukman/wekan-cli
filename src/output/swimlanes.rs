@@ -76,7 +76,7 @@ pub(super) fn render_swimlane_updated(data: &SwimlaneUpdateSuccess) -> String {
 
 pub(super) fn render_swimlane_deleted(data: &SwimlaneDeleteSuccess) -> String {
     format!(
-        "Swimlane deletion request accepted for {} on board {}.",
+        "Deleted swimlane {} on board {}.",
         escape_terminal_controls(&data.swimlane_id),
         escape_terminal_controls(&data.board_id)
     )

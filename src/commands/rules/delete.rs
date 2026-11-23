@@ -22,7 +22,7 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Deletion requires confirmation or --yes and removes the rule together with its referenced trigger/action. Missing or wrongly scoped rules retain Wekan v12.57 HTTP 500 errors."
+    after_help = "Deletion requires confirmation or --yes and removes the rule together with its referenced trigger/action. A rule absent from the selected board returns HTTP 404."
 )]
 pub struct DeleteArgs {
     #[command(flatten)]
@@ -92,7 +92,7 @@ pub(super) async fn execute(
             e,
             &Redactor::with_secret(context.record().token()),
             "rule deletion",
-            "the Wekan board was not found",
+            "the requested Wekan board or rule was not found",
         )
     })?;
     Ok(CommandSuccess::RuleDeleted(RuleDeleteSuccess {

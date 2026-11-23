@@ -39,6 +39,7 @@ pub enum SettingsCommand {
     "custom_login_logo_link_url",
     "custom_help_link_url",
     "text_below_custom_login_logo",
+    "login_background_color",
     "automatic_linked_url_schemes",
     "custom_top_left_corner_logo_image_url",
     "custom_top_left_corner_logo_link_url",
@@ -77,6 +78,7 @@ pub enum SettingsCommand {
     "custom_login_logo_link_url",
     "custom_help_link_url",
     "text_below_custom_login_logo",
+    "login_background_color",
     "automatic_linked_url_schemes",
     "custom_top_left_corner_logo_image_url",
     "custom_top_left_corner_logo_link_url",
@@ -99,7 +101,7 @@ pub enum SettingsCommand {
     "support_page_public",
     "support_title",
     "support_page_text",
-]).required(true).multiple(true)), after_help = "Only the v12.57 REST allowlist is supported; SMTP/mailServer is excluded. Omitted fields remain unchanged. JSON source options conflict with all setting flags.")]
+]).required(true).multiple(true)), after_help = "Only the v13.28 REST allowlist is supported; SMTP/mailServer is excluded. Omitted fields remain unchanged. JSON source options conflict with all setting flags.")]
 pub struct UpdateArgs {
     #[command(flatten)]
     source: input::SourceArgs,
@@ -142,6 +144,9 @@ pub struct UpdateArgs {
     /// Set text below custom login logo.
     #[arg(long = "text-below-custom-login-logo")]
     text_below_custom_login_logo: Option<String>,
+    /// Set the login page background color.
+    #[arg(long = "login-background-color")]
+    login_background_color: Option<String>,
     /// Set automatic linked url schemes.
     #[arg(long = "automatic-linked-url-schemes")]
     automatic_linked_url_schemes: Option<String>,
@@ -252,6 +257,7 @@ pub(crate) async fn execute(
                     custom_login_logo_link_url: args.custom_login_logo_link_url.map(Some),
                     custom_help_link_url: args.custom_help_link_url.map(Some),
                     text_below_custom_login_logo: args.text_below_custom_login_logo.map(Some),
+                    login_background_color: args.login_background_color.map(Some),
                     automatic_linked_url_schemes: args.automatic_linked_url_schemes.map(Some),
                     custom_top_left_corner_logo_image_url: args
                         .custom_top_left_corner_logo_image_url
@@ -349,6 +355,9 @@ fn submitted_fields(request: &UpdateGlobalSettings) -> Vec<GlobalSettingField> {
     }
     if request.text_below_custom_login_logo.is_some() {
         fields.push(GlobalSettingField::TextBelowCustomLoginLogo);
+    }
+    if request.login_background_color.is_some() {
+        fields.push(GlobalSettingField::LoginBackgroundColor);
     }
     if request.automatic_linked_url_schemes.is_some() {
         fields.push(GlobalSettingField::AutomaticLinkedUrlSchemes);

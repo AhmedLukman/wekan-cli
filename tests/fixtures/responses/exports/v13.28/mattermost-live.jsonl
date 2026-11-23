@@ -1,0 +1,6 @@
+{"type":"version","version":1}
+{"type":"team","team":{"name":"catalog-board","display_name":"Catalog board","type":"I"}}
+{"type":"channel","channel":{"team":"catalog-board","name":"catalog-card","display_name":"Catalog card","type":"O","purpose":"Todo"}}
+{"type":"user","user":{"username":"cat9a5a8fd734b9","email":"cat9a5a8fd734b9@wekan.invalid","teams":[{"name":"catalog-board","channels":[{"name":"catalog-card"}]}]}}
+{"type":"post","post":{"team":"catalog-board","channel":"catalog-card","user":"cat9a5a8fd734b9","message":"Ordinary test description","create_at":1795417040467}}
+{"type":"post","post":{"team":"catalog-board","channel":"catalog-card","user":"cat9a5a8fd734b9","message":"Recorded comment","create_at":1795417040518}}

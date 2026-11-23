@@ -37,7 +37,6 @@ pub(super) async fn execute(
                 "integration lookup",
                 "the integration or Wekan board was not found",
             )
-        })?
-        .ok_or_else(super::missing_integration)?;
+        })?;
     Ok(CommandSuccess::IntegrationShown(document.into()))
 }

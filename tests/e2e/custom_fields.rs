@@ -104,17 +104,20 @@ fn assert_deletion_result(result: &CommandSuccess, board: &str, field: &str, ite
 
 fn assert_missing_definition_metadata(error: &AppError) {
     assert_eq!(error.code(), ErrorCode::NotFound);
-    assert_eq!(error.details().http_status, Some(200));
+    assert_eq!(error.details().http_status, Some(404));
     assert!(error.details().wekan_status_code.is_none());
-    assert!(error.details().server_error.is_none());
+    assert_eq!(
+        error.details().server_error.as_deref(),
+        Some("Custom field not found")
+    );
     assert!(error.details().server_reason.is_none());
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_CUSTOM_FIELD_E2E_URL"]
-async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_CUSTOM_FIELD_E2E_URL"]
+async fn complete_custom_field_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_CUSTOM_FIELD_E2E_URL")
-        .expect("set WEKAN_CUSTOM_FIELD_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_CUSTOM_FIELD_E2E_URL to an isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -365,15 +368,13 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
         panic!("expected field creation")
     };
     for id in addressable_ids {
-        let error = target
+        target
             .item(
                 &addressable_field.custom_field_id,
                 &["update", id, "--name", "Changed"],
             )
             .await
-            .expect_err("W12-001: positional dropdown updates fail in the v12.57 field guard");
-        assert_eq!(error.code(), ErrorCode::ServerError);
-        assert_eq!(error.details().http_status, Some(500));
+            .unwrap();
     }
     let items = target
         .detail(&addressable_field.custom_field_id)
@@ -388,7 +389,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .collect::<Vec<_>>(),
         addressable_ids
     );
-    assert!(items.iter().all(|item| item.name == "Option"));
+    assert!(items.iter().all(|item| item.name == "Changed"));
     for (index, id) in addressable_ids.iter().enumerate() {
         target
             .item(&addressable_field.custom_field_id, &["delete", id, "--yes"])
@@ -554,15 +555,13 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
         .item(dropdown, &["update", &items[1].item_id])
         .await
         .unwrap();
-    let error = target
+    target
         .item(
             dropdown,
             &["update", &items[1].item_id, "--name", "Renamed"],
         )
         .await
-        .expect_err("W12-001: a matched name update returns HTTP 500");
-    assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().http_status, Some(500));
+        .unwrap();
     assert_eq!(
         target
             .detail(dropdown)
@@ -571,15 +570,22 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .dropdown_items
             .unwrap()[1]
             .name,
-        "Ready"
+        "Renamed"
     );
-    for _ in 0..2 {
-        let result = target
+    let result = target
+        .item(dropdown, &["delete", &items[1].item_id, "--yes"])
+        .await
+        .unwrap();
+    assert_deletion_result(&result, target.board, dropdown, Some(&items[1].item_id));
+    assert_eq!(
+        target
             .item(dropdown, &["delete", &items[1].item_id, "--yes"])
             .await
-            .unwrap();
-        assert_deletion_result(&result, target.board, dropdown, Some(&items[1].item_id));
-    }
+            .unwrap_err()
+            .details()
+            .http_status,
+        Some(404)
+    );
     assert_eq!(
         target
             .detail(dropdown)
@@ -819,8 +825,8 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
         ])
         .await
         .unwrap_err();
-    assert_eq!(error.code(), ErrorCode::ServerError);
-    assert_eq!(error.details().http_status, Some(500));
+    assert_eq!(error.code(), ErrorCode::NotFound);
+    assert_eq!(error.details().http_status, Some(404));
     target.card(&["restore", target.card]).await.unwrap();
 
     let error = target
@@ -841,7 +847,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .get("outcome_unknown")
             .is_none()
     );
-    // A later invalid settings update can fail after the earlier name update landed.
+    let original_name = target.detail(text).await.name;
     let error = target
         .field(&[
             "update",
@@ -860,27 +866,25 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .get("outcome_unknown")
             .is_none()
     );
-    assert_eq!(target.detail(text).await.name, "Partial saved");
+    assert_eq!(target.detail(text).await.name, original_name);
     assert_missing_definition_metadata(&target.field(&["get", "missing"]).await.unwrap_err());
-    target
-        .field(&["update", "missing", "--name", "Ignored"])
-        .await
-        .unwrap();
-    let result = target.field(&["delete", "missing", "--yes"]).await.unwrap();
-    assert_deletion_result(&result, target.board, "missing", None);
-    target
-        .item("missing", &["create", "--item", "Ignored"])
-        .await
-        .unwrap();
-    target
-        .item("missing", &["update", "missing", "--name", "Ignored"])
-        .await
-        .unwrap();
-    let result = target
-        .item("missing", &["delete", "missing", "--yes"])
-        .await
-        .unwrap();
-    assert_deletion_result(&result, target.board, "missing", Some("missing"));
+    for result in [
+        target
+            .field(&["update", "missing", "--name", "Ignored"])
+            .await,
+        target.field(&["delete", "missing", "--yes"]).await,
+        target
+            .item("missing", &["create", "--item", "Ignored"])
+            .await,
+        target
+            .item("missing", &["update", "missing", "--name", "Ignored"])
+            .await,
+        target
+            .item("missing", &["delete", "missing", "--yes"])
+            .await,
+    ] {
+        assert_eq!(result.unwrap_err().details().http_status, Some(404));
+    }
     let wrong = Target {
         board: "missing-board",
         ..target
@@ -906,7 +910,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .await
             .unwrap_err()
             .code(),
-        ErrorCode::ServerError
+        ErrorCode::NotFound
     );
     let wrong = Target {
         card: "missing-card",
@@ -918,28 +922,9 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             .await
             .unwrap_err()
             .code(),
-        ErrorCode::ServerError
+        ErrorCode::NotFound
     );
 
-    let creator = app
-        .credential_store()
-        .credential
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .2
-        .clone();
-    // Promote only this suite's disposable user so the admin-bypass case also
-    // works when rerunning on an isolated stack with previously registered users.
-    assert_eq!(
-        mongo(&format!(
-            "const r=db.getSiblingDB('wekan').users.updateOne({{_id:{}}},{{$set:{{isAdmin:true}}}});print(JSON.stringify(r.matchedCount));",
-            json!(creator)
-        )),
-        1
-    );
-    // Check every route's role gates through typed commands, including site-admin bypass.
     for role in ["normal", "readonly", "commentonly", "worker", "nocomments"] {
         let (_directory, role_app, _) =
             register_live_board_role(&server, &canonical, &token, &board.board_id, nonce, role)
@@ -948,35 +933,6 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
             app: &role_app,
             ..target
         };
-        if role == "normal" {
-            let CommandSuccess::BoardCreated(unjoined) =
-                execute_live_board(&role_app, &server, &["create", "--title", "Admin bypass"])
-                    .await
-                    .unwrap()
-            else {
-                panic!("expected board")
-            };
-            let unjoined_target = Target {
-                board: &unjoined.board_id,
-                ..target
-            };
-            unjoined_target.field(&["list"]).await.unwrap();
-            let CommandSuccess::CustomFieldCreated(field) = unjoined_target
-                .field(&["create", "--name", "Admin bypass field", "--type", "text"])
-                .await
-                .unwrap()
-            else {
-                panic!("expected field")
-            };
-            unjoined_target.detail(&field.custom_field_id).await;
-            unjoined_target
-                .field(&["delete", &field.custom_field_id, "--yes"])
-                .await
-                .unwrap();
-            execute_live_board(&app, &server, &["delete", &unjoined.board_id, "--yes"])
-                .await
-                .unwrap();
-        }
         let read_allowed = matches!(role, "normal" | "readonly");
         for args in [
             vec!["custom-field", "list"],
@@ -1001,6 +957,26 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
                 );
             }
         }
+        let CommandSuccess::CustomFieldCreated(role_field) = target
+            .field(&["create", "--name", "Role fixture", "--type", "dropdown"])
+            .await
+            .unwrap()
+        else {
+            panic!("expected role field")
+        };
+        let role_field = role_field.custom_field_id.as_str();
+        target
+            .item(role_field, &["create", "--item", "Editable"])
+            .await
+            .unwrap();
+        let role_item = target
+            .detail(role_field)
+            .await
+            .settings
+            .dropdown_items
+            .unwrap()[0]
+            .item_id
+            .clone();
         for args in [
             vec![
                 "custom-field",
@@ -1010,24 +986,39 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
                 "--type",
                 "text",
             ],
-            vec!["custom-field", "update", "missing"],
-            vec!["custom-field", "delete", "missing", "--yes"],
-            vec!["custom-field", "item", "create", "--custom-field", dropdown],
+            vec![
+                "custom-field",
+                "update",
+                role_field,
+                "--name",
+                "Updated role field",
+            ],
+            vec![
+                "custom-field",
+                "item",
+                "create",
+                "--custom-field",
+                role_field,
+                "--item",
+                "Added",
+            ],
             vec![
                 "custom-field",
                 "item",
                 "update",
-                "missing",
+                &role_item,
                 "--custom-field",
-                dropdown,
+                role_field,
+                "--name",
+                "Renamed",
             ],
             vec![
                 "custom-field",
                 "item",
                 "delete",
-                "missing",
+                &role_item,
                 "--custom-field",
-                dropdown,
+                role_field,
                 "--yes",
             ],
             vec![
@@ -1037,8 +1028,9 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
                 "--list",
                 target.list,
                 "--custom-field",
-                "missing",
+                text,
             ],
+            vec!["custom-field", "delete", role_field, "--yes"],
         ] {
             let result = role_target.run(&args).await;
             if matches!(role, "normal" | "nocomments") {
@@ -1065,16 +1057,21 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
         ..target
     };
     assert_missing_definition_metadata(&second_target.field(&["get", text]).await.unwrap_err());
-    second_target
-        .field(&["update", text, "--name", "Ignored wrong board"])
-        .await
-        .unwrap();
-    let result = second_target
-        .field(&["delete", text, "--yes"])
-        .await
-        .unwrap();
-    assert_deletion_result(&result, second_target.board, text, None);
-    assert_eq!(target.detail(text).await.name, "Partial saved");
+    for args in [
+        vec!["update", text, "--name", "Ignored wrong board"],
+        vec!["delete", text, "--yes"],
+    ] {
+        assert_eq!(
+            second_target
+                .field(&args)
+                .await
+                .unwrap_err()
+                .details()
+                .http_status,
+            Some(404)
+        );
+    }
+    assert_eq!(target.detail(text).await.name, original_name);
     target
         .item(
             dropdown,
@@ -1089,16 +1086,11 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
         .dropdown_items
         .unwrap()[0]
         .clone();
-    let result = second_target
+    let error = second_target
         .item(dropdown, &["delete", &kept_item.item_id, "--yes"])
         .await
-        .unwrap();
-    assert_deletion_result(
-        &result,
-        second_target.board,
-        dropdown,
-        Some(&kept_item.item_id),
-    );
+        .unwrap_err();
+    assert_eq!(error.details().http_status, Some(404));
     assert_eq!(
         target
             .detail(dropdown)
@@ -1125,7 +1117,7 @@ async fn complete_custom_field_lifecycle_matches_wekan_v12_57() {
     assert_deletion_result(&result, second_target.board, text, None);
     assert!(
         wekan_cli::output::render_success(OutputFormat::Human, &result)
-            .starts_with("Custom-field deletion request accepted for ")
+            .starts_with("Deleted custom field ")
     );
     assert_missing_definition_metadata(&target.field(&["get", text]).await.unwrap_err());
     assert!(

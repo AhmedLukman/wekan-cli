@@ -10,6 +10,8 @@ pub use tokens::{UserTokenCreateSuccess, UserTokenDeleteScope, UserTokenDeleteSu
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserDetail {
+    pub feature_profile_id: Option<String>,
+    pub password_change_required: Option<bool>,
     pub passkeys: Option<Vec<crate::client::users::channels::Passkey>>,
     pub sqrl: Option<crate::client::users::channels::SqrlIdentity>,
     pub web_push_subscriptions: Option<Vec<crate::client::users::channels::PushSubscription>>,

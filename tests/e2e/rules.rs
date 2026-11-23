@@ -83,10 +83,10 @@ async fn wait_members(
     panic!("rule member action did not reach expected state");
 }
 #[tokio::test]
-#[ignore = "destructive: requires an isolated Wekan v12.57 stack and WEKAN_RULE_E2E_URL"]
-async fn complete_rule_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires an isolated Wekan v13.28 stack and WEKAN_RULE_E2E_URL"]
+async fn complete_rule_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_RULE_E2E_URL")
-        .expect("set WEKAN_RULE_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_RULE_E2E_URL to an isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -452,12 +452,9 @@ async fn complete_rule_lifecycle_matches_wekan_v12_57() {
             vec!["rule", "delete", target, "--board", scope, "--yes"],
         ] {
             let e = run(&app, &server, &args).await.unwrap_err();
-            assert_eq!(e.code(), ErrorCode::ServerError);
-            assert_eq!(e.details().http_status, Some(500));
-            assert_eq!(
-                e.details().server_error.as_deref(),
-                Some("Internal server error")
-            );
+            assert_eq!(e.code(), ErrorCode::NotFound);
+            assert_eq!(e.details().http_status, Some(404));
+            assert_eq!(e.details().server_error.as_deref(), Some("Rule not found"));
         }
     }
     assert_eq!(

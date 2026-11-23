@@ -51,7 +51,7 @@ pub(super) async fn execute(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "rule update",
-                "the Wekan board was not found",
+                "the requested Wekan board or rule was not found",
             )
         })?;
     Ok(CommandSuccess::RuleUpdated(RuleUpdateSuccess {

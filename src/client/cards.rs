@@ -1,5 +1,5 @@
 use crate::client::metadata::*;
-use reqwest::{StatusCode, header::ACCEPT};
+use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Number;
@@ -72,6 +72,12 @@ impl From<String> for CardDateInput {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct CardSummary {
+    pub board_id: Option<String>,
+    pub modified_at: Option<String>,
+    pub date_last_activity: Option<String>,
+    pub label_ids: Option<Vec<Option<String>>>,
+    pub members: Option<Vec<String>>,
+    pub custom_fields: Option<Vec<crate::client::cards::CardListCustomField>>,
     #[serde(rename(deserialize = "_id", serialize = "card_id"))]
     pub card_id: String,
     pub title: Option<String>,
@@ -84,6 +90,15 @@ pub struct CardSummary {
     #[serde(default, deserialize_with = "deserialize_nullable_vec")]
     pub assignees: Vec<String>,
     pub sort: Option<Number>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CardListCustomField {
+    #[serde(rename(deserialize = "_id", serialize = "custom_field_id"))]
+    pub custom_field_id: String,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub value: Option<CardCustomFieldValue>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -203,6 +218,11 @@ pub struct CardPoker {
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct CardDocument {
+    pub flow: Option<Box<CardFlow>>,
+    pub estimated_hours: Option<Number>,
+    pub billable: Option<bool>,
+    pub shown_fields: Option<Vec<String>>,
+    pub hidden_fields: Option<Vec<String>>,
     pub scrum: Option<Box<ScrumCard>>,
     pub drawings: Option<Vec<CardDrawing>>,
     pub custom_field_links: Option<Vec<CardCustomFieldLink>>,
@@ -328,6 +348,8 @@ pub struct CardDocument {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCardRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -468,14 +490,6 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        if body.is_empty() {
-            return Err(ClientError::EmbeddedServer {
-                http_status: StatusCode::OK,
-                wekan_status_code: StatusCode::NOT_FOUND.as_u16(),
-                server_error: Some("card-not-found".to_owned()),
-                server_reason: Some("Card not found".to_owned()),
-            });
-        }
         let card = decode_success(&body, "card", true)?;
         validate_card_document(card)
     }
@@ -599,6 +613,8 @@ fn validate_card_summaries(cards: Vec<CardSummary>) -> Result<Vec<CardSummary>, 
         )?;
         validate_ids(&card.assignees, "board list card collection", "assignee id")?;
         for (field, value) in [
+            ("modifiedAt", card.modified_at.as_deref()),
+            ("dateLastActivity", card.date_last_activity.as_deref()),
             ("receivedAt", card.received_at.as_deref()),
             ("startAt", card.start_at.as_deref()),
             ("dueAt", card.due_at.as_deref()),
@@ -626,6 +642,9 @@ fn validate_card_document(card: CardDocument) -> Result<CardDocument, ClientErro
     validate_date_time(&card.created_at, "createdAt", "card")?;
     validate_date_time(&card.modified_at, "modifiedAt", "card")?;
     validate_date_time(&card.date_last_activity, "dateLastActivity", "card")?;
+    if let Some(flow) = &card.flow {
+        validate_optional_date_time(flow.blocked_at.as_deref(), "flow.blockedAt", "card")?;
+    }
     for (field, value) in [
         ("listEnteredAt", card.list_entered_at.as_deref()),
         ("lastRecurrenceAt", card.last_recurrence_at.as_deref()),
@@ -791,7 +810,7 @@ mod tests {
     use super::{CardDocument, CardSummary, is_valid_card_color};
 
     #[test]
-    fn color_validation_matches_wekan_v12_57() {
+    fn color_validation_matches_wekan_v13_28() {
         for value in ["white", "silver", "indigo", "#12aBcF"] {
             assert!(is_valid_card_color(value));
         }

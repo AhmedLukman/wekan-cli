@@ -15,6 +15,12 @@ use crate::client::transport::decode_success;
     rename_all(deserialize = "camelCase", serialize = "snake_case")
 )]
 pub struct SwimlaneCardSummary {
+    pub board_id: Option<String>,
+    pub modified_at: Option<String>,
+    pub date_last_activity: Option<String>,
+    pub label_ids: Option<Vec<Option<String>>>,
+    pub members: Option<Vec<String>>,
+    pub custom_fields: Option<Vec<crate::client::cards::CardListCustomField>>,
     #[serde(rename(deserialize = "_id", serialize = "card_id"))]
     pub card_id: String,
     pub title: Option<String>,
@@ -137,6 +143,8 @@ impl WekanClient {
                 require_non_empty(id, "swimlane card collection", "assignee id")?;
             }
             for (field, value) in [
+                ("modifiedAt", &card.modified_at),
+                ("dateLastActivity", &card.date_last_activity),
                 ("receivedAt", &card.received_at),
                 ("startAt", &card.start_at),
                 ("dueAt", &card.due_at),

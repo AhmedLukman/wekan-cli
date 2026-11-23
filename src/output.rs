@@ -261,6 +261,8 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
             formatting::render_object(data)
         }
         (OutputFormat::Json, CommandSuccess::BoardAttachments(data)) => render_json_success(data),
+        (OutputFormat::Human, CommandSuccess::ImportUploaded(data)) => imports::uploaded(data),
+        (OutputFormat::Json, CommandSuccess::ImportUploaded(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardImported(data)) => imports::board(data),
         (OutputFormat::Json, CommandSuccess::BoardImported(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::TrelloImported(data)) => imports::trello(data),
@@ -446,14 +448,13 @@ pub fn render_success(format: OutputFormat, success: &CommandSuccess) -> String 
         }
         (OutputFormat::Json, CommandSuccess::BoardMembers(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberChanged(data)) => {
-            let action = match data.action {
-                crate::command_result::MembershipAction::Add => "Addition",
-                crate::command_result::MembershipAction::Remove => "Removal",
+            let outcome = match data.action {
+                crate::command_result::MembershipAction::Add => {
+                    "Board member addition request accepted"
+                }
+                crate::command_result::MembershipAction::Remove => "Board member deactivated",
             };
-            format!(
-                "Board member {action} request accepted:\n{}",
-                formatting::render_object(data)
-            )
+            format!("{outcome}:\n{}", formatting::render_object(data))
         }
         (OutputFormat::Json, CommandSuccess::BoardMemberChanged(data)) => render_json_success(data),
         (OutputFormat::Human, CommandSuccess::BoardMemberUpdated(data)) => {

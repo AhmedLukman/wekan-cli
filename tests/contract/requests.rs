@@ -77,6 +77,7 @@ async fn nullable_card_creation_and_partial_list_updates_preserve_wire_forms() {
             "board-1",
             "list-1",
             &CreateCardRequest {
+                parent_id: None,
                 title: Some(None),
                 description: Some(Some(String::new())),
                 linked_id: None,
@@ -659,6 +660,7 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
+                parent_id: None,
                 title: Some(Some("Todo".to_owned())),
                 linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
@@ -679,6 +681,7 @@ async fn card_lifecycle_uses_encoded_scoped_paths_and_exact_json_bodies() {
             "board/1",
             "list/1",
             &CreateCardRequest {
+                parent_id: None,
                 title: Some(Some("Minimal".to_owned())),
                 linked_id: None,
                 swimlane_id: "swimlane/1".to_owned(),
@@ -784,6 +787,7 @@ async fn card_mutations_are_not_retried_and_redirects_are_not_followed() {
                 "board-1",
                 "list-1",
                 &CreateCardRequest {
+                    parent_id: None,
                     title: Some(Some("Todo".to_owned())),
                     linked_id: None,
                     swimlane_id: "swimlane-1".to_owned(),

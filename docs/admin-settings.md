@@ -3,7 +3,7 @@
 For domain reporting and organization/team feature controls, see
 [administrator commands](admin.md).
 
-These commands use Wekan v12.57's native REST endpoints and require site
+These commands use Wekan v13.28's native REST endpoints and require site
 administration. `admin settings get/update` calls `/api/settings`;
 `admin attachment-settings get/update` calls `/api/admin/attachment-settings`.
 They configure stored settings; success does not verify cloud connectivity,
@@ -55,6 +55,7 @@ strings are sent to Wekan unchanged for its schema cleaning and validation.
 | `hideLogo` | `--hide-logo` | boolean |
 | `hideCardCounterList` | `--hide-card-counter-list` | boolean |
 | `hideBoardMemberList` | `--hide-board-member-list` | boolean |
+| `loginBackgroundColor` | `--login-background-color` | string |
 | `customLoginLogoImageUrl` | `--custom-login-logo-image-url` | string |
 | `customLoginLogoLinkUrl` | `--custom-login-logo-link-url` | string |
 | `customHelpLinkUrl` | `--custom-help-link-url` | string |
@@ -199,7 +200,7 @@ configuration, not a connectivity check or completed storage migration.
 The global endpoint can return an empty document, represented as settings with
 null fields; updating a missing global document returns HTTP 404. Attachment
 GET can initialize a missing document through the native server path.
-Authorization failures use HTTP 401/403 in v12.57. Errors retain the real HTTP
+Authorization failures use HTTP 401/403 in v13.28. Errors retain the real HTTP
 status and native error metadata. Unmapped fields,
 invalid types, invalid dates, or unmasked secrets cause protocol errors.
 Failed updates report server and protocol diagnostics.

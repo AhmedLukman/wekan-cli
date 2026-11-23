@@ -107,10 +107,10 @@ impl Target<'_> {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_CHECKLIST_E2E_URL"]
-async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_CHECKLIST_E2E_URL"]
+async fn complete_checklist_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_CHECKLIST_E2E_URL")
-        .expect("set WEKAN_CHECKLIST_E2E_URL to an isolated Wekan v12.57 stack");
+        .expect("set WEKAN_CHECKLIST_E2E_URL to an isolated Wekan v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -516,8 +516,8 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
         .checklist(&["get", "missing-checklist"])
         .await
         .unwrap_err();
-    assert_eq!(missing.code(), ErrorCode::ServerError);
-    assert_eq!(missing.details().http_status, Some(500));
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
     for args in [
         vec!["get", "missing-item"],
         vec!["update", "missing-item"],
@@ -637,41 +637,6 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
                 .checklist(&["delete", &made.checklist_id, "--yes"])
                 .await
                 .unwrap();
-        } else {
-            // Denied native writes can disable their actor. Each permission case
-            // receives a disposable account, with no reset of security state.
-            for (item_operation, args) in [
-                (false, vec!["create"]),
-                (false, vec!["delete", checklist, "--yes"]),
-                (true, vec!["create", "--title", "Denied"]),
-                (true, vec!["update", &original]),
-                (true, vec!["delete", &original, "--yes"]),
-            ] {
-                let (_case_directory, case_app, _) = register_live_board_role(
-                    &server,
-                    &canonical,
-                    &token,
-                    &board.board_id,
-                    permission_nonce,
-                    role,
-                )
-                .await;
-                permission_nonce += 1;
-                let case = Target {
-                    app: &case_app,
-                    server: &server,
-                    board: &board.board_id,
-                    card: &card.card_id,
-                };
-                let error = if item_operation {
-                    case.item(checklist, &args).await
-                } else {
-                    case.checklist(&args).await
-                }
-                .unwrap_err();
-                assert_eq!(error.code(), ErrorCode::PermissionDenied, "{role} {args:?}");
-                assert_eq!(error.details().http_status, Some(403), "{role} {args:?}");
-            }
         }
     }
 
@@ -699,8 +664,8 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
         activities_before,
         "direct REST item deletion bypasses activity cleanup hooks"
     );
-    // v12.57 checklist deletion does not cascade to its item documents.
-    let survivor = target
+    // W11-035: deleting a checklist also removes its remaining items.
+    let child = target
         .detail(checklist)
         .await
         .items
@@ -729,16 +694,24 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
             .iter()
             .any(|value| value.checklist_id == *checklist)
     );
-    target
-        .item_detail(checklist, &survivor.item_id, &survivor.title, false)
-        .await;
-    target
-        .item(checklist, &["delete", &survivor.item_id, "--yes"])
-        .await
-        .unwrap();
+    assert_eq!(
+        target
+            .item(checklist, &["get", &child.item_id])
+            .await
+            .unwrap_err()
+            .code(),
+        ErrorCode::NotFound
+    );
 
-    // REST card moves bypass the hook that synchronizes denormalized board IDs.
-    // Reads use the destination scope but must preserve the source metadata.
+    assert_eq!(
+        mongo_json(&format!(
+            "print(db.getSiblingDB('wekan').checklistItems.countDocuments({{checklistId:{}}}));",
+            json!(checklist)
+        )),
+        0
+    );
+
+    // W11-039: checklist and item board IDs follow their card across boards.
     let CommandSuccess::ChecklistItemCreated(moving_item) = target
         .item(&default.checklist_id, &["create", "--title", "Moving item"])
         .await
@@ -833,11 +806,11 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
     assert_eq!(moved_item.card_id, card.card_id);
     assert_eq!(
         moved_checklist.board_id.as_deref(),
-        Some(board.board_id.as_str())
+        Some(destination.board_id.as_str())
     );
     assert_eq!(
         moved_item.board_id.as_deref(),
-        Some(board.board_id.as_str())
+        Some(destination.board_id.as_str())
     );
     assert!(
         moved
@@ -852,9 +825,9 @@ async fn complete_checklist_lifecycle_matches_wekan_v12_57() {
     ] {
         let json_output = wekan_cli::output::render_success(OutputFormat::Json, &result);
         let envelope: serde_json::Value = serde_json::from_str(&json_output).unwrap();
-        assert_eq!(envelope["data"]["board_id"], board.board_id);
+        assert_eq!(envelope["data"]["board_id"], destination.board_id);
         let human_output = wekan_cli::output::render_success(OutputFormat::Human, &result);
-        assert!(human_output.contains(&format!("board_id: {}", board.board_id)));
+        assert!(human_output.contains(&format!("board_id: {}", destination.board_id)));
     }
     // The server still rejects reads through the card's old board scope.
     assert_eq!(

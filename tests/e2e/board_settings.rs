@@ -449,6 +449,56 @@ const FIELDS: &[(&str, &str, &str)] = &[
         "--allows-whiteboard-on-card",
     ),
     (
+        "allowsBlockedOnCard",
+        "allows_blocked_on_card",
+        "--allows-blocked-on-card",
+    ),
+    (
+        "allowsBlockedOnMinicard",
+        "allows_blocked_on_minicard",
+        "--allows-blocked-on-minicard",
+    ),
+    (
+        "allowsClassOfServiceOnCard",
+        "allows_class_of_service_on_card",
+        "--allows-class-of-service-on-card",
+    ),
+    (
+        "allowsClassOfServiceOnMinicard",
+        "allows_class_of_service_on_minicard",
+        "--allows-class-of-service-on-minicard",
+    ),
+    (
+        "allowsMoscowOnCard",
+        "allows_moscow_on_card",
+        "--allows-moscow-on-card",
+    ),
+    (
+        "allowsMoscowOnMinicard",
+        "allows_moscow_on_minicard",
+        "--allows-moscow-on-minicard",
+    ),
+    (
+        "allowsWsjfOnCard",
+        "allows_wsjf_on_card",
+        "--allows-wsjf-on-card",
+    ),
+    (
+        "allowsWsjfOnMinicard",
+        "allows_wsjf_on_minicard",
+        "--allows-wsjf-on-minicard",
+    ),
+    (
+        "allowsAttachmentPreviewsOnCard",
+        "allows_attachment_previews_on_card",
+        "--allows-attachment-previews-on-card",
+    ),
+    (
+        "allowsAttachmentDetailsOnCard",
+        "allows_attachment_details_on_card",
+        "--allows-attachment-details-on-card",
+    ),
+    (
         "labelsAboveTitleOnCard",
         "labels_above_title_on_card",
         "--labels-above-title-on-card",
@@ -556,10 +606,10 @@ async fn wait_for_domains(app: &LiveApp, server: &str, board: &str, expected: &V
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_BOARD_SETTINGS_E2E_URL"]
-async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_BOARD_SETTINGS_E2E_URL"]
+async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_BOARD_SETTINGS_E2E_URL")
-        .expect("set WEKAN_BOARD_SETTINGS_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_BOARD_SETTINGS_E2E_URL to a fresh isolated v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -630,7 +680,7 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
     let baseline = run(&app, &server, &["card-settings", "get", "--board", &board])
         .await
         .unwrap();
-    assert_eq!(baseline["settings"].as_object().unwrap().len(), 114);
+    assert_eq!(baseline["settings"].as_object().unwrap().len(), 124);
     let saved = stored_board(&board);
     for (wire, snake, _) in FIELDS {
         assert_eq!(baseline["settings"][*snake], saved[*wire], "{wire}");
@@ -660,7 +710,7 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
         }
         let argv: Vec<_> = args.iter().map(String::as_str).collect();
         let output = run(&owner, &server, &argv).await.unwrap();
-        assert_eq!(output["submitted_fields"].as_array().unwrap().len(), 114);
+        assert_eq!(output["submitted_fields"].as_array().unwrap().len(), 124);
         let saved = stored_board(&board);
         for (wire, entry) in expected {
             assert_eq!(saved[&wire], entry["value"], "{wire}");
@@ -782,7 +832,7 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
         assert_eq!(denied.details().wekan_status_code, None);
     }
 
-    // v12.57 REST cannot seed sharing: setBoardDomains receives no DDP user identity.
+    // REST cannot seed sharing: setBoardDomains receives no DDP user identity.
     // Seed only this isolated test's board, then read through the production strict decoder.
     let domains = json!([{"domain":"example.test","isActive":true},{"domain":"inactive.test","isActive":false}]);
     seed_board(&board, json!({"$set":{"domains":domains}}));
@@ -792,7 +842,6 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
         for (action, domain) in [
             ("add", " New.Example.test "),
             ("remove", " EXAMPLE.test "),
-            ("remove", "absent.test"),
             ("add", "example.test"),
         ] {
             let error = run(
@@ -818,6 +867,25 @@ async fn complete_board_settings_and_domain_lifecycle_matches_wekan_v12_57() {
             );
         }
     }
+    let missing = run(
+        &app,
+        &server,
+        &["domain", "remove", "absent.test", "--board", &board],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
+    assert_eq!(
+        missing.details().server_error.as_deref(),
+        Some("Domain not found")
+    );
+    assert_eq!(
+        missing.message(),
+        "the requested Wekan board domain was not found"
+    );
+    assert_eq!(stored_board(&board)["domains"], domains);
+
     for domain in ["", "invalid", "a@b.test", "has space.test"] {
         let error = run(&app, &server, &["domain", "add", domain, "--board", &board])
             .await

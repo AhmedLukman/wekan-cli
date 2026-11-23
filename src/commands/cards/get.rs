@@ -76,6 +76,11 @@ pub(super) async fn execute(
 
 pub(super) fn card_detail(card: CardDocument) -> CardDetail {
     CardDetail {
+        flow: card.flow,
+        estimated_hours: card.estimated_hours,
+        billable: card.billable,
+        shown_fields: card.shown_fields,
+        hidden_fields: card.hidden_fields,
         scrum: card.scrum,
         drawings: card.drawings,
         custom_field_links: card.custom_field_links,

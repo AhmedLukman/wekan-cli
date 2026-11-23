@@ -1,4 +1,4 @@
-//! Native v12.57 producers for multi-select fields and Jira integration metadata.
+//! Native Wekan producers for multi-select fields and Jira integration metadata.
 use crate::support::{
     attachment_fixtures::fixture_command,
     live::{LiveApp, run},

@@ -442,11 +442,11 @@ async fn collection_get_create_and_update_return_stable_typed_results() {
 }
 
 #[tokio::test]
-async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
+async fn get_maps_http_404_to_not_found_and_rejects_unknown_fields() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/boards/board-1/lists/missing"))
-        .respond_with(ResponseTemplate::new(200))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error":"List not found"})))
         .expect(1)
         .mount(&server)
         .await;
@@ -476,8 +476,8 @@ async fn get_maps_empty_success_to_not_found_and_rejects_unknown_fields() {
     .await
     .unwrap_err();
     assert_eq!(missing.code(), ErrorCode::NotFound);
-    assert_eq!(missing.details().http_status, Some(200));
-    assert_eq!(missing.details().wekan_status_code, Some(404));
+    assert_eq!(missing.details().http_status, Some(404));
+    assert_eq!(missing.details().wekan_status_code, None);
 
     let future = dispatch(
         list_command(&["get", "--board", "board-1", "future"]),
@@ -538,7 +538,7 @@ async fn delete_confirms_guards_the_credential_and_verifies_the_id() {
     .unwrap() else {
         panic!("expected list deletion")
     };
-    assert!(deleted.deletion_requested);
+    assert!(deleted.deletion_requested && deleted.deleted);
     assert_eq!(deleted.delete_mode, ListDeleteMode::Soft);
 
     let replacement = CredentialRecord::new(

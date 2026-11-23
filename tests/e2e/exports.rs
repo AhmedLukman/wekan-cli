@@ -586,8 +586,8 @@ async fn verify_external_planning_and_retained_comments(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_EXPORT_E2E_URL"]
-async fn complete_export_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_EXPORT_E2E_URL"]
+async fn complete_export_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_EXPORT_E2E_URL")
         .expect("set WEKAN_EXPORT_E2E_URL to a fresh isolated stack");
     let nonce = SystemTime::now()
@@ -768,7 +768,7 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
         &["board", "export", b, "--format", "json"],
     )
     .await;
-    for (case, (resource, id, scope, format)) in [
+    for (resource, id, scope, format) in [
         ("board", b.as_str(), vec![], Some("csv")),
         ("board", b.as_str(), vec![], Some("tsv")),
         ("board", b.as_str(), vec![], Some("xlsx")),
@@ -784,32 +784,13 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
             vec!["--board", b],
             None,
         ),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let (_probe_dir, probe, _) = register_live_board_role(
-            &server,
-            &canonical,
-            &token,
-            b,
-            nonce + 100 + case as u128,
-            "normal",
-        )
-        .await;
-        let mut denied = vec![resource, "export", id, "--destination", "-"];
-        denied.extend(scope.clone());
+    ] {
+        let mut args = vec![resource, "export", id, "--auth-token-query"];
+        args.extend(scope);
         if let Some(format) = format {
-            denied.extend(["--format", format]);
+            args.extend(["--format", format]);
         }
-        let mut accepted = denied.clone();
-        accepted.push("--auth-token-query");
-        let cli = Cli::try_parse_from(["wekan", "--server", &server].into_iter().chain(accepted))
-            .unwrap();
-        probe.execute(cli.command).await.unwrap();
-        // W12-002: attachment Bearer denial can disable a legitimate member.
-        let error = run(&probe, &server, &denied).await.unwrap_err();
-        assert_eq!(error.details().http_status, Some(403));
+        raw(&normal, &server, &args).await;
     }
     inspect_pdf(&raw(&normal, &server, &["board", "export", b, "--format", "pdf"]).await);
     inspect_pdf(
@@ -1186,7 +1167,7 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
     let roundtrip_dir = TestDirectory::new("native-zip-roundtrip");
     let roundtrip_file = roundtrip_dir.path().join("board.zip");
     std::fs::write(&roundtrip_file, &bytes).unwrap();
-    // W12-005: the tracked importer starts outside the DDP identity context.
+    // W12-005: default and explicit member mapping both create a readable board.
     for members_mode in [None, Some("me")] {
         let mut args = vec![
             "board",
@@ -1197,13 +1178,16 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
         if let Some(mode) = members_mode {
             args.extend(["--members-mode", mode]);
         }
-        let error = run(&app, &server, &args).await.unwrap_err();
-        assert_eq!(error.code(), ErrorCode::ServerError);
-        assert_eq!(error.details().http_status, Some(500));
-        assert_eq!(
-            error.details().server_error.as_deref(),
-            Some("import-failed")
-        );
+        let CommandSuccess::BoardImported(receipt) = run(&app, &server, &args).await.unwrap()
+        else {
+            panic!("new-board ZIP import")
+        };
+        execute_live_board(&app, &server, &["get", &receipt.board_id])
+            .await
+            .unwrap();
+        execute_live_board(&app, &server, &["delete", &receipt.board_id, "--yes"])
+            .await
+            .unwrap();
     }
     let CommandSuccess::BoardCreated(scoped_board) = execute_live_board(
         &app,
@@ -1317,9 +1301,9 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
     )
     .await
     .unwrap_err();
-    assert_eq!(missing.code(), ErrorCode::ProtocolError);
-    assert_eq!(missing.details().http_status, Some(200));
-    let broken_card = run(
+    assert_eq!(missing.code(), ErrorCode::NotFound);
+    assert_eq!(missing.details().http_status, Some(404));
+    let selected_card = raw(
         &app,
         &server,
         &[
@@ -1332,18 +1316,13 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
             l,
             "--format",
             "xlsx",
-            "--destination",
-            "-",
             "--auth-token-query",
             "--field",
             "description",
         ],
     )
-    .await
-    .unwrap_err();
-    // W11-028: v12.57 starts the XLSX response, then destroys it after the null-list exception.
-    assert_eq!(broken_card.code(), ErrorCode::TransportError);
-    assert_eq!(broken_card.details().http_status, None);
+    .await;
+    inspect_xlsx(&selected_card);
     let denied = run(
         &app,
         &server,
@@ -1423,7 +1402,7 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
     .await;
     // W11-027 is fixed by native Excel date cells: both branches retain the same UTC serial.
     assert!(workbook_text(&private_locale).contains("<v>46376.5</v>"));
-    // Public exports do not need a credential; public CSV's native fields mask is ignored.
+    // Public CSV applies the same field mask as private CSV.
     mongo(
         "db.getSiblingDB('wekan').boards.updateOne({_id:p.board_id},{$set:{permission:'public'}});print('{}');",
         &json!({"board_id":b}),
@@ -1485,7 +1464,8 @@ async fn complete_export_lifecycle_matches_wekan_v12_57() {
         ],
     )
     .await;
-    assert_eq!(all, filtered);
+    assert_ne!(all, filtered);
+    assert!(all.len() > filtered.len());
 
     // Exercise the UI's native watch/unwatch writes, including a subtask's
     // full-card projection. Untouched cards omit watchers; unwatching keeps [].

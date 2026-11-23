@@ -20,6 +20,7 @@ pub struct GlobalSettingsDocument {
     pub custom_login_logo_link_url: Option<String>,
     pub custom_help_link_url: Option<String>,
     pub text_below_custom_login_logo: Option<String>,
+    pub login_background_color: Option<String>,
     pub automatic_linked_url_schemes: Option<String>,
     pub custom_top_left_corner_logo_image_url: Option<String>,
     pub custom_top_left_corner_logo_link_url: Option<String>,
@@ -125,6 +126,12 @@ pub struct UpdateGlobalSettings {
         skip_serializing_if = "Option::is_none"
     )]
     pub text_below_custom_login_logo: Option<Option<String>>,
+    #[serde(
+        default,
+        deserialize_with = "present_nullable",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub login_background_color: Option<Option<String>>,
     #[serde(
         default,
         deserialize_with = "present_nullable",

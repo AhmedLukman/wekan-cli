@@ -11,6 +11,7 @@
   "hideBoardMemberList": true,
   "customLoginLogoImageUrl": "value",
   "customLoginLogoLinkUrl": "value",
+  "loginBackgroundColor": "#314159",
   "customHelpLinkUrl": "value",
   "textBelowCustomLoginLogo": "value",
   "automaticLinkedUrlSchemes": "value",

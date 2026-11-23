@@ -6,7 +6,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_client_error,
+        client_error::map_client_error_with_not_found,
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::{CredentialStore, SecretInputProvider},
@@ -24,13 +24,13 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Wekan v12.57 acknowledges raw-token deletion without revoking that session (W11-058). Tokens are sent unchanged; local credentials are retained."
+    after_help = "Single-token deletion accepts the stored token hash (base64-encoded SHA-256). Local credentials are retained."
 )]
 pub struct DeleteArgs {
     /// Wekan user ID whose tokens should be deleted.
     #[arg(value_parser = super::super::non_empty)]
     user_id: String,
-    /// Read the target token from UTF-8 stdin, removing one final LF or CRLF.
+    /// Read the stored token hash from UTF-8 stdin, removing one final LF or CRLF.
     #[arg(long, required_unless_present = "all", conflicts_with = "all")]
     token_stdin: bool,
     /// Request deletion of every token for this user.
@@ -140,7 +140,9 @@ pub(super) async fn execute(
         .delete_user_token(&request, context.record().token())
         .await;
     drop(guard);
-    let response = response.map_err(|e| map_client_error(e, &redactor, "token deletion"))?;
+    let response = response.map_err(|e| {
+        map_client_error_with_not_found(e, &redactor, "token deletion", "user not found")
+    })?;
     Ok(CommandSuccess::UserTokenDeleted(UserTokenDeleteSuccess {
         user_id: request.user_id.clone(),
         scope: if args.all {

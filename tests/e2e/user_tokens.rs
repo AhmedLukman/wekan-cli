@@ -1,5 +1,7 @@
 use super::support::*;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use wekan_cli::credentials::CredentialTarget;
 
 fn run(
@@ -97,10 +99,10 @@ fn saved_tokens(user: &str) -> Value {
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Compose Wekan v12.57 stack and WEKAN_TOKEN_E2E_URL"]
-async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
+#[ignore = "destructive: requires a fresh isolated Compose Wekan v13.28 stack and WEKAN_TOKEN_E2E_URL"]
+async fn complete_user_token_lifecycle_matches_wekan_v13_28() {
     let server = env::var("WEKAN_TOKEN_E2E_URL")
-        .expect("set WEKAN_TOKEN_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_TOKEN_E2E_URL to a fresh isolated v13.28 stack");
     let canonical = ServerUrl::parse(&server).unwrap().as_str().to_owned();
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -177,22 +179,22 @@ async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
     assert_token_state(&canonical, &member, second_token, true).await;
     assert_eq!(saved_tokens(&member)["count"], 3);
 
-    // W11-058 survives: a raw issued token is acknowledged but remains usable.
-    let raw_delete = run(
+    let first_hash = STANDARD.encode(Sha256::digest(first_token.as_bytes()));
+    let single_delete = run(
         admin_dir.path(),
         &server,
         &["user", "token", "delete", &member, "--token-stdin", "--yes"],
-        Some(&format!("{first_token}\r\n")),
+        Some(&format!("{first_hash}\r\n")),
         "json",
     );
-    let data = success(&raw_delete);
+    let data = success(&single_delete);
     assert_eq!(data["scope"], "single");
     assert!(data.get("mutation_confirmed").is_none());
     assert!(data.get("deletion_requested").is_none());
     assert!(data["message"].as_str().unwrap().contains("[REDACTED]"));
-    assert_secret_absent(&raw_delete, first_token);
-    assert_secret_absent(&raw_delete, admin_credential.token().expose_secret());
-    assert_token_state(&canonical, &member, first_token, true).await;
+    assert_secret_absent(&single_delete, first_token);
+    assert_secret_absent(&single_delete, admin_credential.token().expose_secret());
+    assert_token_state(&canonical, &member, first_token, false).await;
     assert_token_state(&canonical, &member, second_token, true).await;
     assert_token_state(
         &canonical,
@@ -201,7 +203,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
         true,
     )
     .await;
-    assert_eq!(saved_tokens(&member)["count"], 3);
+    assert_eq!(saved_tokens(&member)["count"], 2);
 
     for user in [&member, "missing-token-user"] {
         let output = run(
@@ -211,7 +213,12 @@ async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
             Some("nonexistent-token\n"),
             "json",
         );
-        assert!(success(&output).get("mutation_confirmed").is_none());
+        if user == member {
+            assert!(success(&output).get("mutation_confirmed").is_none());
+        } else {
+            let error = error_json(&output, 5, "not_found");
+            assert_eq!(error["error"]["details"]["http_status"], 404);
+        }
         assert_secret_absent(&output, "nonexistent-token");
     }
     // W11-059 is fixed: no secret or user is created for an unknown selector.
@@ -248,7 +255,10 @@ async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
         None,
         "json",
     );
-    assert!(success(&missing_all).get("mutation_confirmed").is_none());
+    assert_eq!(
+        error_json(&missing_all, 5, "not_found")["error"]["details"]["http_status"],
+        404
+    );
 
     for args in [
         vec![
@@ -308,7 +318,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v12_57() {
         finish_production_cli(child)
     };
     error_json(&invalid_utf8, 2, "invalid_input");
-    assert_eq!(saved_tokens(&member)["count"], 3);
+    assert_eq!(saved_tokens(&member)["count"], 2);
 
     let all = run(
         admin_dir.path(),

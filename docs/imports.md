@@ -1,6 +1,6 @@
 # Imports
 
-Import commands use Wekan v12.57's native REST endpoints. They accept ordinary
+Import commands use Wekan v13.28's native REST endpoints. They accept ordinary
 files or `-` for stdin, require stored credentials, and run directly without a
 confirmation prompt. Use `--output json` for stable machine-readable results.
 They do not retry requests: repeated imports create additional resources.
@@ -55,6 +55,10 @@ passes the archive intact for native validation. `--timeout` accepts positive
 integer seconds and defaults to 30. Only human/JSON output is supported, and
 there is no `--yes` option.
 
+## Staging an import file
+
+`wekan board import-upload <FILE|-> --source <SOURCE> [--timeout <SECONDS>]` streams the file to Wekan and returns `upload_id` and the byte count `size`. The staging route accepts the same source names as board import. The server associates an upload with the authenticated user and source and expires it after one hour. Creating a board over REST uses the separate `board import` command with its own file input.
+
 ## New boards
 
 ```console
@@ -68,7 +72,7 @@ wekan board import issues.json --source github --members-mapping-file members.js
 
 Omitting `--source` selects `POST /api/boards/import`. An explicit source selects
 `POST /api/boards/import/{source}`, including `--source wekan`. Supported sources
-are all 49 keys in the pinned catalog:
+are all 85 keys in the pinned catalog:
 
 ```text
 wekan trello csv excel jira kanboard deck openproject
@@ -77,8 +81,18 @@ opml orgmode todotxt taskwarrior focalboard todoist planner meistertask
 obsidian linear ticktick clickup nullboard kanri pivotal redmine
 tasksorg monday superproductivity taiga vikunja wrike teamwork businessmap
 quire notion plane planka mstodo kanbanflow basecamp googletasks
-googlekeep
+googlekeep azuredevops mslists msproject outlook fizzy mail ical
+googletakeout slack mattermost telegram whatsapp discord rocketchat evernote
+sandstormwekan sandstormprioritize sandstormyatl sandstormmutodo sandstormsandchat sandstormethercalc sandstormradicalecalendar sandstormradicalecontacts
+sandstormdavros sandstormhackercms sandstormgogs wordpress wordpressjson ghost blogger markdownsite
+htmlsite substack sandstormwordpress onenote teams
 ```
+
+Telegram and Discord accept their native JSON exports. Wekan v13.28 advertises ZIP input for both sources and stages those archives successfully. Submitting either ZIP to `board import` returns HTTP 500 (W13-002).
+
+Wekan v13.28 returns HTTP 500 when its own WordPress WXR or Blogger Atom
+export is submitted to the matching import source (W13-001). These formats
+are available in the CLI and return the native error. [Compatibility ledger](https://github.com/AhmedLukman/wekan-cli/blob/main/docs/compatibility.md)
 
 The source is explicit. Plane, Notion, and Vikunja detect ZIP/XLSX encodings
 from the filename extension when `--input-format auto` is used. For stdin or an
@@ -132,7 +146,7 @@ afterwards. Archives are not extracted or rewritten by the CLI.
 Optional `--swimlane`, `--list`, `--card`, and `--checklist` selectors are sent
 together as supplied. Scope IDs require 1–64 ASCII letters, digits, underscores,
 or hyphens. Native card scope takes precedence over list and swimlane scope.
-**Wekan v12.57 ignores checklist scope**, so `--checklist` alone can still import
+**Wekan v13.28 ignores checklist scope**, so `--checklist` alone can still import
 the whole document into the destination board. No client emulation occurs.
 
 Repeat `--field` for selected sections: `card-details`, `board-header`,
@@ -224,9 +238,7 @@ is available with `--new-board`; scoped destination selectors require `--board`.
 Field selection, file/stdin acquisition, authentication and timeout controls
 work in both modes. New-board imports do not return scoped resource counters.
 
-The new-board ZIP mode currently returns HTTP 500 `import-failed` for valid
-native exports because the server starts the import outside its user context
-(W12-005). Scoped import completes, but native ZIP exports name attachment
-entries differently from the ID-prefixed format this importer expects and can
-therefore import cards with zero attachments (W12-004). The CLI preserves the
-native response and never rewrites archives or substitutes an import engine.
+Default member mapping and `--members-mode me` both return a new board ID for
+a valid native export. Scoped import can still restore cards with zero attachments
+because the exporter omits the IDs the importer expects in attachment filenames
+(W12-004).

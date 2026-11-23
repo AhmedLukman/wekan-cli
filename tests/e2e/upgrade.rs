@@ -312,15 +312,15 @@ async fn nested_metadata_lifecycle(
 }
 
 #[tokio::test]
-#[ignore = "destructive: requires a fresh isolated Wekan v12.57 stack and WEKAN_UPGRADE_E2E_URL"]
-async fn native_v12_57_extensions_complete_lifecycle() {
+#[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_UPGRADE_E2E_URL"]
+async fn native_api_extensions_complete_lifecycle() {
     let server = env::var("WEKAN_UPGRADE_E2E_URL")
-        .expect("set WEKAN_UPGRADE_E2E_URL to a fresh isolated v12.57 stack");
+        .expect("set WEKAN_UPGRADE_E2E_URL to a fresh isolated v13.28 stack");
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    let directory = TestDirectory::new("v12-57-extensions");
+    let directory = TestDirectory::new("native-api-extensions");
     let app = App::with_profile_store(
         ServerSelection::new(Some(server.clone()), Some("default".into()), false),
         CapturingStore::default(),
@@ -656,7 +656,7 @@ async fn native_v12_57_extensions_complete_lifecycle() {
     metadata::verify(&app, &server, board, list, swimlane, card, nonce).await;
 
     let file = directory.path().join("attachment.txt");
-    fs::write(&file, b"Wekan v12.57 attachment round trip").unwrap();
+    fs::write(&file, b"Wekan attachment round trip").unwrap();
     let uploaded = run(
         &app,
         &server,

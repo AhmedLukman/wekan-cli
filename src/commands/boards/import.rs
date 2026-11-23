@@ -53,8 +53,8 @@ pub struct ImportArgs {
     /// JSON file containing optional url, username and token for attachment downloads.
     #[arg(long, value_name = "PATH")]
     pub attachment_auth_file: Option<PathBuf>,
-    /// File encoding for Plane, Notion or Vikunja; auto uses the filename extension.
-    #[arg(long, default_value = "auto", value_parser = ["auto", "json", "text", "xlsx", "zip"])]
+    /// Input encoding for sources with multiple file formats. Auto uses the filename extension.
+    #[arg(long, default_value = "auto", value_parser = ["auto", "json", "text", "xlsx", "zip", "msg", "tar"])]
     pub input_format: String,
 }
 
@@ -95,12 +95,17 @@ impl ImportArgs {
                 "--csv-mapping requires --source csv or excel",
             ));
         }
-        if self.input_format != "auto"
-            && !matches!(self.source.as_deref(), Some("plane" | "notion" | "vikunja"))
-        {
-            return Err(AppError::invalid_input(
-                "--input-format requires --source plane, notion or vikunja",
-            ));
+        if self.input_format != "auto" {
+            let supported = self
+                .source
+                .as_deref()
+                .and_then(|v| v.parse::<ImportSource>().ok())
+                .is_some_and(|source| source.input_formats().contains(&self.input_format.as_str()));
+            if !supported {
+                return Err(AppError::invalid_input(
+                    "--input-format must be supported by the selected source",
+                ));
+            }
         }
         Ok(())
     }
@@ -207,10 +212,15 @@ pub(crate) async fn execute(
         Some(ImportSource::Plane) if encoding == "xlsx" => {
             BoardImportRequest::xlsx(&bytes, members_mapping)
         }
-        Some(ImportSource::Plane | ImportSource::Notion | ImportSource::Vikunja)
-            if encoding == "zip" =>
+        Some(source)
+            if source.zip_only()
+                || (encoding == "zip" && source.input_formats().contains(&"zip")) =>
         {
             BoardImportRequest::zip(&bytes, members_mapping)
+        }
+        Some(ImportSource::Outlook) => BoardImportRequest::binary(&bytes, members_mapping),
+        Some(ImportSource::Teams) if encoding == "tar" => {
+            BoardImportRequest::binary(&bytes, members_mapping)
         }
         Some(source) if source.is_text() => BoardImportRequest {
             options: Default::default(),

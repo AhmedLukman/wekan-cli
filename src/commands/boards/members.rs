@@ -26,7 +26,7 @@ pub enum MemberCommand {
     List(ListArgs),
     /// Add or reactivate a board member; active members keep their permissions.
     Add(AddArgs),
-    /// Request member deactivation; Wekan preserves its sole active administrator.
+    /// Deactivate a board member. Removing the last active administrator returns HTTP 409.
     Remove(MutationTarget),
     /// Set member permissions directly; omitted flags are not preserved as a patch.
     Update(UpdateArgs),
