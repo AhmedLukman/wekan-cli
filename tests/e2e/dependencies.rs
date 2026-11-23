@@ -129,6 +129,75 @@ async fn new_card(
         .unwrap()
         .to_owned()
 }
+async fn assert_exported_blockers(scope: &Target<'_>, relation: &str) {
+    for (format, collection, title) in [
+        ("taskwarrior", "", "/description"),
+        ("asana", "/data", "/name"),
+        ("openproject", "/_embedded/elements", "/subject"),
+        ("jira", "/issues", "/fields/summary"),
+    ] {
+        let document =
+            super::exports::external_export(scope.app, scope.server, scope.board, format).await;
+        let cards = document.pointer(collection).unwrap().as_array().unwrap();
+        assert_eq!(cards.len(), 2, "{format}");
+        let [source, target] = ["Source", "Target"].map(|name| {
+            cards
+                .iter()
+                .find(|card| card.pointer(title).and_then(Value::as_str) == Some(name))
+                .unwrap()
+        });
+        let (blocker, waiting) = if relation == "blocks" {
+            (source, target)
+        } else {
+            (target, source)
+        };
+        match format {
+            "taskwarrior" => {
+                assert_eq!(
+                    waiting["depends"],
+                    json!([blocker["uuid"].as_str().unwrap()])
+                );
+                assert!(blocker.get("depends").is_none());
+            }
+            "asana" => {
+                assert_eq!(
+                    waiting["dependencies"],
+                    json!([{"gid":blocker["gid"].as_str().unwrap()}])
+                );
+                assert!(blocker.get("dependencies").is_none());
+            }
+            "openproject" => {
+                let href = |card: &Value| {
+                    format!("/api/v3/work_packages/{}", card["id"].as_u64().unwrap())
+                };
+                assert_eq!(
+                    waiting["_embedded"],
+                    json!({"relations":[{
+                        "_type":"Relation", "type":"blocked",
+                        "_links":{"from":{"href":href(waiting)}, "to":{"href":href(blocker)}}
+                    }]})
+                );
+                assert!(blocker.get("_embedded").is_none());
+            }
+            "jira" => {
+                let direction = if relation == "blocks" {
+                    "outwardIssue"
+                } else {
+                    "inwardIssue"
+                };
+                assert_eq!(
+                    source["fields"]["issuelinks"],
+                    json!([{
+                        "type":{"name":"Blocks"}, (direction):{"key":target["key"].as_str().unwrap()}
+                    }])
+                );
+                assert!(target["fields"].get("issuelinks").is_none());
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
 fn assert_server_failure(error: &AppError, symbol: &str) {
     assert_eq!(error.code(), ErrorCode::ServerError);
     assert_eq!(error.details().http_status, Some(500));
@@ -262,6 +331,9 @@ async fn complete_dependency_lifecycle_matches_wekan_v13_28() {
         scope
             .assert_single_dependency(&target, relation, "#2196f3", "lock")
             .await;
+        if matches!(relation, "blocks" | "is-blocked-by") {
+            assert_exported_blockers(&scope, relation).await;
+        }
         let updated = scope
             .dependency(&["update", &target, "--type", relation])
             .await
@@ -403,14 +475,29 @@ async fn complete_dependency_lifecycle_matches_wekan_v13_28() {
         vec!["delete", &target, "--yes"],
     ] {
         let error = missing.dependency(&args).await.unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
         assert_eq!(error.details().http_status, Some(404));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("Card not found")
+        );
+        assert_eq!(
+            error.message(),
+            "the source card was not found on that board"
+        );
     }
     for args in [
         vec!["update", "missing-edge", "--color", "red"],
         vec!["delete", "missing-edge", "--yes"],
     ] {
         let error = scope.dependency(&args).await.unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
         assert_eq!(error.details().http_status, Some(404));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("Dependency not found")
+        );
+        assert_eq!(error.message(), "the dependency was not found on that card");
     }
     assert_eq!(scope.edges().await.len(), 1);
 

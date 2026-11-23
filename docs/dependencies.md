@@ -52,7 +52,7 @@ optional nullable strings; normalized dependency responses require a named type.
 An update without metadata and a POST targeting the same card, an absent card,
 or a card on a different board return HTTP 500 with `Internal server error`.
 A missing source card returns HTTP 404. Updating or deleting an edge that does
-not exist also returns HTTP 404. Successful updates and deletions return the
+not exist also returns HTTP 404. The CLI reports `not_found` and identifies the missing resource. Successful updates and deletions return the
 source card ID. Deleting a target
 card leaves its incoming dependencies; board listings then return null target
 title/card number. A dangling edge can still be removed with dependency delete.

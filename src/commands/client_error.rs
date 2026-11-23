@@ -37,6 +37,26 @@ pub(crate) fn map_client_error_with_not_found(
     map_client_error_with_optional_not_found(error, redactor, operation, Some(not_found_message))
 }
 
+pub(crate) fn map_scoped_resource_error(
+    error: ClientError,
+    redactor: &Redactor<'_>,
+    operation: &str,
+) -> AppError {
+    let native_error = match &error {
+        ClientError::Server { server_error, .. } => server_error.as_deref(),
+        _ => None,
+    };
+    let message = match native_error {
+        Some("Board not found") => "the Wekan board was not found",
+        Some("Card not found") => "the source card was not found on that board",
+        Some("Dependency not found") => "the dependency was not found on that card",
+        Some("Custom field not found") => "the custom field was not found on that board",
+        Some("Dropdown item not found") => "the dropdown item was not found in that custom field",
+        _ => "Wekan could not find the requested resource",
+    };
+    map_client_error_with_not_found(error, redactor, operation, message)
+}
+
 fn map_client_error_with_optional_not_found(
     error: ClientError,
     redactor: &Redactor<'_>,

@@ -32,6 +32,7 @@ pub(super) async fn verify(
     let before = run(app, server, &board_get).await.unwrap();
     for field in [
         "announcement",
+        "scrum",
         "wip_limit_groups",
         "column_sets",
         "notification_delivery",
@@ -88,6 +89,7 @@ pub(super) async fn verify(
         .to_owned();
     tokio::time::timeout(std::time::Duration::from_secs(45), async {
         let mut session = ddp::Session::login(server, &token).await;
+        session.call("scrum.configure", json!([board, {"definitionOfReady":"Reviewed"}])).await;
         // These features save collection updates from their UI model helpers:
         // models/boards.js setAnnouncement/addWipLimitGroup,
         // client/components/boards/columnSetsView.js and cards/cardDrawing.js.
@@ -104,6 +106,9 @@ pub(super) async fn verify(
         }}])).await;
         session.call("cards.whiteboardAddStroke", json!([card,"metadataDrawing",{
             "_id":"metadataStroke","color":"#000000","width":2,"points":[[10,20],[30,40]]
+        }])).await;
+        session.call("cards.whiteboardAddStroke", json!([card,"metadataDrawing",{
+            "_id":"groupedStroke","color":"#000000","width":2,"points":[[30,40]],"group":"pair"
         }])).await;
         session.call("linkCardCustomFields", json!([card,target,"both"])).await;
         session.call("setNotificationDelivery", json!(["board",board,"email",{
@@ -124,6 +129,10 @@ pub(super) async fn verify(
         session.close().await;
     }).await.expect("native populated metadata producers timed out");
     let shown = run(app, server, &board_get).await.unwrap();
+    assert_eq!(shown["scrum"]["definition_of_ready"], "Reviewed");
+    assert_eq!(shown["scrum"]["standup_timer"], true);
+    assert_eq!(shown["scrum"]["standup_minutes"], 2);
+    assert_eq!(shown["scrum"]["retrospective_board"], true);
     assert_eq!(shown["announcement"]["enabled"], true);
     assert_eq!(shown["announcement"]["body"], "Metadata announcement");
     assert!(shown["announcement"]["updated_at"].is_string());
@@ -137,12 +146,44 @@ pub(super) async fn verify(
     let shown = run(app, server, &card_get).await.unwrap();
     assert_eq!(shown["column_set_values"]["metadataSet"], "metadataColumn");
     assert_eq!(shown["drawings"][0]["strokes"][0]["id"], "metadataStroke");
+    assert!(shown["drawings"][0]["strokes"][0]["group"].is_null());
+    assert_eq!(shown["drawings"][0]["strokes"][1]["group"], "pair");
     assert_eq!(shown["drawings"][0]["strokes"][0]["user_id"], user_id);
     assert_eq!(
         shown["drawings"][0]["strokes"][0]["points"],
         json!([[10, 20], [30, 40]])
     );
     assert!(shown["drawings"][0]["png_attachment_id"].is_null());
+    let directory = TestDirectory::new("scrum-drawing-export");
+    let destination = directory.path().join("board.json");
+    run(
+        app,
+        server,
+        &[
+            "board",
+            "export",
+            board,
+            "--format",
+            "json",
+            "--destination",
+            destination.to_str().unwrap(),
+        ],
+    )
+    .await
+    .unwrap();
+    let export: serde_json::Value =
+        serde_json::from_slice(&fs::read(destination).unwrap()).unwrap();
+    assert_eq!(export["scrum"]["definitionOfReady"], "Reviewed");
+    assert_eq!(export["scrumTransfer"]["settings"]["standupMinutes"], 2);
+    let exported_card = export["cards"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["_id"] == card)
+        .unwrap();
+    let strokes = &exported_card["drawings"][0]["strokes"];
+    assert!(strokes[0].get("group").is_none());
+    assert_eq!(strokes[1]["group"], "pair");
     assert_eq!(shown["custom_field_links"][0]["card_id"], target);
     assert_eq!(shown["custom_field_links"][0]["mode"], "both");
     assert_eq!(shown["custom_field_links"][0]["user_id"], user_id);
@@ -174,6 +215,12 @@ pub(super) async fn verify(
             "boards",
             board,
             "announcement.unmappedAuditField",
+            board_get.as_slice(),
+        ),
+        (
+            "boards",
+            board,
+            "scrum.unmappedAuditField",
             board_get.as_slice(),
         ),
         (

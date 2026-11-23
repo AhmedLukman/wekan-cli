@@ -9,11 +9,13 @@ mod tests;
 mod update;
 
 use crate::{
-    client::WekanClientFactory,
+    client::{ClientError, WekanClientFactory},
     command_result::CommandSuccess,
+    commands::client_error::map_client_error_with_not_found,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
     input::ConfirmationProvider,
+    redaction::Redactor,
 };
 use clap::{Args, Subcommand};
 
@@ -72,6 +74,19 @@ struct Target {
     /// Wekan board ID.
     #[arg(long = "board", value_parser = identifier, help_heading = "Target")]
     board_id: String,
+}
+
+fn map_target_error(error: ClientError, redactor: &Redactor<'_>, operation: &str) -> AppError {
+    let native_error = match &error {
+        ClientError::Server { server_error, .. } => server_error.as_deref(),
+        _ => None,
+    };
+    let message = match native_error {
+        Some("Board not found") => "the Wekan board was not found",
+        Some("Integration not found") => "the integration was not found on that Wekan board",
+        _ => "the integration or Wekan board was not found",
+    };
+    map_client_error_with_not_found(error, redactor, operation, message)
 }
 
 fn identifier(value: &str) -> Result<String, String> {

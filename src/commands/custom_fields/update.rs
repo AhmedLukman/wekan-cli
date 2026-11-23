@@ -2,9 +2,7 @@ use super::non_empty;
 use crate::{
     client::WekanClientFactory,
     command_result::CommandSuccess,
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
+    commands::{authenticated::AuthenticatedContext, client_error::map_scoped_resource_error},
     credentials::CredentialStore,
     error::AppError,
     redaction::Redactor,
@@ -97,14 +95,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| {
-            map_client_error_with_not_found(
-                error,
-                &redactor,
-                "custom-field update",
-                "the Wekan board was not found",
-            )
-        })?;
+        .map_err(|error| map_scoped_resource_error(error, &redactor, "custom-field update"))?;
     Ok(CommandSuccess::CustomFieldUpdated(
         crate::command_result::CustomFieldUpdateSuccess {
             board_id: args.board_id,

@@ -5,7 +5,6 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_client_error_with_not_found,
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -81,11 +80,10 @@ pub(super) async fn execute(
         .await;
     drop(guard);
     let response = result.map_err(|e| {
-        map_client_error_with_not_found(
+        super::map_target_error(
             e,
             &Redactor::with_secret(context.record().token()),
             "integration deletion",
-            "the Wekan board was not found",
         )
     })?;
     Ok(CommandSuccess::IntegrationDeleted(

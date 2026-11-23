@@ -53,6 +53,12 @@ the native empty `author` object. Kanboard, Deck, OpenProject, Jira, Asana, and
 Zenkit also retain comments whose authors were deleted, preserving omitted
 identity properties and any remaining empty author objects.
 
+When two exported cards have a blocking dependency, Taskwarrior lists blocker
+UUIDs in `depends`, and Asana lists blocker IDs in `dependencies`. OpenProject
+links the waiting work package to its blocker in `_embedded.relations`, even
+when the card has no comments. Jira records the link direction in
+`fields.issuelinks`.
+
 OpenProject exports preserve release version links and sprint goals as
 descriptions. Release descriptions and release/sprint planned dates may be
 omitted when unset. Present properties remain typed, and unknown properties
@@ -66,11 +72,12 @@ parameter. `--no-auth` skips credential access and sends no token, for public
 exports. These two flags conflict. All existing profile, server, output, and
 insecure-HTTP global options remain available.
 
-Private board CSV/TSV, board/card Excel, and attachment JSON routes have
-administrator-only Bearer checks in v13.28. A normal board member can use their
-own credential with the explicit `--auth-token-query` option. The CLI does not
-switch modes after a rejection. Other routes retain their own native permission
-checks.
+For a private board, Wekan v13.28 returns HTTP 403 to an ordinary member
+exporting board CSV, TSV or Excel, or card Excel, with default Bearer
+authentication (W11-057). The same member can export those files using
+`--auth-token-query`. The private attachment JSON route also restricts its
+Bearer lookup to site administrators and accepts the member's explicit query
+token. The CLI preserves the selected authentication mode on each request.
 
 `--timeout SECONDS` overrides the 30-second total HTTP request timeout with a
 positive integer. Validation and file delivery happen after the network response
@@ -94,7 +101,7 @@ format. External JSON formats gate description, labels, and dates where those
 exist. CSV applies the column selection to public and private boards.
 
 Board JSON/XLSX/PDF/ZIP/ICS support `--swimlane ID`, `--list ID`, `--card ID`, and
-`--checklist ID`. Scope IDs must contain 1â€“64 ASCII letters, digits, underscores,
+`--checklist ID`. Scope IDs must contain 1–64 ASCII letters, digits, underscores,
 or hyphens. Supplied selectors are forwarded together: card wins over checklist;
 otherwise list and swimlane constrain the cards together. A checklist scope
 selects its parent card. Scope flags are unavailable for the other formats.

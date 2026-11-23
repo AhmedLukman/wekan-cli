@@ -120,6 +120,8 @@ fn import_parser_help_sources_conflicts_and_output_are_explicit() {
     }
     for extra in [
         vec!["--delimiter", ";"],
+        vec!["--input-format", "msg"],
+        vec!["--input-format", "tar"],
         vec!["--members-mapping-file", "-"],
         vec!["--members-mode", "map"],
         vec!["--members-mode", "placeholder"],

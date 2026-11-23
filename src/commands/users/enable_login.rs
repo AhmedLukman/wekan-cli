@@ -10,7 +10,8 @@ use crate::{
     redaction::Redactor,
 };
 
-use super::{map_client_error, non_empty, user_detail};
+use super::{non_empty, user_detail};
+use crate::commands::client_error::map_client_error_with_not_found;
 
 #[derive(Debug, Args)]
 pub struct EnableLoginArgs {
@@ -34,7 +35,9 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|error| map_client_error(error, &redactor, "enable-login"))?;
+        .map_err(|error| {
+            map_client_error_with_not_found(error, &redactor, "enable-login", "user not found")
+        })?;
     let UserActionResult::LoginChanged(user) = result else {
         return Err(AppError::new(
             ErrorCode::ProtocolError,

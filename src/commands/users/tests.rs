@@ -385,13 +385,17 @@ async fn destructive_decline_sends_no_http_request() {
 }
 
 #[tokio::test]
-async fn self_actions_still_require_confirmation() {
+async fn ownership_and_self_disable_describe_their_effects_before_confirmation() {
     let server = MockServer::start().await;
     let store = FakeCredentialStore::authenticated(&server, "admin-1");
     let confirmation = FakeConfirmationProvider::declining();
-    for action in ["take-ownership", "disable-login"] {
+    for (action, user) in [
+        ("take-ownership", "admin-1"),
+        ("take-ownership", "owner-1"),
+        ("disable-login", "admin-1"),
+    ] {
         let result = dispatch(
-            user_command(&[action, "admin-1"]),
+            user_command(&[action, user]),
             &factory(&server),
             &store,
             &FakeSecrets::new("unused"),
@@ -401,7 +405,27 @@ async fn self_actions_still_require_confirmation() {
         .unwrap();
         assert!(matches!(result, CommandSuccess::Cancelled(_)));
     }
-    assert_eq!(confirmation.requests().len(), 2);
+    let requests = confirmation.requests();
+    assert_eq!(requests.len(), 3);
+    assert!(
+        requests[0]
+            .prompt()
+            .contains("another active administrator")
+    );
+    assert!(
+        requests[1]
+            .prompt()
+            .contains("an active or inactive administrator membership")
+    );
+    assert!(
+        requests[1]
+            .prompt()
+            .contains("deactivate your existing membership first")
+    );
+    let prompt = requests[1].prompt();
+    assert!(prompt.contains("You can lose access if that entry is inactive"));
+    assert!(prompt.contains("first membership entry"));
+    assert!(prompt.contains("retain administrator access"));
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 

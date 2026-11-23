@@ -2,16 +2,33 @@ pub mod inbound_email;
 use reqwest::{Method, header::ACCEPT};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer};
+use serde_json::Value;
 
 use super::{
     ClientError, WekanClient, datetime::validate_response_date, transport::decode_success,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-#[serde(untagged)]
+#[serde(try_from = "Value")]
 pub enum IntegrationDocument {
     Administrator(Box<AdministratorIntegrationDocument>),
     Member(MemberIntegrationDocument),
+}
+
+impl TryFrom<Value> for IntegrationDocument {
+    type Error = serde_path_to_error::Error<serde_json::Error>;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        use super::admin::Object;
+        // The member projection has only _id, boardId, enabled and activities.
+        // Either required admin field selects that projection even when the other is missing.
+        if value.get("type").is_some() || value.get("url").is_some() {
+            serde_path_to_error::deserialize(value)
+                .map(|Object(document)| Self::Administrator(document))
+        } else {
+            serde_path_to_error::deserialize(value).map(|Object(document)| Self::Member(document))
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -157,12 +174,19 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        let documents: Vec<IntegrationDocument> =
-            decode_success(&body, "integration collection", true)?;
-        for document in &documents {
-            validate_document(document, board, None)?;
-        }
-        Ok(documents)
+        let operation = "integration collection";
+        let documents: Vec<Value> = decode_success(&body, operation, true)?;
+        documents
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| {
+                let document = IntegrationDocument::try_from(value).map_err(|error| {
+                    super::decoding::decoding_error_at(error, operation, true, Some(index))
+                })?;
+                validate_document(&document, board, None)?;
+                Ok(document)
+            })
+            .collect()
     }
 
     pub async fn integration(
@@ -179,7 +203,10 @@ impl WekanClient {
                     .bearer_auth(token.expose_secret()),
             )
             .await?;
-        let document: IntegrationDocument = decode_success(&body, "integration lookup", true)?;
+        let operation = "integration lookup";
+        let value: Value = decode_success(&body, operation, true)?;
+        let document = IntegrationDocument::try_from(value)
+            .map_err(|error| super::decoding::decoding_error(error, operation, true))?;
         validate_document(&document, board, Some(integration))?;
         Ok(document)
     }

@@ -342,23 +342,43 @@ async fn complete_integration_lifecycle_matches_wekan_v13_28() {
     assert_eq!(error.details().http_status, Some(400));
     assert_eq!(target.detail().await, before);
 
-    for id in ["missing-integration", integration] {
+    for (selected_board, id, native_error, message) in [
+        (
+            foreign.as_str(),
+            "missing-integration",
+            "Integration not found",
+            "the integration was not found on that Wekan board",
+        ),
+        (
+            foreign.as_str(),
+            integration,
+            "Integration not found",
+            "the integration was not found on that Wekan board",
+        ),
+        (
+            "missing-board",
+            integration,
+            "Board not found",
+            "the Wekan board was not found",
+        ),
+    ] {
         let scope = Target {
-            board: &foreign,
+            board: selected_board,
             integration: id,
             ..target
         };
-        let error = scope.command(&["get", id]).await.unwrap_err();
-        assert_eq!(error.code(), ErrorCode::NotFound);
-        assert_eq!(error.details().http_status, Some(404));
         for args in [
+            vec!["get", id],
             vec!["update", id, "--title", "No match"],
             vec!["delete", id, "--yes"],
             vec!["activity", "add", id, "--activity", "all"],
             vec!["activity", "remove", id, "--activity", "all"],
         ] {
             let error = scope.command(&args).await.unwrap_err();
+            assert_eq!(error.code(), ErrorCode::NotFound);
             assert_eq!(error.details().http_status, Some(404));
+            assert_eq!(error.details().server_error.as_deref(), Some(native_error));
+            assert_eq!(error.message(), message);
         }
     }
     assert_eq!(target.detail().await, before);

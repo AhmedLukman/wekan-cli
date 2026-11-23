@@ -1,4 +1,64 @@
 use super::support::*;
+async fn verify_repeated_ownership(
+    server: &str,
+    first: &live::LiveApp,
+    first_id: &str,
+    second: &live::LiveApp,
+    second_id: &str,
+) {
+    let CommandSuccess::BoardCreated(board) =
+        execute_live_board(first, server, &["create", "--title", "Repeated ownership"])
+            .await
+            .unwrap()
+    else {
+        panic!("expected board creation")
+    };
+    let board_id = board.board_id.as_str();
+    execute_live_board(
+        first,
+        server,
+        &[
+            "member", "add", second_id, "--board", board_id, "--role", "admin",
+        ],
+    )
+    .await
+    .unwrap();
+
+    // The first transfer leaves the original owner's inactive entry ahead of the
+    // active administrator entry they acquired. The return transfer changes only the first.
+    for (caller, target, expected_first) in
+        [(first, second_id, first_id), (second, first_id, second_id)]
+    {
+        let CommandSuccess::UserOwnershipTaken(result) =
+            execute_live_user(caller, server, &["take-ownership", target, "--yes"])
+                .await
+                .unwrap()
+        else {
+            panic!("expected ownership result")
+        };
+        assert!(result.boards.iter().any(|b| b.board_id == board_id));
+        let CommandSuccess::BoardMembers(result) =
+            execute_live_board(first, server, &["member", "list", "--board", board_id])
+                .await
+                .unwrap()
+        else {
+            panic!("expected board members")
+        };
+        let entries: Vec<_> = result
+            .members
+            .iter()
+            .map(|m| (m.user_id.as_str(), m.is_active, m.is_admin))
+            .collect();
+        assert_eq!(
+            entries,
+            [(expected_first, false, false), (first_id, true, true)]
+        );
+    }
+    execute_live_board(first, server, &["delete", board_id, "--yes"])
+        .await
+        .unwrap();
+}
+
 #[tokio::test]
 #[ignore = "destructive: requires a fresh isolated Wekan v13.28 stack and WEKAN_USER_E2E_URL"]
 async fn complete_user_flow_matches_wekan_v13_28() {
@@ -69,8 +129,13 @@ async fn complete_user_flow_matches_wekan_v13_28() {
 
     let http = reqwest::Client::new();
     let missing_user = format!("wekan_cli_missing_user_{nonce}");
-    for command in ["get", "update"] {
-        let error = execute_live_user(&admin_app, &server, &[command, &missing_user])
+    for args in [
+        vec!["get", &missing_user],
+        vec!["update", &missing_user],
+        vec!["enable-login", &missing_user],
+        vec!["disable-login", &missing_user, "--yes"],
+    ] {
+        let error = execute_live_user(&admin_app, &server, &args)
             .await
             .expect_err("an unknown user must return HTTP 404");
         assert_eq!(error.code(), ErrorCode::NotFound);
@@ -393,6 +458,66 @@ async fn complete_user_flow_matches_wekan_v13_28() {
     assert_eq!(member_after.user_id, member_id);
     assert_eq!(member_after.login_disabled, Some(false));
 
+    let CommandSuccess::BoardCreated(inactive_membership_board) = execute_live_board(
+        &member_app,
+        &server,
+        &["create", "--title", "Former administrator"],
+    )
+    .await
+    .unwrap() else {
+        panic!("expected board creation")
+    };
+    let inactive_board_id = inactive_membership_board.board_id;
+    // Wekan's permission setter can update the role of an inactive membership.
+    for (action, role) in [
+        ("add", Some("normal")),
+        ("remove", None),
+        ("update", Some("admin")),
+    ] {
+        let mut args = vec!["member", action, &owner_id, "--board", &inactive_board_id];
+        if let Some(role) = role {
+            args.extend(["--role", role]);
+        }
+        execute_live_board(&member_app, &server, &args)
+            .await
+            .unwrap();
+    }
+    execute_live_board(
+        &member_app,
+        &server,
+        &[
+            "member",
+            "add",
+            &admin_id,
+            "--board",
+            &inactive_board_id,
+            "--role",
+            "normal",
+        ],
+    )
+    .await
+    .unwrap();
+    let CommandSuccess::BoardMembers(before) = execute_live_board(
+        &member_app,
+        &server,
+        &["member", "list", "--board", &inactive_board_id],
+    )
+    .await
+    .unwrap() else {
+        panic!("expected board memberships before reassignment")
+    };
+    assert!(
+        before
+            .members
+            .iter()
+            .any(|m| m.user_id == owner_id && !m.is_active && m.is_admin)
+    );
+    assert!(
+        before
+            .members
+            .iter()
+            .any(|m| m.user_id == admin_id && m.is_active && !m.is_admin)
+    );
     let CommandSuccess::UserOwnershipTaken(transfer) =
         execute_live_user(&admin_app, &server, &["take-ownership", &owner_id, "--yes"])
             .await
@@ -401,38 +526,56 @@ async fn complete_user_flow_matches_wekan_v13_28() {
         panic!("expected ownership-transfer output")
     };
     assert!(
-        transfer
-            .boards
-            .iter()
-            .any(|board| board.board_id == owner_board_id)
-    );
-    assert!(
         !transfer
             .boards
             .iter()
             .any(|board| board.board_id == admin_board_id)
     );
-    let CommandSuccess::BoardMembers(members) = execute_live_board(
-        &admin_app,
+    for (board_id, expected_active, board_admin) in [
+        (&owner_board_id, true, &admin_app),
+        (&inactive_board_id, false, &member_app),
+    ] {
+        assert!(
+            transfer
+                .boards
+                .iter()
+                .any(|board| board.board_id == *board_id)
+        );
+        let CommandSuccess::BoardMembers(members) = execute_live_board(
+            board_admin,
+            &server,
+            &["member", "list", "--board", board_id],
+        )
+        .await
+        .unwrap() else {
+            panic!("expected board memberships")
+        };
+        assert!(members.members.iter().any(|member| {
+            member.user_id == admin_id && member.is_admin && member.is_active == expected_active
+        }));
+        if !expected_active {
+            assert!(
+                !members
+                    .members
+                    .iter()
+                    .any(|m| m.user_id == admin_id && m.is_active)
+            );
+        }
+        assert!(
+            !members
+                .members
+                .iter()
+                .any(|member| member.user_id == owner_id && member.is_admin)
+        );
+    }
+
+    execute_live_board(
+        &member_app,
         &server,
-        &["member", "list", "--board", &owner_board_id],
+        &["delete", &inactive_board_id, "--yes"],
     )
     .await
-    .unwrap() else {
-        panic!("expected transferred board membership")
-    };
-    assert!(
-        members
-            .members
-            .iter()
-            .any(|member| member.user_id == admin_id && member.is_admin && member.is_active)
-    );
-    assert!(
-        !members
-            .members
-            .iter()
-            .any(|member| member.user_id == owner_id && member.is_admin)
-    );
+    .unwrap();
 
     for user_id in [&member_id, &owner_id] {
         let CommandSuccess::UserDeleted(deleted) =
@@ -506,13 +649,14 @@ async fn complete_user_flow_matches_wekan_v13_28() {
     assert!(matches!(current, CommandSuccess::UserCurrent(user) if user.user_id == admin_id));
 
     // Enable the site's self-deletion preference and provision another site administrator.
+    let backup_username = format!("backup_{nonce}");
     let CommandSuccess::UserCreated(backup) = execute_live_user(
         &admin_app,
         &server,
         &[
             "create",
             "--username",
-            &format!("backup_{nonce}"),
+            &backup_username,
             "--email",
             &format!("backup_{nonce}@example.test"),
             "--password-stdin",
@@ -533,6 +677,28 @@ async fn complete_user_flow_matches_wekan_v13_28() {
     "#,
         &serde_json::json!({"backup":backup.user_id}),
     );
+    let backup_directory = TestDirectory::new("complete-user-backup");
+    let backup_app = App::with_profile_store(
+        ServerSelection::new(Some(server.clone()), Some("default".to_owned()), false),
+        CapturingStore::default(),
+        FixedPassword(SecretString::from(password)),
+        FileProfileStore::at(backup_directory.path().to_owned()),
+    );
+    live::run(
+        &backup_app,
+        &server,
+        &[
+            "auth",
+            "login",
+            "--username",
+            &backup_username,
+            "--password-stdin",
+        ],
+    )
+    .await
+    .unwrap();
+    verify_repeated_ownership(&server, &admin_app, &admin_id, &backup_app, &backup.user_id).await;
+
     let CommandSuccess::UserDeleted(self_deleted) =
         execute_live_user(&admin_app, &server, &["delete", &admin_id, "--yes"])
             .await

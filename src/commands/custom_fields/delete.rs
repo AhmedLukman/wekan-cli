@@ -8,7 +8,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_client_error_with_not_found,
+        client_error::map_scoped_resource_error,
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -91,14 +91,8 @@ pub(super) async fn execute(
         )
         .await;
     drop(credential_mutation);
-    let deleted = deletion.map_err(|error| {
-        map_client_error_with_not_found(
-            error,
-            &redactor,
-            "custom-field deletion",
-            "the requested Wekan board or custom field was not found",
-        )
-    })?;
+    let deleted = deletion
+        .map_err(|error| map_scoped_resource_error(error, &redactor, "custom-field deletion"))?;
     Ok(CommandSuccess::CustomFieldDeleted(
         CustomFieldDeleteSuccess {
             board_id: args.board_id,

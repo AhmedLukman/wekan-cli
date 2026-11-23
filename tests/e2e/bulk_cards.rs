@@ -729,7 +729,6 @@ async fn complete_bulk_card_and_label_lifecycle_matches_wekan_v13_28() {
         );
     }
 
-    // The body parentId works here, unlike the single-create route's pinned defect.
     let child = create(
         &app,
         &server,

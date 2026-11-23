@@ -303,6 +303,58 @@ fn generated_contract_preserves_verified_audit_corrections() {
             .contains("zero")
     );
     let definitions = &spec["definitions"];
+    for id in ["exportCSV/TSV", "exportExcel", "exportExcelCard"] {
+        assert!(
+            operation(id)["produces"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("text/plain")),
+            "{id}"
+        );
+        assert_eq!(
+            operation(id)["responses"]["403"]["schema"]["type"],
+            "string"
+        );
+    }
+    for id in [
+        "get_board_int",
+        "put_board_int",
+        "delete_board_int",
+        "post_board_int_activities",
+        "delete_board_int_activities",
+    ] {
+        assert_eq!(
+            operation(id)["responses"]["404"]["schema"]["$ref"],
+            "#/definitions/VerifiedIntegrationNotFound",
+            "{id}"
+        );
+    }
+    let missing = &definitions["VerifiedIntegrationNotFound"];
+    assert_eq!(missing["required"], json!(["error"]));
+    assert_eq!(
+        missing["properties"]["error"]["enum"],
+        json!(["Board not found", "Integration not found"])
+    );
+    let external = operation("exportExternal");
+    let produces = external["produces"].as_array().unwrap();
+    for schema in external["x-format-response-schemas"]
+        .as_object()
+        .unwrap()
+        .values()
+    {
+        if let Some(content_type) = schema.get("x-content-type") {
+            assert!(
+                produces.contains(content_type),
+                "undeclared export media type {content_type}"
+            );
+        }
+    }
+    for status in ["403", "507"] {
+        assert_eq!(
+            operation("import_trello")["responses"][status]["schema"]["$ref"],
+            "#/definitions/TrelloHttpImportError"
+        );
+    }
     let settings = &definitions["VerifiedAdminSettingsGlobalSettingsDocument"];
     for (wire, _, _, _) in super::admin_fixtures::GLOBAL_FIELDS {
         assert_eq!(

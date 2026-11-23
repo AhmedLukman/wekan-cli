@@ -786,6 +786,40 @@ async fn complete_card_lifecycle_matches_wekan_v13_28() {
         assert!(stored.get("isOverTime").is_none());
     }
 
+    let wrong_list = execute_live_card(
+        &app,
+        &server,
+        &[
+            "delete",
+            &created.card_id,
+            "--board",
+            &board.board_id,
+            "--list",
+            "wrong-list",
+            "--yes",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(wrong_list.code(), ErrorCode::NotFound);
+    assert_eq!(wrong_list.details().http_status, Some(404));
+    for id in [&created.card_id, &child.card_id] {
+        execute_live_card(
+            &app,
+            &server,
+            &[
+                "get",
+                id,
+                "--board",
+                &board.board_id,
+                "--list",
+                &list.list_id,
+            ],
+        )
+        .await
+        .expect("deleting with the wrong list must preserve the parent and its child");
+    }
+
     let CommandSuccess::CardDeleted(deleted) = execute_live_card(
         &app,
         &server,
@@ -805,6 +839,23 @@ async fn complete_card_lifecycle_matches_wekan_v13_28() {
     };
     assert!(deleted.deletion_requested);
     assert_eq!(deleted.delete_mode, CardDeleteMode::Hard);
+    let repeated = execute_live_card(
+        &app,
+        &server,
+        &[
+            "delete",
+            &created.card_id,
+            "--board",
+            &board.board_id,
+            "--list",
+            &list.list_id,
+            "--yes",
+        ],
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(repeated.code(), ErrorCode::NotFound);
+    assert_eq!(repeated.details().http_status, Some(404));
     let missing = execute_live_card(
         &app,
         &server,

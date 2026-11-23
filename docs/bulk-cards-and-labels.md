@@ -1,7 +1,7 @@
 # Bulk cards and labels
 
 These commands use Wekan v13.28's native batch endpoints. Each batch sends one
-request containing 1Ã¢â‚¬â€œ500 cards; larger inputs fail locally. All commands support
+request containing 1–500 cards; larger inputs fail locally. All commands support
 the standard global options and human/JSON output.
 
 ## Create cards
@@ -96,7 +96,7 @@ and leaves the current stored credential untouched.
 
 Wekan deletes matching cards, including archived cards, and cascades their
 comments, checklists, checklist items, and subcards.
-Wekan soft-deletes the removed cardsâ€™ attachments. They disappear from active
+Wekan soft-deletes the removed cards’ attachments. They disappear from active
 attachment listings and retain recoverable bytes. The `deleted` array lists card IDs.
 
 ## Batch results and automation

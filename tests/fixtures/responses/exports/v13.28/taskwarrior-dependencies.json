@@ -1,0 +1,44 @@
+[
+  {
+    "uuid": "3cc870dc-75da-402f-b988-00d255c32025",
+    "status": "pending",
+    "description": "Prepare",
+    "wekanlist": "Todo"
+  },
+  {
+    "uuid": "225772e1-abd7-45d8-ac04-b89fb7435ece",
+    "status": "pending",
+    "description": "Review",
+    "depends": [
+      "3cc870dc-75da-402f-b988-00d255c32025"
+    ],
+    "wekanlist": "Todo"
+  },
+  {
+    "uuid": "5cd3477e-e6bb-4d07-b6a8-3e2c44734405",
+    "status": "pending",
+    "description": "Deploy",
+    "depends": [
+      "225772e1-abd7-45d8-ac04-b89fb7435ece"
+    ],
+    "annotations": [
+      {
+        "entry": "20261120T120000Z",
+        "description": "reviewer: Approved"
+      }
+    ],
+    "wekanlist": "Todo"
+  },
+  {
+    "uuid": "04844b63-f557-422a-abb7-35d9bc8d37a0",
+    "status": "pending",
+    "description": "Standalone",
+    "wekanlist": "Todo"
+  },
+  {
+    "uuid": "26902c78-a86e-49cd-b432-eb26d66db8ab",
+    "status": "pending",
+    "description": "Refine",
+    "wekanlist": "Todo"
+  }
+]

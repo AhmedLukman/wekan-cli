@@ -383,6 +383,52 @@ async fn complete_trello_import_lifecycle_matches_wekan_v13_28() {
         error.details().server_error.as_deref(),
         Some("import-trello-zip-unsafe-path")
     );
+    // A site's 1 MiB limit is checked on the upload and again on the expanded entries.
+    let settings = mongo(
+        "const s=db.getSiblingDB('wekan').settings.findOneAndUpdate({},{$set:{importMaxMegabytes:1}},{projection:{importMaxMegabytes:1}});print(JSON.stringify(s));",
+        json!({}),
+    );
+    let mut limit_errors = Vec::new();
+    for method in [
+        zip::CompressionMethod::Stored,
+        zip::CompressionMethod::Deflated,
+    ] {
+        let mut writer = zip::ZipWriter::new(fs::File::create(&zip).unwrap());
+        writer
+            .start_file(
+                "entry.bin",
+                zip::write::SimpleFileOptions::default().compression_method(method),
+            )
+            .unwrap();
+        writer.write_all(&vec![0; 1024 * 1024 + 1]).unwrap();
+        writer.finish().unwrap();
+        limit_errors.push(
+            run(
+                &app,
+                &server,
+                &[
+                    "board",
+                    "import-trello",
+                    zip.to_str().unwrap(),
+                    "--format",
+                    "zip",
+                ],
+            )
+            .await,
+        );
+    }
+    mongo(
+        "const update=Object.hasOwn(p,'importMaxMegabytes')?{$set:{importMaxMegabytes:p.importMaxMegabytes}}:{$unset:{importMaxMegabytes:''}};db.getSiblingDB('wekan').settings.updateOne({_id:p._id},update);print('{}');",
+        settings,
+    );
+    for (result, status) in limit_errors.into_iter().zip([413, 400]) {
+        let error = result.unwrap_err();
+        assert_eq!(error.details().http_status, Some(status));
+        assert_eq!(
+            error.details().server_error.as_deref(),
+            Some("import-trello-zip-too-large")
+        );
+    }
     let saved_token = {
         let mut credential = app.credential_store().credential.lock().unwrap();
         let record = credential.as_mut().unwrap();

@@ -146,7 +146,7 @@ async fn verify_legacy_member_listing(
     );
 }
 
-async fn verify_raw_background_partial_failure(
+async fn verify_background_partial_failure(
     app: &super::support::live::LiveApp,
     server: &str,
     board: &str,
@@ -173,9 +173,17 @@ async fn verify_raw_background_partial_failure(
         &json!({"board":board}),
     );
     let mut saved_uploads = Vec::new();
-    for explicit_type in [false, true] {
+    for (label, options, status) in [
+        ("json", &[][..], 500),
+        ("raw", &["--transport", "raw"][..], 401),
+        (
+            "raw-mime",
+            &["--transport", "raw", "--file-type", "image/png"][..],
+            401,
+        ),
+    ] {
         // Give each background upload a short, distinct filename.
-        let name = format!("bg-{nonce}-{explicit_type}.png");
+        let name = format!("{label}-{nonce}.png");
         let mut args = vec![
             "upload-background",
             source.to_str().unwrap(),
@@ -183,20 +191,16 @@ async fn verify_raw_background_partial_failure(
             board,
             "--file-name",
             &name,
-            "--transport",
-            "raw",
         ];
-        if explicit_type {
-            args.extend(["--file-type", "image/png"]);
-        }
+        args.extend_from_slice(options);
         // W12-006: the native route saves the file before the background helper fails.
         let error = run(app, server, OutputFormat::Json, &args)
             .await
             .unwrap_err();
         assert_eq!(
             (error.code(), error.details().http_status),
-            (ErrorCode::ServerError, Some(401)),
-            "raw background explicit MIME={explicit_type}: {error:?}"
+            (ErrorCode::ServerError, Some(status)),
+            "{label} background: {error:?}"
         );
         assert!(
             error
@@ -204,19 +208,15 @@ async fn verify_raw_background_partial_failure(
                 .server_error
                 .as_deref()
                 .is_some_and(|message| message.contains("isBoardAdmin is not a function")),
-            "raw background explicit MIME={explicit_type}: {error:?}"
+            "{label} background: {error:?}"
         );
         assert_eq!(error.details().mutation_attempted, Some(true));
         assert_eq!(error.details().retry_safe, Some(false));
         assert!(!error.message().contains("logout"));
         assert!(!error.message().contains("log in again"));
-        // The raw branch's outer catch misclassifies the helper error as 401.
-        // The exact credential used for the failed upload remains valid.
         let CommandSuccess::UserCurrent(current) = execute_live_user(app, server, &["current"])
             .await
-            .unwrap_or_else(|error| {
-                panic!("same credential after explicit MIME={explicit_type}: {error:?}")
-            })
+            .unwrap_or_else(|error| panic!("same credential after {label} upload: {error:?}"))
         else {
             panic!("current user")
         };
@@ -572,7 +572,7 @@ async fn complete_attachment_flow_matches_wekan_v13_28() {
         assert!(rendered.contains("url_download"));
     }
     verify_legacy_member_listing(&app, &server, &board.board_id, nonce).await;
-    verify_raw_background_partial_failure(&app, &server, &board.board_id, directory.path(), nonce)
+    verify_background_partial_failure(&app, &server, &board.board_id, directory.path(), nonce)
         .await;
     for flags in [
         vec![],
@@ -647,31 +647,6 @@ async fn complete_attachment_flow_matches_wekan_v13_28() {
         "--card",
         &card.card_id,
     ];
-    let background_png = directory.path().join("background.png");
-    fs::write(&background_png, STANDARD.decode(PNG_BASE64).unwrap()).unwrap();
-    let background_error = run(
-        &app,
-        &server,
-        OutputFormat::Json,
-        &[
-            "upload-background",
-            background_png.to_str().unwrap(),
-            "--board",
-            &board.board_id,
-            "--file-type",
-            "image/png",
-        ],
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(background_error.details().http_status, Some(500));
-    assert!(
-        background_error
-            .details()
-            .server_error
-            .as_deref()
-            .is_some_and(|reason| reason.contains("isBoardAdmin"))
-    );
     let CommandSuccess::AttachmentUploaded(uploaded) =
         run(&app, &server, OutputFormat::Json, &upload)
             .await

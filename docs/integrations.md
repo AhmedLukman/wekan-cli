@@ -77,8 +77,10 @@ Board access permits reads; mutations require board administration.
 Integration deletion uses the existing confirmation flow, or `--yes` for scripts.
 Declining confirmation returns a cancellation result without sending HTTP.
 
-A missing or wrongly scoped integration returns HTTP 404 for lookups,
-updates, deletions, and activity changes. When a submitted URL fails
+Lookups, updates, deletions, and activity changes return HTTP 404 for a
+missing board or an integration absent from the selected board. The CLI
+identifies the missing resource and preserves Wekan's `Board not found` or
+`Integration not found` in `details.server_error`. When a submitted URL fails
 validation, Wekan responds with HTTP 400 and preserves the existing title and
 enabled state.
 

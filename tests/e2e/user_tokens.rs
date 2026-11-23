@@ -61,8 +61,7 @@ fn credential_target(directory: &Path, server: &str) -> CredentialTarget {
 }
 
 async fn assert_token_state(server: &str, user: &str, token: &str, accepted: bool) {
-    // Native insertion/destruction does not await the Accounts database write.
-    // Observe eventual persistence only in the test; production never retries.
+    // Poll authentication readback for the expected stored token state.
     for _ in 0..100 {
         let (status, value) = token_state(server, token).await;
         let matches = if accepted {
@@ -179,6 +178,21 @@ async fn complete_user_token_lifecycle_matches_wekan_v13_28() {
     assert_token_state(&canonical, &member, second_token, true).await;
     assert_eq!(saved_tokens(&member)["count"], 3);
 
+    // W11-058: Wekan acknowledges the raw bearer token and leaves the session usable.
+    let raw_delete = run(
+        admin_dir.path(),
+        &server,
+        &["user", "token", "delete", &member, "--token-stdin", "--yes"],
+        Some(&format!("{first_token}\r\n")),
+        "json",
+    );
+    let data = success(&raw_delete);
+    assert_eq!(data["scope"], "single");
+    assert!(data["message"].as_str().unwrap().contains("[REDACTED]"));
+    assert_secret_absent(&raw_delete, first_token);
+    assert_token_state(&canonical, &member, first_token, true).await;
+    assert_eq!(saved_tokens(&member)["count"], 3);
+
     let first_hash = STANDARD.encode(Sha256::digest(first_token.as_bytes()));
     let single_delete = run(
         admin_dir.path(),
@@ -193,6 +207,7 @@ async fn complete_user_token_lifecycle_matches_wekan_v13_28() {
     assert!(data.get("deletion_requested").is_none());
     assert!(data["message"].as_str().unwrap().contains("[REDACTED]"));
     assert_secret_absent(&single_delete, first_token);
+    assert_secret_absent(&single_delete, &first_hash);
     assert_secret_absent(&single_delete, admin_credential.token().expose_secret());
     assert_token_state(&canonical, &member, first_token, false).await;
     assert_token_state(&canonical, &member, second_token, true).await;

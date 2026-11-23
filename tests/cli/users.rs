@@ -50,6 +50,22 @@ fn only_destructive_user_actions_accept_yes() {
 }
 
 #[test]
+fn ownership_help_explains_the_effect_on_existing_memberships() {
+    wekan()
+        .args(["user", "take-ownership", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "deactivate your existing membership first",
+        ))
+        .stdout(predicate::str::contains("first membership entry"))
+        .stdout(predicate::str::contains("retain administrator access"))
+        .stdout(predicate::str::contains(
+            "You can lose access if that entry is inactive",
+        ));
+}
+
+#[test]
 fn token_commands_have_explicit_modes_and_inherit_global_options() {
     use clap::{CommandFactory, Parser};
     use wekan_cli::{cli::Cli, output::OutputFormat};

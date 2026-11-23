@@ -1,9 +1,18 @@
 //! v13.28 external artifact records. Shapes verified against the matching formatter modules.
 #![allow(dead_code)]
-use super::validation::Never;
+use super::validation::{DiscardVec, Never};
+use crate::client::admin::Object;
 use serde::Deserialize;
 use serde_json::Number;
 use std::collections::BTreeMap;
+
+// Unit enums also accept externally tagged objects unless the wire value is read as a string.
+fn string_enum<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<T, D::Error> {
+    T::deserialize(serde::de::value::StringDeserializer::new(
+        String::deserialize(d)?,
+    ))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TaskwarriorExportItemAnnotationsItem {
@@ -15,6 +24,8 @@ pub(super) struct TaskwarriorExportItemAnnotationsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TaskwarriorExportItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub depends: Option<DiscardVec<String>>,
     #[serde(
         rename = "recur",
         default,
@@ -2087,9 +2098,48 @@ pub(super) struct NativeOpenprojectExportEmbeddedElementsItemFixedEmbeddedActivi
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(super) struct OpenprojectRelationEndpoints {
+    pub from: Object<NativeOpenprojectExportEmbeddedElementsItemFixedLinksParent>,
+    pub to: Object<NativeOpenprojectExportEmbeddedElementsItemFixedLinksParent>,
+}
+#[derive(Deserialize)]
+pub(super) enum OpenprojectRelationResource {
+    Relation,
+}
+#[derive(Deserialize)]
+pub(super) enum OpenprojectRelationType {
+    #[serde(rename = "blocked")]
+    Blocked,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct OpenprojectRelation {
+    #[serde(rename = "_type", deserialize_with = "string_enum")]
+    pub resource: OpenprojectRelationResource,
+    #[serde(rename = "type", deserialize_with = "string_enum")]
+    pub relation_type: OpenprojectRelationType,
+    #[serde(rename = "_links")]
+    pub links: Object<OpenprojectRelationEndpoints>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct NativeOpenprojectExportEmbeddedElementsItemFixedEmbedded {
-    #[serde(rename = "activities")]
-    pub activities: Vec<NativeOpenprojectExportEmbeddedElementsItemFixedEmbeddedActivitiesItem>,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub activities: Option<
+        DiscardVec<Object<NativeOpenprojectExportEmbeddedElementsItemFixedEmbeddedActivitiesItem>>,
+    >,
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub relations: Option<DiscardVec<Object<OpenprojectRelation>>>,
+}
+fn optional_openproject_embedded<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<NativeOpenprojectExportEmbeddedElementsItemFixedEmbedded>, D::Error> {
+    let embedded: NativeOpenprojectExportEmbeddedElementsItemFixedEmbedded =
+        super::validation::object(d)?;
+    if embedded.activities.is_none() && embedded.relations.is_none() {
+        return Err(serde::de::Error::custom("expected activities or relations"));
+    }
+    Ok(Some(embedded))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2117,7 +2167,7 @@ pub(super) struct NativeOpenprojectExportEmbeddedElementsItemFixed {
     #[serde(
         rename = "_embedded",
         default,
-        deserialize_with = "super::validation::optional"
+        deserialize_with = "optional_openproject_embedded"
     )]
     pub _embedded: Option<NativeOpenprojectExportEmbeddedElementsItemFixedEmbedded>,
     #[serde(
@@ -2523,23 +2573,23 @@ pub(super) struct NativeTrelloExportCardsItem {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeTrelloExport {
-    pub members: Vec<TrelloMember>,
+    pub members: DiscardVec<TrelloMember>,
     #[serde(rename = "customFields")]
-    pub custom_fields: Vec<TrelloField>,
+    pub custom_fields: DiscardVec<TrelloField>,
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "prefs")]
     pub prefs: NativeTrelloExportPrefs,
     #[serde(rename = "labels")]
-    pub labels: Vec<NativeTrelloExportLabelsItem>,
+    pub labels: DiscardVec<NativeTrelloExportLabelsItem>,
     #[serde(rename = "lists")]
-    pub lists: Vec<NativeTrelloExportListsItem>,
+    pub lists: DiscardVec<NativeTrelloExportListsItem>,
     #[serde(rename = "cards")]
-    pub cards: Vec<NativeTrelloExportCardsItem>,
+    pub cards: DiscardVec<NativeTrelloExportCardsItem>,
     #[serde(rename = "checklists")]
-    pub checklists: Vec<TrelloChecklist>,
+    pub checklists: DiscardVec<TrelloChecklist>,
     #[serde(rename = "actions")]
-    pub actions: Vec<TrelloAction>,
+    pub actions: DiscardVec<TrelloAction>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2669,8 +2719,48 @@ pub(super) struct NativeJiraExportIssuesItemFieldsFixedParent {
     pub key: String,
 }
 #[derive(Deserialize)]
+pub(super) enum JiraLinkName {
+    Blocks,
+    Duplicate,
+    Relates,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct JiraIssueLinkType {
+    #[serde(deserialize_with = "string_enum")]
+    pub name: JiraLinkName,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct JiraIssueLinkFields {
+    #[serde(rename = "type", deserialize_with = "super::validation::object")]
+    link_type: JiraIssueLinkType,
+    #[serde(default, deserialize_with = "super::validation::optional_object")]
+    inward_issue: Option<NativeJiraExportIssuesItemFieldsFixedParent>,
+    #[serde(default, deserialize_with = "super::validation::optional_object")]
+    outward_issue: Option<NativeJiraExportIssuesItemFieldsFixedParent>,
+}
+pub(super) struct JiraIssueLink;
+impl<'de> Deserialize<'de> for JiraIssueLink {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let link: JiraIssueLinkFields = super::validation::object(d)?;
+        match (link.inward_issue, link.outward_issue, link.link_type.name) {
+            (Some(_), None, JiraLinkName::Blocks | JiraLinkName::Duplicate)
+            | (None, Some(_), _) => Ok(Self),
+            (Some(_), None, JiraLinkName::Relates) => {
+                Err(serde::de::Error::custom("expected an outward Relates link"))
+            }
+            _ => Err(serde::de::Error::custom(
+                "expected exactly one issue direction",
+            )),
+        }
+    }
+}
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeJiraExportIssuesItemFieldsFixed {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub issuelinks: Option<DiscardVec<JiraIssueLink>>,
     #[serde(rename = "summary")]
     pub summary: String,
     #[serde(
@@ -2873,6 +2963,8 @@ pub(super) struct NativeAsanaExportDataItemParent {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct NativeAsanaExportDataItem {
+    #[serde(default, deserialize_with = "super::validation::optional")]
+    pub dependencies: Option<DiscardVec<Object<NativeAsanaExportDataItemParent>>>,
     #[serde(default, deserialize_with = "super::validation::optional")]
     pub actual_time_minutes: Option<u64>,
     #[serde(rename = "gid")]
@@ -3458,7 +3550,7 @@ pub(super) struct TrelloChecklist {
     pub name: String,
     pub pos: u64,
     #[serde(rename = "checkItems")]
-    pub check_items: Vec<TrelloCheckItem>,
+    pub check_items: DiscardVec<TrelloCheckItem>,
 }
 
 #[derive(Deserialize)]

@@ -36,6 +36,29 @@ fn import_coverage_rows_include_every_parser_option_and_source() {
     let coverage = include_str!("../../docs/api-coverage.md");
     let mut root = Cli::command();
     root.build();
+    let default_import = coverage
+        .lines()
+        .find(|line| line.contains("| `import_board` |"))
+        .unwrap()
+        .split('`')
+        .find(|cell| cell.starts_with("wekan board import "))
+        .unwrap();
+    for option in [
+        "[--input-format auto]",
+        "[--split-by <swimlane>]",
+        "[--attachment-auth-file <PATH>]",
+    ] {
+        assert!(
+            default_import.contains(option),
+            "default import omits {option}"
+        );
+    }
+    for flag in ["--source", "--csv-mapping", "--delimiter", "--members-mode"] {
+        assert!(
+            !default_import.contains(flag),
+            "default import lists {flag}"
+        );
+    }
     for (family, command, operation) in [
         ("board", "import", "import_board_from"),
         ("board", "import-zip", "importZip"),

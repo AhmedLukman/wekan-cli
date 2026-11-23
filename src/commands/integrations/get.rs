@@ -1,11 +1,6 @@
 use crate::{
-    client::WekanClientFactory,
-    command_result::CommandSuccess,
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
-    credentials::CredentialStore,
-    error::AppError,
+    client::WekanClientFactory, command_result::CommandSuccess,
+    commands::authenticated::AuthenticatedContext, credentials::CredentialStore, error::AppError,
     redaction::Redactor,
 };
 use clap::Args;
@@ -31,11 +26,10 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|e| {
-            map_client_error_with_not_found(
+            super::map_target_error(
                 e,
                 &Redactor::with_secret(context.record().token()),
                 "integration lookup",
-                "the integration or Wekan board was not found",
             )
         })?;
     Ok(CommandSuccess::IntegrationShown(document.into()))

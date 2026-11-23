@@ -3,9 +3,7 @@ use crate::{
     command_result::{
         CommandSuccess, IntegrationActivityAction, IntegrationActivityMutationSuccess,
     },
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
+    commands::authenticated::AuthenticatedContext,
     credentials::CredentialStore,
     error::AppError,
     redaction::Redactor,
@@ -73,11 +71,10 @@ pub(super) async fn dispatch(
         }
     };
     let response = result.map_err(|e| {
-        map_client_error_with_not_found(
+        super::map_target_error(
             e,
             &Redactor::with_secret(context.record().token()),
             "integration activity mutation",
-            "the integration was not found on that Wekan board",
         )
     })?;
     Ok(CommandSuccess::IntegrationActivitiesChanged(

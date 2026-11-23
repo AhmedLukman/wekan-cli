@@ -49,8 +49,12 @@ prefix rules; the root-file fallback applies only to a single-board ZIP.
 
 JSON inputs, member maps, and the final wrapped JSON request have a 50 MiB limit.
 Trello ZIP uploads have a 200 MiB compressed client limit. ZIP stdin is staged on
-disk, then streamed with a known length. Wekan applies its own 5000-file, 1 GiB
-declared uncompressed total, 100 MiB per declared file, and path checks. The CLI
+disk, then streamed with a known length. Wekan returns HTTP 413 when the compressed
+upload exceeds the site's configured import limit and HTTP 507 when disk space is
+insufficient. The configured limit also caps the total expanded size. With no
+configured limit, Wekan uses available disk space and falls back to 1 GiB for
+expanded data when it cannot measure that space. Archives are limited to 5000
+files and 100 MiB per file, and Wekan checks entry paths. The CLI
 passes the archive intact for native validation. `--timeout` accepts positive
 integer seconds and defaults to 30. Only human/JSON output is supported, and
 there is no `--yes` option.

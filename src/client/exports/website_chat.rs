@@ -1,7 +1,8 @@
 //! Structured board exports from the website and chat formatters.
 #![allow(dead_code)]
 
-use super::validation::Date;
+use super::validation::{Date, DiscardVec};
+use crate::client::admin::Object;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -13,8 +14,8 @@ pub(super) struct WpPost {
     status: String,
     #[serde(rename = "type")]
     record_type: String,
-    title: WpTitle,
-    content: WpContent,
+    title: Object<WpTitle>,
+    content: Object<WpContent>,
     parent: u64,
     tags_names: Vec<String>,
     author_name: String,
@@ -36,14 +37,14 @@ pub(super) struct WpContent {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct GhostExport {
-    db: Vec<GhostDatabase>,
+    db: DiscardVec<Object<GhostDatabase>>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct GhostDatabase {
-    meta: GhostMetadata,
-    data: GhostData,
+    meta: Object<GhostMetadata>,
+    data: Object<GhostData>,
 }
 
 #[derive(Deserialize)]
@@ -56,9 +57,9 @@ pub(super) struct GhostMetadata {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct GhostData {
-    posts: Vec<GhostPost>,
-    tags: Vec<GhostTag>,
-    posts_tags: Vec<GhostPostTag>,
+    posts: DiscardVec<Object<GhostPost>>,
+    tags: DiscardVec<Object<GhostTag>>,
+    posts_tags: DiscardVec<Object<GhostPostTag>>,
 }
 
 #[derive(Deserialize)]
@@ -98,7 +99,7 @@ pub(super) struct GhostPostTag {
 #[serde(deny_unknown_fields)]
 pub(super) struct TeamsExport {
     teams: bool,
-    chats: Vec<TeamsChat>,
+    chats: DiscardVec<Object<TeamsChat>>,
 }
 
 #[derive(Deserialize)]
@@ -112,7 +113,7 @@ pub(super) struct TeamsChat {
     description: String,
     column: String,
     swimlane: String,
-    messages: Vec<TeamsMessage>,
+    messages: DiscardVec<Object<TeamsMessage>>,
 }
 
 #[derive(Deserialize)]
@@ -123,14 +124,14 @@ pub(super) struct TeamsMessage {
     message_type: String,
     #[serde(rename = "createdDateTime")]
     created_date_time: Date,
-    from: TeamsSender,
-    body: TeamsBody,
+    from: Object<TeamsSender>,
+    body: Object<TeamsBody>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TeamsSender {
-    user: TeamsUser,
+    user: Object<TeamsUser>,
 }
 
 #[derive(Deserialize)]

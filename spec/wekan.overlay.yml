@@ -221,8 +221,9 @@ actions:
           board and returns {boardIds,errors}. ZIP board failures are collected without rolling back earlier boards
           and still return HTTP 200. JSON failures return HTTP 400; earlier writes are not rolled back. A failed
           board can remain persisted without its ID appearing in boardIds; the error names that board but does not
-          identify the created resources (W11-060). ZIP member mapping is not supported. ZIP limits are 200 MiB
-          compressed, 1 GiB declared uncompressed, 5000 files, and 100 MiB per declared file; unsafe archive paths
+          identify the created resources (W11-060). ZIP member mapping is not supported. The site's importMaxMegabytes
+          caps upload and expansion. Without a configured limit, available disk space sets the budget, with a
+          1 GiB expansion fallback when free space is unknown. Archives allow 5000 files and 100 MiB per file. Unsafe paths
           are rejected. Global JSON parsing has a 50 MiB limit and malformed or oversized JSON produces middleware
           HTML errors. Authentication uses a Bearer token, X-Auth-Token, or login cookie; query tokens are not read.
           This route is outside the WITH_API gate and is distinct from /api/boards/import/trello and /api/import/zip.
@@ -267,12 +268,20 @@ actions:
             schema:
               $ref: '#/definitions/TrelloHttpImportError'
           '413':
-            description: Compressed ZIP upload exceeds 200 MiB, returning JSON {error} before destroying the request.
+            description: Compressed ZIP upload exceeds the site's configured import limit, returning JSON {error}.
               Oversized JSON instead produces a middleware HTML error at the 50 MiB parser limit.
             schema:
               x-oneOf:
               - $ref: '#/definitions/TrelloHttpImportError'
               - type: string
+          '403':
+            description: Imports are disabled on this site.
+            schema:
+              $ref: '#/definitions/TrelloHttpImportError'
+          '507':
+            description: Insufficient disk space to stage the ZIP upload.
+            schema:
+              $ref: '#/definitions/TrelloHttpImportError'
 - target: $.definitions
   description: Wekan v13.28 commit 9da7639123bc87dac6451d423f1400aa007774a7. Auth routes, startupSchemaUpgrade.js
     and importTrelloZip.js define these explicit request and response objects for the omitted operations.
@@ -1625,6 +1634,7 @@ actions:
       - wekan-scrum-2
     VerifiedMetadataScrumSettings:
       type: object
+      description: Wekan v13.28 server/scrum.js stores the models/lib/scrum.js meeting defaults when settings are saved.
       additionalProperties: false
       properties:
         enabled:
@@ -1636,6 +1646,16 @@ actions:
         definitionOfDone:
           type: string
           x-nullable: true
+        definitionOfReady:
+          type: string
+        standupTimer:
+          type: boolean
+        standupMinutes:
+          type: integer
+          minimum: 1
+          maximum: 15
+        retrospectiveBoard:
+          type: boolean
         estimateSource:
           type: string
           x-nullable: true
@@ -3123,6 +3143,9 @@ actions:
         userId:
           type: string
           x-nullable: true
+        group:
+          type: string
+          description: Lasso group identifier retained by v13.28 models/lib/cardDrawing.js when strokes are grouped.
         color:
           type: string
         width:
@@ -5639,14 +5662,36 @@ actions:
       - href
     VerifiedExportsExternal_documentsNativeOpenprojectExportEmbeddedElementsItemFixedEmbedded:
       type: object
+      description: Wekan includes activities for comments and relations for blockers. Either may appear on its own.
       additionalProperties: false
+      minProperties: 1
       properties:
         activities:
           type: array
           items:
             $ref: '#/definitions/VerifiedExportsExternal_documentsNativeOpenprojectExportEmbeddedElementsItemFixedEmbeddedActivitiesItem'
-      required:
-      - activities
+        relations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [_type, type, _links]
+            properties:
+              _type:
+                type: string
+                enum: [Relation]
+              type:
+                type: string
+                enum: [blocked]
+              _links:
+                type: object
+                additionalProperties: false
+                required: [from, to]
+                properties:
+                  from:
+                    $ref: '#/definitions/VerifiedExportsExternal_documentsNativeOpenprojectExportEmbeddedElementsItemFixedLinksParent'
+                  to:
+                    $ref: '#/definitions/VerifiedExportsExternal_documentsNativeOpenprojectExportEmbeddedElementsItemFixedLinksParent'
     VerifiedExportsExternal_documentsNativeOpenprojectExportEmbeddedElementsItemFixedEmbeddedActivitiesItem:
       type: object
       additionalProperties: false
@@ -6180,6 +6225,36 @@ actions:
       type: object
       additionalProperties: false
       properties:
+        issuelinks:
+          type: array
+          items:
+            type: object
+            description: Each link has a type and exactly one inward or outward issue key.
+            additionalProperties: false
+            minProperties: 2
+            maxProperties: 2
+            required: [type]
+            x-oneOf:
+            - required: [outwardIssue]
+            - required: [inwardIssue]
+              properties:
+                type:
+                  properties:
+                    name:
+                      enum: [Blocks, Duplicate]
+            properties:
+              type:
+                type: object
+                additionalProperties: false
+                required: [name]
+                properties:
+                  name:
+                    type: string
+                    enum: [Blocks, Duplicate, Relates]
+              inwardIssue:
+                $ref: '#/definitions/VerifiedExportsExternal_documentsNativeJiraExportIssuesItemFieldsFixedParent'
+              outwardIssue:
+                $ref: '#/definitions/VerifiedExportsExternal_documentsNativeJiraExportIssuesItemFieldsFixedParent'
         summary:
           type: string
         description:
@@ -6401,6 +6476,10 @@ actions:
       type: object
       additionalProperties: false
       properties:
+        dependencies:
+          type: array
+          items:
+            $ref: '#/definitions/VerifiedExportsExternal_documentsNativeAsanaExportDataItemParent'
         gid:
           type: string
         name:
@@ -6647,6 +6726,10 @@ actions:
       type: object
       additionalProperties: false
       properties:
+        depends:
+          type: array
+          items:
+            type: string
         uuid:
           type: string
         status:
@@ -18170,10 +18253,22 @@ actions:
       in: query
       type: string
 - target: $["paths"]["/api/boards/{board}/export/csv"]["get"]
-  description: 'Wekan v13.28 route and response contract in models/export.js.'
+  description: Wekan v13.28 models/export.js calls refuseDisabledExport in models/lib/importExportSecurity.js.
   update:
+    x-wekan-defects:
+    - id: W11-057
+      behavior: Private CSV and TSV exports return HTTP 403 to an ordinary board member using Bearer authentication.
+        The same member can export with an explicit query token.
+      source: https://github.com/wekan/wekan/blob/v13.28/models/export.js
+      liveRegression: tests/e2e/exports.rs
+    responses:
+      '403':
+        description: Wekan returns plain text when a site administrator disables exports. On private boards the Bearer lookup requires a site administrator.
+        schema:
+          type: string
     produces:
     - text/csv
+    - text/plain
 - target: $["paths"]["/api/boards/{board}/exportExcel"]["get"]["responses"]["200"]["schema"]
   description: 'Wekan v13.28 route and response contract in models/exportExcel.js.'
   remove: true
@@ -18229,8 +18324,20 @@ actions:
 - target: $["paths"]["/api/boards/{board}/exportExcel"]["get"]
   description: 'Wekan v13.28 route and response contract in models/exportExcel.js.'
   update:
+    x-wekan-defects:
+    - id: W11-057
+      behavior: Private board Excel exports return HTTP 403 to an ordinary board member using Bearer authentication.
+        The same member can export with an explicit query token.
+      source: https://github.com/wekan/wekan/blob/v13.28/models/exportExcel.js
+      liveRegression: tests/e2e/exports.rs
+    responses:
+      '403':
+        description: Wekan denied the export. On private boards the Bearer lookup requires a site administrator.
+        schema:
+          type: string
     produces:
     - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    - text/plain
 - target: $["paths"]["/api/boards/{board}/exportPDF"]["get"]["responses"]["200"]["schema"]
   description: 'Wekan v13.28 route and response contract in models/exportPDF.js.'
   remove: true
@@ -19584,8 +19691,20 @@ actions:
 - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}/exportExcel"]["get"]
   description: 'Wekan v13.28 route and response contract in models/exportExcelCard.js.'
   update:
+    x-wekan-defects:
+    - id: W11-057
+      behavior: Private card Excel exports return HTTP 403 to an ordinary board member using Bearer authentication.
+        The same member can export with an explicit query token.
+      source: https://github.com/wekan/wekan/blob/v13.28/models/exportExcelCard.js
+      liveRegression: tests/e2e/exports.rs
+    responses:
+      '403':
+        description: Wekan denied the export. On private boards the Bearer lookup requires a site administrator.
+        schema:
+          type: string
     produces:
     - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    - text/plain
 - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}/exportPDF"]["get"]["responses"]["200"]["schema"]
   description: 'Wekan v13.28 route and response contract in models/exportPDF.js.'
   remove: true
@@ -21359,6 +21478,12 @@ actions:
     consumes:
     - application/json
     - application/x-www-form-urlencoded
+    x-wekan-defects:
+    - id: W11-058
+      behavior: Wekan returns HTTP 200 for a raw bearer token and leaves the session usable. Submitting the stored
+        SHA-256 token hash revokes the session.
+      source: https://github.com/wekan/wekan/blob/v13.28/server/models/users.js#L3126-L3159
+      liveRegression: tests/e2e/user_tokens.rs
     x-wekan-type-check-error:
       status: 500
       schema:
@@ -21947,6 +22072,16 @@ actions:
 - target: $["paths"]["/api/users/{user}"]["put"]
   description: 'Wekan v13.28 route and response contract in server/models/users.js.'
   update:
+    x-wekan-defects:
+    - id: W13-003
+      behavior: Self-targeted takeOwnership clears the caller's active and administrator flags on boards with another active administrator.
+      source: https://github.com/wekan/wekan/blob/v13.28/server/models/users.js#L2825-L2838
+      liveRegression: tests/e2e/compatibility.rs
+    - id: W13-004
+      behavior: takeOwnership selects boards by administrator membership and reassigns the first entry with the target user ID.
+        After a prior transfer that entry can be inactive and ordinary, leaving the target's later active administrator entry in place.
+      source: https://github.com/wekan/wekan/blob/v13.28/models/boards.js#L3088-L3093
+      liveRegression: tests/e2e/users.rs
     consumes:
     - application/json
     - application/x-www-form-urlencoded
@@ -22496,7 +22631,9 @@ actions:
       liveRegression: tests/e2e/trello_import.rs
     description: Native application HTTP importer. JSON returns boardIds; ZIP returns boardIds and per-board errors.
       Accepts Bearer, X-Auth-Token, meteor_login_token or wekan_login_token cookies. JSON options are in the body;
-      ZIP membersMode is a query parameter.
+      ZIP membersMode is a query parameter. Wekan v13.28 server/routes/importTrelloZip.js applies the site's configured
+      import limit to upload and expansion. With no configured limit, available disk space bounds expansion,
+      with a 1 GiB fallback when free space cannot be measured.
 - target: $["paths"]["/api/boards/{board}/cards/{card}/bot-runs/{run}"]["post"]["responses"]["200"]["schema"]
   description: 'Wekan v13.28 route and response contract in server/bots.js.'
   remove: true
@@ -24753,35 +24890,45 @@ actions:
   update:
     responses:
       '404':
-        description: Integration not found.
+        description: The board is missing or the integration is absent from that board.
+        schema:
+          $ref: '#/definitions/VerifiedIntegrationNotFound'
 
 - target: $["paths"]["/api/boards/{board}/integrations/{int}"]["put"]
   description: Wekan v13.28 native resource lookup and mutation routes.
   update:
     responses:
       '404':
-        description: Integration not found.
+        description: The board is missing or the integration is absent from that board.
+        schema:
+          $ref: '#/definitions/VerifiedIntegrationNotFound'
 
 - target: $["paths"]["/api/boards/{board}/integrations/{int}"]["delete"]
   description: Wekan v13.28 native resource lookup and mutation routes.
   update:
     responses:
       '404':
-        description: Integration not found.
+        description: The board is missing or the integration is absent from that board.
+        schema:
+          $ref: '#/definitions/VerifiedIntegrationNotFound'
 
 - target: $["paths"]["/api/boards/{board}/integrations/{int}/activities"]["post"]
   description: Wekan v13.28 native resource lookup and mutation routes.
   update:
     responses:
       '404':
-        description: Integration not found.
+        description: The board is missing or the integration is absent from that board.
+        schema:
+          $ref: '#/definitions/VerifiedIntegrationNotFound'
 
 - target: $["paths"]["/api/boards/{board}/integrations/{int}/activities"]["delete"]
   description: Wekan v13.28 native resource lookup and mutation routes.
   update:
     responses:
       '404':
-        description: Integration not found.
+        description: The board is missing or the integration is absent from that board.
+        schema:
+          $ref: '#/definitions/VerifiedIntegrationNotFound'
 
 - target: $["paths"]["/api/boards/{board}/lists/{list}/cards/{card}"]["put"]
   description: Wekan v13.28 native resource lookup and mutation routes.
@@ -25865,6 +26012,22 @@ actions:
     properties:
       recur:
         type: string
+- target: $["paths"]["/api/boards/{board}/export/{format}"]["get"]["produces"]
+  description: Additional response media types from Wekan v13.28 server/lib/renderExternalExport.js. JSON is already declared upstream.
+  update:
+  - application/atom+xml
+  - application/enex+xml
+  - application/mbox
+  - application/rss+xml
+  - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  - application/x-ndjson
+  - application/xml
+  - application/zip
+  - text/csv
+  - text/markdown
+  - text/plain
+  - text/x-opml
+  - text/x-org
 - target: $["paths"]["/api/boards/{board}/export/{format}"]["get"]["x-format-response-schemas"]
   description: Wekan v13.28 models/lib/externalExportFormatters.js and server/lib/renderExternalExport.js, verified by tests/e2e/catalog.rs.
   update:
@@ -26332,6 +26495,15 @@ actions:
 - target: $.definitions
   description: Wekan v13.28 server/models/integrations.js projects four fields for ordinary board readers.
   update:
+    VerifiedIntegrationNotFound:
+      description: Wekan v13.28 server/models/integrations.js and server/authentication.js distinguish board and integration lookups.
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [Board not found, Integration not found]
     VerifiedIntegrationsMemberDocument:
       type: object
       additionalProperties: false

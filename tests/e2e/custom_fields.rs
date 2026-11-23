@@ -103,6 +103,10 @@ fn assert_deletion_result(result: &CommandSuccess, board: &str, field: &str, ite
 }
 
 fn assert_missing_definition_metadata(error: &AppError) {
+    assert_eq!(
+        error.message(),
+        "the custom field was not found on that board"
+    );
     assert_eq!(error.code(), ErrorCode::NotFound);
     assert_eq!(error.details().http_status, Some(404));
     assert!(error.details().wekan_status_code.is_none());
@@ -876,14 +880,26 @@ async fn complete_custom_field_lifecycle_matches_wekan_v13_28() {
         target
             .item("missing", &["create", "--item", "Ignored"])
             .await,
-        target
-            .item("missing", &["update", "missing", "--name", "Ignored"])
-            .await,
-        target
-            .item("missing", &["delete", "missing", "--yes"])
-            .await,
     ] {
-        assert_eq!(result.unwrap_err().details().http_status, Some(404));
+        assert_missing_definition_metadata(&result.unwrap_err());
+    }
+    for field in ["missing", dropdown] {
+        for args in [
+            vec!["update", "missing", "--name", "Ignored"],
+            vec!["delete", "missing", "--yes"],
+        ] {
+            let error = target.item(field, &args).await.unwrap_err();
+            assert_eq!(error.code(), ErrorCode::NotFound);
+            assert_eq!(error.details().http_status, Some(404));
+            assert_eq!(
+                error.details().server_error.as_deref(),
+                Some("Dropdown item not found")
+            );
+            assert_eq!(
+                error.message(),
+                "the dropdown item was not found in that custom field"
+            );
+        }
     }
     let wrong = Target {
         board: "missing-board",

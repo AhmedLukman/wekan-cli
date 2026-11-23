@@ -1,0 +1,102 @@
+{
+  "_embedded": {
+    "elements": [
+      {
+        "id": 1,
+        "subject": "Prepare",
+        "description": {},
+        "_links": {
+          "status": {
+            "title": "Todo"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "subject": "Review",
+        "description": {},
+        "_links": {
+          "status": {
+            "title": "Todo"
+          }
+        },
+        "_embedded": {
+          "relations": [
+            {
+              "_type": "Relation",
+              "type": "blocked",
+              "_links": {
+                "from": {
+                  "href": "/api/v3/work_packages/2"
+                },
+                "to": {
+                  "href": "/api/v3/work_packages/1"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "subject": "Deploy",
+        "description": {},
+        "_links": {
+          "status": {
+            "title": "Todo"
+          }
+        },
+        "_embedded": {
+          "activities": [
+            {
+              "_type": "Activity::Comment",
+              "comment": {
+                "raw": "Approved"
+              },
+              "createdAt": "2026-11-20T12:00:00.000Z",
+              "_links": {
+                "user": {
+                  "title": "reviewer"
+                }
+              }
+            }
+          ],
+          "relations": [
+            {
+              "_type": "Relation",
+              "type": "blocked",
+              "_links": {
+                "from": {
+                  "href": "/api/v3/work_packages/3"
+                },
+                "to": {
+                  "href": "/api/v3/work_packages/2"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "subject": "Standalone",
+        "description": {},
+        "_links": {
+          "status": {
+            "title": "Todo"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "subject": "Refine",
+        "description": {},
+        "_links": {
+          "status": {
+            "title": "Todo"
+          }
+        }
+      }
+    ]
+  }
+}

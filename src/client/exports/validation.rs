@@ -1,5 +1,6 @@
 //! Reader-based decoding drops each array element before reading the next one.
 use super::{ExportError, ExportFormat, documents::*, external_documents::*, website_chat::*};
+use crate::client::admin::Object;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde::{
     Deserialize, Deserializer,
@@ -132,9 +133,9 @@ pub(super) fn validate(
         ExportFormat::Jira => decode::<NativeJiraExport>(file),
         ExportFormat::Asana => decode::<NativeAsanaExport>(file),
         ExportFormat::Zenkit => decode::<NativeZenkitExport>(file),
-        ExportFormat::Wordpressjson => decode::<DiscardVec<WpPost>>(file),
-        ExportFormat::Teams => decode::<TeamsExport>(file),
-        ExportFormat::Ghost => decode::<GhostExport>(file),
+        ExportFormat::Wordpressjson => decode::<DiscardVec<Object<WpPost>>>(file),
+        ExportFormat::Teams => decode::<Object<TeamsExport>>(file),
+        ExportFormat::Ghost => decode::<Object<GhostExport>>(file),
         ExportFormat::Taskwarrior => decode::<TaskwarriorExport>(file),
         ExportFormat::Nullboard => decode::<NullboardExport>(file),
         ExportFormat::Kanri => decode::<KanriExport>(file),

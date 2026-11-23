@@ -1,0 +1,140 @@
+{
+  "board": {
+    "name": "Dependencies"
+  },
+  "issues": [
+    {
+      "key": "WEKAN-1",
+      "fields": {
+        "summary": "Prepare",
+        "status": {
+          "name": "Todo"
+        },
+        "labels": [],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Blocks"
+            },
+            "outwardIssue": {
+              "key": "WEKAN-2"
+            }
+          },
+          {
+            "type": {
+              "name": "Duplicate"
+            },
+            "outwardIssue": {
+              "key": "WEKAN-3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "WEKAN-2",
+      "fields": {
+        "summary": "Review",
+        "status": {
+          "name": "Todo"
+        },
+        "labels": [],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Blocks"
+            },
+            "inwardIssue": {
+              "key": "WEKAN-1"
+            }
+          },
+          {
+            "type": {
+              "name": "Blocks"
+            },
+            "outwardIssue": {
+              "key": "WEKAN-3"
+            }
+          },
+          {
+            "type": {
+              "name": "Relates"
+            },
+            "outwardIssue": {
+              "key": "WEKAN-5"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "WEKAN-3",
+      "fields": {
+        "summary": "Deploy",
+        "status": {
+          "name": "Todo"
+        },
+        "labels": [],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Blocks"
+            },
+            "inwardIssue": {
+              "key": "WEKAN-2"
+            }
+          },
+          {
+            "type": {
+              "name": "Duplicate"
+            },
+            "inwardIssue": {
+              "key": "WEKAN-1"
+            }
+          }
+        ],
+        "comment": {
+          "comments": [
+            {
+              "body": "Approved",
+              "author": {
+                "name": "reviewer"
+              },
+              "created": "2026-11-20T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "WEKAN-4",
+      "fields": {
+        "summary": "Standalone",
+        "status": {
+          "name": "Todo"
+        },
+        "labels": []
+      }
+    },
+    {
+      "key": "WEKAN-5",
+      "fields": {
+        "summary": "Refine",
+        "status": {
+          "name": "Todo"
+        },
+        "labels": [],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Relates"
+            },
+            "outwardIssue": {
+              "key": "WEKAN-2"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

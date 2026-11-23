@@ -1,4 +1,8 @@
-use super::support::{attachment_fixtures::fixture_command, live::run, *};
+use super::support::{
+    attachment_fixtures::fixture_command,
+    live::{LiveApp, run},
+    *,
+};
 use serde_json::{Value, json};
 
 #[tokio::test]
@@ -77,6 +81,7 @@ async fn native_resource_fields_and_parent_creation() {
     ];
     let before = run(&app, &server, &get).await.unwrap();
     assert_eq!(before["parent_id"], parent_id);
+    assert_eq!(before.get("parent_ids"), Some(&Value::Null));
     assert!(before["flow"].is_null());
     let updated = run(
         &app,
@@ -263,4 +268,94 @@ async fn native_resource_fields_and_parent_creation() {
     .unwrap();
     let missing = run(&app, &server, &get).await.unwrap_err();
     assert_eq!(missing.details().http_status, Some(404));
+
+    assert_large_card_collections(&app, &server, board_id, list_id, lane).await;
+}
+
+async fn assert_large_card_collections(
+    app: &LiveApp,
+    server: &str,
+    board_id: &str,
+    list_id: &str,
+    lane: &str,
+) {
+    let field = run(
+        app,
+        server,
+        &[
+            "custom-field",
+            "create",
+            "--board",
+            board_id,
+            "--name",
+            "Notes",
+            "--type",
+            "text",
+        ],
+    )
+    .await
+    .unwrap();
+    let field_id = field["custom_field_id"].as_str().unwrap();
+    let input = json!(vec![json!({"title":"Card with notes"}); 20]).to_string();
+    let created = run(
+        app,
+        server,
+        &[
+            "card",
+            "bulk",
+            "create",
+            "--board",
+            board_id,
+            "--list",
+            list_id,
+            "--swimlane-id",
+            lane,
+            "--cards",
+            &input,
+        ],
+    )
+    .await
+    .unwrap();
+    let card_ids: Vec<_> = created["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["card_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(card_ids.len(), 20);
+    // Twenty 64 KiB text values alone exceed the old 1 MiB collection limit.
+    let notes = "x".repeat(64 * 1024);
+    let stored = fixture_command(
+        "mongodb",
+        "mongosh",
+        r#"
+        const w = db.getSiblingDB('wekan');
+        const result = w.cards.updateMany({_id: {$in: p.cards}}, {
+            $set: {customFields: [{_id: p.field, value: p.notes}]}
+        });
+        print(JSON.stringify({matched: result.matchedCount}));
+    "#,
+        &json!({"cards":card_ids,"field":field_id,"notes":notes}),
+    );
+    assert_eq!(stored["matched"], card_ids.len());
+
+    for (option, id) in [("--list", list_id), ("--swimlane", lane)] {
+        let batch = run(
+            app,
+            server,
+            &["card", "list", "--board", board_id, option, id],
+        )
+        .await
+        .unwrap();
+        let cards = batch["cards"].as_array().unwrap();
+        for id in &card_ids {
+            let listed = cards.iter().find(|card| card["card_id"] == *id).unwrap();
+            let field = &listed["custom_fields"][0];
+            assert_eq!(field["custom_field_id"], field_id);
+            assert!(
+                field["value"].as_str() == Some(notes.as_str()),
+                "{option} {id}"
+            );
+        }
+    }
 }

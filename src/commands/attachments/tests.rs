@@ -18,7 +18,7 @@ use std::sync::Mutex;
 use time::{Duration, OffsetDateTime};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_json, method, path},
+    matchers::{body_json, header, method, path},
 };
 
 struct Store {
@@ -98,6 +98,48 @@ async fn run(
 }
 fn download_body() -> Value {
     json!({"success":true,"attachmentId":"a","fileName":"unsafe\nname","fileSize":3,"fileType":"application/octet-stream","storageBackend":"fs","base64Data":"AP8K"})
+}
+
+#[tokio::test]
+async fn private_export_propagates_bearer_denial_without_retrying_with_a_query_token() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/boards/private-board/attachments/a/export"))
+        .and(header("Authorization", "Bearer attachment-token"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(json!({"error":"Forbidden"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("attachment.json");
+    let error = run(
+        &server,
+        &Store::new(&server),
+        &[
+            "export",
+            "a",
+            "--board",
+            "private-board",
+            "--destination",
+            destination.to_str().unwrap(),
+        ],
+        &FakeConfirmationProvider::declining(),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::PermissionDenied);
+    assert_eq!(error.details().http_status, Some(403));
+    assert_eq!(error.details().server_error.as_deref(), Some("Forbidden"));
+    assert!(directory.path().read_dir().unwrap().next().is_none());
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .url
+            .query_pairs()
+            .all(|(name, _)| name != "authToken")
+    );
 }
 
 #[tokio::test]
@@ -460,14 +502,39 @@ async fn upload_receipts_do_not_claim_completed_validation_or_storage() {
 }
 
 #[tokio::test]
-async fn background_helper_failures_preserve_native_401_without_credential_replacement_advice() {
-    for (server_error, code) in [
-        ("t.isBoardAdmin is not a function", ErrorCode::ServerError),
+async fn background_upload_errors_describe_only_verified_partial_writes() {
+    let helper_error = "t.isBoardAdmin is not a function";
+    for (transport, status, server_error, code, stored) in [
+        ("json", 500, helper_error, ErrorCode::ServerError, true),
         (
+            "raw",
+            401,
             "currentUser.isBoardAdmin is not a function",
             ErrorCode::ServerError,
+            true,
         ),
-        ("Invalid credentials", ErrorCode::AuthenticationRejected),
+        (
+            "json",
+            500,
+            "Failed to upload background",
+            ErrorCode::ServerError,
+            false,
+        ),
+        ("raw", 500, helper_error, ErrorCode::ServerError, false),
+        (
+            "json",
+            401,
+            helper_error,
+            ErrorCode::AuthenticationRejected,
+            false,
+        ),
+        (
+            "raw",
+            401,
+            "Invalid credentials",
+            ErrorCode::AuthenticationRejected,
+            false,
+        ),
     ] {
         let server = MockServer::start().await;
         let store = Store::new(&server);
@@ -477,7 +544,7 @@ async fn background_helper_failures_preserve_native_401_without_credential_repla
         Mock::given(method("POST"))
             .and(path("/api/attachment/upload-background"))
             .respond_with(
-                ResponseTemplate::new(401)
+                ResponseTemplate::new(status)
                     .insert_header("retry-after", "5")
                     .set_body_json(json!({"success":false,"error":server_error})),
             )
@@ -493,22 +560,22 @@ async fn background_helper_failures_preserve_native_401_without_credential_repla
                 "--board",
                 "b",
                 "--transport",
-                "raw",
+                transport,
             ],
             &FakeConfirmationProvider::declining(),
         )
         .await
         .unwrap_err();
         assert_eq!(error.code(), code);
-        assert_eq!(error.details().http_status, Some(401));
+        assert_eq!(error.details().http_status, Some(status));
         assert_eq!(error.details().server_error.as_deref(), Some(server_error));
         assert_eq!(error.details().retry_after_seconds, None);
-        if code == ErrorCode::ServerError {
+        assert_eq!(error.details().mutation_attempted, stored.then_some(true));
+        assert_eq!(error.details().retry_safe, stored.then_some(false));
+        if stored {
             assert!(!error.message().contains("logout"));
             assert!(!error.message().contains("log in again"));
             assert!(error.message().contains("after storing the upload"));
-            assert_eq!(error.details().mutation_attempted, Some(true));
-            assert_eq!(error.details().retry_safe, Some(false));
         }
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
     }

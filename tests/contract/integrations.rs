@@ -134,6 +134,49 @@ async fn response_objects_reject_unknown_fields_including_collection_entries() {
 }
 
 #[tokio::test]
+async fn projection_errors_identify_the_field_in_detail_and_collection_responses() {
+    use wekan_cli::client::ResponseDecodeKind::{InvalidType, MissingField, UnknownField};
+    let member = json!({"_id":"i","boardId":"b","enabled":true,"activities":[]});
+    for valid in [member.clone(), document()] {
+        let mut unknown = valid.clone();
+        unknown["future"] = json!("private-value");
+        let mut missing = valid.clone();
+        missing.as_object_mut().unwrap().remove("enabled");
+        let mut invalid = valid;
+        invalid["activities"] = json!(["all", false]);
+        for (bad, pointer, kind) in [
+            (unknown, "/future", UnknownField),
+            (missing, "/enabled", MissingField),
+            (invalid, "/activities/1", InvalidType),
+        ] {
+            for index in [0, 1] {
+                let server = MockServer::start().await;
+                let (body, prefix) = if index == 0 {
+                    (json!([member, bad]), "/1")
+                } else {
+                    (bad.clone(), "")
+                };
+                Mock::given(method("GET"))
+                    .respond_with(ResponseTemplate::new(200).set_body_json(body))
+                    .mount(&server)
+                    .await;
+                let ClientError::Protocol {
+                    diagnostic: Some(diagnostic),
+                    message,
+                    ..
+                } = invoke(&client(&server), index).await.unwrap_err()
+                else {
+                    panic!("expected a protocol diagnostic")
+                };
+                assert_eq!(diagnostic.kind, kind);
+                assert_eq!(diagnostic.path, format!("{prefix}{pointer}"));
+                assert!(!message.contains("private-value"));
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn documents_reject_missing_required_fields_and_wrong_known_types() {
     for field in [
         "_id",

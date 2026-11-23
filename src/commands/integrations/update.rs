@@ -3,9 +3,7 @@ use crate::{
     command_result::{
         CommandSuccess, IntegrationSubmittedField as Field, IntegrationUpdateSuccess,
     },
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
+    commands::authenticated::AuthenticatedContext,
     credentials::{CredentialStore, SecretInputProvider},
     error::AppError,
     redaction::Redactor,
@@ -126,14 +124,7 @@ pub(super) async fn execute(
             context.record().token(),
         )
         .await
-        .map_err(|e| {
-            map_client_error_with_not_found(
-                e,
-                &redactor,
-                "integration update",
-                "the Wekan board was not found",
-            )
-        })?;
+        .map_err(|e| super::map_target_error(e, &redactor, "integration update"))?;
     Ok(CommandSuccess::IntegrationUpdated(
         IntegrationUpdateSuccess {
             board_id: args.target.board_id,

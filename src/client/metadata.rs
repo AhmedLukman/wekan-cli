@@ -17,6 +17,14 @@ pub struct ScrumSettings {
     pub enabled: Option<bool>,
     pub product_goal: Option<String>,
     pub definition_of_done: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub definition_of_ready: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub standup_timer: Option<bool>,
+    #[serde(default, deserialize_with = "standup_minutes")]
+    pub standup_minutes: Option<u8>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub retrospective_board: Option<bool>,
     pub estimate_source: Option<String>,
     pub estimate_custom_field_id: Option<String>,
     pub estimate_unit: Option<String>,
@@ -26,6 +34,16 @@ pub struct ScrumSettings {
     pub developer_ids: Option<Vec<String>>,
     pub working_days: Option<Vec<u8>>,
     pub visibility: Option<ScrumVisibility>,
+}
+
+fn standup_minutes<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u8>, D::Error> {
+    let minutes = u8::deserialize(d)?;
+    if !(1..=15).contains(&minutes) {
+        return Err(serde::de::Error::custom(
+            "standup duration must be 1 to 15 minutes",
+        ));
+    }
+    Ok(Some(minutes))
 }
 /// Wekan v13.28: models/lib/scrum.js.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -328,6 +346,8 @@ pub struct DrawingStroke {
     #[serde(rename(deserialize = "_id", serialize = "id"))]
     pub id: Option<String>,
     pub user_id: Option<String>,
+    #[serde(default, deserialize_with = "super::decoding::optional_non_null")]
+    pub group: Option<String>,
     pub color: String,
     pub width: Number,
     pub points: Vec<[Number; 2]>,

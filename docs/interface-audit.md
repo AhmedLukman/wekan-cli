@@ -1,6 +1,6 @@
 # Wekan v13.28 interface and route audit
 
-The CLI package remains **2.1.0**. Its parser exposes **168 leaf commands in 19 families**.
+Wekan CLI **3.0.0** exposes **168 leaf commands in 19 families**.
 The corrected contract contains **169 native method/path pairs**. The CLI implements 168.
 The remaining entry is the Amazon SES/SNS callback.
 [Command inventory](command-contract.md) · [API coverage and arguments](api-coverage.md)
@@ -53,7 +53,9 @@ each of the 33 charts, and every import source through staging and board import.
 WordPress and Blogger XML round trips, and Telegram and Discord ZIP imports,
 returned the native failures recorded as W13-001 and W13-002.
 
-Of the 70 historical cases, 51 are classified as fixed, 13 remain open and
-four are partly fixed. Two earlier member-export symptoms still await a
-release-specific check. The active report lists the 17 continuing or partly
-fixed cases and the two new defects.
+Of the 70 historical cases, 50 are classified as fixed, 14 remain open and
+five are partly fixed. The historical account lockout on private attachment
+export still awaits release-specific live evidence. The active report lists
+the 19 continuing or partly fixed historical cases and four v13.28 findings.
+The ownership tests cover self-targeted requests (W13-003) and repeated
+transfers involving duplicate membership entries (W13-004).

@@ -8,7 +8,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::{map_client_error, protocol_error_details},
+        client_error::{map_client_error_with_not_found, protocol_error_details},
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -99,7 +99,14 @@ pub(super) async fn execute(
         )
         .await;
     drop(credential_mutation);
-    let deleted = deletion.map_err(|error| map_client_error(error, &redactor, "card deletion"))?;
+    let deleted = deletion.map_err(|error| {
+        map_client_error_with_not_found(
+            error,
+            &redactor,
+            "card deletion",
+            "the requested Wekan card was not found",
+        )
+    })?;
     if deleted.card_id != args.card_id {
         let details = protocol_error_details(true);
 

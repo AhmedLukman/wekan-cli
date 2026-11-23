@@ -534,17 +534,44 @@ async fn audited_behavior_gaps_match_wekan_v13_28() {
     };
     assert_eq!(digest_user.user_id, created.user_id);
     let token = login["token"].as_str().unwrap();
-    let CommandSuccess::BoardShown(owned) =
-        run(&app, &server, &["board", "get", &board.board_id]).await
-    else {
-        panic!("expected board detail");
-    };
-    let owner = owned
-        .members
+    run(
+        &app,
+        &server,
+        &[
+            "board",
+            "member",
+            "add",
+            digest_id,
+            "--board",
+            &board.board_id,
+            "--role",
+            "admin",
+        ],
+    )
+    .await;
+    run(
+        &app,
+        &server,
+        &["user", "take-ownership", &admin_id, "--yes"],
+    )
+    .await;
+    let board_after = live_api_json(
+        &http,
+        &server,
+        token,
+        reqwest::Method::GET,
+        &format!("api/boards/{}", board.board_id),
+        None,
+    )
+    .await;
+    let owner = board_after["members"]
+        .as_array()
+        .unwrap()
         .iter()
-        .find(|member| member.user_id == admin_id)
+        .find(|member| member["userId"] == admin_id)
         .unwrap();
-    assert!(owner.is_active && owner.is_admin);
+    assert_eq!(owner["isActive"], false);
+    assert_eq!(owner["isAdmin"], false);
 
     run(&app, &server, &["auth", "logout", "--yes"]).await;
     http.post(format!("{server}/users/logout"))

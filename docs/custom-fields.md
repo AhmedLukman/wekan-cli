@@ -155,7 +155,7 @@ non-terminal invocations require `--yes`. Cancellation succeeds with operation
 `custom_field_delete` or `custom_field_item_delete`. Success contains scope IDs
 and `delete_mode: "hard"`. Dropdown deletion returns the parent field ID.
 Creating an item on a missing definition or updating or deleting a missing
-item returns HTTP 404.
+item returns HTTP 404. The CLI reports `not_found` and identifies the missing field or item from Wekan’s response.
 
 Deleting a shared definition through one board removes the definition from all
 associated boards and removes its values from their cards. Deleting a dropdown

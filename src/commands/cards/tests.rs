@@ -1304,7 +1304,8 @@ fn parser_preserves_text_and_delegates_date_interpretation_to_wekan() {
     assert!(
         Cli::try_parse_from(["wekan", "card", "list", "--board", " ", "--list", "list-1"]).is_err()
     );
-    for text in ["", " ", "ðŸ˜€"] {
+    let emoji = "\u{1F600}";
+    for text in ["", " ", emoji] {
         let CardCommand::Update(args) = card_command(&[
             "update",
             "card-1",
@@ -1337,7 +1338,7 @@ fn parser_preserves_text_and_delegates_date_interpretation_to_wekan() {
             date,
         ]);
     }
-    let accepted = "ðŸ˜€".repeat(501);
+    let accepted = emoji.repeat(501);
     card_command(&[
         "update", "--board", "board-1", "--list", "list-1", "card-1", "--title", &accepted,
     ]);

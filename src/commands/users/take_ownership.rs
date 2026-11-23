@@ -20,12 +20,14 @@ use crate::{
 use super::non_empty;
 use crate::commands::client_error::map_client_error_with_not_found;
 
+const MEMBERSHIP_EFFECT: &str = "Wekan can deactivate your existing membership first, then reassigns the target's first membership entry to you. You can lose access if that entry is inactive. If the target has multiple entries, they can retain administrator access.";
+
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Transfers boards where the target user holds an administrator membership. Self-targeting can deactivate your membership when another active board administrator exists."
+    after_help = format!("Wekan selects boards where the target has an active or inactive administrator membership. {MEMBERSHIP_EFFECT} Targeting yourself can deactivate your membership when another active board administrator exists.")
 )]
 pub struct TakeOwnershipArgs {
-    /// Wekan user ID whose board memberships Wekan will select.
+    /// Wekan user ID whose board administrator memberships to select.
     #[arg(value_parser = non_empty)]
     pub user_id: String,
 
@@ -41,10 +43,10 @@ pub(super) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let context = AuthenticatedContext::load(client_factory, credential_store)?;
     let effect = if args.user_id == context.record().user_id() {
-        "Run Wekan's self ownership action, which can deactivate your board memberships?".to_owned()
+        "Run the ownership action on your own account? Wekan can deactivate your membership on boards with another active administrator.".to_owned()
     } else {
         format!(
-            "Take ownership of boards administered by user `{}`?",
+            "Take ownership of boards where user `{}` has an active or inactive administrator membership? {MEMBERSHIP_EFFECT}",
             args.user_id
         )
     };

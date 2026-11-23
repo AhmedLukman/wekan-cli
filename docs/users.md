@@ -93,10 +93,16 @@ Successful creation reports the supplied username, email, and the created user I
 
 ## Administrative actions and safety
 
-`take-ownership` transfers boards where the target user holds an administrator
-membership. Wekan waits for the membership updates before returning the affected
-board IDs and titles. If the caller is also the target, their membership can be
-deactivated when the board has another active administrator.
+`take-ownership` selects boards where the target user has an administrator
+membership, including inactive memberships. If you already have an active
+membership on a selected board, Wekan first attempts to deactivate it. The sole
+active board administrator keeps their membership. Wekan then assigns your user
+ID to the first entry with the target's user ID. That entry keeps its role and
+active status. You can lose access if it is inactive. A previous transfer can
+leave the target with multiple entries. If an inactive ordinary entry comes
+first, the target keeps their later active administrator entry even when Wekan
+lists the board in the result. Targeting yourself can also
+deactivate your membership when the board has another active administrator.
 
 `disable-login` sends `disableLogin`, sets the target's `loginDisabled` field,
 and clears their existing Wekan sessions. Self-targeting is sent after
@@ -205,12 +211,14 @@ token material are excluded. Unmapped fields are rejected rather than omitted.
 Collection data is `{"users":[...]}` for `user list`, `{"cards":[...]}` for
 `user cards`, and `{"user_id":"...","boards":[...]}` for `user boards`.
 Login actions return `{"action":"disabled|enabled","user":{...}}`.
-Ownership transfer returns `from_user_id`, `to_user_id`, and the affected `boards`.
+The ownership action returns `from_user_id`, `to_user_id`, and the IDs and titles
+of the selected `boards`. Use `wekan board member list --board <BOARD_ID>` to
+check the resulting memberships and their `is_active` and `is_admin` flags.
 Deletion returns `user_id`, `deleted`, `deleted_current_user`,
 `credential_stored`, and `local_credential_removed`; the last three describe
 self-delete cleanup.
 Verified HTTP or embedded status 403 maps to `permission_denied`.
-User lookup, update, ownership transfer and token deletion map HTTP 404 to `not_found`. If `user current` receives a valid user
+User lookup, update, login enablement and disablement, ownership transfer, and token deletion map HTTP 404 to `not_found`. If `user current` receives a valid user
 document whose ID differs from the stored credential, it returns
 `credential_store_failed` with exit status 6 so automation can repair the
 credential. Invalid or rejected bearer credentials remain

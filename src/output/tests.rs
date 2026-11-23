@@ -818,10 +818,9 @@ fn user_creation_and_mutation_results_are_stable() {
         serde_json::from_str(&render_success(OutputFormat::Json, &ownership)).unwrap();
     assert_eq!(json["data"]["boards"][0]["board_id"], "board-1");
     assert!(json.get("warnings").is_none());
-    assert!(
-        render_success(OutputFormat::Human, &ownership)
-            .contains("Transferred ownership of 1 board")
-    );
+    assert!(render_success(OutputFormat::Human, &ownership).starts_with(
+        "Wekan returned 1 board for the ownership request from user owner-1 to user admin-1."
+    ));
 
     let boards = CommandSuccess::UserBoards(UserBoardsSuccess {
         user_id: "user-1".to_owned(),
@@ -1123,6 +1122,8 @@ fn list_outputs_are_stable_comprehensive_and_terminal_safe() {
 
 #[test]
 fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
+    use crate::client::cards::{CardCustomFieldValue, CardListCustomField};
+
     let collection = CommandSuccess::CardCollection(CardCollectionSuccess {
         board_id: "board-1".to_owned(),
         list_id: "list-1".to_owned(),
@@ -1130,9 +1131,12 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
             board_id: None,
             modified_at: None,
             date_last_activity: None,
-            label_ids: None,
-            members: None,
-            custom_fields: None,
+            label_ids: Some(vec![Some("label\u{85}id".to_owned()), None]),
+            members: Some(vec!["member\u{85}id".to_owned()]),
+            custom_fields: Some(vec![CardListCustomField {
+                custom_field_id: "note".to_owned(),
+                value: Some(CardCustomFieldValue::String("first\u{85}second".to_owned())),
+            }]),
             card_id: "card-1".to_owned(),
             title: Some("Todo\nnext".to_owned()),
             description: Some("Details".to_owned()),
@@ -1153,6 +1157,17 @@ fn card_outputs_are_stable_comprehensive_and_terminal_safe() {
         serde_json::Value::Null
     );
     let collection_human = render_success(OutputFormat::Human, &collection);
+    let summary = &collection_json["data"]["cards"][0];
+    assert_eq!(
+        summary["label_ids"],
+        serde_json::json!(["label\u{85}id", null])
+    );
+    assert_eq!(summary["members"], serde_json::json!(["member\u{85}id"]));
+    assert_eq!(summary["custom_fields"][0]["value"], "first\u{85}second");
+    assert!(collection_human.contains(r#"["label\u{85}id",null]"#));
+    assert!(collection_human.contains(r#"["member\u{85}id"]"#));
+    assert!(collection_human.contains(r#""value":"first\u{85}second""#));
+    assert!(!collection_human.contains('\u{85}'));
     assert!(collection_human.contains(r"Todo\nnext"));
     assert!(collection_human.contains("Details"));
     assert!(collection_human.contains("user-1"));

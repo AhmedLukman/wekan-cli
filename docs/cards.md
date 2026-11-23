@@ -47,7 +47,8 @@ preserve `{board_id, list_id, cards}`; swimlane results use
 List-scoped summaries normalize omitted assignees to `[]`; swimlane-scoped
 summaries preserve null assignee arrays and null elements. Both use the server's
 active-card projection and sort order. Each summary includes the board ID, modification and activity timestamps, labels, members and custom field values returned by the server. A missing list or
-swimlane returns an empty collection after the board access check.
+swimlane returns an empty collection after the board access check. Both scopes
+accept successful response bodies up to 64 MiB.
 
 `card count` returns `{board_id, list_id, count}`, with null `list_id` for
 board totals. Counts come from native endpoints and exclude archived cards;
@@ -69,7 +70,11 @@ Create accepts `--description`, repeated `--member` and `--assignee`, and
 timestamps, date-only and textual dates, and numeric epoch milliseconds. Repeated member and assignee flags supply the complete
 initial arrays. Swimlane ID is required. Omitting title uses Wekan's empty default; empty text is allowed. `--null-title` and `--null-description`
 send explicit null and conflict with their text forms. `--linked-id` selects an existing source card. Wekan checks read access to the source board
-and ignores other content fields when creating a linked card. For subtasks, use `--parent-id <CARD_ID>`. The new card records its parent in both `parent_id` and `parent_ids`.
+and ignores other content fields when creating a linked card.
+
+To create a subtask, pass `--parent-id <CARD_ID>`. Wekan stores that ID in
+`parentId`. On the newly created subtask, `card get` returns the supplied ID
+in `parent_id` and JSON null in `parent_ids`.
 
 Update accepts:
 
@@ -208,7 +213,7 @@ A missing scoped card returns HTTP 404 and the CLI reports `not_found`.
 
 ## Hard deletion
 
-`card delete` requires confirmation or `--yes`. On success the JSON result includes `deleted: true`, `deletion_requested: true`, and `delete_mode: "hard"`. Wekan verifies the board, list and card before removing the card and its children. A repeated deletion returns HTTP 404.
+`card delete` requires confirmation or `--yes`. On success the JSON result includes `deleted: true`, `deletion_requested: true`, and `delete_mode: "hard"`. Wekan verifies the board, list and card before removing the card and its children. A repeated deletion or a request with the wrong list returns HTTP 404 and the CLI reports `not_found`.
 
 ## Bot run reports
 

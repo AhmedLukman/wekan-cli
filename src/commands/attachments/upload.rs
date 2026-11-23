@@ -168,21 +168,30 @@ pub(super) async fn background(
             .upload_background(&request, context.record().token())
             .await
     }
-    .map_err(|e| map_background_error(e, &Redactor::with_secret(context.record().token())))?;
+    .map_err(|e| {
+        map_background_error(
+            e,
+            &a.source.transport,
+            &Redactor::with_secret(context.record().token()),
+        )
+    })?;
     Ok(CommandSuccess::BackgroundUploaded(response))
 }
 
-fn map_background_error(error: ClientError, redactor: &Redactor<'_>) -> AppError {
-    // W12-006: this helper runs only after the raw attachment has been saved.
-    // The native outer catch incorrectly reports its TypeError as HTTP 401.
-    // Bundling changes the variable name, but preserves the method and error.
+fn map_background_error(error: ClientError, transport: &str, redactor: &Redactor<'_>) -> AppError {
+    // W12-006: both transports store the image before calling setBackgroundImage.
+    // Their exception handlers return different statuses for the same TypeError.
     if let ClientError::Server {
         status,
         server_error,
         server_reason,
         retry_after_seconds,
     } = &error
-        && *status == reqwest::StatusCode::UNAUTHORIZED
+        && matches!(
+            (transport, *status),
+            ("json", reqwest::StatusCode::INTERNAL_SERVER_ERROR)
+                | ("raw", reqwest::StatusCode::UNAUTHORIZED)
+        )
         && server_error
             .as_deref()
             .is_some_and(|message| message.ends_with(".isBoardAdmin is not a function"))
@@ -198,7 +207,7 @@ fn map_background_error(error: ClientError, redactor: &Redactor<'_>) -> AppError
         details.retry_safe = Some(false);
         return AppError::new(
             ErrorCode::ServerError,
-            "Wekan's background helper failed after storing the upload; its native HTTP 401 does not indicate a rejected credential",
+            "Wekan's background helper failed after storing the upload. Retrying can create another file.",
             StableExitCode::Server,
         )
         .with_details(details);

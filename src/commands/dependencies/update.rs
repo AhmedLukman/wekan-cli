@@ -1,9 +1,7 @@
 use crate::{
     client::WekanClientFactory,
     command_result::{CommandSuccess, DependencyUpdateSuccess},
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
+    commands::{authenticated::AuthenticatedContext, client_error::map_scoped_resource_error},
     credentials::CredentialStore,
     error::AppError,
     redaction::Redactor,
@@ -40,11 +38,10 @@ pub(super) async fn execute(
         )
         .await
         .map_err(|error| {
-            map_client_error_with_not_found(
+            map_scoped_resource_error(
                 error,
                 &Redactor::with_secret(context.record().token()),
                 "dependency update",
-                "the Wekan board or source card was not found",
             )
         })?;
     Ok(CommandSuccess::DependencyUpdated(DependencyUpdateSuccess {

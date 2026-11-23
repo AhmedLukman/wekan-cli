@@ -25,6 +25,8 @@ pub use inputs::{
     CardCustomFieldInput, CardLocationInput, CardPokerInput, CardStickerInput, CardVoteInput,
 };
 
+const MAX_CARD_COLLECTION_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+
 pub const CARD_COLORS: &[&str] = &[
     "white",
     "green",
@@ -464,11 +466,12 @@ impl WekanClient {
         token: &SecretString,
     ) -> Result<Vec<CardSummary>, ClientError> {
         let body = self
-            .execute_success_request(
+            .execute_success_request_with_limit(
                 self.http
                     .get(self.card_endpoint(board_id, list_id, None)?)
                     .header(ACCEPT, "application/json")
                     .bearer_auth(token.expose_secret()),
+                MAX_CARD_COLLECTION_RESPONSE_BYTES,
             )
             .await?;
         let cards = decode_success(&body, "board list card collection", true)?;

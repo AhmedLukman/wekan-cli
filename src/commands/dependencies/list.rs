@@ -4,9 +4,7 @@ use crate::{
         BoardDependencyCollectionSuccess, CardDependencyCollectionSuccess, CommandSuccess,
         DependencyLine, DependencySummary,
     },
-    commands::{
-        authenticated::AuthenticatedContext, client_error::map_client_error_with_not_found,
-    },
+    commands::{authenticated::AuthenticatedContext, client_error::map_scoped_resource_error},
     credentials::CredentialStore,
     error::AppError,
     redaction::Redactor,
@@ -33,14 +31,7 @@ pub(super) async fn execute(
 ) -> Result<CommandSuccess, AppError> {
     let context = AuthenticatedContext::load(factory, store)?;
     let redactor = Redactor::with_secret(context.record().token());
-    let map_error = |error| {
-        map_client_error_with_not_found(
-            error,
-            &redactor,
-            "dependency listing",
-            "the Wekan board or source card was not found",
-        )
-    };
+    let map_error = |error| map_scoped_resource_error(error, &redactor, "dependency listing");
     if let Some(card_id) = args.card_id {
         let dependencies = context
             .client()

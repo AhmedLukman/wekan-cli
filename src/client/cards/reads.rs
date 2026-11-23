@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Number;
 
 use super::{
-    CardDocument, ClientError, WekanClient, require_non_empty, validate_card_document,
-    validate_optional_date_time, validate_optional_id,
+    CardDocument, ClientError, MAX_CARD_COLLECTION_RESPONSE_BYTES, WekanClient, require_non_empty,
+    validate_card_document, validate_optional_date_time, validate_optional_id,
 };
 use crate::client::transport::decode_success;
 
@@ -123,11 +123,12 @@ impl WekanClient {
             .expect("HTTP endpoint")
             .push("cards");
         let body = self
-            .execute_success_request(
+            .execute_success_request_with_limit(
                 self.http
                     .get(endpoint)
                     .header(ACCEPT, "application/json")
                     .bearer_auth(token.expose_secret()),
+                MAX_CARD_COLLECTION_RESPONSE_BYTES,
             )
             .await?;
         let cards: Vec<SwimlaneCardSummary> =

@@ -5,7 +5,7 @@ use crate::{
     },
     commands::{
         authenticated::AuthenticatedContext,
-        client_error::map_client_error_with_not_found,
+        client_error::map_scoped_resource_error,
         credential_ops::{lock_credential_mutation, map_credential_load_error},
     },
     credentials::CredentialStore,
@@ -83,11 +83,10 @@ pub(super) async fn execute(
         .await;
     drop(guard);
     let response = response.map_err(|error| {
-        map_client_error_with_not_found(
+        map_scoped_resource_error(
             error,
             &Redactor::with_secret(context.record().token()),
             "dependency deletion",
-            "the Wekan board or source card was not found",
         )
     })?;
     Ok(CommandSuccess::DependencyDeleted(DependencyDeleteSuccess {

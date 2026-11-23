@@ -7,18 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-23
+
+Wekan v13.28 is the sole supported server version for this release.
+
 ### Changed
 
 - Target Wekan v13.28. Card listings include sync timestamps, labels, members and custom fields. Card creation accepts `--parent-id`; zero sort, empty descriptions and overtime updates follow the repaired server behavior.
 - Expand board import to 85 sources, single-board export to 75 formats, all-board export to 71 formats and chart export to 33 chart types.
 
-- Card deletion now reports completion, and missing cards and users return HTTP 404. User ownership transfers return the boards whose membership has been updated. Self-deletion respects the site setting and last-administrator guard.
+- Card deletion now reports completion, and missing cards and users return HTTP 404. `user take-ownership` lists the boards Wekan processed, including boards with inactive administrator memberships. Self-deletion respects the site setting and last-administrator guard.
 - Board display settings expose blocked status, class of service, MoSCoW, WSJF and attachment controls. Global settings include the login background color.
 - Integration reads now accept Wekan's member view with ID, board ID, enabled status and activities. Board and site administrators receive the full integration settings.
 
 ### Added
 
 - Add `wekan board import-upload` to stage files or stdin and return the upload ID and byte count.
+
+### Fixed
+
+- Allow list- and swimlane-scoped card collections up to 64 MiB so large custom-field values can be listed.
+- Board reads and JSON exports preserve Scrum meeting settings. Card reads and JSON exports preserve lasso groups on drawing strokes.
+- Integration protocol errors identify the failing field in both administrator and member responses.
+- Teams, Ghost and WordPress JSON exports reject positional arrays where Wekan requires objects.
+
+- Background uploads now flag the known HTTP 500 after Wekan stores the image as unsafe to retry.
+- Human-readable card lists escape terminal control characters in labels, members and custom fields.
+- Ghost, Teams and Trello export validation reads one record at a time, reducing peak memory use on large boards.
+- Taskwarrior, Asana, OpenProject and Jira board exports now preserve card dependency links that previously caused a protocol error.
+- The `user take-ownership` confirmation now warns that you can lose access and that a target with multiple membership entries can keep administrator access.
+- Card deletion and both user login toggles now report `not_found` for missing targets. Custom-field, dropdown item and dependency commands identify the resource Wekan reports as missing.
+- Integration lookup, update, delete and activity commands now identify which board or integration Wekan reports as missing.
 
 ## [2.1.0] - 2026-10-24
 

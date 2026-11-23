@@ -41,18 +41,14 @@ attachment receipts. `--transport raw` sends the original bytes with query
 metadata. Upload, background upload, copy and move use a 60-second deadline.
 Other attachment requests use a 30-second deadline.
 
-Both background upload transports save the image and then fail. JSON returns
-HTTP 500 and raw returns HTTP 401 because
-the server's background-selection helper calls an unavailable user method
-(W12-006). The board's background remains unchanged, while the uploaded file
-and its metadata remain stored after native content validation. This helper
-failure is misclassified as an authentication rejection; the same credential
-continues to work on authenticated reads. The CLI reports the native status without
-retrying or selecting the background through another operation.
-For this verified helper failure, the CLI returns `server_error` with the native
-HTTP 401 and error text, `mutation_attempted: true`, and `retry_safe: false`.
-It does not advise replacing the valid credential. Actual authentication
-failures continue to return `authentication_rejected`.
+Both background upload transports save the image before Wekan's background
+selection fails with `isBoardAdmin is not a function` (W12-006). The default
+JSON transport returns HTTP 500. The raw transport returns HTTP 401 even though
+the credential remains valid. The CLI reports `server_error` with the native
+status and error text, `mutation_attempted: true`, and `retry_safe: false`.
+Wekan validates the stored file asynchronously and removes it if validation
+fails. The board keeps its previous background. Retrying can create another
+file. Actual authentication failures return `authentication_rejected`.
 Long upload filenames may be normalized on the server. The validator uses the
 normalized path and downloads preserve the original file bytes.
 See the [pinned route implementation](https://github.com/wekan/wekan/blob/v13.28/server/routes/attachmentApi.js).

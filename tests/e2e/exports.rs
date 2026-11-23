@@ -284,7 +284,12 @@ async fn import_and_export(
     (board_id, exported_activity["source"].clone())
 }
 
-async fn external_export(app: &LiveApp, server: &str, board: &str, format: &str) -> Value {
+pub(super) async fn external_export(
+    app: &LiveApp,
+    server: &str,
+    board: &str,
+    format: &str,
+) -> Value {
     let bytes = raw(app, server, &["board", "export", board, "--format", format]).await;
     serde_json::from_slice(&bytes).unwrap()
 }
@@ -769,29 +774,52 @@ async fn complete_export_lifecycle_matches_wekan_v13_28() {
     )
     .await;
     for (resource, id, scope, format) in [
-        ("board", b.as_str(), vec![], Some("csv")),
-        ("board", b.as_str(), vec![], Some("tsv")),
-        ("board", b.as_str(), vec![], Some("xlsx")),
-        (
-            "card",
-            c.as_str(),
-            vec!["--board", b, "--list", l],
-            Some("xlsx"),
-        ),
-        (
-            "attachment",
-            attachment_id.as_str(),
-            vec!["--board", b],
-            None,
-        ),
+        ("board", b.as_str(), &[][..], "csv"),
+        ("board", b.as_str(), &[][..], "tsv"),
+        ("board", b.as_str(), &[][..], "xlsx"),
+        ("card", c.as_str(), &["--board", b, "--list", l][..], "xlsx"),
     ] {
-        let mut args = vec![resource, "export", id, "--auth-token-query"];
-        args.extend(scope);
-        if let Some(format) = format {
-            args.extend(["--format", format]);
+        let mut args = vec![resource, "export", id, "--format", format];
+        args.extend_from_slice(scope);
+        let mut default_auth = args.clone();
+        default_auth.extend(["--output", "raw", "--destination", "-"]);
+        let denied = run(&normal, &server, &default_auth).await.unwrap_err();
+        assert_eq!(
+            denied.code(),
+            ErrorCode::PermissionDenied,
+            "{resource} {format}"
+        );
+        assert_eq!(denied.details().http_status, Some(403));
+
+        args.push("--auth-token-query");
+        let bytes = raw(&normal, &server, &args).await;
+        if format == "xlsx" {
+            inspect_xlsx(&bytes);
+        } else {
+            assert!(
+                std::str::from_utf8(&bytes)
+                    .unwrap()
+                    .contains("Ship updated")
+            );
         }
-        raw(&normal, &server, &args).await;
     }
+    let attachment = raw(
+        &normal,
+        &server,
+        &[
+            "attachment",
+            "export",
+            &attachment_id,
+            "--board",
+            b,
+            "--auth-token-query",
+        ],
+    )
+    .await;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&attachment).unwrap()["file"],
+        "AP8K"
+    );
     inspect_pdf(&raw(&normal, &server, &["board", "export", b, "--format", "pdf"]).await);
     inspect_pdf(
         &raw(
@@ -937,14 +965,7 @@ async fn complete_export_lifecycle_matches_wekan_v13_28() {
     let attachment = raw(
         &app,
         &server,
-        &[
-            "attachment",
-            "export",
-            &attachment_id,
-            "--board",
-            b,
-            "--auth-token-query",
-        ],
+        &["attachment", "export", &attachment_id, "--board", b],
     )
     .await;
     assert_eq!(

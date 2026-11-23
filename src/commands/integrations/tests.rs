@@ -436,24 +436,46 @@ async fn errors_redact_both_tokens_and_mark_partial_update_outcomes() {
             .get("outcome_unknown")
             .is_none()
     );
-    server.reset().await;
-    Mock::given(method("GET"))
-        .respond_with(
-            ResponseTemplate::new(404).set_body_json(json!({"error":"Integration not found"})),
-        )
-        .mount(&server)
-        .await;
-    let error = run(
-        &server,
-        &Store::new(&server),
-        &["get", "i"],
-        &Secrets(""),
-        &FakeConfirmationProvider::declining(),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(error.code(), ErrorCode::NotFound);
-    assert_eq!(error.details().http_status, Some(404));
+}
+
+#[tokio::test]
+async fn target_commands_report_the_missing_board_or_integration_from_the_native_404() {
+    for (native_error, message) in [
+        ("Board not found", "the Wekan board was not found"),
+        (
+            "Integration not found",
+            "the integration was not found on that Wekan board",
+        ),
+    ] {
+        let server = MockServer::start().await;
+        let store = Store::new(&server);
+        Mock::given(header("authorization", "Bearer auth-token"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error": native_error})))
+            .expect(5)
+            .mount(&server)
+            .await;
+        for args in [
+            &["get", "i"][..],
+            &["update", "i", "--title", "Updated"],
+            &["delete", "i", "--yes"],
+            &["activity", "add", "i", "--activity", "all"],
+            &["activity", "remove", "i", "--activity", "all"],
+        ] {
+            let error = run(
+                &server,
+                &store,
+                args,
+                &Secrets(""),
+                &FakeConfirmationProvider::declining(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.code(), ErrorCode::NotFound);
+            assert_eq!(error.details().http_status, Some(404));
+            assert_eq!(error.details().server_error.as_deref(), Some(native_error));
+            assert_eq!(error.message(), message);
+        }
+    }
 }
 
 #[test]

@@ -49,7 +49,7 @@ has the shape:
 particular, `_id` becomes `list_id`, `_updatedAt` becomes `position_updated_at`,
 and `type` becomes `list_type`. Optional scalars use their value or JSON null;
 `list_type` remains an open string. Unknown top-level or WIP fields, invalid
-timestamps, invalid nonempty colors, widths outside 100â€“1000, and empty required
+timestamps, invalid nonempty colors, widths outside 100–1000, and empty required
 identifiers cause `protocol_error`. `watchers` is `null` when absent and preserves an array when present,
 including `[]` after the last watcher is removed.
 

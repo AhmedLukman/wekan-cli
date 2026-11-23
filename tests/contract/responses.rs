@@ -22,6 +22,70 @@ use super::{
     user_token,
 };
 
+#[test]
+fn scrum_meeting_settings_and_drawing_groups_preserve_optional_typed_values() {
+    use wekan_cli::client::metadata::{DrawingStroke, ScrumSettings};
+    let settings = json!({"definitionOfReady":"Reviewed","standupTimer":false,"standupMinutes":15,"retrospectiveBoard":true});
+    let decoded: ScrumSettings = serde_json::from_value(settings.clone()).unwrap();
+    assert_eq!(decoded.definition_of_ready.as_deref(), Some("Reviewed"));
+    assert_eq!(decoded.standup_timer, Some(false));
+    assert_eq!(decoded.standup_minutes, Some(15));
+    assert_eq!(decoded.retrospective_board, Some(true));
+    let old: ScrumSettings = serde_json::from_value(json!({"enabled":true})).unwrap();
+    assert_eq!(
+        (
+            old.definition_of_ready,
+            old.standup_timer,
+            old.standup_minutes,
+            old.retrospective_board
+        ),
+        (None, None, None, None)
+    );
+    for (field, invalid) in [
+        ("definitionOfReady", json!(false)),
+        ("standupTimer", json!("true")),
+        ("standupMinutes", json!(0)),
+        ("standupMinutes", json!(16)),
+        ("standupMinutes", json!(1.5)),
+        ("retrospectiveBoard", Value::Null),
+        ("unmapped", json!(1)),
+    ] {
+        let mut value = settings.clone();
+        value[field] = invalid;
+        assert!(
+            serde_json::from_value::<ScrumSettings>(value).is_err(),
+            "{field}"
+        );
+    }
+    let mut stroke = json!({"color":"#000000","width":2,"points":[[0,0]]});
+    assert_eq!(
+        serde_json::from_value::<DrawingStroke>(stroke.clone())
+            .unwrap()
+            .group,
+        None
+    );
+    stroke["group"] = json!("pair");
+    assert_eq!(
+        serde_json::from_value::<DrawingStroke>(stroke.clone())
+            .unwrap()
+            .group
+            .as_deref(),
+        Some("pair")
+    );
+    for (field, invalid) in [
+        ("group", Value::Null),
+        ("group", json!(42)),
+        ("unmapped", json!(true)),
+    ] {
+        let mut value = stroke.clone();
+        value[field] = invalid;
+        assert!(
+            serde_json::from_value::<DrawingStroke>(value).is_err(),
+            "{field}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn archive_restore_responses_reject_unknown_missing_and_invalid_fields() {
     for archive in [true, false] {

@@ -1,0 +1,89 @@
+{
+  "data": [
+    {
+      "gid": "prepare",
+      "name": "Prepare",
+      "completed": false,
+      "memberships": [
+        {
+          "section": {
+            "name": "Todo"
+          }
+        }
+      ],
+      "tags": []
+    },
+    {
+      "dependencies": [
+        {
+          "gid": "prepare"
+        }
+      ],
+      "gid": "review",
+      "name": "Review",
+      "completed": false,
+      "memberships": [
+        {
+          "section": {
+            "name": "Todo"
+          }
+        }
+      ],
+      "tags": []
+    },
+    {
+      "dependencies": [
+        {
+          "gid": "review"
+        }
+      ],
+      "gid": "deploy",
+      "name": "Deploy",
+      "completed": false,
+      "memberships": [
+        {
+          "section": {
+            "name": "Todo"
+          }
+        }
+      ],
+      "tags": [],
+      "stories": [
+        {
+          "resource_subtype": "comment_added",
+          "text": "Approved",
+          "created_by": {
+            "name": "reviewer"
+          },
+          "created_at": "2026-11-20T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "gid": "unlinked",
+      "name": "Standalone",
+      "completed": false,
+      "memberships": [
+        {
+          "section": {
+            "name": "Todo"
+          }
+        }
+      ],
+      "tags": []
+    },
+    {
+      "gid": "refine",
+      "name": "Refine",
+      "completed": false,
+      "memberships": [
+        {
+          "section": {
+            "name": "Todo"
+          }
+        }
+      ],
+      "tags": []
+    }
+  ]
+}

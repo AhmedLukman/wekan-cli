@@ -177,8 +177,13 @@ pub(super) fn render_user_boards(data: &UserBoardsSuccess) -> String {
 
 pub(super) fn render_user_ownership(data: &UserOwnershipSuccess) -> String {
     let mut lines = vec![format!(
-        "Transferred ownership of {} board(s) from user {} to user {}.",
+        "Wekan returned {} {} for the ownership request from user {} to user {}.",
         data.boards.len(),
+        if data.boards.len() == 1 {
+            "board"
+        } else {
+            "boards"
+        },
         escape_terminal_controls(&data.from_user_id),
         escape_terminal_controls(&data.to_user_id)
     )];

@@ -74,9 +74,9 @@ pub(super) fn render_card_collection(data: &CardCollectionSuccess) -> String {
             escape_terminal_controls(card.board_id.as_deref().unwrap_or("")),
             escape_terminal_controls(card.modified_at.as_deref().unwrap_or("")),
             escape_terminal_controls(card.date_last_activity.as_deref().unwrap_or("")),
-            projection_column(&card.label_ids),
-            projection_column(&card.members),
-            projection_column(&card.custom_fields),
+            escape_terminal_controls(&projection_column(&card.label_ids)),
+            escape_terminal_controls(&projection_column(&card.members)),
+            escape_terminal_controls(&projection_column(&card.custom_fields)),
         )
     }));
     lines.join("\n")

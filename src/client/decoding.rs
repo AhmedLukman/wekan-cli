@@ -110,6 +110,15 @@ pub(super) fn decoding_error(
     operation: &str,
     success_status_received: bool,
 ) -> ClientError {
+    decoding_error_at(error, operation, success_status_received, None)
+}
+
+pub(super) fn decoding_error_at(
+    error: serde_path_to_error::Error<serde_json::Error>,
+    operation: &str,
+    success_status_received: bool,
+    index: Option<usize>,
+) -> ClientError {
     if error.inner().is_syntax() || error.inner().is_eof() {
         return protocol_error(
             operation,
@@ -132,15 +141,15 @@ pub(super) fn decoding_error(
     } else {
         (ResponseDecodeKind::InvalidValue, None)
     };
-    let mut segments: Vec<String> = error
-        .path()
-        .iter()
-        .map(|segment| match segment {
+    let mut segments: Vec<String> = index
+        .into_iter()
+        .map(|i| i.to_string())
+        .chain(error.path().iter().map(|segment| match segment {
             Segment::Seq { index } => index.to_string(),
             Segment::Map { key } => key.clone(),
             Segment::Enum { .. } => "?".to_owned(),
             Segment::Unknown => "?".to_owned(),
-        })
+        }))
         .collect();
     if let Some(field) = field {
         if segments.last().map(String::as_str) != Some(field) {
